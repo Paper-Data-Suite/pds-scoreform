@@ -1,10 +1,11 @@
 # OMR Program Iterative Development Plan
 
-## Current Status
+## Completed
 
-Working MVP includes:
+The project currently supports:
 
-- Printable `template.pdf`
+- Printable generic `template.pdf`
+- Debug `template.png`
 - Image scoring
 - Scanned PDF scoring
 - Multi-page PDF batch scoring
@@ -12,26 +13,29 @@ Working MVP includes:
 - Blank detection
 - Ambiguous/double-mark detection
 - CSV export
-- External assignment/answer key JSON validation
+- External bare `answer_key.json` validation
+- Assignment JSON validation through `validate-assignment`
+- Roster CSV validation through `validate-roster`
+- Class/assignment folder setup through `setup-assignment`
+
+Current generated folder structure:
+
+```text
+classes/
+  english9_p2/
+    roster.csv
+    assignments/
+      rj_act1_quiz/
+        assignment.json
+        templates/
+          individual/
+        scans/
+        debug/
+````
 
 ---
 
-## Phase 1: Redesign Data Model
-
-### Goal
-
-Prepare the program for class-based folders, rosters, assignments, QR codes, and variable question counts.
-
-### Decisions
-
-- Use CSV for rosters.
-- Use JSON for assignments.
-- Keep duplicate assignment folders under each class.
-- Use one QR code per student sheet.
-- QR code should include:
-  - `class_id`
-  - `assignment_id`
-  - `student_id`
+## Current Data Model
 
 ### Roster CSV Format
 
@@ -39,7 +43,7 @@ Prepare the program for class-based folders, rosters, assignments, QR codes, and
 class_id,student_id,last_name,first_name,period
 english9_p2,1001,Doe,Jane,2
 english9_p2,1002,Smith,Marcus,2
-````
+```
 
 ### Assignment JSON Format
 
@@ -64,7 +68,7 @@ english9_p2,1002,Smith,Marcus,2
 }
 ```
 
-### QR Payload Format
+### Future QR Payload Format
 
 ```text
 OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
@@ -72,54 +76,11 @@ OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 
 ---
 
-## Phase 2: Assignment Folder Structure
+## Phase 1: Multi-Roster Generate Command
 
 ### Goal
 
-Generate organized folders for each class and assignment.
-
-### Target Structure
-
-```text
-classes/
-  english9_p2/
-    roster.csv
-    assignments/
-      rj_act1_quiz/
-        assignment.json
-        templates/
-          class_packet.pdf
-          individual/
-            1001_doe_jane.pdf
-            1002_smith_marcus.pdf
-        scans/
-        debug/
-        results.csv
-
-  english9_p4/
-    roster.csv
-    assignments/
-      rj_act1_quiz/
-        assignment.json
-        templates/
-        scans/
-        debug/
-        results.csv
-```
-
-### Notes
-
-* Each class gets its own copy of the assignment folder.
-* Each assignment folder stores its own results.
-* Scans can be stored later in the relevant `scans/` folder.
-
----
-
-## Phase 3: Multi-Roster Generate Command
-
-### Goal
-
-Allow one command to generate sheets for multiple classes.
+Allow one command to set up and generate materials for multiple classes.
 
 ### Preferred Command
 
@@ -131,13 +92,87 @@ python main.py generate assignment.json --rosters english9_p2.csv english9_p4.cs
 
 For each roster:
 
-* Read `class_id` from the roster.
-* Create class folder if needed.
-* Create assignment folder under that class.
+* Load and validate the assignment JSON.
+* Load and validate the roster CSV.
+* Create the class folder if needed.
+* Create the assignment folder under that class if needed.
 * Copy/save `assignment.json`.
-* Copy/save roster into the class folder.
-* Generate individual student PDFs.
+* Copy/save `roster.csv`.
 * Generate one class packet PDF.
+* Generate individual student PDFs.
+
+### Notes
+
+* The old command should still work:
+
+```powershell
+python main.py generate
+```
+
+* The old command should continue generating a generic `template.pdf` and `template.png`.
+
+---
+
+## Phase 2: Personalized Student PDFs
+
+### Goal
+
+Generate one answer sheet per student.
+
+### Requirements
+
+Each student sheet should include human-readable metadata:
+
+* Assignment title
+* Student name
+* Student ID
+* Class ID
+* Period
+
+### Output Location
+
+```text
+classes/
+  english9_p2/
+    assignments/
+      rj_act1_quiz/
+        templates/
+          individual/
+            1001_doe_jane.pdf
+            1002_smith_marcus.pdf
+```
+
+### Notes
+
+* Do not add QR codes in this phase unless explicitly decided.
+* Metadata must not interfere with registration marks or answer boxes.
+* Answer box layout should remain scannable.
+
+---
+
+## Phase 3: Class Packet PDF
+
+### Goal
+
+Generate one printable packet per class containing all personalized student sheets.
+
+### Output Location
+
+```text
+classes/
+  english9_p2/
+    assignments/
+      rj_act1_quiz/
+        templates/
+          class_packet.pdf
+```
+
+### Requirements
+
+* One page per student.
+* Same layout as individual PDFs.
+* Same student metadata as individual PDFs.
+* Pages should be in roster order.
 
 ---
 
@@ -147,22 +182,33 @@ For each roster:
 
 Add one QR code to each student sheet.
 
+### QR Payload
+
+```text
+OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+```
+
 ### Requirements
 
-* QR code must encode:
+QR code must encode:
 
-  * `class_id`
-  * `assignment_id`
-  * `student_id`
-* Student name and assignment title should still be printed as human-readable text.
-* QR code should be placed away from answer boxes and registration marks.
-* QR payload should be compact and deterministic.
+* `class_id`
+* `assignment_id`
+* `student_id`
+
+Student name and assignment title should still be printed as human-readable text.
 
 ### Likely Dependency
 
 ```powershell
 python -m pip install qrcode[pil]
 ```
+
+### Placement Requirements
+
+* QR code should be placed away from registration marks.
+* QR code should be placed away from answer boxes.
+* QR code should be large enough for reliable scanning after printing and rescanning.
 
 ---
 
@@ -225,7 +271,7 @@ For each page:
 
 ### Likely Dependency
 
-Use OpenCV QR detection first:
+Try OpenCV QR detection first:
 
 ```python
 cv2.QRCodeDetector()
@@ -235,17 +281,40 @@ Avoid adding extra dependencies unless OpenCV QR detection is unreliable.
 
 ---
 
-## Phase 7: Scan Storage
+## Phase 7: Result Routing
+
+### Goal
+
+Store results in the correct class/assignment folder.
+
+### Target Output
+
+```text
+classes/
+  english9_p2/
+    assignments/
+      rj_act1_quiz/
+        results.csv
+```
+
+### Result Row Should Include
+
+```csv
+class_id,assignment_id,student_id,last_name,first_name,period,score,total,Q1,Q1_Correct,Q2,Q2_Correct
+```
+
+### Notes
+
+* Results should no longer default only to top-level `results.csv` once QR routing is active.
+* Top-level `results.csv` may remain for legacy/manual scoring mode.
+
+---
+
+## Phase 8: Scan Storage
 
 ### Goal
 
 Keep scan files organized.
-
-### Behavior
-
-When scoring a scan, optionally copy the scanned PDF into the appropriate folder.
-
-For mixed scans, store the original scan in a general intake folder or duplicate it into each affected assignment folder.
 
 ### Possible Structure
 
@@ -269,9 +338,15 @@ Decide whether to:
 * copy scans into assignment folders,
 * or leave scans in inbox and record source filename in results.
 
+Initial preference:
+
+* Keep original scans in `scans_inbox/`.
+* Record source filename in `results.csv`.
+* Optionally copy scans later if needed.
+
 ---
 
-## Phase 8: Duplicate Handling
+## Phase 9: Duplicate and Attempt Handling
 
 ### Goal
 
@@ -298,11 +373,16 @@ Keep both attempts and include:
 scan_timestamp,source_file,attempt_number
 ```
 
-Then decide later whether the gradebook export should use latest, highest, or manually selected.
+Then decide later whether gradebook export should use:
+
+* latest attempt,
+* highest attempt,
+* first attempt,
+* manually selected attempt.
 
 ---
 
-## Phase 9: Future Multi-Page Forms
+## Phase 10: Future Multi-Page Forms
 
 ### Goal
 
@@ -335,17 +415,15 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 ---
 
-## Suggested Implementation Order
+## Suggested Implementation Order From Here
 
-1. Refactor assignment JSON to include metadata and answer key.
-2. Add roster CSV loading.
-3. Add class/assignment folder creation.
-4. Update `generate` command to accept multiple rosters.
-5. Generate class packets and individual PDFs.
-6. Add QR code generation to templates.
-7. Add variable question count support up to 15.
-8. Add QR decoding during scoring.
-9. Route results into the correct class/assignment folder.
-10. Add duplicate/attempt handling.
-11. Add scan storage behavior.
-12. Later: support multi-page forms.
+1. Update `generate` command to accept one assignment and multiple rosters.
+2. Generate personalized individual student PDFs.
+3. Generate class packet PDFs.
+4. Add QR code generation to personalized sheets.
+5. Add variable question count support up to 15.
+6. Add QR decoding during scoring.
+7. Route results into correct class/assignment folder.
+8. Add scan source tracking.
+9. Add duplicate/attempt handling.
+10. Later: support multi-page forms.

@@ -788,16 +788,70 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python main.py generate")
+        print("  python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
+        print("  python main.py setup-assignment <assignment_json> <roster_csv>")
         print("  python main.py score <input_file> [output_csv] [answer_key_json]")
         print("  python main.py validate-assignment <assignment_json>")
         print("  python main.py validate-roster <roster_csv>")
-        print("  python main.py setup-assignment <assignment_json> <roster_csv>")
         sys.exit(1)
 
     cmd = sys.argv[1]
 
     if cmd == "generate":
-        generate_template()
+        # No arguments: preserve existing behavior (generate template files)
+        if len(sys.argv) == 2:
+            generate_template()
+        else:
+            # Expect: python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]
+            if len(sys.argv) < 3:
+                print("Usage: python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
+                sys.exit(1)
+
+            assignment_file = sys.argv[2]
+
+            # require --rosters flag
+            if "--rosters" not in sys.argv[3:]:
+                print("Error: Missing --rosters.\nUsage: python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
+                sys.exit(1)
+
+            rosters_index = sys.argv.index("--rosters")
+            roster_files = sys.argv[rosters_index + 1 :]
+
+            if not roster_files:
+                print("Error: --rosters provided but no roster files specified.")
+                print("Usage: python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
+                sys.exit(1)
+
+            # Load and validate assignment
+            assignment = load_assignment(assignment_file)
+            if assignment is None:
+                sys.exit(1)
+
+            # Process each roster file
+            any_failure = False
+            for roster_path in roster_files:
+                roster = load_roster(roster_path)
+                if roster is None:
+                    any_failure = True
+                    print(f"Failed to load/validate roster: {roster_path}")
+                    break
+
+                setup_paths = setup_assignment_folder(roster, assignment, roster_path, assignment_file)
+                if setup_paths is None:
+                    any_failure = True
+                    print(f"Failed to setup assignment folder for roster: {roster_path}")
+                    break
+
+                # Print readable summary for this class
+                print("--- Setup Summary ---")
+                print(f"Class: {roster.get('class_id')}")
+                print(f"  Class dir: {setup_paths['class_dir']}")
+                print(f"  Assignment dir: {setup_paths['assignment_dir']}")
+                print(f"  Roster copy: {setup_paths['roster_copy']}")
+                print(f"  Assignment copy: {setup_paths['assignment_copy']}")
+
+            if any_failure:
+                sys.exit(1)
 
     elif cmd == "score":
         if len(sys.argv) < 3:
