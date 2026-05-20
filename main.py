@@ -15,9 +15,9 @@ CORNER_SIZE = 50
 
 CORNERS = [
     (100, 100),
-    (1175 - CORNER_SIZE, 100),
-    (100, 1550 - CORNER_SIZE),
-    (1175 - CORNER_SIZE, 1550 - CORNER_SIZE),
+    (IMG_WIDTH - 100 - CORNER_SIZE, 100),
+    (100, IMG_HEIGHT - 100 - CORNER_SIZE),
+    (IMG_WIDTH - 100 - CORNER_SIZE, IMG_HEIGHT - 100 - CORNER_SIZE),
 ]
 
 # Centers of the corners for perspective transform (TL, TR, BL, BR)
@@ -25,9 +25,9 @@ CORNERS = [
 DST_PTS = np.array(
     [
         [100 + CORNER_SIZE // 2, 100 + CORNER_SIZE // 2],
-        [1175 - CORNER_SIZE // 2, 100 + CORNER_SIZE // 2],
-        [100 + CORNER_SIZE // 2, 1550 - CORNER_SIZE // 2],
-        [1175 - CORNER_SIZE // 2, 1550 - CORNER_SIZE // 2],
+        [IMG_WIDTH - 100 - CORNER_SIZE // 2, 100 + CORNER_SIZE // 2],
+        [100 + CORNER_SIZE // 2, IMG_HEIGHT - 100 - CORNER_SIZE // 2],
+        [IMG_WIDTH - 100 - CORNER_SIZE // 2, IMG_HEIGHT - 100 - CORNER_SIZE // 2],
     ],
     dtype="float32",
 )
@@ -441,6 +441,101 @@ def load_answer_key(key_path):
     return answer_key
 
 
+def load_assignment(assignment_path):
+    """Loads and validates a richer assignment JSON format."""
+    if not os.path.exists(assignment_path):
+        print(f"Error: Assignment file '{assignment_path}' not found.")
+        return None
+
+    try:
+        with open(assignment_path, encoding="utf-8") as assignment_file:
+            data = json.load(assignment_file)
+    except json.JSONDecodeError as e:
+        print(f"Error: Failed to parse assignment file '{assignment_path}': {e}")
+        return None
+    except Exception as e:
+        print(f"Error: Could not read assignment file '{assignment_path}': {e}")
+        return None
+
+    if not isinstance(data, dict):
+        print(f"Error: Assignment file '{assignment_path}' must contain a JSON object.")
+        return None
+
+    if not isinstance(data.get("assignment_id"), str) or not data["assignment_id"].strip():
+        print("Error: 'assignment_id' must be a non-empty string.")
+        return None
+
+    if not isinstance(data.get("title"), str) or not data["title"].strip():
+        print("Error: 'title' must be a non-empty string.")
+        return None
+
+    question_count = data.get("question_count")
+    if not isinstance(question_count, int) or not (1 <= question_count <= 15):
+        print("Error: 'question_count' must be an integer from 1 to 15.")
+        return None
+
+    choices = data.get("choices")
+    if choices != ["A", "B", "C", "D"]:
+        print("Error: 'choices' must equal exactly ['A', 'B', 'C', 'D'].")
+        return None
+
+    answer_key = data.get("answer_key")
+    if not isinstance(answer_key, dict):
+        print("Error: 'answer_key' must be a JSON object.")
+        return None
+
+    if len(answer_key) != question_count:
+        print(
+            f"Error: 'answer_key' must contain exactly {question_count} entries."
+        )
+        return None
+
+    normalized_answer_key = {}
+    for key, value in answer_key.items():
+        if isinstance(key, str) and key.isdigit():
+            q_num = int(key)
+        elif isinstance(key, int):
+            q_num = key
+        else:
+            print(
+                f"Error: Invalid question number in answer_key: {key!r}. "
+                f"Question numbers must be 1 through {question_count}."
+            )
+            return None
+
+        if q_num < 1 or q_num > question_count:
+            print(
+                f"Error: Invalid question number '{q_num}' in answer_key. "
+                f"Question numbers must be 1 through {question_count}."
+            )
+            return None
+
+        if not isinstance(value, str) or value.strip().upper() not in {"A", "B", "C", "D"}:
+            print(
+                f"Error: Invalid answer for question {q_num}: {value!r}. "
+                "Answers must be A, B, C, or D."
+            )
+            return None
+
+        normalized_answer_key[q_num] = value.strip().upper()
+
+    missing_questions = sorted(set(range(1, question_count + 1)) - set(normalized_answer_key.keys()))
+    if missing_questions:
+        print(
+            "Error: answer_key is incomplete. "
+            f"Missing questions: {', '.join(map(str, missing_questions))}."
+        )
+        return None
+
+    return {
+        "assignment_id": data["assignment_id"].strip(),
+        "title": data["title"].strip(),
+        "question_count": question_count,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": normalized_answer_key,
+    }
+
+
 def process_file(file_path, answer_key):
     """Processes a file, checking if it is a PDF or an image, and scores it.
     Returns a list of structured results for each successfully scored page."""
@@ -546,6 +641,7 @@ if __name__ == "__main__":
         print("Usage:")
         print("  python main.py generate")
         print("  python main.py score <input_file> [output_csv] [answer_key_json]")
+        print("  python main.py validate-assignment <assignment_json>")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -582,6 +678,19 @@ if __name__ == "__main__":
         # Export the collected results to CSV
         if results_data:
             export_to_csv(results_data, output_file)
+
+    elif cmd == "validate-assignment":
+        if len(sys.argv) != 3:
+            print("Usage: python main.py validate-assignment <assignment_json>")
+            sys.exit(1)
+
+        assignment_file = sys.argv[2]
+        assignment = load_assignment(assignment_file)
+        if assignment is None:
+            sys.exit(1)
+
+        print("Assignment file is valid.")
+        print(assignment)
 
     else:
         print(f"Unknown command: {cmd}")
