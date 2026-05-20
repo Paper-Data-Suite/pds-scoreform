@@ -171,6 +171,90 @@ def generate_template(pdf_filename="template.pdf", png_filename="template.png"):
     _generate_template_png(png_filename)
 
 
+def safe_filename(text):
+    """Return a filesystem-safe lowercase filename fragment for `text`."""
+    import re
+
+    if text is None:
+        return ""
+    s = str(text).strip().lower()
+    # Replace any non-alphanumeric character with underscore
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    # Trim leading/trailing underscores
+    s = re.sub(r"^_+|_+$", "", s)
+    return s
+
+
+def student_pdf_filename(student_data):
+    """Return a predictable filename for a student PDF, without path."""
+    sid = student_data.get("student_id", "")
+    last = student_data.get("last_name", "")
+    first = student_data.get("first_name", "")
+    base = f"{sid}_{last}_{first}"
+    return safe_filename(base) + ".pdf"
+
+
+def generate_student_pdf(output_path, assignment_data, student_data):
+    """Generate a personalized student PDF answer sheet compatible with the scorer.
+
+    Returns True on success, False on failure.
+    """
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+    except Exception:
+        print("Error: The 'reportlab' package is required to generate student PDFs.")
+        return False
+
+    try:
+        c = canvas.Canvas(output_path, pagesize=letter)
+        c.setFillColorRGB(0, 0, 0)
+        c.setStrokeColorRGB(0, 0, 0)
+
+        # Draw registration marks
+        for (x, y) in CORNERS:
+            _pdf_rect(c, x, y, CORNER_SIZE, CORNER_SIZE, fill=True)
+
+        # Metadata area (away from corners and questions)
+        c.setFont("Helvetica-Bold", 14)
+        meta_x, meta_y = _pdf_coord(150, 260)
+        c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
+
+        c.setFont("Helvetica", 12)
+        meta_y -= 16
+        student_line = f"Student: {student_data.get('last_name','')}, {student_data.get('first_name','')}"
+        c.drawString(meta_x, meta_y, student_line)
+        meta_y -= 14
+        c.drawString(meta_x, meta_y, f"ID: {student_data.get('student_id','')}")
+        meta_y -= 14
+        c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', assignment_data.get('assignment_id',''))}")
+        meta_y -= 14
+        c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
+
+        # Draw question boxes (fixed 10 for now to match scorer)
+        c.setLineWidth(1)
+        c.setFont("Helvetica", 12)
+
+        for i in range(10):
+            y = Q_START_Y + i * Q_STEP_Y
+            q_x, q_y = _pdf_coord(150, y + 25)
+            c.drawString(q_x, q_y, f"{i + 1}.")
+
+            for j, letter in enumerate(["A", "B", "C", "D"]):
+                box_x = BOX_START_X + j * BOX_STEP_X
+                _pdf_rect(c, box_x, y, BOX_SIZE, BOX_SIZE, fill=False)
+                letter_x, letter_y = _pdf_coord(box_x + BOX_SIZE + 15, y + 25)
+                c.drawString(letter_x, letter_y, letter)
+
+        c.showPage()
+        c.save()
+        return True
+
+    except Exception as e:
+        print(f"Error generating student PDF '{output_path}': {e}")
+        return False
+
+
 def order_points(pts):
     """Orders points in top-left, top-right, bottom-left, bottom-right order."""
     rect = np.zeros((4, 2), dtype="float32")
@@ -849,6 +933,23 @@ if __name__ == "__main__":
                 print(f"  Assignment dir: {setup_paths['assignment_dir']}")
                 print(f"  Roster copy: {setup_paths['roster_copy']}")
                 print(f"  Assignment copy: {setup_paths['assignment_copy']}")
+                # Generate individual student PDFs inside templates/individual
+                individual_dir = setup_paths.get('individual_templates_dir')
+                generated_count = 0
+                if individual_dir:
+                    for student in roster.get('students', []):
+                        out_name = student_pdf_filename(student)
+                        out_path = os.path.join(individual_dir, out_name)
+                        ok = generate_student_pdf(out_path, assignment, student)
+                        if not ok:
+                            any_failure = True
+                            print(f"Failed to generate student PDF for {student.get('student_id')}")
+                            break
+                        generated_count += 1
+
+                if generated_count > 0:
+                    print(f"Generated {generated_count} individual student PDFs in:")
+                    print(individual_dir)
 
             if any_failure:
                 sys.exit(1)
