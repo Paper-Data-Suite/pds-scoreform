@@ -4,6 +4,7 @@ import sys
 import os
 import csv
 import json
+import shutil
 
 # --- Configuration ---
 
@@ -630,6 +631,59 @@ def load_roster(roster_path):
     }
 
 
+def setup_assignment_folder(roster_data, assignment_data, roster_path, assignment_path):
+    """Create class/assignment folder structure and copy roster/assignment files.
+
+    Returns a dictionary of created paths on success, or None on failure.
+    """
+    try:
+        class_id = roster_data.get("class_id")
+        assignment_id = assignment_data.get("assignment_id")
+
+        if not class_id or not assignment_id:
+            print("Error: roster_data or assignment_data missing required identifiers.")
+            return None
+
+        class_dir = os.path.join("classes", class_id)
+        assignments_dir = os.path.join(class_dir, "assignments")
+        assignment_dir = os.path.join(assignments_dir, assignment_id)
+        templates_dir = os.path.join(assignment_dir, "templates")
+        individual_templates_dir = os.path.join(templates_dir, "individual")
+        scans_dir = os.path.join(assignment_dir, "scans")
+        debug_dir = os.path.join(assignment_dir, "debug")
+
+        # Create directories
+        os.makedirs(individual_templates_dir, exist_ok=True)
+        os.makedirs(scans_dir, exist_ok=True)
+        os.makedirs(debug_dir, exist_ok=True)
+
+        # Copy roster and assignment files
+        roster_copy = os.path.join(class_dir, "roster.csv")
+        assignment_copy = os.path.join(assignment_dir, "assignment.json")
+
+        # Ensure parent dirs exist for copies
+        os.makedirs(class_dir, exist_ok=True)
+        os.makedirs(assignment_dir, exist_ok=True)
+
+        shutil.copy2(roster_path, roster_copy)
+        shutil.copy2(assignment_path, assignment_copy)
+
+        return {
+            "class_dir": class_dir,
+            "assignment_dir": assignment_dir,
+            "templates_dir": templates_dir,
+            "individual_templates_dir": individual_templates_dir,
+            "scans_dir": scans_dir,
+            "debug_dir": debug_dir,
+            "roster_copy": roster_copy,
+            "assignment_copy": assignment_copy,
+        }
+
+    except Exception as e:
+        print(f"Error setting up assignment folder: {e}")
+        return None
+
+
 def process_file(file_path, answer_key):
     """Processes a file, checking if it is a PDF or an image, and scores it.
     Returns a list of structured results for each successfully scored page."""
@@ -737,6 +791,7 @@ if __name__ == "__main__":
         print("  python main.py score <input_file> [output_csv] [answer_key_json]")
         print("  python main.py validate-assignment <assignment_json>")
         print("  python main.py validate-roster <roster_csv>")
+        print("  python main.py setup-assignment <assignment_json> <roster_csv>")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -806,6 +861,32 @@ if __name__ == "__main__":
                 print(
                     f"  {student['student_id']}: {student['last_name']}, {student['first_name']}"
                 )
+
+    elif cmd == "setup-assignment":
+        if len(sys.argv) != 4:
+            print("Usage: python main.py setup-assignment <assignment_json> <roster_csv>")
+            sys.exit(1)
+
+        assignment_file = sys.argv[2]
+        roster_file = sys.argv[3]
+
+        assignment = load_assignment(assignment_file)
+        if assignment is None:
+            sys.exit(1)
+
+        roster = load_roster(roster_file)
+        if roster is None:
+            sys.exit(1)
+
+        setup_paths = setup_assignment_folder(roster, assignment, roster_file, assignment_file)
+        if setup_paths is None:
+            sys.exit(1)
+
+        print("Assignment folder setup complete.")
+        print(f"Class dir: {setup_paths['class_dir']}")
+        print(f"Assignment dir: {setup_paths['assignment_dir']}")
+        print(f"Roster copy: {setup_paths['roster_copy']}")
+        print(f"Assignment copy: {setup_paths['assignment_copy']}")
 
     else:
         print(f"Unknown command: {cmd}")

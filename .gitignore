@@ -1,14 +1,22 @@
 .venv/
 __pycache__/
 *.pyc
+*.tmp
 
+# Generated templates and debug files
 template.png
 template.pdf
 debug_*.png
+
+# Generated scoring outputs
 results.csv
 *_results.csv
 
+# Local test files
 test_filled.png
 batch_test.pdf
 pdf_batch_test.pdf
-*.tmp
+your_scanned_file.pdf
+
+# Generated class/assignment data
+classes/
