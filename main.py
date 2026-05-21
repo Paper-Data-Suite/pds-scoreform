@@ -244,7 +244,7 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data):
     meta_y -= 14
     c.drawString(meta_x, meta_y, f"ID: {student_data.get('student_id','')}")
     meta_y -= 14
-    c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', assignment_data.get('assignment_id',''))}")
+    c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', '')}")
     meta_y -= 14
     c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
 
@@ -594,8 +594,8 @@ def load_assignment(assignment_path):
         return None
 
     question_count = data.get("question_count")
-    if not isinstance(question_count, int) or not (1 <= question_count <= 15):
-        print("Error: 'question_count' must be an integer from 1 to 15.")
+    if not isinstance(question_count, int) or question_count != 10:
+        print("Error: 'question_count' must be 10 for now. Variable question counts will be supported later.")
         return None
 
     choices = data.get("choices")
@@ -951,19 +951,16 @@ if __name__ == "__main__":
                 sys.exit(1)
 
             # Process each roster file
-            any_failure = False
             for roster_path in roster_files:
                 roster = load_roster(roster_path)
                 if roster is None:
-                    any_failure = True
-                    print(f"Failed to load/validate roster: {roster_path}")
-                    break
+                    print(f"Error: Failed to load/validate roster: {roster_path}")
+                    sys.exit(1)
 
                 setup_paths = setup_assignment_folder(roster, assignment, roster_path, assignment_file)
                 if setup_paths is None:
-                    any_failure = True
-                    print(f"Failed to setup assignment folder for roster: {roster_path}")
-                    break
+                    print(f"Error: Failed to setup assignment folder for roster: {roster_path}")
+                    sys.exit(1)
 
                 # Print readable summary for this class
                 print("--- Setup Summary ---")
@@ -972,40 +969,44 @@ if __name__ == "__main__":
                 print(f"  Assignment dir: {setup_paths['assignment_dir']}")
                 print(f"  Roster copy: {setup_paths['roster_copy']}")
                 print(f"  Assignment copy: {setup_paths['assignment_copy']}")
+                
                 # Generate individual student PDFs inside templates/individual
                 individual_dir = setup_paths.get('individual_templates_dir')
+                if not individual_dir:
+                    print("Error: Individual templates directory is missing in setup paths.")
+                    sys.exit(1)
+
+                students = roster.get('students', [])
                 generated_count = 0
-                if individual_dir:
-                    for student in roster.get('students', []):
-                        out_name = student_pdf_filename(student)
-                        out_path = os.path.join(individual_dir, out_name)
-                        ok = generate_student_pdf(out_path, assignment, student)
-                        if not ok:
-                            any_failure = True
-                            print(f"Failed to generate student PDF for {student.get('student_id')}")
-                            break
-                        generated_count += 1
-
-                if generated_count > 0:
-                    print(f"Generated {generated_count} individual student PDFs in:")
-                    print(individual_dir)
-                    # Generate class packet PDF in templates/
-                    try:
-                        templates_dir = setup_paths.get('templates_dir')
-                        if templates_dir:
-                            packet_path = os.path.join(templates_dir, 'class_packet.pdf')
-                            ok_packet = generate_class_packet_pdf(packet_path, assignment, roster)
-                            if not ok_packet:
-                                print(f"Failed to generate class packet PDF: {packet_path}")
-                                sys.exit(1)
-                            print("Generated class packet PDF:")
-                            print(packet_path)
-                    except Exception as e:
-                        print(f"Error while creating class packet: {e}")
+                for student in students:
+                    out_name = student_pdf_filename(student)
+                    out_path = os.path.join(individual_dir, out_name)
+                    ok = generate_student_pdf(out_path, assignment, student)
+                    if not ok:
+                        print(f"Error: Failed to generate student PDF for {student.get('student_id')}")
                         sys.exit(1)
+                    generated_count += 1
 
-            if any_failure:
-                sys.exit(1)
+                print(f"Generated {generated_count} individual student PDFs in:")
+                print(individual_dir)
+
+                # Generate class packet PDF in templates/ since all succeeded
+                try:
+                    templates_dir = setup_paths.get('templates_dir')
+                    if templates_dir:
+                        packet_path = os.path.join(templates_dir, 'class_packet.pdf')
+                        ok_packet = generate_class_packet_pdf(packet_path, assignment, roster)
+                        if not ok_packet:
+                            print(f"Error: Failed to generate class packet PDF: {packet_path}")
+                            sys.exit(1)
+                        print("Generated class packet PDF:")
+                        print(packet_path)
+                    else:
+                        print("Error: Templates directory is missing in setup paths.")
+                        sys.exit(1)
+                except Exception as e:
+                    print(f"Error while creating class packet: {e}")
+                    sys.exit(1)
 
     elif cmd == "score":
         if len(sys.argv) < 3:
