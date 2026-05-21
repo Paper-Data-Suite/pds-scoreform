@@ -211,40 +211,7 @@ def generate_student_pdf(output_path, assignment_data, student_data):
         c.setFillColorRGB(0, 0, 0)
         c.setStrokeColorRGB(0, 0, 0)
 
-        # Draw registration marks
-        for (x, y) in CORNERS:
-            _pdf_rect(c, x, y, CORNER_SIZE, CORNER_SIZE, fill=True)
-
-        # Metadata area (away from corners and questions)
-        c.setFont("Helvetica-Bold", 14)
-        meta_x, meta_y = _pdf_coord(150, 260)
-        c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
-
-        c.setFont("Helvetica", 12)
-        meta_y -= 16
-        student_line = f"Student: {student_data.get('last_name','')}, {student_data.get('first_name','')}"
-        c.drawString(meta_x, meta_y, student_line)
-        meta_y -= 14
-        c.drawString(meta_x, meta_y, f"ID: {student_data.get('student_id','')}")
-        meta_y -= 14
-        c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', assignment_data.get('assignment_id',''))}")
-        meta_y -= 14
-        c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
-
-        # Draw question boxes (fixed 10 for now to match scorer)
-        c.setLineWidth(1)
-        c.setFont("Helvetica", 12)
-
-        for i in range(10):
-            y = Q_START_Y + i * Q_STEP_Y
-            q_x, q_y = _pdf_coord(150, y + 25)
-            c.drawString(q_x, q_y, f"{i + 1}.")
-
-            for j, letter in enumerate(["A", "B", "C", "D"]):
-                box_x = BOX_START_X + j * BOX_STEP_X
-                _pdf_rect(c, box_x, y, BOX_SIZE, BOX_SIZE, fill=False)
-                letter_x, letter_y = _pdf_coord(box_x + BOX_SIZE + 15, y + 25)
-                c.drawString(letter_x, letter_y, letter)
+        draw_student_answer_sheet_page(c, assignment_data, student_data)
 
         c.showPage()
         c.save()
@@ -252,6 +219,78 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
     except Exception as e:
         print(f"Error generating student PDF '{output_path}': {e}")
+        return False
+
+
+def draw_student_answer_sheet_page(c, assignment_data, student_data):
+    """Draw a single personalized answer-sheet page onto an existing ReportLab canvas.
+
+    This function intentionally uses the same layout as `generate_student_pdf` used
+    previously (fixed 10 questions) to preserve scoring compatibility.
+    """
+    # Draw registration marks
+    for (x, y) in CORNERS:
+        _pdf_rect(c, x, y, CORNER_SIZE, CORNER_SIZE, fill=True)
+
+    # Metadata area (away from corners and questions)
+    c.setFont("Helvetica-Bold", 14)
+    meta_x, meta_y = _pdf_coord(150, 260)
+    c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
+
+    c.setFont("Helvetica", 12)
+    meta_y -= 16
+    student_line = f"Student: {student_data.get('last_name','')}, {student_data.get('first_name','')}"
+    c.drawString(meta_x, meta_y, student_line)
+    meta_y -= 14
+    c.drawString(meta_x, meta_y, f"ID: {student_data.get('student_id','')}")
+    meta_y -= 14
+    c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', assignment_data.get('assignment_id',''))}")
+    meta_y -= 14
+    c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
+
+    # Draw question boxes (fixed 10 for now to match scorer)
+    c.setLineWidth(1)
+    c.setFont("Helvetica", 12)
+
+    for i in range(10):
+        y = Q_START_Y + i * Q_STEP_Y
+        q_x, q_y = _pdf_coord(150, y + 25)
+        c.drawString(q_x, q_y, f"{i + 1}.")
+
+        for j, letter in enumerate(["A", "B", "C", "D"]):
+            box_x = BOX_START_X + j * BOX_STEP_X
+            _pdf_rect(c, box_x, y, BOX_SIZE, BOX_SIZE, fill=False)
+            letter_x, letter_y = _pdf_coord(box_x + BOX_SIZE + 15, y + 25)
+            c.drawString(letter_x, letter_y, letter)
+
+
+def generate_class_packet_pdf(output_path, assignment_data, roster_data):
+    """Generate a single PDF containing one personalized page per student (roster order).
+
+    Returns True on success, False on failure.
+    """
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+    except Exception:
+        print("Error: The 'reportlab' package is required to generate PDFs.")
+        return False
+
+    try:
+        c = canvas.Canvas(output_path, pagesize=letter)
+        c.setFillColorRGB(0, 0, 0)
+        c.setStrokeColorRGB(0, 0, 0)
+
+        students = roster_data.get('students', [])
+        for student in students:
+            draw_student_answer_sheet_page(c, assignment_data, student)
+            c.showPage()
+
+        c.save()
+        return True
+
+    except Exception as e:
+        print(f"Error generating class packet PDF '{output_path}': {e}")
         return False
 
 
@@ -950,6 +989,20 @@ if __name__ == "__main__":
                 if generated_count > 0:
                     print(f"Generated {generated_count} individual student PDFs in:")
                     print(individual_dir)
+                    # Generate class packet PDF in templates/
+                    try:
+                        templates_dir = setup_paths.get('templates_dir')
+                        if templates_dir:
+                            packet_path = os.path.join(templates_dir, 'class_packet.pdf')
+                            ok_packet = generate_class_packet_pdf(packet_path, assignment, roster)
+                            if not ok_packet:
+                                print(f"Failed to generate class packet PDF: {packet_path}")
+                                sys.exit(1)
+                            print("Generated class packet PDF:")
+                            print(packet_path)
+                    except Exception as e:
+                        print(f"Error while creating class packet: {e}")
+                        sys.exit(1)
 
             if any_failure:
                 sys.exit(1)
