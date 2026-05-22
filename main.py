@@ -1,5 +1,7 @@
 import sys
 import os
+import cv2
+import numpy as np
 
 from scoreform.templates import (
     generate_template,
@@ -7,7 +9,7 @@ from scoreform.templates import (
     generate_student_pdf,
     generate_class_packet_pdf,
 )
-from scoreform.scoring import process_file
+from scoreform.scoring import process_file, decode_qr_from_image
 from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
@@ -21,6 +23,7 @@ if __name__ == "__main__":
         print("  python main.py generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
         print("  python main.py setup-assignment <assignment_json> <roster_csv>")
         print("  python main.py score <input_file> [output_csv] [answer_key_json]")
+        print("  python main.py decode-qr <input_file>")
         print("  python main.py validate-assignment <assignment_json>")
         print("  python main.py validate-roster <roster_csv>")
         sys.exit(1)
@@ -203,6 +206,77 @@ if __name__ == "__main__":
         print(f"Assignment dir: {setup_paths['assignment_dir']}")
         print(f"Roster copy: {setup_paths['roster_copy']}")
         print(f"Assignment copy: {setup_paths['assignment_copy']}")
+
+    elif cmd == "decode-qr":
+        if len(sys.argv) != 3:
+            print("Usage: python main.py decode-qr <input_file>")
+            sys.exit(1)
+
+        input_file = sys.argv[2]
+
+        if not os.path.exists(input_file):
+            print(f"Error: File {input_file} does not exist.")
+            sys.exit(1)
+
+        ext = os.path.splitext(input_file)[1].lower()
+        found_any = False
+        bad_found = False
+
+        if ext == ".pdf":
+            try:
+                from pdf2image import convert_from_path
+            except ImportError:
+                print("Error: The 'pdf2image' module is not installed.\nPlease run: pip install pdf2image")
+                sys.exit(1)
+
+            try:
+                pages = convert_from_path(input_file)
+            except Exception as e:
+                print(f"Error while converting PDF: {e}")
+                sys.exit(1)
+
+            for page_num, page in enumerate(pages, start=1):
+                # Convert PIL to OpenCV BGR
+                open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
+                print(f"Page {page_num} QR:")
+                parsed = decode_qr_from_image(open_cv_image)
+                if parsed:
+                    found_any = True
+                    print(f"  class_id: {parsed.get('class_id')}")
+                    print(f"  assignment_id: {parsed.get('assignment_id')}")
+                    print(f"  student_id: {parsed.get('student_id')}")
+                else:
+                    bad_found = True
+                    print(f"  No valid QR decoded on page {page_num}.")
+
+        elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
+            img = cv2.imread(input_file)
+            if img is None:
+                print(f"Error: Could not read image {input_file}")
+                sys.exit(1)
+
+            parsed = decode_qr_from_image(img)
+            if parsed:
+                found_any = True
+                print(f"Decoded QR:")
+                print(f"  class_id: {parsed.get('class_id')}")
+                print(f"  assignment_id: {parsed.get('assignment_id')}")
+                print(f"  student_id: {parsed.get('student_id')}")
+            else:
+                print("No valid QR decoded from image.")
+                sys.exit(1)
+
+        else:
+            print(f"Error: Unsupported file extension '{ext}'. Please provide a PDF or an image.")
+            sys.exit(1)
+
+        if not found_any:
+            print("Error: No QR code could be decoded from any page or image.")
+            sys.exit(1)
+
+        if bad_found:
+            print("Error: At least one page contained an unreadable or malformed QR payload.")
+            sys.exit(1)
 
     else:
         print(f"Unknown command: {cmd}")

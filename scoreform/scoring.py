@@ -279,3 +279,82 @@ def process_file(file_path, answer_key):
         )
 
     return all_results
+
+
+def parse_qr_payload(payload):
+    """Parse an OMR1 QR payload string and return metadata dict or None.
+
+    Expected format:
+      OMR1|class=<class_id>|aid=<assignment_id>|sid=<student_id>
+    """
+    if payload is None:
+        print("Error: QR payload is None")
+        return None
+
+    payload = payload.strip()
+
+    if not payload:
+        print("Error: QR payload is empty")
+        return None
+
+    parts = payload.split("|")
+
+    if len(parts) < 4:
+        print(f"Error: QR payload malformed: '{payload}'")
+        return None
+
+    if parts[0] != "OMR1":
+        print(f"Error: QR payload missing OMR1 header: '{payload}'")
+        return None
+
+    kv = {}
+    for p in parts[1:]:
+        if "=" not in p:
+            print(f"Error: QR payload part malformed: '{p}' in '{payload}'")
+            return None
+        k, v = p.split("=", 1)
+        k = k.strip()
+        v = v.strip()
+        if not v:
+            print(f"Error: QR payload key '{k}' has empty value in '{payload}'")
+            return None
+        kv[k] = v
+
+    required = {"class": "class_id", "aid": "assignment_id", "sid": "student_id"}
+    out = {}
+    for src, dst in required.items():
+        if src not in kv:
+            print(f"Error: QR payload missing required key '{src}' in '{payload}'")
+            return None
+        out[dst] = kv[src]
+
+    return out
+
+
+def decode_qr_from_image(img):
+    """Decode a QR code from an OpenCV image and parse the OMR1 payload.
+
+    Returns parsed metadata dict or None on failure.
+    """
+    if img is None:
+        print("Error: Provided image is None")
+        return None
+
+    detector = cv2.QRCodeDetector()
+
+    try:
+        data, points, _ = detector.detectAndDecode(img)
+    except Exception as e:
+        print(f"Error: Exception while decoding QR: {e}")
+        return None
+
+    if not data:
+        print("No QR code detected in image.")
+        return None
+
+    parsed = parse_qr_payload(data)
+    if parsed is None:
+        print(f"QR code detected but payload invalid: '{data}'")
+        return None
+
+    return parsed

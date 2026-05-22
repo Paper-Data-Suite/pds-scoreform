@@ -66,6 +66,8 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\scans"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
 
+Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
+
 Run-Test "Setup assignment folder" "python main.py setup-assignment sample_assignment.json sample_roster_english9_p2.csv"
 
 Run-Test "Score generated template PDF" "python main.py score template.pdf"
