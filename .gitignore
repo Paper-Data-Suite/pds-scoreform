@@ -1,22 +1,58 @@
+# Virtual environment
 .venv/
+venv/
+env/
+
+# Python cache/build artifacts
 __pycache__/
 *.pyc
-*.tmp
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Generated templates and debug files
+# Editor/IDE files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Generated generic templates
 template.png
 template.pdf
+
+# Generated debug files
 debug_*.png
+debug_corners_page_*.png
+debug_warped_page_*.png
 
 # Generated scoring outputs
 results.csv
 *_results.csv
 
-# Local test files
+# Local test/scan files
 test_filled.png
 batch_test.pdf
 pdf_batch_test.pdf
+personalized_test.pdf
 your_scanned_file.pdf
+*_test.pdf
+*_scanned*.pdf
 
 # Generated class/assignment data
 classes/
+
+# Scan inbox / future generated scan storage
+scans_inbox/
+
+# Local logs
+*.log
