@@ -35,6 +35,12 @@ function Assert-Exists {
     Write-Host "FOUND: $Path" -ForegroundColor Green
 }
 
+Write-Host ""
+Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
+Remove-Item "results.csv" -ErrorAction SilentlyContinue
+Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
+
 Run-Test "Validate assignment" "python main.py validate-assignment sample_assignment.json"
 Run-Test "Validate roster" "python main.py validate-roster sample_roster_english9_p2.csv"
 
@@ -62,7 +68,7 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
 
 Run-Test "Setup assignment folder" "python main.py setup-assignment sample_assignment.json sample_roster_english9_p2.csv"
 
-Run-Test "Score batch PDF" "python main.py score pdf_batch_test.pdf"
+Run-Test "Score generated template PDF" "python main.py score template.pdf"
 
 Write-Host ""
 Write-Host "Checking scoring output files..." -ForegroundColor Yellow
