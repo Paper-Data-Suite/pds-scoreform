@@ -1,3 +1,6 @@
+Here’s an updated version you can paste over the current development plan. I removed completed QR generation work, added the portable test-script improvement, noted `requirements.txt`, and added the missing-file score exit-code issue we discovered on the MSI. 
+
+````markdown
 # OMR Program Iterative Development Plan
 
 ## Completed
@@ -6,7 +9,9 @@ The project currently supports:
 
 - Modular `scoreform/` package structure
 - Root-level `main.py` as CLI entry point
-- PowerShell regression test script: `run_tests.ps1`
+- Minimal `scoreform/__init__.py`
+- `requirements.txt` for Python package dependencies
+- Portable PowerShell regression test script: `run_tests.ps1`
 - Printable generic `template.pdf`
 - Debug `template.png`
 - Image scoring
@@ -23,6 +28,8 @@ The project currently supports:
 - Multi-roster `generate` command
 - Individual personalized student PDFs
 - Class packet PDF generation
+- QR code generation on individual student PDFs
+- QR code generation on class packet pages
 
 Current generated folder structure:
 
@@ -78,61 +85,41 @@ english9_p2,1002,Smith,Marcus,2
 }
 ```
 
-### Future QR Payload Format
+### Current QR Payload Format
 
 ```text
 OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 ```
 
----
+### Runtime Dependencies
 
-## Phase 1: QR Code Generation
-
-### Goal
-
-Add one QR code to each personalized student sheet.
-
-### QR Payload
+Python package dependencies are listed in:
 
 ```text
-OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+requirements.txt
 ```
 
-### Requirements
+Current dependencies:
 
-QR code must encode:
-
-* `class_id`
-* `assignment_id`
-* `student_id`
-
-Student name and assignment title should still be printed as human-readable text.
-
-### Likely Dependency
-
-```powershell
-python -m pip install qrcode[pil]
+```text
+opencv-python
+numpy
+pdf2image
+reportlab
+qrcode[pil]
 ```
 
-### Placement Requirements
+External system dependency:
 
-* QR code should be placed away from registration marks.
-* QR code should be placed away from answer boxes.
-* QR code should be large enough for reliable scanning after printing and rescanning.
-* QR code should appear on both individual PDFs and class packet pages.
+```text
+Poppler
+```
 
-### Test Plan
-
-* Generate individual student PDFs.
-* Generate class packet PDF.
-* Visually inspect QR placement.
-* Print one page.
-* Scan the printed page.
-* Confirm QR can be decoded reliably.
+Poppler is required by `pdf2image` for PDF conversion but is not installed by `pip`.
 
 ---
 
-## Phase 2: QR Decoding
+## Phase 1: QR Decoding
 
 ### Goal
 
@@ -169,9 +156,47 @@ For each scanned page:
 * Do not change CSV output yet.
 * Keep legacy score behavior working.
 
+### Test Plan
+
+* Generate PDFs with QR codes.
+* Print one personalized sheet.
+* Scan it.
+* Confirm QR payload can be decoded from the scan.
+* Confirm legacy scoring still works.
+
 ---
 
-## Phase 3: QR-Based Scoring
+## Phase 2: QR-Based Scoring Metadata Extraction
+
+### Goal
+
+Attach student/class/assignment metadata to scored pages.
+
+### Expected Behavior
+
+For each page:
+
+* Detect registration marks.
+* Detect and decode QR code.
+* Extract:
+
+  * `class_id`
+  * `assignment_id`
+  * `student_id`
+* Locate the matching class/assignment structure.
+* Load the assignment’s `assignment.json`.
+* Score using that assignment’s answer key.
+* Include QR-derived metadata in returned result data.
+
+### Notes
+
+* This phase may still write to legacy `results.csv`.
+* Full assignment-folder routing should happen in the next phase.
+* Keep legacy manual scoring available if needed.
+
+---
+
+## Phase 3: QR-Based Mixed Scan Scoring
 
 ### Goal
 
@@ -185,28 +210,23 @@ python main.py score mixed_scan.pdf
 
 ### Expected Behavior
 
-For each page:
+A single scanned PDF may contain pages from:
 
-* Detect registration marks.
-* Detect and decode QR code.
-* Extract:
+* different students
+* different classes
+* different assignments
 
-  * `class_id`
-  * `assignment_id`
-  * `student_id`
-* Locate the correct assignment folder.
-* Load that assignment’s `assignment.json`.
-* Score using that assignment’s answer key.
-* Include student/assignment metadata in the returned result data.
+For each page, the program should:
+
+* decode the QR payload,
+* identify the correct assignment,
+* load the correct answer key,
+* score the page,
+* preserve the associated metadata.
 
 ### Notes
 
-* Keep legacy manual scoring available if needed.
-* Mixed scans should eventually support:
-
-  * different students
-  * different classes
-  * different assignments
+This phase should make mixed scans functionally possible, even if result routing is still basic.
 
 ---
 
@@ -450,7 +470,40 @@ Allow richer roster data without disrupting current validation.
 
 ---
 
-## Phase 10: General Code Cleanup
+## Phase 10: Test and CLI Robustness
+
+### Goals
+
+Make the program and regression tests more reliable across machines.
+
+### Completed
+
+* `run_tests.ps1` was updated to avoid relying on ignored/local-only test PDFs.
+* `run_tests.ps1` now scores generated `template.pdf` so the test suite is portable across machines.
+
+### Needed Fix
+
+The `score` command currently prints an error when the input file is missing, but may still exit with status code `0`.
+
+### Requirement
+
+If a requested score file is missing or no pages are scored, the program should exit with status code `1`.
+
+Example:
+
+```powershell
+python main.py score missing_file.pdf
+```
+
+should fail with a nonzero exit code.
+
+### Notes
+
+This is important because `run_tests.ps1` depends on process exit codes to determine whether a command passed or failed.
+
+---
+
+## Phase 11: General Code Cleanup
 
 ### Goals
 
@@ -466,14 +519,12 @@ Keep the codebase maintainable as features expand.
 * Consider replacing `os.path` with `pathlib` for cleaner path handling.
 * Consider extracting shared validation helpers.
 * Consider adding a proper CLI parser later, such as `argparse`, once the command set stabilizes.
-* Consider adding a dependency file:
-
-  * `requirements.txt`
-  * or later, `pyproject.toml`
+* Consider moving QR dependencies/import checks into a cleaner helper to avoid redundant `qrcode` imports.
+* Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
 
 ---
 
-## Phase 11: Future Multi-Page Forms
+## Phase 12: Future Multi-Page Forms
 
 ### Goal
 
@@ -508,20 +559,20 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 ## Suggested Implementation Order From Here
 
-1. Add QR code generation to personalized sheets and class packet pages.
-2. Add QR decoding during scoring.
-3. Add QR-based scoring metadata extraction.
+1. Add QR decoding during scoring.
+2. Add QR-based scoring metadata extraction.
+3. Support mixed-scan scoring.
 4. Route results into the correct class/assignment folder.
 5. Add scan source tracking.
 6. Add duplicate/attempt handling.
 7. Add overwrite/collision protection.
 8. Add variable question count support up to 15.
 9. Add optional roster column preservation.
-10. Perform general cleanup:
+10. Fix score command exit status for missing/unscored files.
+11. Perform general cleanup:
 
     * unused imports
     * shared validation helpers
     * possible `pathlib` migration
-    * possible `requirements.txt`
-11. Later: support multi-page forms.
-
+    * cleaner QR import/dependency handling
+12. Later: support multi-page forms.
