@@ -1,42 +1,47 @@
-````markdown
 # OMR Program Iterative Development Plan
 
 ## Completed
 
 The project currently supports:
 
-- Modular `scoreform/` package structure
-- Root-level `main.py` as CLI entry point
-- Minimal `scoreform/__init__.py`
-- `requirements.txt` for Python package dependencies
-- Portable PowerShell regression test script: `run_tests.ps1`
-- Printable generic `template.pdf`
-- Debug `template.png`
-- Image scoring
-- Scanned PDF scoring
-- Multi-page PDF batch scoring
-- Corner registration detection
-- Blank detection
-- Ambiguous/double-mark detection
-- Legacy top-level CSV export
-- External bare `answer_key.json` validation
-- Assignment JSON validation through `validate-assignment`
-- Roster CSV validation through `validate-roster`
-- Class/assignment folder setup through `setup-assignment`
-- Multi-roster `generate` command
-- Individual personalized student PDFs
-- Class packet PDF generation
-- QR code generation on individual student PDFs
-- QR code generation on class packet pages
-- QR payload parsing
-- QR decoding from generated PDFs/images through `decode-qr`
-- QR decoding from a printed-and-scanned student sheet when scan quality is adequate
-- Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
-- QR-aware scoring metadata extraction
-- Automatic assignment lookup from QR metadata during scoring
-- QR-aware score output with `class_id`, `assignment_id`, and `student_id`
-- Legacy/manual scoring preserved when an explicit answer key is provided
-- `score` command exits nonzero when no pages are scored successfully
+* Modular `scoreform/` package structure
+* Root-level `main.py` as CLI entry point
+* Minimal `scoreform/__init__.py`
+* `requirements.txt` for Python package dependencies
+* Portable PowerShell regression test script: `run_tests.ps1`
+* Printable generic `template.pdf`
+* Debug `template.png`
+* Image scoring
+* Scanned PDF scoring
+* Multi-page PDF batch scoring
+* Corner registration detection
+* Blank detection
+* Ambiguous/double-mark detection
+* Legacy top-level CSV export
+* External bare `answer_key.json` validation
+* Assignment JSON validation through `validate-assignment`
+* Roster CSV validation through `validate-roster`
+* Class/assignment folder setup through `setup-assignment`
+* Multi-roster `generate` command
+* Individual personalized student PDFs
+* Class packet PDF generation
+* QR code generation on individual student PDFs
+* QR code generation on class packet pages
+* QR payload parsing
+* QR decoding from generated PDFs/images through `decode-qr`
+* QR decoding from a printed-and-scanned student sheet when scan quality is adequate
+* Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
+* QR-aware scoring metadata extraction
+* Automatic assignment lookup from QR metadata during scoring
+* QR-aware score output with `class_id`, `assignment_id`, and `student_id`
+* Legacy/manual scoring preserved when an explicit answer key is provided
+* `score` command exits nonzero when no pages are scored successfully
+* QR-based mixed-scan scoring for multi-page PDFs
+* QR-aware class packet scoring with one row per student page
+* Result routing to assignment folders for QR-aware scoring
+* Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
+* Routed CSV output containing page, class, assignment, student, score, total, and answer columns
+* CSV export functions return success/failure status
 
 Current generated folder structure:
 
@@ -47,6 +52,7 @@ classes/
     assignments/
       rj_act1_quiz/
         assignment.json
+        results.csv
         templates/
           class_packet.pdf
           individual/
@@ -55,7 +61,7 @@ classes/
             1003_brown_alyssa.pdf
         scans/
         debug/
-````
+```
 
 ---
 
@@ -128,7 +134,7 @@ Poppler is required by `pdf2image` for PDF conversion but is not installed by `p
 
 ## Current Scoring Modes
 
-### QR-Aware Scoring
+### QR-Aware Scoring With Automatic Result Routing
 
 ```powershell
 python main.py score scanned_file.pdf
@@ -140,7 +146,11 @@ Uses QR metadata to locate:
 classes/<class_id>/assignments/<assignment_id>/assignment.json
 ```
 
-Then scores the page using that assignment’s answer key and includes QR-derived metadata in the output CSV.
+Then scores the page using that assignment’s answer key and routes results to:
+
+```text
+classes/<class_id>/assignments/<assignment_id>/results.csv
+```
 
 ### QR-Aware Scoring With Custom Output
 
@@ -189,99 +199,175 @@ Caveat:
 
 ---
 
-# Phase 1: QR-Based Mixed Scan Scoring
+# Phase 1: Roster Lookup in Routed Results
 
 ## Goal
 
-Allow one scanned PDF to contain pages from different students, classes, or assignments.
+Add roster-derived student information to routed result rows.
 
-## Preferred Command
+## Current Behavior
 
-```powershell
-python main.py score mixed_scan.pdf
+Routed QR-aware results currently include:
+
+```csv
+Page,class_id,assignment_id,student_id,Score,Total,Q1,Q1_Correct,...
 ```
 
-## Expected Behavior
+## Target Behavior
 
-A single scanned PDF may contain pages from:
+Routed QR-aware results should include:
 
-* different students
-* different classes
-* different assignments
+```csv
+Page,class_id,assignment_id,student_id,last_name,first_name,period,Score,Total,Q1,Q1_Correct,...
+```
 
-For each page, the program should:
+## Requirements
 
-* decode the QR payload,
-* identify the correct class, assignment, and student,
-* load the correct assignment answer key,
-* score the page,
-* preserve the associated metadata.
+* Use QR metadata to identify:
 
-## Notes
+  * `class_id`
+  * `assignment_id`
+  * `student_id`
+* Locate the class roster at:
 
-* QR-aware scoring metadata extraction is already implemented for individual QR-coded pages.
-* This phase should verify and strengthen behavior across multiple pages from different students/classes/assignments.
-* Result routing should happen in the next phase.
-* Legacy/manual scoring should remain available when an explicit answer key is provided.
+```text
+classes/<class_id>/roster.csv
+```
+
+* Match the QR-derived `student_id` to the correct roster row.
+* Add roster-derived values to routed result rows:
+
+  * `last_name`
+  * `first_name`
+  * `period`
+* If roster lookup fails:
+
+  * preserve the score result,
+  * leave roster fields blank or print a warning,
+  * do not crash unless the failure makes routing impossible.
+* Legacy/manual scoring should remain unchanged.
+* QR-aware custom-output scoring may include roster fields if available, but the primary requirement is routed results.
 
 ## Testing
 
-* Generate sheets for multiple students.
-* Optionally generate sheets for more than one roster/class.
-* Combine multiple QR-coded pages into one PDF.
-* Run:
+* Generate class materials.
+* Score the class packet in routed mode:
 
 ```powershell
-python main.py score mixed_scan.pdf mixed_scan_results.csv
+python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf
 ```
 
-* Confirm each page is scored with the correct assignment answer key.
-* Confirm each CSV row preserves the correct `class_id`, `assignment_id`, and `student_id`.
+* Confirm routed results contain:
+
+  * `Doe`
+  * `Jane`
+  * `Smith`
+  * `Marcus`
+  * `Brown`
+  * `Alyssa`
+  * `2`
 
 ---
 
-# Phase 2: Result Routing
+# Phase 2: Scan Source Tracking
 
 ## Goal
 
-Store results in the correct class/assignment folder.
+Track the source scan file for each routed result row.
 
-## Target Output
+## Target Behavior
+
+Routed results should include a source file column, such as:
+
+```csv
+source_file
+```
+
+## Requirements
+
+* When scoring a PDF/image, include the source file path or filename in each result row.
+* Routed results should preserve this source file value.
+* Legacy/manual scoring may optionally include source file if available, but primary focus is routed QR-aware results.
+* Do not move or copy scans yet.
+
+## Notes
+
+This phase prepares for later scan storage and duplicate/attempt handling.
+
+---
+
+# Phase 3: Scan Storage
+
+## Goal
+
+Keep scan files organized.
+
+## Possible Structure
+
+```text
+scans_inbox/
+  mixed_scan_2026_09_15.pdf
+
+classes/
+  english9_p2/
+    assignments/
+      rj_act1_quiz/
+        scans/
+          mixed_scan_2026_09_15.pdf
+```
+
+## Decision Needed Later
+
+Decide whether to:
+
+* move scans from inbox,
+* copy scans into assignment folders,
+* or leave scans in inbox and record source filename in results.
+
+Initial preference:
+
+* Keep original scans in `scans_inbox/`.
+* Record source filename in `results.csv`.
+* Optionally copy scans later if needed.
+
+---
+
+# Phase 4: Debug Image Routing
+
+## Goal
+
+Move debug image output out of the project root and into assignment-specific debug folders when possible.
+
+## Current Behavior
+
+Debug images are saved to the project root:
+
+```text
+debug_corners_page_1.png
+debug_warped_page_1.png
+```
+
+## Target Behavior
+
+For QR-aware routed scoring, debug images should route to:
 
 ```text
 classes/
   english9_p2/
     assignments/
       rj_act1_quiz/
-        results.csv
-```
-
-## Result Row Should Include
-
-```csv
-class_id,assignment_id,student_id,last_name,first_name,period,score,total,Q1,Q1_Correct,Q2,Q2_Correct
+        debug/
 ```
 
 ## Requirements
 
-* Results should route to the assignment folder identified by the QR code.
-* Top-level `results.csv` may remain for legacy/manual scoring mode.
-* Routed results should include source scan filename when possible.
-* Routed results should include enough information to match rows back to the roster.
-* Routed results should eventually include roster information:
-
-  * `last_name`
-  * `first_name`
-  * `period`
-
-## Future Cleanup
-
-* Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
-* Eventually separate legacy CSV export from routed assignment CSV export if the formats diverge.
+* Keep root-level debug output available for legacy/manual scoring if needed.
+* For QR-aware scoring, use QR metadata to identify the assignment debug folder.
+* Avoid overwriting useful debug output where practical.
 
 ---
 
-# Phase 3: Basic Terminal Menu Interface
+# Phase 5: Basic Terminal Menu Interface
 
 ## Goal
 
@@ -338,11 +424,11 @@ It should support:
 
 ## Notes
 
-This should happen after result routing because the core teacher workflow will be clearer once scanned results land in the right assignment folders.
+This should happen after routed results are stable enough to support a practical teacher workflow.
 
 ---
 
-# Phase 4: Installable Command / Launcher
+# Phase 6: Installable Command / Launcher
 
 ## Goal
 
@@ -414,7 +500,7 @@ This is not needed yet.
 
 ---
 
-# Phase 5: Roster and Assignment Creation/Management
+# Phase 7: Roster and Assignment Creation/Management
 
 ## Goal
 
@@ -462,62 +548,7 @@ This phase should come after the basic menu exists, because it expands the menu 
 
 ---
 
-# Phase 6: Scan Storage
-
-## Goal
-
-Keep scan files organized.
-
-## Possible Structure
-
-```text
-scans_inbox/
-  mixed_scan_2026_09_15.pdf
-
-classes/
-  english9_p2/
-    assignments/
-      rj_act1_quiz/
-        scans/
-          mixed_scan_2026_09_15.pdf
-```
-
-## Decision Needed Later
-
-Decide whether to:
-
-* move scans from inbox,
-* copy scans into assignment folders,
-* or leave scans in inbox and record source filename in results.
-
-Initial preference:
-
-* Keep original scans in `scans_inbox/`.
-* Record source filename in `results.csv`.
-* Optionally copy scans later if needed.
-
-## Debug Image Routing
-
-Currently, debug images are saved to the project root:
-
-```text
-debug_corners_page_1.png
-debug_warped_page_1.png
-```
-
-Future behavior should route debug images to:
-
-```text
-classes/
-  english9_p2/
-    assignments/
-      rj_act1_quiz/
-        debug/
-```
-
----
-
-# Phase 7: Duplicate and Attempt Handling
+# Phase 8: Duplicate and Attempt Handling
 
 ## Goal
 
@@ -553,7 +584,7 @@ Then decide later whether gradebook export should use:
 
 ---
 
-# Phase 8: Overwrite and Collision Protection
+# Phase 9: Overwrite and Collision Protection
 
 ## Goal
 
@@ -591,7 +622,7 @@ This also matters more once the menu makes regeneration easier.
 
 ---
 
-# Phase 9: Variable Question Counts
+# Phase 10: Variable Question Counts
 
 ## Goal
 
@@ -640,7 +671,7 @@ Design functions so multi-page layouts can be added later without rewriting the 
 
 ---
 
-# Phase 10: Optional Roster Enhancements
+# Phase 11: Optional Roster Enhancements
 
 ## Goal
 
@@ -668,7 +699,7 @@ Allow richer roster data without disrupting current validation.
 
 ---
 
-# Phase 11: Test and CLI Robustness
+# Phase 12: Test and CLI Robustness
 
 ## Goals
 
@@ -680,7 +711,10 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` now scores generated `template.pdf` so the test suite is portable across machines.
 * `run_tests.ps1` includes a QR decode regression test.
 * `run_tests.ps1` includes a QR-aware scoring metadata extraction test.
+* `run_tests.ps1` includes mixed-scan regression coverage.
+* `run_tests.ps1` includes routed-results regression coverage.
 * `score` exits nonzero when no pages are scored successfully.
+* CSV export functions report success/failure to the CLI.
 
 ## Future Test Improvements
 
@@ -693,7 +727,7 @@ Make the program and regression tests more reliable across machines.
 
 ---
 
-# Phase 12: General Code Cleanup
+# Phase 13: General Code Cleanup
 
 ## Goals
 
@@ -707,7 +741,9 @@ Keep the codebase maintainable as features expand.
   * `CORNERS` / `CORNER_SIZE` in `scoring.py`
   * `os` and `PDF_WIDTH` in `templates.py`
 * Clarify `score` command help text for QR-aware vs. legacy/manual scoring modes.
-* Consider making `export_to_csv()` return `True` or `False` so `main.py` can exit nonzero if CSV export fails.
+* Rename PowerShell helper `Run-Test` to `Invoke-Test` if we want to satisfy approved-verb linting.
+* Consider consolidating duplicated CSV-writing logic between `export_to_csv()` and `export_routed_results()`.
+* Consider validating `student_id` in `export_routed_results()`.
 * Consider replacing `os.path` with `pathlib` for cleaner path handling.
 * Consider extracting shared validation helpers.
 * Consider adding a proper CLI parser later, such as `argparse`, once the command set stabilizes.
@@ -725,7 +761,7 @@ Keep the codebase maintainable as features expand.
 
 ---
 
-# Phase 13: Future Multi-Page Forms
+# Phase 14: Future Multi-Page Forms
 
 ## Goal
 
@@ -760,26 +796,29 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 # Suggested Implementation Order From Here
 
-1. Support mixed-scan scoring.
-2. Route results into the correct class/assignment folder.
-3. Add a basic terminal menu interface.
-4. Add installable command / launcher support with `scoreform`.
-5. Add roster and assignment creation/management through the menu.
-6. Add scan source tracking and scan storage behavior.
-7. Add duplicate/attempt handling.
-8. Add overwrite/collision protection.
-9. Add variable question count support up to 15.
-10. Add optional roster column preservation.
-11. Perform test and CLI robustness improvements.
-12. Perform general cleanup:
+1. Add roster lookup to routed results.
+2. Add scan source tracking.
+3. Add scan storage behavior.
+4. Route debug images into assignment-specific debug folders.
+5. Add a basic terminal menu interface.
+6. Add installable command / launcher support with `scoreform`.
+7. Add roster and assignment creation/management through the menu.
+8. Add duplicate/attempt handling.
+9. Add overwrite/collision protection.
+10. Add variable question count support up to 15.
+11. Add optional roster column preservation.
+12. Perform test and CLI robustness improvements.
+13. Perform general cleanup:
 
     * unused imports
     * clarified score help text
-    * export failure signaling
+    * PowerShell approved-verb cleanup
+    * consolidated CSV-writing helpers
+    * routed-result metadata validation
     * shared validation helpers
     * possible `pathlib` migration
     * cleaner QR import/dependency handling
     * shared PDF/image loading helper
     * possible `scoreform/cli.py`
     * QR preprocessing/reliability improvements if needed
-13. Later: support multi-page forms.
+14. Later: support multi-page forms.
