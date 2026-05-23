@@ -116,4 +116,18 @@ Assert-FileContains "mixed_scan_results.csv" "english9_p2"
 Assert-FileContains "mixed_scan_results.csv" "rj_act1_quiz"
 
 Write-Host ""
+Write-Host "Testing result routing..." -ForegroundColor Yellow
+Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAction SilentlyContinue
+Run-Test "Score class packet with result routing" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+
+Write-Host ""
+Write-Host "Checking routed results output..." -ForegroundColor Yellow
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1001"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1002"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1003"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "english9_p2"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "rj_act1_quiz"
+
+Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

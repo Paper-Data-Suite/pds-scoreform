@@ -13,7 +13,7 @@ from scoreform.scoring import process_file, decode_qr_from_image, process_file_q
 from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
-from scoreform.results import export_to_csv
+from scoreform.results import export_to_csv, export_routed_results
 
 
 if __name__ == "__main__":
@@ -132,9 +132,10 @@ if __name__ == "__main__":
         use_qr_aware = False
         output_file = "results.csv"
         answer_key_file = "answer_key.json"
+        explicit_output_csv = False
         
         if len(sys.argv) == 3:
-            # Only input file provided: use QR-aware scoring
+            # Only input file provided: use QR-aware scoring, route results
             use_qr_aware = True
         elif len(sys.argv) == 4:
             # One optional argument: check if it's a .json file
@@ -144,8 +145,9 @@ if __name__ == "__main__":
                 answer_key_file = arg3
                 use_qr_aware = False
             else:
-                # It's an output CSV: use QR-aware scoring
+                # It's an output CSV: use QR-aware scoring with custom output
                 output_file = arg3
+                explicit_output_csv = True
                 use_qr_aware = True
         elif len(sys.argv) >= 5:
             # Both output and answer key provided: use legacy/manual scoring
@@ -171,8 +173,18 @@ if __name__ == "__main__":
             print("Error: No pages were scored successfully.")
             sys.exit(1)
         
-        # Export the collected results to CSV
-        export_to_csv(results_data, output_file)
+        # Export the collected results
+        export_success = False
+        if use_qr_aware and not explicit_output_csv:
+            # QR-aware mode without explicit output: route results to assignment folders
+            export_success = export_routed_results(results_data)
+        else:
+            # Legacy mode or QR-aware with explicit output: write to specified CSV
+            export_success = export_to_csv(results_data, output_file)
+        
+        if not export_success:
+            print("Error: Failed to export results.")
+            sys.exit(1)
 
     elif cmd == "validate-assignment":
         if len(sys.argv) != 3:
