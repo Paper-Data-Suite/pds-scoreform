@@ -35,6 +35,20 @@ function Assert-Exists {
     Write-Host "FOUND: $Path" -ForegroundColor Green
 }
 
+function Assert-FileContains {
+    param (
+        [string]$Path,
+        [string]$Text
+    )
+
+    if (-not (Select-String -Path $Path -Pattern $Text -Quiet)) {
+        Write-Host "FAILED: Expected '$Text' in $Path" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "FOUND TEXT: '$Text'" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
 Remove-Item "results.csv" -ErrorAction SilentlyContinue
@@ -77,6 +91,43 @@ Write-Host "Checking scoring output files..." -ForegroundColor Yellow
 Assert-Exists "results.csv"
 Assert-Exists "debug_corners_page_1.png"
 Assert-Exists "debug_warped_page_1.png"
+
+Write-Host ""
+Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
+Remove-Item "qr_metadata_results.csv" -ErrorAction SilentlyContinue
+Run-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf qr_metadata_results.csv"
+
+Write-Host ""
+Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
+Assert-Exists "qr_metadata_results.csv"
+
+Write-Host ""
+Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
+Remove-Item "mixed_scan_results.csv" -ErrorAction SilentlyContinue
+Run-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf mixed_scan_results.csv"
+
+Write-Host ""
+Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
+Assert-Exists "mixed_scan_results.csv"
+Assert-FileContains "mixed_scan_results.csv" "1001"
+Assert-FileContains "mixed_scan_results.csv" "1002"
+Assert-FileContains "mixed_scan_results.csv" "1003"
+Assert-FileContains "mixed_scan_results.csv" "english9_p2"
+Assert-FileContains "mixed_scan_results.csv" "rj_act1_quiz"
+
+Write-Host ""
+Write-Host "Testing result routing..." -ForegroundColor Yellow
+Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAction SilentlyContinue
+Run-Test "Score class packet with result routing" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+
+Write-Host ""
+Write-Host "Checking routed results output..." -ForegroundColor Yellow
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1001"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1002"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1003"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "english9_p2"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "rj_act1_quiz"
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

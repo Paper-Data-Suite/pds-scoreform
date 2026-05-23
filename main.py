@@ -9,11 +9,11 @@ from scoreform.templates import (
     generate_student_pdf,
     generate_class_packet_pdf,
 )
-from scoreform.scoring import process_file, decode_qr_from_image
+from scoreform.scoring import process_file, decode_qr_from_image, process_file_qr_aware
 from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
-from scoreform.results import export_to_csv
+from scoreform.results import export_to_csv, export_routed_results
 
 
 if __name__ == "__main__":
@@ -120,33 +120,71 @@ if __name__ == "__main__":
 
     elif cmd == "score":
         if len(sys.argv) < 3:
-            print("Please provide the path to the scanned PDF or image.")
-            print("Example: python main.py score batch_test.pdf results.csv answer_key.json")
+            print("Usage:")
+            print("  python main.py score <input_file>")
+            print("  python main.py score <input_file> <output_csv>")
+            print("  python main.py score <input_file> <output_csv> <answer_key_json>")
             sys.exit(1)
 
         input_file = sys.argv[2]
+        
+        # Determine scoring mode and parameters
+        use_qr_aware = False
         output_file = "results.csv"
         answer_key_file = "answer_key.json"
-
-        if len(sys.argv) == 4:
-            if sys.argv[3].lower().endswith(".json"):
-                answer_key_file = sys.argv[3]
+        explicit_output_csv = False
+        
+        if len(sys.argv) == 3:
+            # Only input file provided: use QR-aware scoring, route results
+            use_qr_aware = True
+        elif len(sys.argv) == 4:
+            # One optional argument: check if it's a .json file
+            arg3 = sys.argv[3]
+            if arg3.lower().endswith(".json"):
+                # It's an answer key: use legacy/manual scoring
+                answer_key_file = arg3
+                use_qr_aware = False
             else:
-                output_file = sys.argv[3]
+                # It's an output CSV: use QR-aware scoring with custom output
+                output_file = arg3
+                explicit_output_csv = True
+                use_qr_aware = True
         elif len(sys.argv) >= 5:
+            # Both output and answer key provided: use legacy/manual scoring
             output_file = sys.argv[3]
             answer_key_file = sys.argv[4]
-
-        key = load_answer_key(answer_key_file)
-        if key is None:
+            use_qr_aware = False
+        
+        # Execute the appropriate scoring mode
+        results_data = None
+        
+        if use_qr_aware:
+            print("Using QR-aware scoring mode...")
+            results_data = process_file_qr_aware(input_file)
+        else:
+            print("Using legacy/manual scoring mode...")
+            key = load_answer_key(answer_key_file)
+            if key is None:
+                sys.exit(1)
+            results_data = process_file(input_file, key)
+        
+        # Check if any pages were scored
+        if not results_data:
+            print("Error: No pages were scored successfully.")
             sys.exit(1)
-
-        # Process the file and get the structured data
-        results_data = process_file(input_file, key)
-
-        # Export the collected results to CSV
-        if results_data:
-            export_to_csv(results_data, output_file)
+        
+        # Export the collected results
+        export_success = False
+        if use_qr_aware and not explicit_output_csv:
+            # QR-aware mode without explicit output: route results to assignment folders
+            export_success = export_routed_results(results_data)
+        else:
+            # Legacy mode or QR-aware with explicit output: write to specified CSV
+            export_success = export_to_csv(results_data, output_file)
+        
+        if not export_success:
+            print("Error: Failed to export results.")
+            sys.exit(1)
 
     elif cmd == "validate-assignment":
         if len(sys.argv) != 3:
