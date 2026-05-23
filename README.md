@@ -87,6 +87,10 @@ ScoreForm is intended to run locally. Teachers using this project are responsibl
 The current project structure is evolving, but the intended direction is:
 
 ```text
+examples/
+  answer_key.json
+  sample_assignment.json
+  sample_roster_english9_p2.csv
 scoreform/
   __init__.py
   assignment.py
@@ -223,25 +227,25 @@ The command-line interface is still evolving. Current commands may change before
 ### Validate an Assignment File
 
 ```powershell
-python main.py validate-assignment assignment.json
+python main.py validate-assignment examples\sample_assignment.json
 ```
 
 ### Validate a Roster File
 
 ```powershell
-python main.py validate-roster roster.csv
+python main.py validate-roster examples\sample_roster_english9_p2.csv
 ```
 
 ### Set Up Assignment Folders
 
 ```powershell
-python main.py setup-assignment assignment.json roster.csv
+python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv
 ```
 
 ### Generate Student Answer Sheets
 
 ```powershell
-python main.py generate assignment.json --rosters roster.csv
+python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
 ```
 
 ### Decode a QR Code From a File
@@ -259,7 +263,7 @@ python main.py score path\to\scan.pdf
 Some legacy/manual scoring modes may still require an explicit results file and answer key, depending on the current development state:
 
 ```powershell
-python main.py score scanned_file.pdf results.csv answer_key.json
+python main.py score scanned_file.pdf results.csv examples\answer_key.json
 ```
 
 ## Development Roadmap

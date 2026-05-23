@@ -41,8 +41,8 @@ Remove-Item "results.csv" -ErrorAction SilentlyContinue
 Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
 
-Run-Test "Validate assignment" "python main.py validate-assignment sample_assignment.json"
-Run-Test "Validate roster" "python main.py validate-roster sample_roster_english9_p2.csv"
+Run-Test "Validate assignment" "python main.py validate-assignment examples\sample_assignment.json"
+Run-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
 
 Run-Test "Generate generic template" "python main.py generate"
 
@@ -51,7 +51,7 @@ Write-Host "Checking generic template files..." -ForegroundColor Yellow
 Assert-Exists "template.pdf"
 Assert-Exists "template.png"
 
-Run-Test "Generate class assignment materials" "python main.py generate sample_assignment.json --rosters sample_roster_english9_p2.csv"
+Run-Test "Generate class assignment materials" "python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
 
 Write-Host ""
 Write-Host "Checking generated class/assignment files..." -ForegroundColor Yellow
@@ -68,9 +68,9 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
 
 Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
 
-Run-Test "Setup assignment folder" "python main.py setup-assignment sample_assignment.json sample_roster_english9_p2.csv"
+Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Run-Test "Score generated template PDF" "python main.py score template.pdf"
+Run-Test "Score generated template PDF" "python main.py score template.pdf results.csv examples\answer_key.json"
 
 Write-Host ""
 Write-Host "Checking scoring output files..." -ForegroundColor Yellow
