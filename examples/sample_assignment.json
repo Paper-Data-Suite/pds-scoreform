@@ -1,0 +1,18 @@
+{
+  "assignment_id": "rj_act1_quiz",
+  "title": "Romeo and Juliet Act 1 Quiz",
+  "question_count": 10,
+  "choices": ["A", "B", "C", "D"],
+  "answer_key": {
+    "1": "A",
+    "2": "C",
+    "3": "D",
+    "4": "B",
+    "5": "A",
+    "6": "C",
+    "7": "C",
+    "8": "A",
+    "9": "D",
+    "10": "B"
+  }
+}

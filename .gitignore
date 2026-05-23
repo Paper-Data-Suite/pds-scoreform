@@ -1,14 +1,86 @@
+# Virtual environments
 .venv/
-__pycache__/
-*.pyc
+venv/
+env/
 
+# Environment / local configuration
+.env
+.env.*
+!.env.example
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter / notebook checkpoints
+.ipynb_checkpoints/
+
+# Editor/IDE files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Logs
+*.log
+
+# Generated generic templates
 template.png
 template.pdf
+
+# Generated debug files
 debug_*.png
+debug_corners_page_*.png
+debug_warped_page_*.png
+
+# Generated scoring outputs
 results.csv
 *_results.csv
 
+# Local generated class/assignment data
+classes/
+
+# Scan inbox / future generated scan storage
+scans_inbox/
+
+# Local test/scan files
 test_filled.png
 batch_test.pdf
 pdf_batch_test.pdf
-*.tmp
+personalized_test.pdf
+your_scanned_file.pdf
+*_test.pdf
+*_scanned*.pdf
+
+# Manual QR/scan test files
+qr_*_test*.pdf
+qr_print_scan*.pdf
+qr_filled_score_test.pdf
+
+# Local generated answer sheet PDFs/images
+*_packet.pdf
+*_template.pdf
+*_filled.pdf
+*_scan.pdf
+
+# Local planning notes
+local_notes/
