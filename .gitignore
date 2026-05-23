@@ -84,3 +84,8 @@ qr_filled_score_test.pdf
 
 # Local planning notes
 local_notes/
+
+# Local generated test CSVs
+*_test.csv
+legacy_test.csv
+qr_metadata_results.csv

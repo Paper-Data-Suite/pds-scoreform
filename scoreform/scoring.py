@@ -358,3 +358,137 @@ def decode_qr_from_image(img):
         return None
 
     return parsed
+
+
+def process_file_qr_aware(file_path):
+    """Process a file with QR-aware scoring.
+    
+    Decodes QR metadata from each page, loads the corresponding assignment.json,
+    scores using the assignment's answer key, and includes metadata in results.
+    
+    Returns a list of structured results for each successfully scored page,
+    or an empty list if no pages were scored successfully.
+    """
+    if not os.path.exists(file_path):
+        print(f"Error: File {file_path} does not exist.")
+        return []
+
+    ext = os.path.splitext(file_path)[1].lower()
+    all_results = []
+
+    if ext == ".pdf":
+        try:
+            from pdf2image import convert_from_path
+            from pdf2image.exceptions import PDFInfoNotInstalledError
+        except ImportError:
+            print("Error: The 'pdf2image' module is not installed.")
+            print("Please run: pip install pdf2image")
+            return []
+
+        print("PDF detected. Converting pages to images...")
+
+        try:
+            pages = convert_from_path(file_path)
+
+            for page_num, page in enumerate(pages, start=1):
+                print(f"Processing Page {page_num}...")
+
+                # Convert PIL image to OpenCV format (RGB to BGR)
+                open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
+                res = _score_page_qr_aware(open_cv_image, page_num)
+                if res:
+                    all_results.append(res)
+
+        except PDFInfoNotInstalledError:
+            print("Error: Poppler is not installed or not in PATH.")
+            print(
+                "Please install Poppler and add its 'bin' folder to your system PATH."
+            )
+            print("Then test with: pdftoppm -h")
+
+        except Exception as e:
+            print(f"Error while processing PDF: {e}")
+
+    elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
+        img = cv2.imread(file_path)
+
+        if img is None:
+            print(f"Error: Could not read image {file_path}")
+            return []
+
+        print("Processing Image...")
+        res = _score_page_qr_aware(img, page_num=1)
+        if res:
+            all_results.append(res)
+
+    else:
+        print(
+            f"Error: Unsupported file extension '{ext}'. "
+            "Please provide a PDF or an image."
+        )
+
+    return all_results
+
+
+def _score_page_qr_aware(img, page_num=1):
+    """Score a single page with QR-aware metadata extraction.
+    
+    1. Decode QR metadata from the image.
+    2. Locate and load the assignment.json.
+    3. Score the page using the assignment's answer key.
+    4. Attach metadata to the result.
+    
+    Returns a scored result dict with metadata, or None on failure.
+    """
+    # Step 1: Decode QR metadata
+    qr_metadata = decode_qr_from_image(img)
+    if qr_metadata is None:
+        print(f"Error: Could not decode QR metadata from page {page_num}.")
+        return None
+
+    class_id = qr_metadata.get("class_id")
+    assignment_id = qr_metadata.get("assignment_id")
+    student_id = qr_metadata.get("student_id")
+
+    print(f"Page {page_num} QR metadata:")
+    print(f"  class_id: {class_id}")
+    print(f"  assignment_id: {assignment_id}")
+    print(f"  student_id: {student_id}")
+
+    # Step 2: Locate and load assignment.json
+    assignment_path = os.path.join(
+        "classes",
+        class_id,
+        "assignments",
+        assignment_id,
+        "assignment.json",
+    )
+
+    if not os.path.exists(assignment_path):
+        print(f"Error: Assignment file not found: {assignment_path}")
+        return None
+
+    # Import locally to avoid circular imports
+    from scoreform.assignment import load_assignment
+
+    assignment_data = load_assignment(assignment_path)
+    if assignment_data is None:
+        print(f"Error: Failed to load assignment from {assignment_path}")
+        return None
+
+    # Step 3: Extract answer key and score the page
+    answer_key = assignment_data.get("answer_key")
+    if not answer_key:
+        print(f"Error: Assignment {assignment_path} does not contain an answer_key.")
+        return None
+
+    result = score_image(img, answer_key, page_num)
+    if result is None:
+        return None
+
+    # Step 4: Attach metadata to the result
+    result["class_id"] = class_id
+    result["assignment_id"] = assignment_id
+    result["student_id"] = student_id
+
+    return result

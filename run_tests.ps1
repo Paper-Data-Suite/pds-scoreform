@@ -79,4 +79,13 @@ Assert-Exists "debug_corners_page_1.png"
 Assert-Exists "debug_warped_page_1.png"
 
 Write-Host ""
+Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
+Remove-Item "qr_metadata_results.csv" -ErrorAction SilentlyContinue
+Run-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf qr_metadata_results.csv"
+
+Write-Host ""
+Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
+Assert-Exists "qr_metadata_results.csv"
+
+Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green
