@@ -89,3 +89,7 @@ local_notes/
 *_test.csv
 legacy_test.csv
 qr_metadata_results.csv
+
+# Local generated verification CSVs
+legacy_verify.csv
+qr_explicit_output.csv
