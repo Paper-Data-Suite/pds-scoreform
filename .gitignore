@@ -48,6 +48,11 @@ your_scanned_file.pdf
 *_test.pdf
 *_scanned*.pdf
 
+# Manual QR/scan test files
+qr_*_test*.pdf
+qr_print_scan*.pdf
+qr_filled_score_test.pdf
+
 # Generated class/assignment data
 classes/
 

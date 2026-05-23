@@ -29,6 +29,8 @@ The project currently supports:
 - QR code generation on class packet pages
 - QR payload parsing
 - QR decoding from generated PDFs/images through `decode-qr`
+- QR decoding from a printed-and-scanned student sheet when scan quality is adequate
+- Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
 
 Current generated folder structure:
 
@@ -47,7 +49,7 @@ classes/
             1003_brown_alyssa.pdf
         scans/
         debug/
-```
+````
 
 ---
 
@@ -118,6 +120,27 @@ Poppler is required by `pdf2image` for PDF conversion but is not installed by `p
 
 ---
 
+## Manual Testing Results
+
+Manual QR and scoring tests passed using printed student sheets.
+
+Confirmed:
+
+* Generated student PDFs visually contain QR codes in a safe location.
+* Class packet PDF pages visually contain QR codes.
+* Phone camera can read QR payload directly from a generated PDF displayed on screen.
+* Printed-and-scanned student sheet can be decoded by `decode-qr` when scan quality is adequate.
+* Printed, filled, and scanned student sheet scored correctly at `10/10`.
+* QR code placement does not interfere with corner registration detection or answer scoring.
+
+Caveat:
+
+* A poor-quality phone scan failed QR detection.
+* QR reliability may depend on scan quality, camera quality, lighting, document alignment, and scanner app behavior.
+* Future improvements may include larger QR codes, higher QR error correction, preprocessing/cropping before QR detection, or clearer scan-quality guidance for users.
+
+---
+
 # Phase 1: QR-Based Scoring Metadata Extraction
 
 ## Goal
@@ -128,23 +151,24 @@ Attach student/class/assignment metadata to scored pages.
 
 For each scanned page:
 
-- Detect registration marks.
-- Detect and decode QR code.
-- Extract:
-  - `class_id`
-  - `assignment_id`
-  - `student_id`
-- Locate the matching class/assignment structure.
-- Load the assignment’s `assignment.json`.
-- Score using that assignment’s answer key.
-- Include QR-derived metadata in returned result data.
+* Detect registration marks.
+* Detect and decode QR code.
+* Extract:
+
+  * `class_id`
+  * `assignment_id`
+  * `student_id`
+* Locate the matching class/assignment structure.
+* Load the assignment’s `assignment.json`.
+* Score using that assignment’s answer key.
+* Include QR-derived metadata in returned result data.
 
 ## Notes
 
-- This phase may still write to legacy top-level `results.csv`.
-- Full assignment-folder routing should happen in the next phase.
-- Keep legacy/manual scoring available if needed.
-- `decode-qr` should remain available as a diagnostic command.
+* This phase may still write to legacy top-level `results.csv`.
+* Full assignment-folder routing should happen in the next phase.
+* Keep legacy/manual scoring available if needed.
+* `decode-qr` should remain available as a diagnostic command.
 
 ## Design Consideration
 
@@ -172,17 +196,17 @@ python main.py score mixed_scan.pdf
 
 A single scanned PDF may contain pages from:
 
-- different students
-- different classes
-- different assignments
+* different students
+* different classes
+* different assignments
 
 For each page, the program should:
 
-- decode the QR payload,
-- identify the correct assignment,
-- load the correct answer key,
-- score the page,
-- preserve the associated metadata.
+* decode the QR payload,
+* identify the correct assignment,
+* load the correct answer key,
+* score the page,
+* preserve the associated metadata.
 
 ## Notes
 
@@ -230,15 +254,15 @@ class_id,assignment_id,student_id,last_name,first_name,period,score,total,Q1,Q1_
 
 ## Requirements
 
-- Results should route to the assignment folder identified by the QR code.
-- Top-level `results.csv` may remain for legacy/manual scoring mode.
-- Routed results should include source scan filename when possible.
-- Routed results should include enough information to match rows back to the roster.
+* Results should route to the assignment folder identified by the QR code.
+* Top-level `results.csv` may remain for legacy/manual scoring mode.
+* Routed results should include source scan filename when possible.
+* Routed results should include enough information to match rows back to the roster.
 
 ## Future Cleanup
 
-- Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
-- Eventually separate legacy CSV export from routed assignment CSV export if the formats diverge.
+* Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
+* Eventually separate legacy CSV export from routed assignment CSV export if the formats diverge.
 
 ---
 
@@ -288,14 +312,14 @@ The first version of the menu should mostly call existing functionality rather t
 
 It should support:
 
-- selecting an assignment JSON
-- selecting one or more roster CSV files
-- generating answer sheets
-- selecting a scan/PDF to score
-- decoding QR from a file
-- validating assignment files
-- validating roster files
-- exiting cleanly
+* selecting an assignment JSON
+* selecting one or more roster CSV files
+* generating answer sheets
+* selecting a scan/PDF to score
+* decoding QR from a file
+* validating assignment files
+* validating roster files
+* exiting cleanly
 
 ## Notes
 
@@ -359,17 +383,17 @@ scoreform
 
 ## Notes
 
-- Use lowercase `scoreform` as the formal console command.
-- On Windows, typing `ScoreForm` will likely also work because command lookup is usually case-insensitive.
-- This should happen after the basic menu exists, because the installed command should launch the menu by default.
+* Use lowercase `scoreform` as the formal console command.
+* On Windows, typing `ScoreForm` will likely also work because command lookup is usually case-insensitive.
+* This should happen after the basic menu exists, because the installed command should launch the menu by default.
 
 ## Later Possibility
 
 Eventually consider a standalone Windows executable or shortcut using a packaging tool such as:
 
-- PyInstaller
-- Nuitka
-- Briefcase
+* PyInstaller
+* Nuitka
+* Briefcase
 
 This is not needed yet.
 
@@ -383,9 +407,9 @@ Reduce or eliminate manual editing of CSV and JSON files.
 
 Currently, the user must manually create/edit:
 
-- roster CSV files
-- assignment JSON files
-- answer keys
+* roster CSV files
+* assignment JSON files
+* answer keys
 
 The menu should eventually help create and manage these.
 
@@ -393,29 +417,29 @@ The menu should eventually help create and manage these.
 
 Possible menu features:
 
-- create a new roster
-- enter `class_id`
-- enter period
-- add students one by one
-- import students from a CSV
-- validate roster
-- save roster CSV
-- list existing rosters
-- view roster summary
+* create a new roster
+* enter `class_id`
+* enter period
+* add students one by one
+* import students from a CSV
+* validate roster
+* save roster CSV
+* list existing rosters
+* view roster summary
 
 ## Assignment Management
 
 Possible menu features:
 
-- create a new assignment
-- enter `assignment_id`
-- enter assignment title
-- enter question count
-- enter answer key
-- validate assignment
-- save assignment JSON
-- list existing assignments
-- view assignment summary
+* create a new assignment
+* enter `assignment_id`
+* enter assignment title
+* enter question count
+* enter answer key
+* validate assignment
+* save assignment JSON
+* list existing assignments
+* view assignment summary
 
 ## Notes
 
@@ -447,15 +471,15 @@ classes/
 
 Decide whether to:
 
-- move scans from inbox,
-- copy scans into assignment folders,
-- or leave scans in inbox and record source filename in results.
+* move scans from inbox,
+* copy scans into assignment folders,
+* or leave scans in inbox and record source filename in results.
 
 Initial preference:
 
-- Keep original scans in `scans_inbox/`.
-- Record source filename in `results.csv`.
-- Optionally copy scans later if needed.
+* Keep original scans in `scans_inbox/`.
+* Record source filename in `results.csv`.
+* Optionally copy scans later if needed.
 
 ## Debug Image Routing
 
@@ -507,10 +531,10 @@ scan_timestamp,source_file,attempt_number
 
 Then decide later whether gradebook export should use:
 
-- latest attempt,
-- highest attempt,
-- first attempt,
-- manually selected attempt.
+* latest attempt,
+* highest attempt,
+* first attempt,
+* manually selected attempt.
 
 ---
 
@@ -536,9 +560,9 @@ the program should check whether the existing `assignment.json` differs from the
 
 ## Possible Behavior
 
-- If the existing assignment matches, allow regeneration.
-- If the existing assignment differs, refuse and print a warning.
-- Later, allow explicit overwrite with a flag such as:
+* If the existing assignment matches, allow regeneration.
+* If the existing assignment differs, refuse and print a warning.
+* Later, allow explicit overwrite with a flag such as:
 
 ```powershell
 python main.py generate assignment.json --rosters roster.csv --overwrite
@@ -580,13 +604,13 @@ This prevents a 15-question assignment from validating before template generatio
 
 ## Requirements
 
-- Assignment validation should allow 1–15 questions.
-- Template generation should draw only the required number of question rows.
-- Student PDFs should draw only the required number of question rows.
-- Class packet PDFs should draw only the required number of question rows.
-- Scoring should score only the required number of questions.
-- CSV export should create columns only for the required number of questions.
-- Validation should check answer key against `question_count`.
+* Assignment validation should allow 1–15 questions.
+* Template generation should draw only the required number of question rows.
+* Student PDFs should draw only the required number of question rows.
+* Class packet PDFs should draw only the required number of question rows.
+* Scoring should score only the required number of questions.
+* CSV export should create columns only for the required number of questions.
+* Validation should check answer key against `question_count`.
 
 ## Future-Proofing
 
@@ -594,10 +618,10 @@ Design functions so multi-page layouts can be added later without rewriting the 
 
 ## Related Cleanup Items
 
-- Make `score_image()` question-count-aware instead of hardcoding 10.
-- Make template generation question-count-aware instead of hardcoding 10.
-- Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
-- Extract duplicated answer-key validation from `load_answer_key()` and `load_assignment()`.
+* Make `score_image()` question-count-aware instead of hardcoding 10.
+* Make template generation question-count-aware instead of hardcoding 10.
+* Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
+* Extract duplicated answer-key validation from `load_answer_key()` and `load_assignment()`.
 
 ---
 
@@ -609,22 +633,23 @@ Allow richer roster data without disrupting current validation.
 
 ## Possible Optional Columns
 
-- `preferred_name`
-- `email`
-- `google_classroom_id`
-- `accommodations`
-- `notes`
+* `preferred_name`
+* `email`
+* `google_classroom_id`
+* `accommodations`
+* `notes`
 
 ## Requirements
 
-- Required columns should remain:
-  - `class_id`
-  - `student_id`
-  - `last_name`
-  - `first_name`
-  - `period`
-- Optional columns should be preserved in student dictionaries if present.
-- Optional columns should not be required for validation.
+* Required columns should remain:
+
+  * `class_id`
+  * `student_id`
+  * `last_name`
+  * `first_name`
+  * `period`
+* Optional columns should be preserved in student dictionaries if present.
+* Optional columns should not be required for validation.
 
 ---
 
@@ -636,9 +661,9 @@ Make the program and regression tests more reliable across machines.
 
 ## Completed
 
-- `run_tests.ps1` was updated to avoid relying on ignored/local-only test PDFs.
-- `run_tests.ps1` now scores generated `template.pdf` so the test suite is portable across machines.
-- `run_tests.ps1` includes a QR decode regression test.
+* `run_tests.ps1` was updated to avoid relying on ignored/local-only test PDFs.
+* `run_tests.ps1` now scores generated `template.pdf` so the test suite is portable across machines.
+* `run_tests.ps1` includes a QR decode regression test.
 
 ## Needed Fix
 
@@ -662,11 +687,12 @@ This is important because `run_tests.ps1` depends on process exit codes to deter
 
 ## Future Test Improvements
 
-- Add a proper scoring-accuracy fixture or programmatically generated filled answer sheet.
-- Add tests for malformed QR payloads.
-- Add tests for missing QR codes.
-- Add tests for missing input files once score exit codes are corrected.
-- Add tests for menu workflows once the menu exists.
+* Add a proper scoring-accuracy fixture or programmatically generated filled answer sheet.
+* Add tests for malformed QR payloads.
+* Add tests for missing QR codes.
+* Add tests for missing input files once score exit codes are corrected.
+* Add tests for menu workflows once the menu exists.
+* Add QR reliability tests or manual checklist guidance for scan quality.
 
 ---
 
@@ -678,17 +704,25 @@ Keep the codebase maintainable as features expand.
 
 ## Cleanup Items
 
-- Keep `scoreform/__init__.py` as a minimal package marker.
-- Remove unused imports where present:
-  - `CORNERS` / `CORNER_SIZE` in `scoring.py`
-  - `os` and `PDF_WIDTH` in `templates.py`
-- Consider replacing `os.path` with `pathlib` for cleaner path handling.
-- Consider extracting shared validation helpers.
-- Consider adding a proper CLI parser later, such as `argparse`, once the command set stabilizes.
-- Consider moving QR dependencies/import checks into a cleaner helper to avoid redundant `qrcode` imports.
-- Move shared PDF/image loading logic out of `main.py` and/or `process_file()` so `score` and `decode-qr` can reuse one helper.
-- Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
-- Eventually move CLI/menu entry point into `scoreform/cli.py`.
+* Keep `scoreform/__init__.py` as a minimal package marker.
+* Remove unused imports where present:
+
+  * `CORNERS` / `CORNER_SIZE` in `scoring.py`
+  * `os` and `PDF_WIDTH` in `templates.py`
+* Consider replacing `os.path` with `pathlib` for cleaner path handling.
+* Consider extracting shared validation helpers.
+* Consider adding a proper CLI parser later, such as `argparse`, once the command set stabilizes.
+* Consider moving QR dependencies/import checks into a cleaner helper to avoid redundant `qrcode` imports.
+* Move shared PDF/image loading logic out of `main.py` and/or `process_file()` so `score` and `decode-qr` can reuse one helper.
+* Consider QR decode preprocessing if scan reliability becomes a problem:
+
+  * crop around expected QR region,
+  * threshold/contrast adjustment,
+  * larger QR code,
+  * higher QR error correction,
+  * scanner guidance in the menu/help text.
+* Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
+* Eventually move CLI/menu entry point into `scoreform/cli.py`.
 
 ---
 
@@ -740,10 +774,12 @@ Do not hardcode assumptions that prevent multi-page forms later.
 11. Add optional roster column preservation.
 12. Fix score command exit status for missing/unscored files.
 13. Perform general cleanup:
-    - unused imports
-    - shared validation helpers
-    - possible `pathlib` migration
-    - cleaner QR import/dependency handling
-    - shared PDF/image loading helper
-    - possible `scoreform/cli.py`
+
+    * unused imports
+    * shared validation helpers
+    * possible `pathlib` migration
+    * cleaner QR import/dependency handling
+    * shared PDF/image loading helper
+    * possible `scoreform/cli.py`
+    * QR preprocessing/reliability improvements if needed
 14. Later: support multi-page forms.
