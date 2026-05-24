@@ -128,6 +128,13 @@ Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1003"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "english9_p2"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "rj_act1_quiz"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Doe"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Jane"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Smith"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Marcus"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Brown"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Alyssa"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "2"
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green
