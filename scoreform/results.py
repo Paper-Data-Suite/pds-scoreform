@@ -67,6 +67,83 @@ def export_to_csv(all_results, output_file):
         return False
 
 
+def _enrich_results_with_roster(all_results):
+    """Attach roster-derived fields to results in place.
+
+    Adds `last_name`, `first_name`, and `period` to each result dict when possible.
+    Returns True if at least one roster was successfully loaded, False otherwise.
+    """
+    if not all_results:
+        return False
+
+    # Group results by class_id for efficient roster loading
+    by_class = {}
+    for res in all_results:
+        class_id = res.get("class_id")
+        if not class_id:
+            print(f"Warning: result missing class_id for page {res.get('page_num')}")
+            # Ensure fields exist
+            res.setdefault("last_name", "")
+            res.setdefault("first_name", "")
+            res.setdefault("period", "")
+            continue
+        by_class.setdefault(class_id, []).append(res)
+
+    any_loaded = False
+
+    for class_id, results in by_class.items():
+        roster_path = os.path.join("classes", class_id, "roster.csv")
+
+        # Import locally to avoid circular imports
+        try:
+            from scoreform.roster import load_roster
+        except Exception:
+            print("Warning: Could not import load_roster from scoreform.roster")
+            # Leave fields blank
+            for r in results:
+                r.setdefault("last_name", "")
+                r.setdefault("first_name", "")
+                r.setdefault("period", "")
+            continue
+
+        if not os.path.exists(roster_path):
+            print(f"Warning: Roster file not found for class '{class_id}': {roster_path}")
+            for r in results:
+                r.setdefault("last_name", "")
+                r.setdefault("first_name", "")
+                r.setdefault("period", "")
+            continue
+
+        roster = load_roster(roster_path)
+        if roster is None:
+            print(f"Warning: Failed to load roster for class '{class_id}': {roster_path}")
+            for r in results:
+                r.setdefault("last_name", "")
+                r.setdefault("first_name", "")
+                r.setdefault("period", "")
+            continue
+
+        any_loaded = True
+
+        # Build lookup by student_id
+        lookup = {s["student_id"]: s for s in roster.get("students", [])}
+
+        for r in results:
+            sid = r.get("student_id", "")
+            student = lookup.get(sid)
+            if student:
+                r["last_name"] = student.get("last_name", "")
+                r["first_name"] = student.get("first_name", "")
+                r["period"] = student.get("period", "")
+            else:
+                print(f"Warning: student_id '{sid}' not found in roster {roster_path}")
+                r.setdefault("last_name", "")
+                r.setdefault("first_name", "")
+                r.setdefault("period", "")
+
+    return any_loaded
+
+
 def export_routed_results(all_results):
     """Route and export QR-aware scoring results to their assignment folders.
     
@@ -87,6 +164,12 @@ def export_routed_results(all_results):
                 f"class_id={res.get('class_id')}, assignment_id={res.get('assignment_id')}"
             )
             return False
+
+    # Enrich results with roster metadata (last_name, first_name, period)
+    enriched_ok = _enrich_results_with_roster(all_results)
+    if not enriched_ok:
+        # Continue exporting even if some roster lookups failed; warnings printed by helper
+        pass
 
     # Group results by (class_id, assignment_id)
     groups = {}
@@ -109,7 +192,17 @@ def export_routed_results(all_results):
         output_file = os.path.join(output_dir, "results.csv")
         
         # Define the CSV headers - start with Page
-        headers = ["Page", "class_id", "assignment_id", "student_id", "Score", "Total"]
+        headers = [
+            "Page",
+            "class_id",
+            "assignment_id",
+            "student_id",
+            "last_name",
+            "first_name",
+            "period",
+            "Score",
+            "Total",
+        ]
         
         # Add question fields
         for i in range(1, 11):
@@ -127,6 +220,9 @@ def export_routed_results(all_results):
                         "class_id": res.get("class_id", ""),
                         "assignment_id": res.get("assignment_id", ""),
                         "student_id": res.get("student_id", ""),
+                        "last_name": res.get("last_name", ""),
+                        "first_name": res.get("first_name", ""),
+                        "period": res.get("period", ""),
                         "Score": res["score"],
                         "Total": res["total_points"],
                     }
