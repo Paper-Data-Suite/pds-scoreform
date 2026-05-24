@@ -40,10 +40,34 @@ The project currently supports:
 * QR-aware class packet scoring with one row per student page
 * Result routing to assignment folders for QR-aware scoring
 * Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
-* Routed CSV output containing page, class, assignment, student, score, total, and answer columns
+* Routed CSV output containing page, class, assignment, student, roster, score, total, and answer columns
+* Roster lookup for routed results using `classes/<class_id>/roster.csv`
+* Routed result rows enriched with `last_name`, `first_name`, and `period`
 * CSV export functions return success/failure status
+* Regression coverage for QR decoding, QR-aware scoring, mixed-scan scoring, routed results, and roster-enriched routed results
 
-Current generated folder structure:
+## Completed Milestone
+
+### `v0.1.0` — QR-Aware Scoring With Routed Results
+
+This milestone is complete.
+
+Completed scope:
+
+* QR-coded personalized answer sheets
+* QR-coded class packet PDFs
+* QR decoding diagnostic command
+* QR-aware scoring metadata extraction
+* Mixed-scan QR-aware scoring
+* Automatic assignment lookup from QR metadata
+* Routed assignment-level results
+* Roster-enriched routed results
+* Legacy/manual scoring preserved
+* Regression test coverage through `run_tests.ps1`
+
+---
+
+## Current Generated Folder Structure
 
 ```text
 classes/
@@ -104,6 +128,12 @@ english9_p2,1002,Smith,Marcus,2
 OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 ```
 
+### Current Routed Results CSV Format
+
+```csv
+Page,class_id,assignment_id,student_id,last_name,first_name,period,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
+```
+
 ### Runtime Dependencies
 
 Python package dependencies are listed in:
@@ -146,11 +176,13 @@ Uses QR metadata to locate:
 classes/<class_id>/assignments/<assignment_id>/assignment.json
 ```
 
-Then scores the page using that assignment’s answer key and routes results to:
+Then scores each page using that assignment’s answer key and routes results to:
 
 ```text
 classes/<class_id>/assignments/<assignment_id>/results.csv
 ```
+
+Routed results include roster fields when `classes/<class_id>/roster.csv` is available.
 
 ### QR-Aware Scoring With Custom Output
 
@@ -199,77 +231,7 @@ Caveat:
 
 ---
 
-# Phase 1: Roster Lookup in Routed Results
-
-## Goal
-
-Add roster-derived student information to routed result rows.
-
-## Current Behavior
-
-Routed QR-aware results currently include:
-
-```csv
-Page,class_id,assignment_id,student_id,Score,Total,Q1,Q1_Correct,...
-```
-
-## Target Behavior
-
-Routed QR-aware results should include:
-
-```csv
-Page,class_id,assignment_id,student_id,last_name,first_name,period,Score,Total,Q1,Q1_Correct,...
-```
-
-## Requirements
-
-* Use QR metadata to identify:
-
-  * `class_id`
-  * `assignment_id`
-  * `student_id`
-* Locate the class roster at:
-
-```text
-classes/<class_id>/roster.csv
-```
-
-* Match the QR-derived `student_id` to the correct roster row.
-* Add roster-derived values to routed result rows:
-
-  * `last_name`
-  * `first_name`
-  * `period`
-* If roster lookup fails:
-
-  * preserve the score result,
-  * leave roster fields blank or print a warning,
-  * do not crash unless the failure makes routing impossible.
-* Legacy/manual scoring should remain unchanged.
-* QR-aware custom-output scoring may include roster fields if available, but the primary requirement is routed results.
-
-## Testing
-
-* Generate class materials.
-* Score the class packet in routed mode:
-
-```powershell
-python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf
-```
-
-* Confirm routed results contain:
-
-  * `Doe`
-  * `Jane`
-  * `Smith`
-  * `Marcus`
-  * `Brown`
-  * `Alyssa`
-  * `2`
-
----
-
-# Phase 2: Scan Source Tracking
+# Phase 1: Scan Source Tracking
 
 ## Goal
 
@@ -283,10 +245,17 @@ Routed results should include a source file column, such as:
 source_file
 ```
 
+Possible routed results format:
+
+```csv
+Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,Score,Total,Q1,Q1_Correct,...
+```
+
 ## Requirements
 
 * When scoring a PDF/image, include the source file path or filename in each result row.
 * Routed results should preserve this source file value.
+* QR-aware custom-output CSVs may also include source file if available.
 * Legacy/manual scoring may optionally include source file if available, but primary focus is routed QR-aware results.
 * Do not move or copy scans yet.
 
@@ -294,9 +263,30 @@ source_file
 
 This phase prepares for later scan storage and duplicate/attempt handling.
 
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Scan source tracking
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.2.0
+```
+
 ---
 
-# Phase 3: Scan Storage
+# Phase 2: Scan Storage
 
 ## Goal
 
@@ -316,7 +306,7 @@ classes/
           mixed_scan_2026_09_15.pdf
 ```
 
-## Decision Needed Later
+## Decision Needed
 
 Decide whether to:
 
@@ -330,9 +320,37 @@ Initial preference:
 * Record source filename in `results.csv`.
 * Optionally copy scans later if needed.
 
+## Requirements
+
+* Create or recognize a `scans_inbox/` workflow.
+* Keep original scan files organized and separate from generated answer sheets.
+* Avoid accidental deletion of scans.
+* Preserve enough source information in result rows to connect scores back to original scans.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Scan storage workflow
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.2.0
+```
+
 ---
 
-# Phase 4: Debug Image Routing
+# Phase 3: Debug Image Routing
 
 ## Goal
 
@@ -364,10 +382,157 @@ classes/
 * Keep root-level debug output available for legacy/manual scoring if needed.
 * For QR-aware scoring, use QR metadata to identify the assignment debug folder.
 * Avoid overwriting useful debug output where practical.
+* Consider including page number, student ID, or timestamp in debug filenames.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Debug image routing
+```
+
+Suggested labels:
+
+```text
+feature
+cleanup
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.2.0
+```
 
 ---
 
-# Phase 5: Basic Terminal Menu Interface
+# Phase 4: Duplicate and Attempt Handling
+
+## Goal
+
+Handle rescans, makeups, late work, and accidental duplicate scans.
+
+## Unique Key
+
+```text
+class_id + assignment_id + student_id
+```
+
+## Policy Options
+
+1. Overwrite old result.
+2. Keep both attempts.
+3. Keep both attempts but mark latest.
+4. Flag duplicates for review.
+
+## Initial Recommendation
+
+Keep both attempts and include:
+
+```csv
+scan_timestamp,source_file,attempt_number
+```
+
+Then decide later whether gradebook export should use:
+
+* latest attempt,
+* highest attempt,
+* first attempt,
+* manually selected attempt.
+
+## Requirements
+
+* Detect when the same student/assignment combination appears more than once.
+* Preserve multiple attempts instead of silently overwriting data.
+* Add enough metadata to distinguish attempts.
+* Avoid destructive behavior.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Duplicate and attempt handling
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.2.0
+```
+
+---
+
+# Phase 5: Overwrite and Collision Protection
+
+## Goal
+
+Prevent accidental data loss when regenerating assignments or reusing assignment IDs.
+
+## Current Risk
+
+`setup_assignment_folder()` currently copies files into existing folders. This is useful during development, but before real classroom use, the program should protect against accidental overwrite.
+
+## Requirements
+
+If this folder already exists:
+
+```text
+classes/<class_id>/assignments/<assignment_id>/
+```
+
+the program should check whether the existing `assignment.json` differs from the incoming assignment file.
+
+## Possible Behavior
+
+* If the existing assignment matches, allow regeneration.
+* If the existing assignment differs, refuse and print a warning.
+* Later, allow explicit overwrite with a flag such as:
+
+```powershell
+python main.py generate assignment.json --rosters roster.csv --overwrite
+```
+
+## Notes
+
+This is especially important if two different assignments accidentally use the same `assignment_id`.
+
+This also matters more once the menu makes regeneration easier.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Overwrite and collision protection
+```
+
+Suggested labels:
+
+```text
+feature
+safety
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.2.0
+```
+
+---
+
+# Phase 6: Basic Terminal Menu Interface
 
 ## Goal
 
@@ -426,9 +591,31 @@ It should support:
 
 This should happen after routed results are stable enough to support a practical teacher workflow.
 
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Basic terminal menu interface
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+ux
+```
+
+Suggested milestone:
+
+```text
+v0.3.0
+```
+
 ---
 
-# Phase 6: Installable Command / Launcher
+# Phase 7: Installable Command / Launcher
 
 ## Goal
 
@@ -498,9 +685,31 @@ Eventually consider a standalone Windows executable or shortcut using a packagin
 
 This is not needed yet.
 
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Installable scoreform command
+```
+
+Suggested labels:
+
+```text
+feature
+packaging
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.4.0
+```
+
 ---
 
-# Phase 7: Roster and Assignment Creation/Management
+# Phase 8: Roster and Assignment Creation/Management
 
 ## Goal
 
@@ -546,83 +755,32 @@ Possible menu features:
 
 This phase should come after the basic menu exists, because it expands the menu from “command wrapper” into a real workflow assistant.
 
----
+## Suggested GitHub Issues
 
-# Phase 8: Duplicate and Attempt Handling
-
-## Goal
-
-Handle rescans, makeups, late work, and accidental duplicate scans.
-
-## Unique Key
+Create issues:
 
 ```text
-class_id + assignment_id + student_id
+Roster creation and management
+Assignment creation and management
 ```
 
-## Policy Options
-
-1. Overwrite old result.
-2. Keep both attempts.
-3. Keep both attempts but mark latest.
-4. Flag duplicates for review.
-
-## Initial Recommendation
-
-Keep both attempts and include:
-
-```csv
-scan_timestamp,source_file,attempt_number
-```
-
-Then decide later whether gradebook export should use:
-
-* latest attempt,
-* highest attempt,
-* first attempt,
-* manually selected attempt.
-
----
-
-# Phase 9: Overwrite and Collision Protection
-
-## Goal
-
-Prevent accidental data loss when regenerating assignments or reusing assignment IDs.
-
-## Current Risk
-
-`setup_assignment_folder()` currently copies files into existing folders. This is useful during development, but before real classroom use, the program should protect against accidental overwrite.
-
-## Requirements
-
-If this folder already exists:
+Suggested labels:
 
 ```text
-classes/<class_id>/assignments/<assignment_id>/
+feature
+roadmap
+ux
 ```
 
-the program should check whether the existing `assignment.json` differs from the incoming assignment file.
+Suggested milestone:
 
-## Possible Behavior
-
-* If the existing assignment matches, allow regeneration.
-* If the existing assignment differs, refuse and print a warning.
-* Later, allow explicit overwrite with a flag such as:
-
-```powershell
-python main.py generate assignment.json --rosters roster.csv --overwrite
+```text
+v0.5.0
 ```
-
-## Notes
-
-This is especially important if two different assignments accidentally use the same `assignment_id`.
-
-This also matters more once the menu makes regeneration easier.
 
 ---
 
-# Phase 10: Variable Question Counts
+# Phase 9: Variable Question Counts
 
 ## Goal
 
@@ -669,9 +827,30 @@ Design functions so multi-page layouts can be added later without rewriting the 
 * Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
 * Extract duplicated answer-key validation from `load_answer_key()` and `load_assignment()`.
 
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Variable question count support
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.6.0
+```
+
 ---
 
-# Phase 11: Optional Roster Enhancements
+# Phase 10: Optional Roster Enhancements
 
 ## Goal
 
@@ -697,9 +876,30 @@ Allow richer roster data without disrupting current validation.
 * Optional columns should be preserved in student dictionaries if present.
 * Optional columns should not be required for validation.
 
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Optional roster columns
+```
+
+Suggested labels:
+
+```text
+feature
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.6.0
+```
+
 ---
 
-# Phase 12: Test and CLI Robustness
+# Phase 11: Test and CLI Robustness
 
 ## Goals
 
@@ -713,6 +913,7 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` includes a QR-aware scoring metadata extraction test.
 * `run_tests.ps1` includes mixed-scan regression coverage.
 * `run_tests.ps1` includes routed-results regression coverage.
+* `run_tests.ps1` includes roster lookup regression coverage for routed results.
 * `score` exits nonzero when no pages are scored successfully.
 * CSV export functions report success/failure to the CLI.
 
@@ -724,10 +925,34 @@ Make the program and regression tests more reliable across machines.
 * Add tests for missing input files.
 * Add tests for menu workflows once the menu exists.
 * Add QR reliability tests or manual checklist guidance for scan quality.
+* Consider a future `pytest` test suite once the architecture stabilizes.
+
+## Suggested GitHub Issues
+
+Create issues:
+
+```text
+Add synthetic scoring accuracy fixture
+Improve CLI failure-mode tests
+```
+
+Suggested labels:
+
+```text
+testing
+cleanup
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.7.0
+```
 
 ---
 
-# Phase 13: General Code Cleanup
+# Phase 12: General Code Cleanup
 
 ## Goals
 
@@ -743,6 +968,8 @@ Keep the codebase maintainable as features expand.
 * Clarify `score` command help text for QR-aware vs. legacy/manual scoring modes.
 * Rename PowerShell helper `Run-Test` to `Invoke-Test` if we want to satisfy approved-verb linting.
 * Consider consolidating duplicated CSV-writing logic between `export_to_csv()` and `export_routed_results()`.
+* Consider simplifying roster enrichment return behavior.
+* Consider returning enriched result copies instead of mutating result dictionaries in place.
 * Consider validating `student_id` in `export_routed_results()`.
 * Consider replacing `os.path` with `pathlib` for cleaner path handling.
 * Consider extracting shared validation helpers.
@@ -758,6 +985,77 @@ Keep the codebase maintainable as features expand.
   * scanner guidance in the menu/help text.
 * Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
 * Eventually move CLI/menu entry point into `scoreform/cli.py`.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+General cleanup backlog
+```
+
+Suggested labels:
+
+```text
+cleanup
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.7.0
+```
+
+---
+
+# Phase 13: Repository Professionalization
+
+## Goal
+
+Keep the GitHub repository professional, safe, and easy to understand.
+
+## Tasks
+
+* Convert `development_plan.md` into a polished public `ROADMAP.md`.
+* Keep detailed tactical planning in local ignored notes.
+* Add or update `CHANGELOG.md`.
+* Maintain GitHub Issues and Milestones.
+* Maintain Kanban board columns:
+
+  * `Backlog`
+  * `Ready`
+  * `In Progress`
+  * `Testing`
+  * `Done`
+* Keep README current as features change.
+* Keep examples synthetic.
+* Keep `.gitignore` effective.
+* Before public release, audit for accidental real/private/student data.
+
+## Suggested GitHub Issues
+
+Create issues:
+
+```text
+Convert development_plan.md into ROADMAP.md
+Add CHANGELOG.md
+Pre-public repository audit
+```
+
+Suggested labels:
+
+```text
+documentation
+privacy
+roadmap
+```
+
+Suggested milestones:
+
+```text
+v0.2.0 or v0.7.0, depending on priority
+```
 
 ---
 
@@ -794,26 +1092,79 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 ---
 
+# Suggested Milestones From Here
+
+## `v0.2.0` — Scan Workflow and Auditability
+
+Suggested issues:
+
+* Scan source tracking
+* Scan storage workflow
+* Debug image routing
+* Duplicate and attempt handling
+* Overwrite and collision protection
+
+## `v0.3.0` — Teacher-Friendly Terminal Menu
+
+Suggested issues:
+
+* Basic terminal menu interface
+
+## `v0.4.0` — Installable Command
+
+Suggested issues:
+
+* Installable `scoreform` command
+* Move CLI entry point toward `scoreform/cli.py`
+* Add `pyproject.toml`
+
+## `v0.5.0` — Roster and Assignment Management
+
+Suggested issues:
+
+* Roster creation and management
+* Assignment creation and management
+
+## `v0.6.0` — Flexible Form Configuration
+
+Suggested issues:
+
+* Variable question count support
+* Optional roster columns
+
+## `v0.7.0` — Robustness, Cleanup, and Public Readiness
+
+Suggested issues:
+
+* Add synthetic scoring accuracy fixture
+* Improve CLI failure-mode tests
+* General cleanup backlog
+* Convert `development_plan.md` into `ROADMAP.md`
+* Add `CHANGELOG.md`
+* Pre-public repository audit
+
+---
+
 # Suggested Implementation Order From Here
 
-1. Add roster lookup to routed results.
-2. Add scan source tracking.
-3. Add scan storage behavior.
-4. Route debug images into assignment-specific debug folders.
-5. Add a basic terminal menu interface.
-6. Add installable command / launcher support with `scoreform`.
-7. Add roster and assignment creation/management through the menu.
-8. Add duplicate/attempt handling.
-9. Add overwrite/collision protection.
-10. Add variable question count support up to 15.
-11. Add optional roster column preservation.
-12. Perform test and CLI robustness improvements.
-13. Perform general cleanup:
+1. Add scan source tracking.
+2. Add scan storage behavior.
+3. Route debug images into assignment-specific debug folders.
+4. Add duplicate/attempt handling.
+5. Add overwrite/collision protection.
+6. Add a basic terminal menu interface.
+7. Add installable command / launcher support with `scoreform`.
+8. Add roster and assignment creation/management through the menu.
+9. Add variable question count support up to 15.
+10. Add optional roster column preservation.
+11. Perform test and CLI robustness improvements.
+12. Perform general cleanup:
 
     * unused imports
     * clarified score help text
     * PowerShell approved-verb cleanup
     * consolidated CSV-writing helpers
+    * roster enrichment cleanup
     * routed-result metadata validation
     * shared validation helpers
     * possible `pathlib` migration
@@ -821,4 +1172,9 @@ Do not hardcode assumptions that prevent multi-page forms later.
     * shared PDF/image loading helper
     * possible `scoreform/cli.py`
     * QR preprocessing/reliability improvements if needed
+13. Perform repository professionalization:
+
+    * ROADMAP.md
+    * CHANGELOG.md
+    * public-readiness audit
 14. Later: support multi-page forms.
