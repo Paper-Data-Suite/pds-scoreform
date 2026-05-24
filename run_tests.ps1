@@ -100,6 +100,8 @@ Run-Test "Score with QR-aware metadata extraction" "python main.py score classes
 Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
 Assert-Exists "qr_metadata_results.csv"
+Assert-FileContains "qr_metadata_results.csv" "source_file"
+Assert-FileContains "qr_metadata_results.csv" "1001_doe_jane.pdf"
 
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
@@ -135,6 +137,8 @@ Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Brown"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Alyssa"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "2"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "class_packet.pdf"
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

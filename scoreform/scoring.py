@@ -248,6 +248,8 @@ def process_file(file_path, answer_key):
                 open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
                 res = score_image(open_cv_image, answer_key, page_num)
                 if res:
+                    # Attach source file information to each page result
+                    res["source_file"] = file_path
                     all_results.append(res)
 
         except PDFInfoNotInstalledError:
@@ -270,6 +272,7 @@ def process_file(file_path, answer_key):
         print(f"Scoring Image...")
         res = score_image(img, answer_key, page_num=1)
         if res:
+            res["source_file"] = file_path
             all_results.append(res)
 
     else:
@@ -395,7 +398,7 @@ def process_file_qr_aware(file_path):
 
                 # Convert PIL image to OpenCV format (RGB to BGR)
                 open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-                res = _score_page_qr_aware(open_cv_image, page_num)
+                res = _score_page_qr_aware(open_cv_image, page_num, file_path)
                 if res:
                     all_results.append(res)
 
@@ -417,7 +420,7 @@ def process_file_qr_aware(file_path):
             return []
 
         print("Processing Image...")
-        res = _score_page_qr_aware(img, page_num=1)
+        res = _score_page_qr_aware(img, page_num=1, file_path=file_path)
         if res:
             all_results.append(res)
 
@@ -430,7 +433,7 @@ def process_file_qr_aware(file_path):
     return all_results
 
 
-def _score_page_qr_aware(img, page_num=1):
+def _score_page_qr_aware(img, page_num=1, file_path=None):
     """Score a single page with QR-aware metadata extraction.
     
     1. Decode QR metadata from the image.
@@ -490,5 +493,8 @@ def _score_page_qr_aware(img, page_num=1):
     result["class_id"] = class_id
     result["assignment_id"] = assignment_id
     result["student_id"] = student_id
+    # Attach source file information if provided
+    if file_path:
+        result["source_file"] = file_path
 
     return result
