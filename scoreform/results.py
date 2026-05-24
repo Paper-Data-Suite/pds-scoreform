@@ -22,9 +22,13 @@ def export_to_csv(all_results, output_file):
         "class_id" in res or "assignment_id" in res or "student_id" in res
         for res in all_results
     )
+    # Check if any results include source_file
+    has_source = any("source_file" in res for res in all_results)
     
     if has_metadata:
         headers.extend(["class_id", "assignment_id", "student_id"])
+    if has_source:
+        headers.append("source_file")
     
     # Add score fields
     headers.extend(["Score", "Total"])
@@ -51,6 +55,9 @@ def export_to_csv(all_results, output_file):
                     row["class_id"] = res.get("class_id", "")
                     row["assignment_id"] = res.get("assignment_id", "")
                     row["student_id"] = res.get("student_id", "")
+                # Add source file if present
+                if has_source:
+                    row["source_file"] = res.get("source_file", "")
                 
                 # Add answer details
                 for ans in res["answers"]:
@@ -200,6 +207,7 @@ def export_routed_results(all_results):
             "last_name",
             "first_name",
             "period",
+            "source_file",
             "Score",
             "Total",
         ]
@@ -223,6 +231,7 @@ def export_routed_results(all_results):
                         "last_name": res.get("last_name", ""),
                         "first_name": res.get("first_name", ""),
                         "period": res.get("period", ""),
+                        "source_file": res.get("source_file", ""),
                         "Score": res["score"],
                         "Total": res["total_points"],
                     }
