@@ -22,6 +22,26 @@ function Run-Test {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
+function Run-TestExpectFailure {
+    param (
+        [string]$Name,
+        [string]$Command
+    )
+
+    Write-Host ""
+    Write-Host "Running expected failure: $Name" -ForegroundColor Yellow
+    Write-Host $Command -ForegroundColor DarkGray
+
+    Invoke-Expression $Command
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "FAILED: Expected command to fail but it succeeded: $Name" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "PASSED EXPECTED FAILURE: $Name" -ForegroundColor Green
+}
+
 function Assert-Exists {
     param (
         [string]$Path
@@ -47,6 +67,20 @@ function Assert-FileContains {
     }
 
     Write-Host "FOUND TEXT: '$Text'" -ForegroundColor Green
+}
+
+function Assert-FileDoesNotContain {
+    param (
+        [string]$Path,
+        [string]$Text
+    )
+
+    if (Select-String -Path $Path -Pattern $Text -Quiet) {
+        Write-Host "FAILED: Did not expect '$Text' in $Path" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "CONFIRMED ABSENT: '$Text'" -ForegroundColor Green
 }
 
 function Assert-CsvValueCount {
@@ -75,6 +109,7 @@ Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 
 Run-Test "Validate assignment" "python main.py validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
@@ -105,6 +140,47 @@ Assert-Exists "scans_inbox"
 Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
 
 Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
+
+Write-Host ""
+Write-Host "Testing collision protection..." -ForegroundColor Yellow
+
+# Verify original assignment.json exists and contains expected title
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
+Write-Host "CONFIRMED: Original assignment.json has expected title" -ForegroundColor Green
+
+# Create conflicting assignment with same assignment_id but different content
+$conflictingAssignment = @{
+    assignment_id = "rj_act1_quiz"
+    title = "Romeo and Juliet Act 1 Quiz - CONFLICTING VERSION"
+    question_count = 10
+    choices = @("A", "B", "C", "D")
+    answer_key = @{
+        "1" = "B"
+        "2" = "A"
+        "3" = "C"
+        "4" = "D"
+        "5" = "B"
+        "6" = "A"
+        "7" = "B"
+        "8" = "D"
+        "9" = "A"
+        "10" = "C"
+    }
+} | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText("conflicting_assignment.json", $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
+
+Run-Test "Validate conflicting assignment fixture" "python main.py validate-assignment conflicting_assignment.json"
+
+# Attempt setup with conflicting assignment - should fail
+Run-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment conflicting_assignment.json examples\sample_roster_english9_p2.csv"
+
+# Verify original assignment.json was NOT overwritten
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
+Assert-FileDoesNotContain "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "CONFLICTING VERSION"
+Write-Host "CONFIRMED: Original assignment.json was protected and not overwritten" -ForegroundColor Green
+
+# Clean up test artifact
+Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 
 Run-Test "Score generated template PDF" "python main.py score template.pdf results.csv examples\answer_key.json"
 

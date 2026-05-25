@@ -93,3 +93,6 @@ qr_metadata_results.csv
 # Local generated verification CSVs
 legacy_verify.csv
 qr_explicit_output.csv
+
+# Temporary test artifact for collision protection test
+conflicting_assignment.json

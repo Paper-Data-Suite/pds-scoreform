@@ -48,6 +48,9 @@ The project currently supports:
 * Scan source file tracking in all result rows
 * Project-level `scans_inbox/` folder creation and setup
 * Scan inbox automatically created during assignment setup
+* Assignment collision protection with semantic JSON comparison
+* Collision detection prevents overwrite of mismatched assignments
+* Regression test coverage for collision protection
 
 ## Completed Milestone
 
@@ -341,7 +344,6 @@ Initial preference:
 ## Future Requirements
 
 * Support copying or moving scans into assignment folders (not yet implemented).
-* Implement duplicate/attempt detection (not yet implemented).
 * Avoid accidental deletion of scans.
 * Preserve enough source information in result rows to connect scores back to original scans (already implemented via `source_file`).
 
@@ -500,61 +502,63 @@ v0.2.0
 
 # Phase 5: Overwrite and Collision Protection
 
+## Status
+
+Completed.
+
 ## Goal
 
 Prevent accidental data loss when regenerating assignments or reusing assignment IDs.
 
-## Current Risk
+## Implementation Summary
 
-`setup_assignment_folder()` currently copies files into existing folders. This is useful during development, but before real classroom use, the program should protect against accidental overwrite.
+Assignment collision protection has been implemented in `scoreform/folders.py` with semantic JSON comparison.
 
-## Requirements
+### Helper Functions
 
-If this folder already exists:
+* `load_json_for_comparison(path)`: Loads a JSON file for comparison and returns the parsed object or `None` on error.
+* `assignments_match(existing_assignment_path, incoming_assignment_path)`: Compares two assignment JSON files semantically.
+
+### Updated Function
+
+* `setup_assignment_folder()`: Now checks for an existing `assignment.json` and compares it with the incoming assignment before copying.
+
+### Behavior
+
+* **Match**: Existing and incoming assignments are semantically equivalent. Setup continues normally.
+* **Differ**: Existing and incoming assignments differ. Setup refuses to proceed and returns `None`.
+
+  * Prints a clear error message explaining the collision.
+  * Does not copy or overwrite the incoming assignment file.
+  * Does not regenerate templates.
+  * `main.py` exits with nonzero status.
+
+### Error Output
 
 ```text
-classes/<class_id>/assignments/<assignment_id>/
+Error: Assignment folder already exists for class '<class_id>' and assignment '<assignment_id>', but the existing assignment.json differs from the incoming assignment file.
+Refusing to overwrite to prevent assignment/results mismatch.
+Use a different assignment_id or remove/archive the existing assignment folder.
 ```
 
-the program should check whether the existing `assignment.json` differs from the incoming assignment file.
+### Regression Test Coverage
 
-## Possible Behavior
+Added to `run_tests.ps1`:
 
-* If the existing assignment matches, allow regeneration.
-* If the existing assignment differs, refuse and print a warning.
-* Later, allow explicit overwrite with a flag such as:
+* `Run-TestExpectFailure` helper function
+* `Assert-FileDoesNotContain` helper function
+* Collision protection test that creates a valid conflicting assignment and verifies:
 
-```powershell
-python main.py generate assignment.json --rosters roster.csv --overwrite
-```
+  * The conflicting assignment file validates successfully.
+  * Setup command fails with nonzero exit code.
+  * Original `assignment.json` is not overwritten.
+  * Conflicting content is not present in the protected file.
 
 ## Notes
 
-This is especially important if two different assignments accidentally use the same `assignment_id`.
-
-This also matters more once the menu makes regeneration easier.
-
-## Suggested GitHub Issue
-
-Create issue:
-
-```text
-Overwrite and collision protection
-```
-
-Suggested labels:
-
-```text
-feature
-safety
-roadmap
-```
-
-Suggested milestone:
-
-```text
-v0.2.0
-```
+* Roster collision protection is deferred to future phases.
+* `--overwrite` flag is not implemented yet.
+* Menu interface is not implemented yet.
 
 ---
 
@@ -1096,8 +1100,10 @@ Keep the codebase maintainable as features expand.
 * Consider returning enriched result copies instead of mutating result dictionaries in place.
 * Consider extracting debug-output path construction/writing out of `score_image()`.
 * Consider defining project-level path constants, such as `SCANS_INBOX_DIR = "scans_inbox"`.
+* Consider making JSON comparison helpers distinguish unreadable or malformed JSON from valid JSON values such as `null`.
 * Replace broad CSV text matching in `run_tests.ps1` with parsed CSV assertions later.
 * Reduce hardcoded sample class/assignment paths in `run_tests.ps1` when moving toward a more isolated test framework.
+* Consider moving inline temporary fixture generation in `run_tests.ps1` into reusable helpers or future pytest fixtures.
 
 ## Suggested GitHub Issue
 
@@ -1236,7 +1242,7 @@ Suggested issues:
 * Scan storage workflow — in progress (scan inbox created; storage behavior pending)
 * Debug image routing — completed
 * Duplicate and attempt handling — completed
-* Overwrite and collision protection
+* Overwrite and collision protection — completed
 
 ## `v0.3.0` — Teacher-Friendly Terminal Menu
 
@@ -1283,33 +1289,31 @@ Suggested issues:
 # Suggested Implementation Order From Here
 
 1. Finish scan storage behavior (beyond inbox creation).
-2. Add overwrite/collision protection.
-3. Add a basic terminal menu interface.
-4. Add installable command / launcher support with `scoreform`.
-5. Add roster and assignment creation/management through the menu.
-6. Add variable question count support up to 15.
-7. Add question standards tagging.
-8. Add optional roster column preservation.
-9. Perform test and CLI robustness improvements.
-10. Perform general cleanup:
+2. Add a basic terminal menu interface.
+3. Add installable command / launcher support with `scoreform`.
+4. Add roster and assignment creation/management through the menu.
+5. Add variable question count support up to 15.
+6. Add question standards tagging.
+7. Add optional roster column preservation.
+8. Perform test and CLI robustness improvements.
+9. Perform general cleanup:
 
-* unused imports
-* clarified score help text
-* PowerShell approved-verb cleanup
-* consolidated CSV-writing helpers
-* roster enrichment cleanup
-* routed-result metadata validation
-* shared validation helpers
-* possible `pathlib` migration
-* cleaner QR import/dependency handling
-* shared PDF/image loading helper
-* possible `scoreform/cli.py`
-* QR preprocessing/reliability improvements if needed
-* Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-
-11. Perform repository professionalization:
+   * unused imports
+   * clarified score help text
+   * PowerShell approved-verb cleanup
+   * consolidated CSV-writing helpers
+   * roster enrichment cleanup
+   * routed-result metadata validation
+   * shared validation helpers
+   * possible `pathlib` migration
+   * cleaner QR import/dependency handling
+   * shared PDF/image loading helper
+   * possible `scoreform/cli.py`
+   * QR preprocessing/reliability improvements if needed
+   * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
+10. Perform repository professionalization:
 
     * ROADMAP.md
     * CHANGELOG.md
     * public-readiness audit
-12. Later: support multi-page forms.
+11. Later: support multi-page forms.
