@@ -1,4 +1,5 @@
 import csv
+import datetime
 import os
 
 
@@ -208,6 +209,8 @@ def export_routed_results(all_results):
             "first_name",
             "period",
             "source_file",
+            "attempt_number",
+            "scan_timestamp",
             "Score",
             "Total",
         ]
@@ -217,12 +220,63 @@ def export_routed_results(all_results):
             headers.append(f"Q{i}")
             headers.append(f"Q{i}_Correct")
 
+        existing_rows = []
+        attempt_counts = {}
+        read_failed = False
+
+        if os.path.exists(output_file):
+            try:
+                with open(output_file, mode="r", newline="", encoding="utf-8") as csv_file:
+                    reader = csv.DictReader(csv_file)
+                    for row in reader:
+                        preserved = {header: row.get(header, "") for header in headers}
+
+                        raw_attempt = row.get("attempt_number", "")
+                        if raw_attempt and raw_attempt.isdigit():
+                            preserved_attempt = int(raw_attempt)
+                        else:
+                            preserved_attempt = 1
+                            preserved["attempt_number"] = "1"
+
+                        preserved["scan_timestamp"] = row.get("scan_timestamp", "")
+                        existing_rows.append(preserved)
+
+                        key = (
+                            preserved.get("class_id", ""),
+                            preserved.get("assignment_id", ""),
+                            preserved.get("student_id", ""),
+                        )
+                        if key[0] and key[1] and key[2]:
+                            attempt_counts[key] = max(attempt_counts.get(key, 0), preserved_attempt)
+            except Exception as e:
+                print(f"Error: Could not read existing routed results file {output_file}: {e}")
+                all_success = False
+                read_failed = True
+
+        if read_failed:
+            print(f"Skipping export for assignment {assignment_id} in class {class_id} due to unreadable existing results.")
+            continue
+
+        batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         try:
             with open(output_file, mode="w", newline="", encoding="utf-8") as csv_file:
                 writer = csv.DictWriter(csv_file, fieldnames=headers)
                 writer.writeheader()
 
+                for old_row in existing_rows:
+                    writer.writerow(old_row)
+
                 for res in results:
+                    key = (
+                        res.get("class_id", ""),
+                        res.get("assignment_id", ""),
+                        res.get("student_id", ""),
+                    )
+
+                    next_attempt = attempt_counts.get(key, 0) + 1
+                    attempt_counts[key] = next_attempt
+
                     row = {
                         "Page": res["page_num"],
                         "class_id": res.get("class_id", ""),
@@ -232,6 +286,8 @@ def export_routed_results(all_results):
                         "first_name": res.get("first_name", ""),
                         "period": res.get("period", ""),
                         "source_file": res.get("source_file", ""),
+                        "attempt_number": str(next_attempt),
+                        "scan_timestamp": batch_timestamp,
                         "Score": res["score"],
                         "Total": res["total_points"],
                     }
