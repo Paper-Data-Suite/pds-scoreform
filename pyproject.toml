@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scoreform"
+version = "0.4.0"
+description = "A local-first classroom OMR tool for generating and scoring printable answer sheets."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Stephen Severino" }
+]
+dependencies = [
+  "opencv-python",
+  "numpy",
+  "pdf2image",
+  "reportlab",
+  "qrcode[pil]"
+]
+
+[project.scripts]
+scoreform = "scoreform.cli:main"
+
+[tool.setuptools]
+packages = ["scoreform"]

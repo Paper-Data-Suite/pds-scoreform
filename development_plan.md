@@ -51,6 +51,16 @@ The project currently supports:
 * Assignment collision protection with semantic JSON comparison
 * Collision detection prevents overwrite of mismatched assignments
 * Regression test coverage for collision protection
+* Basic terminal menu interface through `python main.py menu` and `scoreform menu`
+* Menu wraps existing workflows while preserving direct CLI commands
+* Editable package installation with `python -m pip install -e .`
+* Installable `scoreform` console command
+* `scoreform` command with no args launches menu by default
+* `scoreform <subcommand>` maps to existing workflows (generate, score, validate-*, setup-assignment, decode-qr, menu)
+* `scoreform/cli.py` module with main entry point
+* `pyproject.toml` with setuptools configuration
+* Backward-compatible `python main.py` commands preserved
+* Regression test coverage for editable install and scoreform command
 
 ## Completed Milestone
 
@@ -651,63 +661,31 @@ v0.3.0
 
 # Phase 7: Installable Command / Launcher
 
+## Status
+
+Completed.
+
 ## Goal
 
-Allow ScoreForm to launch from anywhere in PowerShell by typing:
+Provide an editable install path and console script for the existing ScoreForm CLI.
 
-```powershell
-scoreform
-```
+## Current Behavior
 
-or:
+ScoreForm now supports:
 
-```powershell
-ScoreForm
-```
-
-## Preferred Long-Term Approach
-
-Use Python packaging with a console script entry point.
-
-Likely future structure:
-
-```text
-scoreform/
-  __init__.py
-  cli.py
-  config.py
-  templates.py
-  scoring.py
-  assignment.py
-  roster.py
-  folders.py
-  results.py
-```
-
-A future `pyproject.toml` could define:
-
-```toml
-[project.scripts]
-scoreform = "scoreform.cli:main"
-```
-
-Then local editable installation would be:
-
-```powershell
-python -m pip install -e .
-```
-
-After that, the program could be launched from anywhere with:
-
-```powershell
-scoreform
-```
+* editable installation with `python -m pip install -e .`
+* a console script command: `scoreform`
+* `scoreform` with no arguments launching the terminal menu
+* `scoreform <subcommand>` mapping to existing workflows
+* a `scoreform/cli.py` command entry point
+* a `pyproject.toml` setuptools configuration
+* a thin backward-compatible `main.py` wrapper for `python main.py <command>`
 
 ## Notes
 
 * Use lowercase `scoreform` as the formal console command.
 * On Windows, typing `ScoreForm` will likely also work because command lookup is usually case-insensitive.
-* This should happen after the basic menu exists, because the installed command should launch the menu by default.
+* Existing `python main.py` workflows remain supported for backward compatibility.
 
 ## Later Possibility
 
@@ -1094,7 +1072,7 @@ Keep the codebase maintainable as features expand.
   * higher QR error correction,
   * scanner guidance in the menu/help text.
 * Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
-* Eventually move CLI/menu entry point into `scoreform/cli.py`.
+* Consider splitting interactive menu code into `scoreform/menu.py` if `scoreform/cli.py` grows too large.
 
 ## Additional Tracked Cleanup Items
 
@@ -1108,6 +1086,11 @@ Keep the codebase maintainable as features expand.
 * Replace broad CSV text matching in `run_tests.ps1` with parsed CSV assertions later.
 * Reduce hardcoded sample class/assignment paths in `run_tests.ps1` when moving toward a more isolated test framework.
 * Consider moving inline temporary fixture generation in `run_tests.ps1` into reusable helpers or future pytest fixtures.
+* Consider adding `scoreform --help` and `scoreform --version` later.
+* Consider separating interactive menu code from command-dispatch code if `scoreform/cli.py` grows too large.
+* `python main.py ...` compatibility works, but usage text now emphasizes `scoreform ...`; acceptable for now, but revisit if user confusion appears.
+* `main.py` is now a compatibility wrapper; future CLI work should happen in `scoreform/cli.py` or a split menu module.
+* `run_tests.ps1` now performs editable pip installation every run; later consider separating packaging smoke tests from fast regression tests if runtime becomes annoying.
 
 ## Suggested GitHub Issue
 
@@ -1258,9 +1241,9 @@ Suggested issues:
 
 Suggested issues:
 
-* Installable `scoreform` command
-* Move CLI entry point toward `scoreform/cli.py`
-* Add `pyproject.toml`
+* Installable `scoreform` command — completed
+* Move CLI entry point toward `scoreform/cli.py` — completed
+* Add `pyproject.toml` — completed
 
 ## `v0.5.0` — Roster and Assignment Management
 
@@ -1292,13 +1275,12 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add installable command / launcher support with `scoreform`.
-2. Add roster and assignment creation/management through the menu.
-3. Add variable question count support up to 15.
-4. Add question standards tagging.
-5. Add optional roster column preservation.
-6. Perform test and CLI robustness improvements.
-7. Perform general cleanup:
+1. Add roster and assignment creation/management through the menu.
+2. Add variable question count support up to 15.
+3. Add question standards tagging.
+4. Add optional roster column preservation.
+5. Perform test and CLI robustness improvements.
+6. Perform general cleanup:
 
    * unused imports
    * clarified score help text
@@ -1313,9 +1295,9 @@ Suggested issues:
    * possible `scoreform/cli.py`
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-8. Perform repository professionalization:
+7. Perform repository professionalization:
 
    * ROADMAP.md
    * CHANGELOG.md
    * public-readiness audit
-9. Later: support multi-page forms.
+8. Later: support multi-page forms.

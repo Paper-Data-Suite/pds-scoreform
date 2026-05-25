@@ -18,7 +18,7 @@ The project is currently focused on:
 * assignment-based answer keys
 * class roster integration
 * CSV result output
-* eventually, a teacher-friendly terminal menu
+* a teacher-friendly terminal menu
 
 ## Current Features
 
@@ -53,6 +53,8 @@ ScoreForm currently supports:
 * Duplicate/attempt handling for repeated QR-aware scans with per-attempt metadata
 * Per-result `source_file` tracking (preserves user-supplied input path)
 * Project-level `scans_inbox/` creation to support scan workflow
+* Basic terminal menu via `python main.py menu` or `scoreform`
+* Editable install support with the `scoreform` command
 
 ## Important Limitations
 
@@ -64,8 +66,8 @@ Current limitations include:
 * Poor-quality phone scans may fail QR detection.
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
 * Question count support is currently limited.
-* The terminal menu interface is available via `python main.py menu`.
-* The installable `scoreform` command has not yet been implemented.
+* The terminal menu interface is available via `scoreform` or `python main.py menu`.
+* The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
 * Manual verification is recommended before using results for actual grades.
 
 ## Student Data and Privacy
@@ -103,6 +105,9 @@ scoreform/
   roster.py
   scoring.py
   templates.py
+  cli.py
+
+pyproject.toml
 
 scans_inbox/
 main.py
@@ -142,8 +147,10 @@ Generated files, scans, debug images, results, and local-only test files should 
 A simple terminal menu is available through the CLI:
 
 ```powershell
-python main.py menu
+scoreform
 ```
+
+For direct Python invocation, `python main.py menu` remains supported.
 
 The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
 
@@ -238,6 +245,43 @@ Poppler is not installed by `pip`.
 
 On Windows, Poppler can be installed separately. After installation, make sure the Poppler `bin` directory is available on your system `PATH`.
 
+## Installation and Setup
+
+For development use, install ScoreForm in editable mode within your virtual environment:
+
+```powershell
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
+
+Then launch the interactive menu with:
+
+```powershell
+scoreform
+```
+
+or use individual commands:
+
+```powershell
+scoreform menu
+scoreform validate-assignment examples\sample_assignment.json
+scoreform validate-roster examples\sample_roster_english9_p2.csv
+scoreform generate
+scoreform generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
+scoreform score path\to\scan.pdf
+scoreform decode-qr path\to\file.pdf
+scoreform setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv
+```
+
+For backward compatibility, direct `python main.py` commands continue to work:
+
+```powershell
+python main.py menu
+python main.py validate-assignment examples\sample_assignment.json
+python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
+python main.py score path\to\scan.pdf
+```
+
 ## Basic Usage
 
 The command-line interface is still evolving. Current commands may change before the first stable release.
@@ -258,6 +302,14 @@ Legacy/manual scoring still writes debug images to the project root, while QR-aw
 
 ### Validate an Assignment File
 
+With editable install (preferred for development):
+
+```powershell
+scoreform validate-assignment examples\sample_assignment.json
+```
+
+Or with direct Python invocation:
+
 ```powershell
 python main.py validate-assignment examples\sample_assignment.json
 ```
@@ -265,54 +317,48 @@ python main.py validate-assignment examples\sample_assignment.json
 ### Validate a Roster File
 
 ```powershell
-python main.py validate-roster examples\sample_roster_english9_p2.csv
+scoreform validate-roster examples\sample_roster_english9_p2.csv
 ```
 
 ### Set Up Assignment Folders
 
 ```powershell
-python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv
+scoreform setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv
 ```
 
 ### Generate Student Answer Sheets
 
 ```powershell
-python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
+scoreform generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
 ```
 
 ### Decode a QR Code From a File
 
 ```powershell
-python main.py decode-qr path\to\file.pdf
+scoreform decode-qr path\to\file.pdf
 ```
 
 ### Score a Scanned File
 
 ```powershell
-python main.py score path\to\scan.pdf
+scoreform score path\to\scan.pdf
 ```
 
 Some legacy/manual scoring modes may still require an explicit results file and answer key, depending on the current development state:
 
 ```powershell
-python main.py score scanned_file.pdf results.csv examples\answer_key.json
+scoreform score scanned_file.pdf results.csv examples\answer_key.json
 ```
 
 ## Development Roadmap
 
-The current development plan focuses the next work on scan workflow, storage, and robustness.
+The current development plan focuses the next work on roster and assignment management, flexible form configuration, reporting metadata, test robustness, cleanup, and public-readiness work.
 
 Upcoming focus areas (not exhaustive):
 
-- Scan source tracking / scan workflow
-- Scan storage behavior
-- Debug image routing
-- Duplicate and attempt handling
-- Overwrite and collision protection
-- Basic terminal menu
-- Installable scoreform command
 - Roster and assignment creation/management
 - Variable question counts
+- Question standards tagging
 - Optional roster enhancements
 - Test/CLI robustness
 - General cleanup
@@ -328,7 +374,7 @@ v0.2.0  Scan workflow and auditability
 v0.3.0  Basic teacher-friendly terminal menu
 v0.4.0  Installable scoreform command
 v0.5.0  Roster and assignment creation/management
-v0.6.0  Variable question counts and optional roster enhancements
+v0.6.0  Flexible form configuration and standards metadata
 v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
 v1.0.0  Stable classroom-ready release
 ```
