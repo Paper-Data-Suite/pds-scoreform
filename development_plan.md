@@ -998,6 +998,7 @@ Keep the codebase maintainable as features expand.
 * Consider adding a proper CLI parser later, such as `argparse`, once the command set stabilizes.
 * Consider moving QR dependencies/import checks into a cleaner helper to avoid redundant `qrcode` imports.
 * Move shared PDF/image loading logic out of `main.py` and/or `process_file()` so `score` and `decode-qr` can reuse one helper.
+* Organize generated local artifacts so project-root clutter is reduced. Generated templates, debug images, verification CSVs, manual-test PDFs, and scratch outputs should eventually be routed into predictable ignored folders rather than accumulating in the project root.
 * Consider QR decode preprocessing if scan reliability becomes a problem:
 
   * crop around expected QR region,
@@ -1064,6 +1065,7 @@ Keep the GitHub repository professional, safe, and easy to understand.
 * Keep README current as features change.
 * Keep examples synthetic.
 * Keep `.gitignore` effective.
+* Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders.
 * Before public release, audit for accidental real/private/student data.
 
 ## Suggested GitHub Issues
@@ -1088,6 +1090,26 @@ Suggested milestones:
 
 ```text
 v0.2.0 or v0.7.0, depending on priority
+```
+
+Create issue:
+
+```text
+Organize generated local artifacts
+```
+
+Suggested labels:
+
+```text
+cleanup
+ux
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.7.0
 ```
 
 ---
@@ -1203,6 +1225,7 @@ Suggested issues:
     * shared PDF/image loading helper
     * possible `scoreform/cli.py`
     * QR preprocessing/reliability improvements if needed
+    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
 11. Perform repository professionalization:
 
     * ROADMAP.md
