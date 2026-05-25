@@ -45,6 +45,9 @@ The project currently supports:
 * Routed result rows enriched with `last_name`, `first_name`, and `period`
 * CSV export functions return success/failure status
 * Regression coverage for QR decoding, QR-aware scoring, mixed-scan scoring, routed results, and roster-enriched routed results
+* Scan source file tracking in all result rows
+* Project-level `scans_inbox/` folder creation and setup
+* Scan inbox automatically created during assignment setup
 
 ## Completed Milestone
 
@@ -131,7 +134,7 @@ OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 ### Current Routed Results CSV Format
 
 ```csv
-Page,class_id,assignment_id,student_id,last_name,first_name,period,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
+Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
 ```
 
 ### Runtime Dependencies
@@ -233,6 +236,10 @@ Caveat:
 
 # Phase 1: Scan Source Tracking
 
+## Status
+
+Completed.
+
 ## Goal
 
 Track the source scan file for each routed result row.
@@ -288,9 +295,20 @@ v0.2.0
 
 # Phase 2: Scan Storage
 
+## Status
+
+Partially implemented: project-level scan inbox setup is implemented (v0.2.0 milestone in progress). Other scan storage behaviors such as moving or copying scans into assignment folders are not implemented yet.
+
 ## Goal
 
 Keep scan files organized.
+
+## Implemented Features
+
+* Project-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
+* `ensure_scan_inbox()` helper in `scoreform/folders.py`.
+* Scan inbox path available for future scan management workflows.
+* Source file tracking already enabled in routed results.
 
 ## Possible Structure
 
@@ -306,7 +324,7 @@ classes/
           mixed_scan_2026_09_15.pdf
 ```
 
-## Decision Needed
+## Decision Needed (Future Phase)
 
 Decide whether to:
 
@@ -320,12 +338,12 @@ Initial preference:
 * Record source filename in `results.csv`.
 * Optionally copy scans later if needed.
 
-## Requirements
+## Future Requirements
 
-* Create or recognize a `scans_inbox/` workflow.
-* Keep original scan files organized and separate from generated answer sheets.
+* Support copying or moving scans into assignment folders (not yet implemented).
+* Implement duplicate/attempt detection (not yet implemented).
 * Avoid accidental deletion of scans.
-* Preserve enough source information in result rows to connect scores back to original scans.
+* Preserve enough source information in result rows to connect scores back to original scans (already implemented via `source_file`).
 
 ## Suggested GitHub Issue
 
@@ -1098,8 +1116,8 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 Suggested issues:
 
-* Scan source tracking
-* Scan storage workflow
+* Scan source tracking — completed
+* Scan storage workflow — in progress (scan inbox created; storage behavior pending)
 * Debug image routing
 * Duplicate and attempt handling
 * Overwrite and collision protection
@@ -1147,18 +1165,17 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add scan source tracking.
-2. Add scan storage behavior.
-3. Route debug images into assignment-specific debug folders.
-4. Add duplicate/attempt handling.
-5. Add overwrite/collision protection.
-6. Add a basic terminal menu interface.
-7. Add installable command / launcher support with `scoreform`.
-8. Add roster and assignment creation/management through the menu.
-9. Add variable question count support up to 15.
-10. Add optional roster column preservation.
-11. Perform test and CLI robustness improvements.
-12. Perform general cleanup:
+1. Finish scan storage behavior (beyond inbox creation).
+2. Route debug images into assignment-specific debug folders.
+3. Add duplicate/attempt handling.
+4. Add overwrite/collision protection.
+5. Add a basic terminal menu interface.
+6. Add installable command / launcher support with `scoreform`.
+7. Add roster and assignment creation/management through the menu.
+8. Add variable question count support up to 15.
+9. Add optional roster column preservation.
+10. Perform test and CLI robustness improvements.
+11. Perform general cleanup:
 
     * unused imports
     * clarified score help text
@@ -1172,9 +1189,9 @@ Suggested issues:
     * shared PDF/image loading helper
     * possible `scoreform/cli.py`
     * QR preprocessing/reliability improvements if needed
-13. Perform repository professionalization:
+12. Perform repository professionalization:
 
     * ROADMAP.md
     * CHANGELOG.md
     * public-readiness audit
-14. Later: support multi-page forms.
+13. Later: support multi-page forms.

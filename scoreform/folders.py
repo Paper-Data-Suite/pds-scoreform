@@ -1,11 +1,35 @@
 import os
 import shutil
 
+def ensure_scan_inbox():
+    """Ensure the project-level scans_inbox/ directory exists.
+    
+    Returns the path string "scans_inbox" on success.
+    Creates the directory if it doesn't exist.
+    Prints a message when the inbox is first created.
+    """
+    inbox_path = "scans_inbox"
+    if not os.path.exists(inbox_path):
+        try:
+            os.makedirs(inbox_path, exist_ok=True)
+            print(f"Created scan inbox directory: {inbox_path}")
+        except Exception as e:
+            print(f"Error creating scan inbox directory: {e}")
+            return None
+    return inbox_path
+
 def setup_assignment_folder(roster_data, assignment_data, roster_path, assignment_path):
     """Create class/assignment folder structure and copy roster/assignment files.
 
+    Also ensures the project-level scan inbox directory exists.
+
     Returns a dictionary of created paths on success, or None on failure.
     """
+    # Ensure scan inbox exists
+    scan_inbox = ensure_scan_inbox()
+    if scan_inbox is None:
+        return None
+    
     try:
         class_id = roster_data.get("class_id")
         assignment_id = assignment_data.get("assignment_id")
@@ -47,6 +71,7 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
             "debug_dir": debug_dir,
             "roster_copy": roster_copy,
             "assignment_copy": assignment_copy,
+            "scan_inbox": scan_inbox,
         }
 
     except Exception as e:
