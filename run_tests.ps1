@@ -141,6 +141,8 @@ Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr cla
 
 Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
+Run-Test "Launch menu and exit" "Write-Output '7' | python main.py menu"
+
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
 
