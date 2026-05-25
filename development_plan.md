@@ -1008,6 +1008,17 @@ Keep the codebase maintainable as features expand.
 * Later consider `pyproject.toml`, but `requirements.txt` is currently sufficient.
 * Eventually move CLI/menu entry point into `scoreform/cli.py`.
 
+## Additional Tracked Cleanup Items
+
+* Decide whether `source_file` should store the user-supplied path, an absolute path, a project-relative path, or only the basename.
+* Consider shared CSV schema/header helpers so `export_to_csv()` and `export_routed_results()` do not duplicate CSV-writing logic.
+* Consider simplifying `_enrich_results_with_roster()` so it returns `None` or a warning count instead of returning `False` while export continues anyway.
+* Consider returning enriched result copies instead of mutating result dictionaries in place.
+* Consider extracting debug-output path construction/writing out of `score_image()`.
+* Consider defining project-level path constants, such as `SCANS_INBOX_DIR = "scans_inbox"`.
+* Replace broad CSV text matching in `run_tests.ps1` with parsed CSV assertions later.
+* Reduce hardcoded sample class/assignment paths in `run_tests.ps1` when moving toward a more isolated test framework.
+
 ## Suggested GitHub Issue
 
 Create issue:
