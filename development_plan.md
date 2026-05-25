@@ -134,7 +134,7 @@ OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 ### Current Routed Results CSV Format
 
 ```csv
-Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
+Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
 ```
 
 ### Runtime Dependencies
@@ -431,6 +431,10 @@ v0.2.0
 ---
 
 # Phase 4: Duplicate and Attempt Handling
+
+## Status
+
+Completed.
 
 ## Goal
 
@@ -1156,7 +1160,7 @@ Suggested issues:
 * Scan source tracking — completed
 * Scan storage workflow — in progress (scan inbox created; storage behavior pending)
 * Debug image routing — completed
-* Duplicate and attempt handling
+* Duplicate and attempt handling — completed
 * Overwrite and collision protection
 
 ## `v0.3.0` — Teacher-Friendly Terminal Menu
@@ -1203,32 +1207,31 @@ Suggested issues:
 # Suggested Implementation Order From Here
 
 1. Finish scan storage behavior (beyond inbox creation).
-2. Add duplicate/attempt handling.
-3. Add overwrite/collision protection.
-4. Add a basic terminal menu interface.
-5. Add installable command / launcher support with `scoreform`.
-6. Add roster and assignment creation/management through the menu.
-7. Add variable question count support up to 15.
-8. Add optional roster column preservation.
-9. Perform test and CLI robustness improvements.
-10. Perform general cleanup:
+2. Add overwrite/collision protection.
+3. Add a basic terminal menu interface.
+4. Add installable command / launcher support with `scoreform`.
+5. Add roster and assignment creation/management through the menu.
+6. Add variable question count support up to 15.
+7. Add optional roster column preservation.
+8. Perform test and CLI robustness improvements.
+9. Perform general cleanup:
 
-    * unused imports
-    * clarified score help text
-    * PowerShell approved-verb cleanup
-    * consolidated CSV-writing helpers
-    * roster enrichment cleanup
-    * routed-result metadata validation
-    * shared validation helpers
-    * possible `pathlib` migration
-    * cleaner QR import/dependency handling
-    * shared PDF/image loading helper
-    * possible `scoreform/cli.py`
-    * QR preprocessing/reliability improvements if needed
-    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-11. Perform repository professionalization:
+   * unused imports
+   * clarified score help text
+   * PowerShell approved-verb cleanup
+   * consolidated CSV-writing helpers
+   * roster enrichment cleanup
+   * routed-result metadata validation
+   * shared validation helpers
+   * possible `pathlib` migration
+   * cleaner QR import/dependency handling
+   * shared PDF/image loading helper
+   * possible `scoreform/cli.py`
+   * QR preprocessing/reliability improvements if needed
+   * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
+10. Perform repository professionalization:
 
     * ROADMAP.md
     * CHANGELOG.md
     * public-readiness audit
-12. Later: support multi-page forms.
+11. Later: support multi-page forms.

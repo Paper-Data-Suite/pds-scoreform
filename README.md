@@ -50,6 +50,7 @@ ScoreForm currently supports:
 * QR-aware scoring metadata extraction and automatic assignment lookup from QR payloads
 * Mixed-scan QR-aware scoring (multi-page class packet processing)
 * Result routing into class/assignment folders with roster-enriched routed results
+* Duplicate/attempt handling for repeated QR-aware scans with per-attempt metadata
 * Per-result `source_file` tracking (preserves user-supplied input path)
 * Project-level `scans_inbox/` creation to support scan workflow
 
@@ -61,7 +62,7 @@ Current limitations include:
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * Poor-quality phone scans may fail QR detection.
-* Result routing works for QR-aware scoring, but duplicate/attempt handling and scan storage behavior are still being developed.
+* Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
 * Question count support is currently limited.
 * The terminal menu interface has not yet been implemented.
 * The installable `scoreform` command has not yet been implemented.
@@ -347,7 +348,7 @@ Future test improvements may include:
 * Poor scan quality may prevent QR detection.
 * Some scoring and CSV-export logic still assumes fixed question counts.
 * Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into assignment debug folders.
-* Duplicate/attempt handling is not implemented yet.
+* Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection is not implemented yet.
 * QR preprocessing may be needed for more reliable real-world scanning.
 

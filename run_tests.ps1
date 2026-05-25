@@ -49,6 +49,25 @@ function Assert-FileContains {
     Write-Host "FOUND TEXT: '$Text'" -ForegroundColor Green
 }
 
+function Assert-CsvValueCount {
+    param (
+        [string]$Path,
+        [string]$Column,
+        [string]$Value,
+        [int]$ExpectedCount
+    )
+
+    $rows = Import-Csv $Path
+    $count = ($rows | Where-Object { $_.$Column -eq $Value }).Count
+
+    if ($count -ne $ExpectedCount) {
+        Write-Host "FAILED: Expected $ExpectedCount rows with $Column=$Value in $Path, found $count" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "FOUND CSV COUNT: $Column=$Value appears $ExpectedCount time(s)" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
 Remove-Item "results.csv" -ErrorAction SilentlyContinue
@@ -142,6 +161,16 @@ Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "2"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "class_packet.pdf"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "scan_timestamp"
+
+Write-Host ""
+Write-Host "Testing duplicate/attempt handling for routed results..." -ForegroundColor Yellow
+Run-Test "Score class packet with result routing again for attempt tracking" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
+Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "1" 3
+Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "2" 3
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
+Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "scan_timestamp"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_1.png"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_1.png"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_2.png"
