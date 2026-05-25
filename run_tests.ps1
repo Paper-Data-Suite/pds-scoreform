@@ -111,7 +111,20 @@ Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_pa
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 
-Run-Test "Validate assignment" "python main.py validate-assignment examples\sample_assignment.json"
+Write-Host ""
+Write-Host "Installing ScoreForm in editable mode..." -ForegroundColor Yellow
+Run-Test "Install ScoreForm in editable mode" "python -m pip install -e . --quiet"
+
+Write-Host ""
+Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
+Run-Test "Launch installed scoreform command with menu exit" "Write-Output '7' | scoreform"
+Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '7' | scoreform menu"
+Run-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
+Run-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
+
+Write-Host ""
+Write-Host "Testing direct python main.py compatibility..." -ForegroundColor Yellow
+Run-Test "Validate assignment with python main.py" "python main.py validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
 
 Run-Test "Generate generic template" "python main.py generate"
