@@ -558,11 +558,15 @@ Added to `run_tests.ps1`:
 
 * Roster collision protection is deferred to future phases.
 * `--overwrite` flag is not implemented yet.
-* Menu interface is not implemented yet.
+* Menu interface is implemented.
 
 ---
 
 # Phase 6: Basic Terminal Menu Interface
+
+## Status
+
+Completed.
 
 ## Goal
 
@@ -1248,7 +1252,7 @@ Suggested issues:
 
 Suggested issues:
 
-* Basic terminal menu interface
+* Basic terminal menu interface — completed
 
 ## `v0.4.0` — Installable Command
 
@@ -1288,15 +1292,13 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Finish scan storage behavior (beyond inbox creation).
-2. Add a basic terminal menu interface.
-3. Add installable command / launcher support with `scoreform`.
-4. Add roster and assignment creation/management through the menu.
-5. Add variable question count support up to 15.
-6. Add question standards tagging.
-7. Add optional roster column preservation.
-8. Perform test and CLI robustness improvements.
-9. Perform general cleanup:
+1. Add installable command / launcher support with `scoreform`.
+2. Add roster and assignment creation/management through the menu.
+3. Add variable question count support up to 15.
+4. Add question standards tagging.
+5. Add optional roster column preservation.
+6. Perform test and CLI robustness improvements.
+7. Perform general cleanup:
 
    * unused imports
    * clarified score help text
@@ -1311,9 +1313,9 @@ Suggested issues:
    * possible `scoreform/cli.py`
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-10. Perform repository professionalization:
+8. Perform repository professionalization:
 
-    * ROADMAP.md
-    * CHANGELOG.md
-    * public-readiness audit
-11. Later: support multi-page forms.
+   * ROADMAP.md
+   * CHANGELOG.md
+   * public-readiness audit
+9. Later: support multi-page forms.

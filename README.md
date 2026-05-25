@@ -64,7 +64,7 @@ Current limitations include:
 * Poor-quality phone scans may fail QR detection.
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
 * Question count support is currently limited.
-* The terminal menu interface has not yet been implemented.
+* The terminal menu interface is available via `python main.py menu`.
 * The installable `scoreform` command has not yet been implemented.
 * Manual verification is recommended before using results for actual grades.
 
@@ -136,6 +136,16 @@ classes/
 **Note:** `scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files in `scans_inbox/` are ignored by Git and are not moved or deleted automatically.
 
 Generated files, scans, debug images, results, and local-only test files should generally not be committed to Git.
+
+## Launch the Terminal Menu
+
+A simple terminal menu is available through the CLI:
+
+```powershell
+python main.py menu
+```
+
+The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
 
 ## Data Model
 
@@ -349,7 +359,7 @@ Future test improvements may include:
 * Some scoring and CSV-export logic still assumes fixed question counts.
 * Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
-* Overwrite/collision protection is not implemented yet.
+* Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit overwrite/archive workflow has not been implemented yet.
 * QR preprocessing may be needed for more reliable real-world scanning.
 
 ## Design Principles
