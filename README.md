@@ -47,6 +47,11 @@ ScoreForm currently supports:
 * QR decoding from generated PDFs/images
 * QR decoding from printed-and-scanned sheets when scan quality is adequate
 * Legacy scoring of printed, filled, phone-scanned student sheets with QR code present
+* QR-aware scoring metadata extraction and automatic assignment lookup from QR payloads
+* Mixed-scan QR-aware scoring (multi-page class packet processing)
+* Result routing into class/assignment folders with roster-enriched routed results
+* Per-result `source_file` tracking (preserves user-supplied input path)
+* Project-level `scans_inbox/` creation to support scan workflow
 
 ## Important Limitations
 
@@ -56,8 +61,7 @@ Current limitations include:
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * Poor-quality phone scans may fail QR detection.
-* The scoring workflow is still evolving.
-* Result routing is not yet fully finalized.
+* Result routing works for QR-aware scoring, but duplicate/attempt handling and scan storage behavior are still being developed.
 * Question count support is currently limited.
 * The terminal menu interface has not yet been implemented.
 * The installable `scoreform` command has not yet been implemented.
@@ -95,11 +99,11 @@ scoreform/
   __init__.py
   assignment.py
   folders.py
-  qr.py
   roster.py
   scoring.py
   templates.py
 
+scans_inbox/
 main.py
 requirements.txt
 run_tests.ps1
@@ -117,6 +121,7 @@ classes/
     assignments/
       rj_act1_quiz/
         assignment.json
+        results.csv
         templates/
           class_packet.pdf
           individual/
@@ -126,6 +131,8 @@ classes/
         scans/
         debug/
 ```
+
+**Note:** `scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files in `scans_inbox/` are ignored by Git and are not moved or deleted automatically.
 
 Generated files, scans, debug images, results, and local-only test files should generally not be committed to Git.
 
@@ -224,6 +231,18 @@ On Windows, Poppler can be installed separately. After installation, make sure t
 
 The command-line interface is still evolving. Current commands may change before the first stable release.
 
+### Scan Workflow
+
+Scanned PDFs and images should be placed in the `scans_inbox/` folder:
+
+```text
+scans_inbox/
+  class_packet_2026_05_24.pdf
+  mixed_scan.pdf
+```
+
+The program will create this folder automatically when you generate or set up assignment materials. Results include the source path or filename in the `source_file` column for audit and verification purposes.
+
 ### Validate an Assignment File
 
 ```powershell
@@ -268,35 +287,36 @@ python main.py score scanned_file.pdf results.csv examples\answer_key.json
 
 ## Development Roadmap
 
-The current development plan is organized around these major phases:
+The current development plan focuses the next work on scan workflow, storage, and robustness.
 
-1. QR-based scoring metadata extraction
-2. QR-based mixed scan scoring
-3. Result routing into class/assignment folders
-4. Basic terminal menu interface
-5. Installable `scoreform` command / launcher
-6. Roster and assignment creation/management
-7. Scan storage
-8. Duplicate and attempt handling
-9. Overwrite and collision protection
-10. Variable question counts
-11. Optional roster enhancements
-12. Test and CLI robustness
-13. General code cleanup
-14. Future multi-page forms
+Upcoming focus areas (not exhaustive):
+
+- Scan source tracking / scan workflow
+- Scan storage behavior
+- Debug image routing
+- Duplicate and attempt handling
+- Overwrite and collision protection
+- Basic terminal menu
+- Installable scoreform command
+- Roster and assignment creation/management
+- Variable question counts
+- Optional roster enhancements
+- Test/CLI robustness
+- General cleanup
+- Future multi-page forms
 
 ## Planned Version Milestones
 
 Planned versions may change as the project develops.
 
 ```text
-v0.1.0  QR-aware scoring with routed results
-v0.2.0  Basic teacher-friendly terminal menu
-v0.3.0  Installable scoreform command
-v0.4.0  Roster and assignment creation/management
-v0.5.0  Scan storage, duplicate handling, and overwrite protection
+v0.1.0  QR-aware scoring with routed, roster-enriched results
+v0.2.0  Scan workflow and auditability
+v0.3.0  Basic teacher-friendly terminal menu
+v0.4.0  Installable scoreform command
+v0.5.0  Roster and assignment creation/management
 v0.6.0  Variable question counts and optional roster enhancements
-v0.7.0  Test robustness, CLI reliability, and cleanup
+v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
 v1.0.0  Stable classroom-ready release
 ```
 
@@ -323,9 +343,10 @@ Future test improvements may include:
 ## Known Issues
 
 * Poor scan quality may prevent QR detection.
-* The `score` command may need stronger nonzero exit behavior when files are missing or no pages are scored.
-* Some scoring and CSV-export logic may still assume fixed question counts.
-* Debug image routing is still being refined.
+* Some scoring and CSV-export logic still assumes fixed question counts.
+* Debug image routing still needs improvement.
+* Duplicate/attempt handling is not implemented yet.
+* Overwrite/collision protection is not implemented yet.
 * QR preprocessing may be needed for more reliable real-world scanning.
 
 ## Design Principles

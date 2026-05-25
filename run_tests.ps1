@@ -79,6 +79,7 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1003_brown_alyssa.pdf"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\scans"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
+Assert-Exists "scans_inbox"
 
 Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
 
