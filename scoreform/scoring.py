@@ -31,7 +31,7 @@ def order_points(pts):
     return rect
 
 
-def score_image(img, answer_key, page_num=1):
+def score_image(img, answer_key, page_num=1, debug_dir=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     debug_img = img.copy()
 
@@ -116,6 +116,9 @@ def score_image(img, answer_key, page_num=1):
         cv2.circle(debug_img, (cX, cY), 20, (0, 255, 0), 4)  # Selected corners in green
 
     debug_corners_filename = f"debug_corners_page_{page_num}.png"
+    if debug_dir:
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_corners_filename = os.path.join(debug_dir, debug_corners_filename)
     cv2.imwrite(debug_corners_filename, debug_img)
     print(f"Saved {debug_corners_filename}")
 
@@ -205,6 +208,9 @@ def score_image(img, answer_key, page_num=1):
 
     # Save a debug image
     debug_filename = f"debug_warped_page_{page_num}.png"
+    if debug_dir:
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_filename = os.path.join(debug_dir, debug_filename)
     cv2.imwrite(debug_filename, warped)
     print(f"Saved {debug_filename} for visual verification.\n")
 
@@ -485,7 +491,14 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
         print(f"Error: Assignment {assignment_path} does not contain an answer_key.")
         return None
 
-    result = score_image(img, answer_key, page_num)
+    debug_dir = os.path.join(
+        "classes",
+        class_id,
+        "assignments",
+        assignment_id,
+        "debug",
+    )
+    result = score_image(img, answer_key, page_num, debug_dir=debug_dir)
     if result is None:
         return None
 
