@@ -741,13 +741,9 @@ v0.4.0
 
 Reduce or eliminate manual editing of CSV and JSON files.
 
-Currently, the user must manually create/edit:
+Eventually, a teacher should be able to complete normal ScoreForm setup and management workflows from inside the application without hand-editing roster CSV files, assignment JSON files, or answer keys.
 
-* roster CSV files
-* assignment JSON files
-* answer keys
-
-The menu should eventually help create and manage these.
+The menu should eventually help create, edit, validate, save, and manage these files.
 
 ## Roster Management
 
@@ -762,6 +758,8 @@ Possible menu features:
 * save roster CSV
 * list existing rosters
 * view roster summary
+* edit existing roster metadata
+* add, remove, or update students
 
 ## Assignment Management
 
@@ -772,14 +770,19 @@ Possible menu features:
 * enter assignment title
 * enter question count
 * enter answer key
+* optionally attach standards metadata to questions
 * validate assignment
 * save assignment JSON
 * list existing assignments
 * view assignment summary
+* edit existing assignment metadata
+* update answer keys before materials are generated
 
 ## Notes
 
 This phase should come after the basic menu exists, because it expands the menu from “command wrapper” into a real workflow assistant.
+
+Standards tagging may begin as assignment metadata but is tracked separately because it also affects reporting and analytics.
 
 ## Suggested GitHub Issues
 
@@ -876,7 +879,79 @@ v0.6.0
 
 ---
 
-# Phase 10: Optional Roster Enhancements
+# Phase 10: Question Standards Tagging
+
+## Goal
+
+Allow assignment questions to be tagged with one or more relevant standards so future reports can analyze performance by standard.
+
+This is especially important for classroom assessment workflows where teachers may want to see:
+
+* class performance by standard
+* student performance by standard
+* question performance by standard
+* standards that need reteaching
+* standards that individual students have not yet mastered
+
+## Possible Assignment JSON Shape
+
+```json
+{
+  "assignment_id": "rj_act1_quiz",
+  "title": "Romeo and Juliet Act 1 Quiz",
+  "question_count": 10,
+  "choices": ["A", "B", "C", "D"],
+  "answer_key": {
+    "1": "A",
+    "2": "C"
+  },
+  "standards": {
+    "1": ["RL.CR.11-12.1"],
+    "2": ["RL.CI.11-12.2", "RL.IT.11-12.3"]
+  }
+}
+```
+
+## Requirements
+
+* Allow each question to have zero, one, or multiple standards.
+* Standards should be optional so simple assignments remain easy to create.
+* Assignment validation should verify standards metadata when present.
+* Standards metadata should not break existing assignment files.
+* Future reports should be able to group results by standard.
+* The assignment creation workflow should eventually support adding standards without manually editing JSON.
+
+## Notes
+
+This phase affects both assignment configuration and future reporting.
+
+Do not implement full reporting in this phase unless a later milestone explicitly calls for it.
+
+## Suggested GitHub Issue
+
+Create issue:
+
+```text
+Question standards tagging
+```
+
+Suggested labels:
+
+```text
+feature
+reporting
+roadmap
+```
+
+Suggested milestone:
+
+```text
+v0.6.0
+```
+
+---
+
+# Phase 11: Optional Roster Enhancements
 
 ## Goal
 
@@ -925,7 +1000,7 @@ v0.6.0
 
 ---
 
-# Phase 11: Test and CLI Robustness
+# Phase 12: Test and CLI Robustness
 
 ## Goals
 
@@ -978,7 +1053,7 @@ v0.7.0
 
 ---
 
-# Phase 12: General Code Cleanup
+# Phase 13: General Code Cleanup
 
 ## Goals
 
@@ -1047,7 +1122,7 @@ v0.7.0
 
 ---
 
-# Phase 13: Repository Professionalization
+# Phase 14: Repository Professionalization
 
 ## Goal
 
@@ -1118,7 +1193,7 @@ v0.7.0
 
 ---
 
-# Phase 14: Future Multi-Page Forms
+# Phase 15: Future Multi-Page Forms
 
 ## Goal
 
@@ -1184,11 +1259,12 @@ Suggested issues:
 * Roster creation and management
 * Assignment creation and management
 
-## `v0.6.0` — Flexible Form Configuration
+## `v0.6.0` — Flexible Form Configuration and Standards Metadata
 
 Suggested issues:
 
 * Variable question count support
+* Question standards tagging
 * Optional roster columns
 
 ## `v0.7.0` — Robustness, Cleanup, and Public Readiness
@@ -1212,26 +1288,28 @@ Suggested issues:
 4. Add installable command / launcher support with `scoreform`.
 5. Add roster and assignment creation/management through the menu.
 6. Add variable question count support up to 15.
-7. Add optional roster column preservation.
-8. Perform test and CLI robustness improvements.
-9. Perform general cleanup:
+7. Add question standards tagging.
+8. Add optional roster column preservation.
+9. Perform test and CLI robustness improvements.
+10. Perform general cleanup:
 
-   * unused imports
-   * clarified score help text
-   * PowerShell approved-verb cleanup
-   * consolidated CSV-writing helpers
-   * roster enrichment cleanup
-   * routed-result metadata validation
-   * shared validation helpers
-   * possible `pathlib` migration
-   * cleaner QR import/dependency handling
-   * shared PDF/image loading helper
-   * possible `scoreform/cli.py`
-   * QR preprocessing/reliability improvements if needed
-   * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-10. Perform repository professionalization:
+* unused imports
+* clarified score help text
+* PowerShell approved-verb cleanup
+* consolidated CSV-writing helpers
+* roster enrichment cleanup
+* routed-result metadata validation
+* shared validation helpers
+* possible `pathlib` migration
+* cleaner QR import/dependency handling
+* shared PDF/image loading helper
+* possible `scoreform/cli.py`
+* QR preprocessing/reliability improvements if needed
+* Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
+
+11. Perform repository professionalization:
 
     * ROADMAP.md
     * CHANGELOG.md
     * public-readiness audit
-11. Later: support multi-page forms.
+12. Later: support multi-page forms.
