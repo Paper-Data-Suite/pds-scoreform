@@ -287,6 +287,202 @@ def run_decode_qr(args):
     return 0
 
 
+def write_roster_csv(path, class_id, period, students):
+    """Write a roster CSV file.
+    
+    Args:
+        path: Output CSV file path.
+        class_id: Class ID for all students.
+        period: Period for all students.
+        students: List of dicts with student_id, last_name, first_name.
+    
+    Returns:
+        True if successful, False otherwise.
+    """
+    import csv
+    
+    try:
+        parent_dir = os.path.dirname(path)
+        if parent_dir and not os.path.exists(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+                print(f"Created directory: {parent_dir}")
+            except Exception as e:
+                print(f"Error: Could not create parent directory '{parent_dir}': {e}")
+                return False
+        
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['class_id', 'student_id', 'last_name', 'first_name', 'period'])
+            writer.writeheader()
+            for student in students:
+                writer.writerow({
+                    'class_id': class_id,
+                    'student_id': student['student_id'],
+                    'last_name': student['last_name'],
+                    'first_name': student['first_name'],
+                    'period': period,
+                })
+        return True
+    except Exception as e:
+        print(f"Error: Could not write roster CSV '{path}': {e}")
+        return False
+
+
+def confirm_overwrite(path):
+    """Prompt for confirmation to overwrite an existing file.
+    
+    Args:
+        path: File path to check.
+    
+    Returns:
+        True if user confirms overwrite or file does not exist, False otherwise.
+    """
+    if not os.path.exists(path):
+        return True
+    
+    response = input(f"File '{path}' already exists. Overwrite? (y/yes to confirm): ").strip().lower()
+    return response in ['y', 'yes']
+
+
+def prompt_create_roster():
+    """Interactive prompt to create a new roster.
+    
+    Returns:
+        0 on success, 1 on cancellation or error.
+    """
+    print("--- Create a New Roster ---")
+    print()
+    
+    output_path = input("Output CSV path: ").strip()
+    if not output_path:
+        print("Cancelled: No output path provided.")
+        return 1
+    
+    if not confirm_overwrite(output_path):
+        print("Cancelled: File overwrite not confirmed.")
+        return 1
+    
+    class_id = input("Class ID: ").strip()
+    if not class_id:
+        print("Error: class_id is required.")
+        return 1
+    
+    period = input("Period: ").strip()
+    if not period:
+        print("Error: period is required.")
+        return 1
+    
+    students = []
+    print()
+    print("Enter students one at a time. Press Ctrl+C to exit, or enter empty data to stop adding students.")
+    print()
+    
+    try:
+        while True:
+            print(f"Student #{len(students) + 1}:")
+            student_id = input("  student_id: ").strip()
+            if not student_id:
+                if len(students) == 0:
+                    print("Error: At least one student is required.")
+                    return 1
+                break
+            
+            # Once we have a student_id, we need last_name.
+            # Re-prompt until we get a non-blank last_name.
+            while True:
+                last_name = input("  last_name: ").strip()
+                if last_name:
+                    break
+                print("  Error: last_name is required.")
+            
+            # Once we have last_name, we need first_name.
+            # Re-prompt until we get a non-blank first_name.
+            while True:
+                first_name = input("  first_name: ").strip()
+                if first_name:
+                    break
+                print("  Error: first_name is required.")
+            
+            # Now we have all required fields for this student.
+            students.append({
+                'student_id': student_id,
+                'last_name': last_name,
+                'first_name': first_name,
+            })
+            print(f"  Added: {student_id} - {last_name}, {first_name}")
+            print()
+            
+            add_another = input("Add another student? (y/n): ").strip().lower()
+            if add_another not in ['y', 'yes']:
+                break
+            print()
+    
+    except KeyboardInterrupt:
+        print("\nCancelled: User interrupted.")
+        return 1
+    
+    print()
+    print(f"Writing {len(students)} students to: {output_path}")
+    if not write_roster_csv(output_path, class_id, period, students):
+        print("Error: Failed to write roster CSV.")
+        return 1
+    
+    print("Validating roster...")
+    roster = load_roster(output_path)
+    if roster is None:
+        print("Error: Roster validation failed after save.")
+        return 1
+    
+    print(f"Success! Roster created with {len(roster['students'])} students.")
+    return 0
+
+
+def launch_roster_menu():
+    """Roster management submenu.
+    
+    Returns:
+        0 on return to main menu, 1 on error.
+    """
+    try:
+        while True:
+            print("Roster Management")
+            print()
+            print("1. Create a new roster")
+            print("2. Validate an existing roster")
+            print("3. Return to main menu")
+            print()
+            
+            choice = input("Select an option: ").strip()
+            print()
+            
+            if choice == "1":
+                result = prompt_create_roster()
+                print()
+                if result != 0:
+                    continue
+                
+            elif choice == "2":
+                roster_path = input("Roster CSV path: ").strip()
+                if not roster_path:
+                    print("Roster file path is required.")
+                    print()
+                    continue
+                
+                run_validate_roster([roster_path])
+                print()
+                
+            elif choice == "3":
+                return 0
+                
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print()
+    
+    except KeyboardInterrupt:
+        print("\nExiting roster menu.")
+        return 0
+
+
 def launch_menu():
     print("ScoreForm")
     print()
@@ -299,7 +495,8 @@ def launch_menu():
             print("4. Validate an assignment file")
             print("5. Validate a roster file")
             print("6. Set up assignment folders")
-            print("7. Exit")
+            print("7. Roster management")
+            print("8. Exit")
 
             choice = input("Select an option: ").strip()
             print()
@@ -390,11 +587,15 @@ def launch_menu():
                 print()
 
             elif choice == "7":
+                launch_roster_menu()
+                print()
+
+            elif choice == "8":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 7.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
                 print()
 
     except KeyboardInterrupt:
