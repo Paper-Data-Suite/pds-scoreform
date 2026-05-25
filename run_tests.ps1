@@ -54,6 +54,8 @@ Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
 Remove-Item "results.csv" -ErrorAction SilentlyContinue
 Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 
 Run-Test "Validate assignment" "python main.py validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
@@ -140,6 +142,12 @@ Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "2"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "class_packet.pdf"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_1.png"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_1.png"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_2.png"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_2.png"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_3.png"
+Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_3.png"
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

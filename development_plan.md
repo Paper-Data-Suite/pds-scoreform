@@ -370,6 +370,10 @@ v0.2.0
 
 # Phase 3: Debug Image Routing
 
+## Status
+
+Completed.
+
 ## Goal
 
 Move debug image output out of the project root and into assignment-specific debug folders when possible.
@@ -1118,7 +1122,7 @@ Suggested issues:
 
 * Scan source tracking — completed
 * Scan storage workflow — in progress (scan inbox created; storage behavior pending)
-* Debug image routing
+* Debug image routing — completed
 * Duplicate and attempt handling
 * Overwrite and collision protection
 
@@ -1166,16 +1170,15 @@ Suggested issues:
 # Suggested Implementation Order From Here
 
 1. Finish scan storage behavior (beyond inbox creation).
-2. Route debug images into assignment-specific debug folders.
-3. Add duplicate/attempt handling.
-4. Add overwrite/collision protection.
-5. Add a basic terminal menu interface.
-6. Add installable command / launcher support with `scoreform`.
-7. Add roster and assignment creation/management through the menu.
-8. Add variable question count support up to 15.
-9. Add optional roster column preservation.
-10. Perform test and CLI robustness improvements.
-11. Perform general cleanup:
+2. Add duplicate/attempt handling.
+3. Add overwrite/collision protection.
+4. Add a basic terminal menu interface.
+5. Add installable command / launcher support with `scoreform`.
+6. Add roster and assignment creation/management through the menu.
+7. Add variable question count support up to 15.
+8. Add optional roster column preservation.
+9. Perform test and CLI robustness improvements.
+10. Perform general cleanup:
 
     * unused imports
     * clarified score help text
@@ -1189,9 +1192,9 @@ Suggested issues:
     * shared PDF/image loading helper
     * possible `scoreform/cli.py`
     * QR preprocessing/reliability improvements if needed
-12. Perform repository professionalization:
+11. Perform repository professionalization:
 
     * ROADMAP.md
     * CHANGELOG.md
     * public-readiness audit
-13. Later: support multi-page forms.
+12. Later: support multi-page forms.

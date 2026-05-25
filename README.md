@@ -243,6 +243,8 @@ scans_inbox/
 
 The program will create this folder automatically when you generate or set up assignment materials. Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
+Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into the assignment `debug/` folder.
+
 ### Validate an Assignment File
 
 ```powershell
@@ -344,7 +346,7 @@ Future test improvements may include:
 
 * Poor scan quality may prevent QR detection.
 * Some scoring and CSV-export logic still assumes fixed question counts.
-* Debug image routing still needs improvement.
+* Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling is not implemented yet.
 * Overwrite/collision protection is not implemented yet.
 * QR preprocessing may be needed for more reliable real-world scanning.
