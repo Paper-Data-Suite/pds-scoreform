@@ -51,6 +51,13 @@ The project currently supports:
 * Assignment collision protection with semantic JSON comparison
 * Collision detection prevents overwrite of mismatched assignments
 * Regression test coverage for collision protection
+* Menu-driven roster creation
+* Roster management submenu with create, validate, and return options
+* Roster CSV writing with required schema
+* Roster overwrite confirmation
+* Roster parent-directory creation when needed
+* Roster validation after save
+* Regression test coverage for menu-driven roster creation
 * Basic terminal menu interface through `python main.py menu` and `scoreform menu`
 * Menu wraps existing workflows while preserving direct CLI commands
 * Editable package installation with `python -m pip install -e .`
@@ -723,33 +730,61 @@ v0.4.0
 
 # Phase 8: Roster and Assignment Creation/Management
 
-## Goal
+## Status
 
-Reduce or eliminate manual editing of CSV and JSON files.
+Partially implemented (v0.5.0).
 
 Eventually, a teacher should be able to complete normal ScoreForm setup and management workflows from inside the application without hand-editing roster CSV files, assignment JSON files, or answer keys.
 
 The menu should eventually help create, edit, validate, save, and manage these files.
 
-## Roster Management
+## Roster Creation/Management
 
-Possible menu features:
+Status: Completed initial menu-driven roster creation (v0.5.0).
 
-* create a new roster
-* enter `class_id`
-* enter period
-* add students one by one
+The terminal menu now includes a submenu for roster management with:
+
+* Create a new roster (interactive prompts for class_id, period, and students)
+* Validate an existing roster
+* Return to main menu
+
+Roster creation workflow:
+
+1. Launch with `scoreform` or `python main.py menu`
+2. Select option 7 (Roster management)
+3. Select option 1 (Create a new roster)
+4. Provide output CSV path
+5. Enter class_id and period (applied to all students)
+6. Enter students one at a time (student_id, last_name, first_name)
+7. After adding all students, the roster is saved to the specified path
+8. Roster is validated using existing validation logic
+9. Success message displays if valid
+
+Features:
+
+* Prompts for required fields: student_id, last_name, first_name
+* Parent directory creation if needed
+* Overwrite protection (requires explicit confirmation)
+* Validation after save using existing `load_roster()` logic
+* Rejects rosters with fewer than one student
+* Clean cancellation with Ctrl+C
+* Blank `student_id` finishes student entry after at least one student has been added
+
+## Assignment Creation/Management
+
+Status: Not yet implemented.
+
+Assignment creation remains on the roadmap for a future phase.
+
+## Potential Future Roster Features
+
 * import students from a CSV
-* validate roster
-* save roster CSV
 * list existing rosters
 * view roster summary
 * edit existing roster metadata
-* add, remove, or update students
+* add, remove, or update students in an existing roster
 
-## Assignment Management
-
-Possible menu features:
+## Potential Assignment Features
 
 * create a new assignment
 * enter `assignment_id`
@@ -1249,7 +1284,7 @@ Suggested issues:
 
 Suggested issues:
 
-* Roster creation and management
+* Roster creation and management — completed
 * Assignment creation and management
 
 ## `v0.6.0` — Flexible Form Configuration and Standards Metadata
@@ -1275,7 +1310,7 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add roster and assignment creation/management through the menu.
+1. Add assignment creation/management through the menu.
 2. Add variable question count support up to 15.
 3. Add question standards tagging.
 4. Add optional roster column preservation.
@@ -1292,7 +1327,7 @@ Suggested issues:
    * possible `pathlib` migration
    * cleaner QR import/dependency handling
    * shared PDF/image loading helper
-   * possible `scoreform/cli.py`
+   * possible further CLI/module split
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
 7. Perform repository professionalization:

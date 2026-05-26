@@ -110,6 +110,7 @@ Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
+Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode..." -ForegroundColor Yellow
@@ -117,8 +118,8 @@ Run-Test "Install ScoreForm in editable mode" "python -m pip install -e . --quie
 
 Write-Host ""
 Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
-Run-Test "Launch installed scoreform command with menu exit" "Write-Output '7' | scoreform"
-Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '7' | scoreform menu"
+Run-Test "Launch installed scoreform command with menu exit" "Write-Output '8' | scoreform"
+Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '8' | scoreform menu"
 Run-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
 
@@ -154,7 +155,7 @@ Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr cla
 
 Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Run-Test "Launch menu and exit" "Write-Output '7' | python main.py menu"
+Run-Test "Launch menu and exit" "Write-Output '8' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
@@ -268,6 +269,56 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_2.png"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_3.png"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_3.png"
+
+Write-Host ""
+Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
+
+# Clean up test roster if it exists
+Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
+
+# Use piped input to create a test roster through the menu
+# Main menu: 7 = Roster management
+# Roster menu: 1 = Create a new roster
+# Then respond to prompts
+@(
+    "7",                    # Main menu -> Roster management
+    "1",                    # Roster menu -> Create a new roster
+    "temp_test_roster.csv", # Output path
+    "test_class_v5",        # class_id
+    "5",                    # period
+    "5001",                 # student 1 id
+    "Test",                 # student 1 last_name
+    "Alice",                # student 1 first_name
+    "y",                    # add another? yes
+    "5002",                 # student 2 id
+    "Student",              # student 2 last_name
+    "Bob",                  # student 2 first_name
+    "n",                    # add another? no
+    "3",                    # Return to main menu
+    "8"                     # Exit
+) | scoreform
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAILED: Roster creation through menu" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "PASSED: Roster creation through menu" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Checking roster creation output..." -ForegroundColor Yellow
+Assert-Exists "temp_test_roster.csv"
+Assert-FileContains "temp_test_roster.csv" "class_id,student_id,last_name,first_name,period"
+Assert-FileContains "temp_test_roster.csv" "test_class_v5"
+Assert-FileContains "temp_test_roster.csv" "5001"
+Assert-FileContains "temp_test_roster.csv" "5002"
+Assert-FileContains "temp_test_roster.csv" "Alice"
+Assert-FileContains "temp_test_roster.csv" "Bob"
+
+Run-Test "Validate created roster" "scoreform validate-roster temp_test_roster.csv"
+
+# Clean up test roster
+Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

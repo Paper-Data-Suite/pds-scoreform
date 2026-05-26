@@ -54,6 +54,7 @@ ScoreForm currently supports:
 * Per-result `source_file` tracking (preserves user-supplied input path)
 * Project-level `scans_inbox/` creation to support scan workflow
 * Basic terminal menu via `python main.py menu` or `scoreform`
+* Menu-driven roster creation without manual CSV editing
 * Editable install support with the `scoreform` command
 
 ## Important Limitations
@@ -153,6 +154,50 @@ scoreform
 For direct Python invocation, `python main.py menu` remains supported.
 
 The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
+
+### Create a Roster from the Menu
+
+ScoreForm now includes menu-driven roster creation, so you can create valid roster CSV files without manually editing CSV:
+
+1. Launch the terminal menu:
+   ```powershell
+   scoreform
+   ```
+
+2. Select **7. Roster management**
+
+3. Select **1. Create a new roster**
+
+4. Provide the output CSV path, for example:
+   ```
+   my_class_rosters/english9_p2.csv
+   ```
+   (Parent directories are created automatically if needed)
+
+5. Enter the class ID and period (applied to all students in this roster)
+
+6. Enter students one at a time with:
+   - student_id
+   - last_name
+   - first_name
+
+7. After adding all students, the roster is saved and validated automatically
+
+Example roster created this way:
+
+```csv
+class_id,student_id,last_name,first_name,period
+english9_p2,1001,Doe,Jane,2
+english9_p2,1002,Smith,Marcus,2
+english9_p2,1003,Brown,Alyssa,2
+```
+
+Features:
+
+* **Overwrite protection**: If the file already exists, you must explicitly confirm before overwriting.
+* **Validation after save**: The roster is validated using built-in validation logic before reporting success.
+* **Parent directory creation**: Output directories are created automatically if needed.
+* **Exit/cancel support**: Press Ctrl+C to cancel, or leave `student_id` blank after entering at least one student to finish the roster.
 
 ## Data Model
 
