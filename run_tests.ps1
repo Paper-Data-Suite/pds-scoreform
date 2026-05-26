@@ -111,6 +111,7 @@ Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_pa
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
+Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode..." -ForegroundColor Yellow
@@ -118,8 +119,8 @@ Run-Test "Install ScoreForm in editable mode" "python -m pip install -e . --quie
 
 Write-Host ""
 Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
-Run-Test "Launch installed scoreform command with menu exit" "Write-Output '8' | scoreform"
-Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '8' | scoreform menu"
+Run-Test "Launch installed scoreform command with menu exit" "Write-Output '9' | scoreform"
+Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '9' | scoreform menu"
 Run-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
 
@@ -155,7 +156,7 @@ Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr cla
 
 Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Run-Test "Launch menu and exit" "Write-Output '8' | python main.py menu"
+Run-Test "Launch menu and exit" "Write-Output '9' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
@@ -295,8 +296,8 @@ Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
     "Bob",                  # student 2 first_name
     "n",                    # add another? no
     "3",                    # Return to main menu
-    "8"                     # Exit
-) | scoreform
+    "9"                     # Exit
+) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAILED: Roster creation through menu" -ForegroundColor Red
@@ -315,10 +316,50 @@ Assert-FileContains "temp_test_roster.csv" "5002"
 Assert-FileContains "temp_test_roster.csv" "Alice"
 Assert-FileContains "temp_test_roster.csv" "Bob"
 
-Run-Test "Validate created roster" "scoreform validate-roster temp_test_roster.csv"
+Run-Test "Validate created roster" "python main.py validate-roster temp_test_roster.csv"
 
 # Clean up test roster
 Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
+
+Write-Host ""
+Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
+
+# Clean up temp assignment if it exists
+Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
+
+# Use piped input to create a test assignment through the menu
+@(
+    "8",                        # Main menu -> Assignment management
+    "1",                        # Assignment menu -> Create a new assignment
+    "temp_test_assignment.json",# Output path
+    "test_assignment_v5",       # assignment_id
+    "Test Assignment V5",       # title
+    "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
+    "3",                        # Return to main menu
+    "9"                         # Exit
+) | python main.py menu
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAILED: Assignment creation through menu" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "PASSED: Assignment creation through menu" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Checking assignment creation output..." -ForegroundColor Yellow
+Assert-Exists "temp_test_assignment.json"
+Assert-FileContains "temp_test_assignment.json" "assignment_id"
+Assert-FileContains "temp_test_assignment.json" "test_assignment_v5"
+Assert-FileContains "temp_test_assignment.json" "question_count"
+Assert-FileContains "temp_test_assignment.json" "10"
+Assert-FileContains "temp_test_assignment.json" "choices"
+Assert-FileContains "temp_test_assignment.json" "answer_key"
+
+Run-Test "Validate created assignment" "python main.py validate-assignment temp_test_assignment.json"
+
+# Clean up temp assignment
+Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

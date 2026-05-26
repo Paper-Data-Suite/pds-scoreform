@@ -55,6 +55,7 @@ ScoreForm currently supports:
 * Project-level `scans_inbox/` creation to support scan workflow
 * Basic terminal menu via `python main.py menu` or `scoreform`
 * Menu-driven roster creation without manual CSV editing
+* Menu-driven assignment creation without manual JSON editing
 * Editable install support with the `scoreform` command
 
 ## Important Limitations
@@ -117,7 +118,7 @@ run_tests.ps1
 README.md
 LICENSE
 development_plan.md
-```
+````
 
 Generated classroom files are organized using a structure like:
 
@@ -160,6 +161,7 @@ The menu wraps existing workflows while preserving direct CLI commands such as `
 ScoreForm now includes menu-driven roster creation, so you can create valid roster CSV files without manually editing CSV:
 
 1. Launch the terminal menu:
+
    ```powershell
    scoreform
    ```
@@ -169,17 +171,20 @@ ScoreForm now includes menu-driven roster creation, so you can create valid rost
 3. Select **1. Create a new roster**
 
 4. Provide the output CSV path, for example:
+
    ```
    my_class_rosters/english9_p2.csv
    ```
+
    (Parent directories are created automatically if needed)
 
 5. Enter the class ID and period (applied to all students in this roster)
 
 6. Enter students one at a time with:
-   - student_id
-   - last_name
-   - first_name
+
+   * student_id
+   * last_name
+   * first_name
 
 7. After adding all students, the roster is saved and validated automatically
 
@@ -198,6 +203,33 @@ Features:
 * **Validation after save**: The roster is validated using built-in validation logic before reporting success.
 * **Parent directory creation**: Output directories are created automatically if needed.
 * **Exit/cancel support**: Press Ctrl+C to cancel, or leave `student_id` blank after entering at least one student to finish the roster.
+
+### Create an Assignment from the Menu
+
+ScoreForm now includes menu-driven assignment creation so you can create valid assignment JSON files without hand-editing JSON.
+
+1. Launch the terminal menu:
+
+   ```powershell
+   scoreform
+   ```
+
+2. Select **8. Assignment management**
+
+3. Select **1. Create a new assignment**
+
+4. Provide the output JSON path. Parent directories are created if needed.
+
+5. Enter `assignment_id` and `title`.
+
+6. Enter answers for Q1 through Q10. Current choices are A-D only.
+
+7. The tool saves the assignment JSON and validates it automatically.
+
+Notes:
+
+* Current limitation: `question_count` is fixed at 10 and choices are fixed at A-D.
+* Overwrite protection requires `y` or `yes` to overwrite existing files.
 
 ## Data Model
 
@@ -397,17 +429,17 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 ## Development Roadmap
 
-The current development plan focuses the next work on roster and assignment management, flexible form configuration, reporting metadata, test robustness, cleanup, and public-readiness work.
+The current development plan focuses the next work on flexible form configuration, reporting metadata, test robustness, cleanup, and public-readiness work.
 
 Upcoming focus areas (not exhaustive):
 
-- Roster and assignment creation/management
-- Variable question counts
-- Question standards tagging
-- Optional roster enhancements
-- Test/CLI robustness
-- General cleanup
-- Future multi-page forms
+* Variable question counts
+* Question standards tagging
+* Optional roster enhancements
+* Assignment and roster editing/listing/summaries
+* Test/CLI robustness
+* General cleanup
+* Future multi-page forms
 
 ## Planned Version Milestones
 

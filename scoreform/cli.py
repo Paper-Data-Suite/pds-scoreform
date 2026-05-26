@@ -344,6 +344,31 @@ def confirm_overwrite(path):
     return response in ['y', 'yes']
 
 
+def write_assignment_json(path, assignment):
+    """Write an assignment JSON file to `path`.
+
+    Creates parent directories if needed. Returns True on success.
+    """
+    import json
+
+    try:
+        parent_dir = os.path.dirname(path)
+        if parent_dir and not os.path.exists(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+                print(f"Created directory: {parent_dir}")
+            except Exception as e:
+                print(f"Error: Could not create parent directory '{parent_dir}': {e}")
+                return False
+
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(assignment, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error: Could not write assignment JSON '{path}': {e}")
+        return False
+
+
 def prompt_create_roster():
     """Interactive prompt to create a new roster.
     
@@ -437,6 +462,74 @@ def prompt_create_roster():
     return 0
 
 
+def prompt_create_assignment():
+    """Interactive prompt to create a new assignment JSON file.
+
+    Returns 0 on success, 1 on cancellation or error.
+    """
+    import json
+
+    print("--- Create a New Assignment ---")
+    print()
+
+    output_path = input("Output JSON path: ").strip()
+    if not output_path:
+        print("Cancelled: No output path provided.")
+        return 1
+
+    if not confirm_overwrite(output_path):
+        print("Cancelled: File overwrite not confirmed.")
+        return 1
+
+    assignment_id = input("assignment_id: ").strip()
+    if not assignment_id:
+        print("Error: assignment_id is required.")
+        return 1
+
+    title = input("title: ").strip()
+    if not title:
+        print("Error: title is required.")
+        return 1
+
+    print()
+    print("Using question_count: 10")
+    print("Using choices: A, B, C, D")
+    print()
+
+    choices = ["A", "B", "C", "D"]
+    answer_key = {}
+
+    for i in range(1, 11):
+        while True:
+            ans = input(f"Q{i} answer (A/B/C/D): ").strip().upper()
+            if ans in choices:
+                answer_key[str(i)] = ans
+                break
+            print("Error: Answer must be one of A, B, C, or D (case-insensitive). Please try again.")
+
+    assignment = {
+        "assignment_id": assignment_id,
+        "title": title,
+        "question_count": 10,
+        "choices": choices,
+        "answer_key": answer_key,
+    }
+
+    print(f"Writing assignment to: {output_path}")
+    if not write_assignment_json(output_path, assignment):
+        print("Error: Failed to write assignment JSON.")
+        return 1
+
+    print("Validating assignment...")
+    loaded = load_assignment(output_path)
+    if loaded is None:
+        print("Error: Assignment validation failed after save.")
+        return 1
+
+    print("Success! Assignment created and validated.")
+    return 0
+
+
 def launch_roster_menu():
     """Roster management submenu.
     
@@ -483,6 +576,48 @@ def launch_roster_menu():
         return 0
 
 
+def launch_assignment_menu():
+    """Assignment management submenu."""
+    try:
+        while True:
+            print("Assignment Management")
+            print()
+            print("1. Create a new assignment")
+            print("2. Validate an existing assignment")
+            print("3. Return to main menu")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                result = prompt_create_assignment()
+                print()
+                if result != 0:
+                    continue
+
+            elif choice == "2":
+                assignment_path = input("Assignment JSON path: ").strip()
+                if not assignment_path:
+                    print("Assignment file path is required.")
+                    print()
+                    continue
+
+                run_validate_assignment([assignment_path])
+                print()
+
+            elif choice == "3":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print()
+
+    except KeyboardInterrupt:
+        print("\nExiting assignment menu.")
+        return 0
+
+
 def launch_menu():
     print("ScoreForm")
     print()
@@ -496,7 +631,8 @@ def launch_menu():
             print("5. Validate a roster file")
             print("6. Set up assignment folders")
             print("7. Roster management")
-            print("8. Exit")
+            print("8. Assignment management")
+            print("9. Exit")
 
             choice = input("Select an option: ").strip()
             print()
@@ -591,11 +727,15 @@ def launch_menu():
                 print()
 
             elif choice == "8":
+                launch_assignment_menu()
+                print()
+
+            elif choice == "9":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 9.")
                 print()
 
     except KeyboardInterrupt:

@@ -58,6 +58,13 @@ The project currently supports:
 * Roster parent-directory creation when needed
 * Roster validation after save
 * Regression test coverage for menu-driven roster creation
+* Menu-driven assignment creation
+* Assignment management submenu with create, validate, and return options
+* Assignment JSON writing with current required schema
+* Assignment overwrite confirmation
+* Assignment parent-directory creation when needed
+* Assignment validation after save
+* Regression test coverage for menu-driven assignment creation
 * Basic terminal menu interface through `python main.py menu` and `scoreform menu`
 * Menu wraps existing workflows while preserving direct CLI commands
 * Editable package installation with `python -m pip install -e .`
@@ -732,7 +739,7 @@ v0.4.0
 
 ## Status
 
-Partially implemented (v0.5.0).
+Completed for initial v0.5.0 scope.
 
 Eventually, a teacher should be able to complete normal ScoreForm setup and management workflows from inside the application without hand-editing roster CSV files, assignment JSON files, or answer keys.
 
@@ -772,9 +779,36 @@ Features:
 
 ## Assignment Creation/Management
 
-Status: Not yet implemented.
+Status: Completed initial menu-driven assignment creation (v0.5.0).
 
-Assignment creation remains on the roadmap for a future phase.
+The terminal menu now includes a submenu for assignment management with:
+
+* Create a new assignment
+* Validate an existing assignment
+* Return to main menu
+
+Assignment creation workflow:
+
+1. Launch with `scoreform` or `python main.py menu`
+2. Select option 8 (Assignment management)
+3. Select option 1 (Create a new assignment)
+4. Provide output JSON path
+5. Enter `assignment_id` and `title`
+6. Enter answers for Q1 through Q10
+7. Assignment is saved to the specified path
+8. Assignment is validated using existing validation logic
+9. Success message displays if valid
+
+Features:
+
+* Uses the existing assignment schema
+* Uses fixed `question_count: 10`
+* Uses fixed choices: A, B, C, D
+* Re-prompts invalid answers until A, B, C, or D is entered
+* Stores answer key values uppercase
+* Parent directory creation if needed
+* Overwrite protection requires explicit confirmation
+* Validation after save using existing `load_assignment()` logic
 
 ## Potential Future Roster Features
 
@@ -786,14 +820,8 @@ Assignment creation remains on the roadmap for a future phase.
 
 ## Potential Assignment Features
 
-* create a new assignment
-* enter `assignment_id`
-* enter assignment title
 * enter question count
-* enter answer key
 * optionally attach standards metadata to questions
-* validate assignment
-* save assignment JSON
 * list existing assignments
 * view assignment summary
 * edit existing assignment metadata
@@ -1285,7 +1313,7 @@ Suggested issues:
 Suggested issues:
 
 * Roster creation and management — completed
-* Assignment creation and management
+* Assignment creation and management — completed
 
 ## `v0.6.0` — Flexible Form Configuration and Standards Metadata
 
@@ -1310,7 +1338,7 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add assignment creation/management through the menu.
+1. Pause for a no-edit senior-developer code review with Antigravity before larger cross-cutting refactors.
 2. Add variable question count support up to 15.
 3. Add question standards tagging.
 4. Add optional roster column preservation.
