@@ -77,6 +77,9 @@ The project currently supports:
 * `pyproject.toml` with setuptools configuration
 * Backward-compatible `python main.py` commands preserved
 * Regression test coverage for editable install and scoreform command
+* Initial pytest suite added
+* Pytest coverage for QR validation, assignment validation, roster validation, folder helpers, and template filename helpers
+* `run_tests.ps1` now installs development extras and runs pytest before full workflow regression checks
 
 ## Completed Milestone
 
@@ -1068,6 +1071,9 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` includes roster lookup regression coverage for routed results.
 * `score` exits nonzero when no pages are scored successfully.
 * CSV export functions report success/failure to the CLI.
+* Initial Python-native pytest suite added.
+* Pytest suite covers QR payload parsing/validation, assignment validation, roster validation, assignment comparison helpers, and template filename helpers.
+* `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
 
 ## Future Test Improvements
 
@@ -1077,7 +1083,7 @@ Make the program and regression tests more reliable across machines.
 * Add tests for missing input files.
 * Add tests for menu workflows once the menu exists.
 * Add QR reliability tests or manual checklist guidance for scan quality.
-* Consider a future `pytest` test suite once the architecture stabilizes.
+* Expand pytest coverage as the architecture stabilizes.
 
 ## Suggested GitHub Issues
 
@@ -1328,6 +1334,7 @@ Suggested issues:
 
 Suggested issues:
 
+* Add initial pytest test suite — completed
 * Variable question count support
 * Question standards tagging
 * Optional roster columns
@@ -1347,12 +1354,11 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Split CLI workflow helpers from command dispatch.
-2. Add variable question count support up to 15.
-3. Add question standards tagging.
-4. Add optional roster column preservation.
-5. Perform test and CLI robustness improvements.
-6. Perform general cleanup:
+1. Add variable question count support up to 15.
+2. Add question standards tagging.
+3. Add optional roster column preservation.
+4. Perform test and CLI robustness improvements.
+5. Perform general cleanup:
 
    * unused imports
    * clarified score help text
@@ -1367,9 +1373,9 @@ Suggested issues:
    * possible further CLI/module split
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-7. Perform repository professionalization:
+6. Perform repository professionalization:
 
    * ROADMAP.md
    * CHANGELOG.md
    * public-readiness audit
-8. Later: support multi-page forms.
+7. Later: support multi-page forms.

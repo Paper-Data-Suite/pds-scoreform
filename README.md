@@ -103,11 +103,19 @@ examples/
 scoreform/
   __init__.py
   assignment.py
+  cli.py
   folders.py
+  results.py
   roster.py
   scoring.py
   templates.py
-  cli.py
+  workflows.py
+tests/
+  test_assignment_validation.py
+  test_folders.py
+  test_qr_validation.py
+  test_roster_validation.py
+  test_templates.py
 
 pyproject.toml
 
@@ -333,6 +341,12 @@ python -m pip install -r requirements.txt
 python -m pip install -e .
 ```
 
+To include development/test dependencies such as `pytest`, install with the `dev` extra:
+
+```powershell
+python -m pip install -e .[dev]
+```
+
 Then launch the interactive menu with:
 
 ```powershell
@@ -460,13 +474,25 @@ v1.0.0  Stable classroom-ready release
 
 ## Testing
 
-A portable PowerShell regression script is included:
+ScoreForm now includes two layers of tests.
+
+Run the focused Python test suite with:
+
+```powershell
+python -m pytest
+```
+
+The pytest suite is intended for focused module-level checks such as QR payload validation, assignment validation, roster validation, folder helpers, and filename helpers.
+
+A portable PowerShell regression script is also included:
 
 ```powershell
 .\run_tests.ps1
 ```
 
-The test script is intended to verify core development behaviors without relying on private or local-only scan files.
+The PowerShell script installs the package in editable mode with development extras, runs the pytest suite, and then verifies full workflow behaviors such as generation, validation, QR-aware scoring, routed results, duplicate/attempt handling, and menu workflows.
+
+The test scripts are intended to verify core development behaviors without relying on private or local-only scan files.
 
 Future test improvements may include:
 
@@ -474,7 +500,7 @@ Future test improvements may include:
 * malformed QR payload tests
 * missing QR code tests
 * missing input file tests
-* menu workflow tests
+* additional menu workflow tests
 * QR reliability tests
 * scan-quality guidance checks
 

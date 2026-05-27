@@ -114,8 +114,12 @@ Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "Installing ScoreForm in editable mode..." -ForegroundColor Yellow
-Run-Test "Install ScoreForm in editable mode" "python -m pip install -e . --quiet"
+Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
+Run-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -e .[dev] --quiet"
+
+Write-Host ""
+Write-Host "Running pytest suite..." -ForegroundColor Yellow
+Run-Test "Run pytest suite" "python -m pytest"
 
 Write-Host ""
 Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
