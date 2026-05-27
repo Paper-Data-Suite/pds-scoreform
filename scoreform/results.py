@@ -2,6 +2,8 @@ import csv
 import datetime
 import os
 
+from scoreform.scoring import validate_qr_identifier
+
 
 def export_to_csv(all_results, output_file):
     """Exports structured scoring data to a CSV file.
@@ -164,28 +166,49 @@ def export_routed_results(all_results):
         print("No results to export.")
         return False
 
-    # Validate that all results have required metadata
+    # Validate that all results have required metadata and safe QR identifiers
+    groups = {}
     for res in all_results:
-        if "class_id" not in res or "assignment_id" not in res:
+        class_id = res.get("class_id")
+        assignment_id = res.get("assignment_id")
+        student_id = res.get("student_id")
+
+        if class_id is None or assignment_id is None or student_id is None:
             print(
                 f"Error: Result missing required metadata. "
-                f"class_id={res.get('class_id')}, assignment_id={res.get('assignment_id')}"
+                f"class_id={class_id}, assignment_id={assignment_id}, student_id={student_id}"
             )
             return False
+
+        if not validate_qr_identifier("class_id", class_id):
+            print(
+                f"Error: Unsafe class_id in routed result: '{class_id}'. "
+                "Rejecting export."
+            )
+            return False
+        if not validate_qr_identifier("assignment_id", assignment_id):
+            print(
+                f"Error: Unsafe assignment_id in routed result: '{assignment_id}'. "
+                "Rejecting export."
+            )
+            return False
+        if not validate_qr_identifier("student_id", student_id):
+            print(
+                f"Error: Unsafe student_id in routed result: '{student_id}'. "
+                "Rejecting export."
+            )
+            return False
+
+        key = (class_id, assignment_id)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(res)
 
     # Enrich results with roster metadata (last_name, first_name, period)
     enriched_ok = _enrich_results_with_roster(all_results)
     if not enriched_ok:
         # Continue exporting even if some roster lookups failed; warnings printed by helper
         pass
-
-    # Group results by (class_id, assignment_id)
-    groups = {}
-    for res in all_results:
-        key = (res["class_id"], res["assignment_id"])
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(res)
 
     # Write each group to its assignment folder
     all_success = True

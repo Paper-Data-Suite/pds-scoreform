@@ -123,6 +123,10 @@ Run-Test "Launch installed scoreform command with menu exit" "Write-Output '9' |
 Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '9' | scoreform menu"
 Run-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Run-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
+$qrValidationCmd = @'
+python -c "from scoreform.scoring import validate_qr_metadata; assert validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'../secret','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'classes/foo','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj.act1.quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':r'C:\Users\Teacher'});"
+'@
+Run-Test "Validate QR payload identifier helper" $qrValidationCmd
 
 Write-Host ""
 Write-Host "Testing direct python main.py compatibility..." -ForegroundColor Yellow
