@@ -1,4 +1,3 @@
-import os
 import re
 import sys
 import numpy as np
@@ -15,7 +14,6 @@ from scoreform.config import (
     BOX_STEP_X,
     PDF_SCALE,
     PDF_HEIGHT,
-    PDF_WIDTH,
 )
 
 def _pdf_coord(x, y):
@@ -269,8 +267,8 @@ def draw_qr_code(c, assignment_data, student_data):
 def draw_student_answer_sheet_page(c, assignment_data, student_data):
     """Draw a single personalized answer-sheet page onto an existing ReportLab canvas.
 
-    This function intentionally uses the same layout as `generate_student_pdf` used
-    previously (fixed 10 questions) to preserve scoring compatibility.
+    This function uses the assignment's question_count to render the correct number
+    of question rows while preserving the existing layout for A-D choices.
     """
     # Draw registration marks
     for (x, y) in CORNERS:
@@ -292,11 +290,15 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data):
     meta_y -= 14
     c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
 
-    # Draw question boxes (fixed 10 for now to match scorer)
+    question_count = assignment_data.get("question_count", 10)
+    if not isinstance(question_count, int) or question_count < 1 or question_count > 15:
+        question_count = 10
+
+    # Draw question boxes based on assignment question_count
     c.setLineWidth(1)
     c.setFont("Helvetica", 12)
 
-    for i in range(10):
+    for i in range(question_count):
         y = Q_START_Y + i * Q_STEP_Y
         q_x, q_y = _pdf_coord(150, y + 25)
         c.drawString(q_x, q_y, f"{i + 1}.")

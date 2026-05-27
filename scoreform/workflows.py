@@ -206,14 +206,28 @@ def prompt_create_assignment():
         return 1
 
     print()
-    print("Using question_count: 10")
+
+    choices = ["A", "B", "C", "D"]
+    question_count = None
+    while question_count is None:
+        count_input = input("Question count (1-15): ").strip()
+        if not count_input.isdigit():
+            print("Error: question_count must be an integer from 1 to 15.")
+            continue
+        count_value = int(count_input)
+        if count_value < 1 or count_value > 15:
+            print("Error: question_count must be an integer from 1 to 15.")
+            continue
+        question_count = count_value
+
+    print()
+    print(f"Using question_count: {question_count}")
     print("Using choices: A, B, C, D")
     print()
 
-    choices = ["A", "B", "C", "D"]
     answer_key = {}
 
-    for i in range(1, 11):
+    for i in range(1, question_count + 1):
         while True:
             ans = input(f"Q{i} answer (A/B/C/D): ").strip().upper()
             if ans in choices:
@@ -224,7 +238,7 @@ def prompt_create_assignment():
     assignment = {
         "assignment_id": assignment_id,
         "title": title,
-        "question_count": 10,
+        "question_count": question_count,
         "choices": choices,
         "answer_key": answer_key,
     }

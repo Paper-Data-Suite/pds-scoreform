@@ -5,6 +5,29 @@ import os
 from scoreform.scoring import validate_qr_identifier
 
 
+def _get_max_question_count(results):
+    """Return the maximum question number seen across a list of results."""
+    max_question = 0
+    for res in results:
+        for ans in res.get("answers", []):
+            q_num = ans.get("Q")
+            if isinstance(q_num, int) and q_num > max_question:
+                max_question = q_num
+    return max_question
+
+
+def _header_question_count_from_fieldnames(fieldnames):
+    max_question = 0
+    for field in fieldnames or []:
+        if field.startswith("Q"):
+            suffix = field[1:]
+            if suffix.isdigit():
+                number = int(suffix)
+                if number > max_question:
+                    max_question = number
+    return max_question
+
+
 def export_to_csv(all_results, output_file):
     """Exports structured scoring data to a CSV file.
     
@@ -37,7 +60,8 @@ def export_to_csv(all_results, output_file):
     headers.extend(["Score", "Total"])
     
     # Add question fields
-    for i in range(1, 11):
+    question_count = _get_max_question_count(all_results)
+    for i in range(1, question_count + 1):
         headers.append(f"Q{i}")
         headers.append(f"Q{i}_Correct")
 
@@ -221,9 +245,8 @@ def export_routed_results(all_results):
             continue
         
         output_file = os.path.join(output_dir, "results.csv")
-        
-        # Define the CSV headers - start with Page
-        headers = [
+
+        base_headers = [
             "Page",
             "class_id",
             "assignment_id",
@@ -237,13 +260,9 @@ def export_routed_results(all_results):
             "Score",
             "Total",
         ]
-        
-        # Add question fields
-        for i in range(1, 11):
-            headers.append(f"Q{i}")
-            headers.append(f"Q{i}_Correct")
 
-        existing_rows = []
+        question_count = max(1, _get_max_question_count(results))
+        existing_rows_raw = []
         attempt_counts = {}
         read_failed = False
 
@@ -251,26 +270,11 @@ def export_routed_results(all_results):
             try:
                 with open(output_file, mode="r", newline="", encoding="utf-8") as csv_file:
                     reader = csv.DictReader(csv_file)
+                    existing_question_count = _header_question_count_from_fieldnames(reader.fieldnames)
+                    question_count = max(question_count, existing_question_count)
+
                     for row in reader:
-                        preserved = {header: row.get(header, "") for header in headers}
-
-                        raw_attempt = row.get("attempt_number", "")
-                        if raw_attempt and raw_attempt.isdigit():
-                            preserved_attempt = int(raw_attempt)
-                        else:
-                            preserved_attempt = 1
-                            preserved["attempt_number"] = "1"
-
-                        preserved["scan_timestamp"] = row.get("scan_timestamp", "")
-                        existing_rows.append(preserved)
-
-                        key = (
-                            preserved.get("class_id", ""),
-                            preserved.get("assignment_id", ""),
-                            preserved.get("student_id", ""),
-                        )
-                        if key[0] and key[1] and key[2]:
-                            attempt_counts[key] = max(attempt_counts.get(key, 0), preserved_attempt)
+                        existing_rows_raw.append(row)
             except Exception as e:
                 print(f"Error: Could not read existing routed results file {output_file}: {e}")
                 all_success = False
@@ -279,6 +283,35 @@ def export_routed_results(all_results):
         if read_failed:
             print(f"Skipping export for assignment {assignment_id} in class {class_id} due to unreadable existing results.")
             continue
+
+        headers = base_headers.copy()
+        for i in range(1, question_count + 1):
+            headers.append(f"Q{i}")
+            headers.append(f"Q{i}_Correct")
+
+        existing_rows = []
+        attempt_counts = {}
+
+        for row in existing_rows_raw:
+            preserved = {header: row.get(header, "") for header in headers}
+
+            raw_attempt = row.get("attempt_number", "")
+            if raw_attempt and raw_attempt.isdigit():
+                preserved_attempt = int(raw_attempt)
+            else:
+                preserved_attempt = 1
+                preserved["attempt_number"] = "1"
+
+            preserved["scan_timestamp"] = row.get("scan_timestamp", "")
+            existing_rows.append(preserved)
+
+            key = (
+                preserved.get("class_id", ""),
+                preserved.get("assignment_id", ""),
+                preserved.get("student_id", ""),
+            )
+            if key[0] and key[1] and key[2]:
+                attempt_counts[key] = max(attempt_counts.get(key, 0), preserved_attempt)
 
         batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
