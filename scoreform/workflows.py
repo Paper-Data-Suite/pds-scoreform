@@ -1,0 +1,349 @@
+"""Interactive workflow helpers split from cli.py.
+
+Contains:
+- confirm_overwrite
+- write_roster_csv
+- write_assignment_json
+- prompt_create_roster
+- prompt_create_assignment
+- launch_roster_menu
+- launch_assignment_menu
+
+These are designed to be imported by `scoreform.cli` without circular imports.
+"""
+
+import os
+import csv
+import json
+
+from scoreform.roster import load_roster
+from scoreform.assignment import load_assignment
+
+
+def write_roster_csv(path, class_id, period, students):
+    """Write a roster CSV file.
+
+    Args:
+        path: Output CSV file path.
+        class_id: Class ID for all students.
+        period: Period for all students.
+        students: List of dicts with student_id, last_name, first_name.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        parent_dir = os.path.dirname(path)
+        if parent_dir and not os.path.exists(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+                print(f"Created directory: {parent_dir}")
+            except Exception as e:
+                print(f"Error: Could not create parent directory '{parent_dir}': {e}")
+                return False
+
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['class_id', 'student_id', 'last_name', 'first_name', 'period'])
+            writer.writeheader()
+            for student in students:
+                writer.writerow({
+                    'class_id': class_id,
+                    'student_id': student['student_id'],
+                    'last_name': student['last_name'],
+                    'first_name': student['first_name'],
+                    'period': period,
+                })
+        return True
+    except Exception as e:
+        print(f"Error: Could not write roster CSV '{path}': {e}")
+        return False
+
+
+def write_assignment_json(path, assignment):
+    """Write an assignment JSON file to `path`. Creates parent directories if needed."""
+    try:
+        parent_dir = os.path.dirname(path)
+        if parent_dir and not os.path.exists(parent_dir):
+            try:
+                os.makedirs(parent_dir, exist_ok=True)
+                print(f"Created directory: {parent_dir}")
+            except Exception as e:
+                print(f"Error: Could not create parent directory '{parent_dir}': {e}")
+                return False
+
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(assignment, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error: Could not write assignment JSON '{path}': {e}")
+        return False
+
+
+def confirm_overwrite(path):
+    """Prompt for confirmation to overwrite an existing file.
+
+    Returns True if user confirms overwrite or file does not exist, False otherwise.
+    """
+    if not os.path.exists(path):
+        return True
+
+    response = input(f"File '{path}' already exists. Overwrite? (y/yes to confirm): ").strip().lower()
+    return response in ['y', 'yes']
+
+
+def prompt_create_roster():
+    """Interactive prompt to create a new roster.
+
+    Returns 0 on success, 1 on cancellation or error.
+    """
+    print("--- Create a New Roster ---")
+    print()
+
+    output_path = input("Output CSV path: ").strip()
+    if not output_path:
+        print("Cancelled: No output path provided.")
+        return 1
+
+    if not confirm_overwrite(output_path):
+        print("Cancelled: File overwrite not confirmed.")
+        return 1
+
+    class_id = input("Class ID: ").strip()
+    if not class_id:
+        print("Error: class_id is required.")
+        return 1
+
+    period = input("Period: ").strip()
+    if not period:
+        print("Error: period is required.")
+        return 1
+
+    students = []
+    print()
+    print("Enter students one at a time. Press Ctrl+C to exit, or enter empty data to stop adding students.")
+    print()
+
+    try:
+        while True:
+            print(f"Student #{len(students) + 1}:")
+            student_id = input("  student_id: ").strip()
+            if not student_id:
+                if len(students) == 0:
+                    print("Error: At least one student is required.")
+                    return 1
+                break
+
+            while True:
+                last_name = input("  last_name: ").strip()
+                if last_name:
+                    break
+                print("  Error: last_name is required.")
+
+            while True:
+                first_name = input("  first_name: ").strip()
+                if first_name:
+                    break
+                print("  Error: first_name is required.")
+
+            students.append({
+                'student_id': student_id,
+                'last_name': last_name,
+                'first_name': first_name,
+            })
+            print(f"  Added: {student_id} - {last_name}, {first_name}")
+            print()
+
+            add_another = input("Add another student? (y/n): ").strip().lower()
+            if add_another not in ['y', 'yes']:
+                break
+            print()
+
+    except KeyboardInterrupt:
+        print("\nCancelled: User interrupted.")
+        return 1
+
+    print()
+    print(f"Writing {len(students)} students to: {output_path}")
+    if not write_roster_csv(output_path, class_id, period, students):
+        print("Error: Failed to write roster CSV.")
+        return 1
+
+    print("Validating roster...")
+    roster = load_roster(output_path)
+    if roster is None:
+        print("Error: Roster validation failed after save.")
+        return 1
+
+    print(f"Success! Roster created with {len(roster['students'])} students.")
+    return 0
+
+
+def prompt_create_assignment():
+    """Interactive prompt to create a new assignment JSON file.
+
+    Returns 0 on success, 1 on cancellation or error.
+    """
+    print("--- Create a New Assignment ---")
+    print()
+
+    output_path = input("Output JSON path: ").strip()
+    if not output_path:
+        print("Cancelled: No output path provided.")
+        return 1
+
+    if not confirm_overwrite(output_path):
+        print("Cancelled: File overwrite not confirmed.")
+        return 1
+
+    assignment_id = input("assignment_id: ").strip()
+    if not assignment_id:
+        print("Error: assignment_id is required.")
+        return 1
+
+    title = input("title: ").strip()
+    if not title:
+        print("Error: title is required.")
+        return 1
+
+    print()
+    print("Using question_count: 10")
+    print("Using choices: A, B, C, D")
+    print()
+
+    choices = ["A", "B", "C", "D"]
+    answer_key = {}
+
+    for i in range(1, 11):
+        while True:
+            ans = input(f"Q{i} answer (A/B/C/D): ").strip().upper()
+            if ans in choices:
+                answer_key[str(i)] = ans
+                break
+            print("Error: Answer must be one of A, B, C, or D (case-insensitive). Please try again.")
+
+    assignment = {
+        "assignment_id": assignment_id,
+        "title": title,
+        "question_count": 10,
+        "choices": choices,
+        "answer_key": answer_key,
+    }
+
+    print(f"Writing assignment to: {output_path}")
+    if not write_assignment_json(output_path, assignment):
+        print("Error: Failed to write assignment JSON.")
+        return 1
+
+    print("Validating assignment...")
+    loaded = load_assignment(output_path)
+    if loaded is None:
+        print("Error: Assignment validation failed after save.")
+        return 1
+
+    print("Success! Assignment created and validated.")
+    return 0
+
+
+def launch_roster_menu():
+    """Roster management submenu.
+
+    Returns:
+        0 on return to main menu, 1 on error.
+    """
+    try:
+        while True:
+            print("Roster Management")
+            print()
+            print("1. Create a new roster")
+            print("2. Validate an existing roster")
+            print("3. Return to main menu")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                result = prompt_create_roster()
+                print()
+                if result != 0:
+                    continue
+
+            elif choice == "2":
+                roster_path = input("Roster CSV path: ").strip()
+                if not roster_path:
+                    print("Roster file path is required.")
+                    print()
+                    continue
+
+                # Validate using load_roster and print results
+                roster = load_roster(roster_path)
+                if roster is None:
+                    print()
+                    continue
+                print("Roster file is valid.")
+                print(f"class_id: {roster['class_id']}")
+                print(f"students: {len(roster['students'])}")
+                if roster['students']:
+                    print("First students:")
+                    for student in roster['students'][:5]:
+                        print(f"  {student['student_id']}: {student['last_name']}, {student['first_name']}")
+                print()
+
+            elif choice == "3":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print()
+
+    except KeyboardInterrupt:
+        print("\nExiting roster menu.")
+        return 0
+
+
+def launch_assignment_menu():
+    """Assignment management submenu."""
+    try:
+        while True:
+            print("Assignment Management")
+            print()
+            print("1. Create a new assignment")
+            print("2. Validate an existing assignment")
+            print("3. Return to main menu")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                result = prompt_create_assignment()
+                print()
+                if result != 0:
+                    continue
+
+            elif choice == "2":
+                assignment_path = input("Assignment JSON path: ").strip()
+                if not assignment_path:
+                    print("Assignment file path is required.")
+                    print()
+                    continue
+
+                # Validate using load_assignment and print results
+                assignment = load_assignment(assignment_path)
+                if assignment is None:
+                    print()
+                    continue
+                print("Assignment file is valid.")
+                print(assignment)
+                print()
+
+            elif choice == "3":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print()
+
+    except KeyboardInterrupt:
+        print("\nExiting assignment menu.")
+        return 0

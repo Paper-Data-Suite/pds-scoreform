@@ -4,6 +4,7 @@
 
 The project currently supports:
 
+* CLI workflow helpers split from command dispatch into `scoreform/workflows.py`
 * Modular `scoreform/` package structure
 * Root-level `main.py` as CLI entry point
 * Minimal `scoreform/__init__.py`
@@ -1321,7 +1322,7 @@ Suggested issues:
 Suggested issues:
 
 * Sanitize QR payload fields before building paths — completed
-* Split CLI workflow helpers from command dispatch
+* Split CLI workflow helpers from command dispatch — completed
 
 ## `v0.6.0` — Flexible Form Configuration and Standards Metadata
 
