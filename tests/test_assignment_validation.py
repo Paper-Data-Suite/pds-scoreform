@@ -3,12 +3,23 @@ from scoreform import assignment
 
 
 def make_assignment(tmp_path, **overrides):
+    question_count = overrides.get("question_count", 10)
+    if not isinstance(question_count, int):
+        try:
+            question_count = int(question_count)
+        except Exception:
+            question_count = 10
+
+    answer_key = overrides.get(
+        "answer_key",
+        {str(i): ("A" if i % 2 == 1 else "B") for i in range(1, question_count + 1)},
+    )
     data = {
         "assignment_id": "test_assignment",
         "title": "Test Assignment",
-        "question_count": 10,
+        "question_count": question_count,
         "choices": ["A", "B", "C", "D"],
-        "answer_key": {str(i): ("A" if i % 2 == 1 else "B") for i in range(1, 11)},
+        "answer_key": answer_key,
     }
     data.update(overrides)
     p = tmp_path / "assignment.json"
@@ -31,8 +42,32 @@ def test_load_assignment_missing_field(tmp_path):
     assert assignment.load_assignment(str(p)) is None
 
 
-def test_load_assignment_wrong_question_count(tmp_path):
+def test_load_assignment_accepts_valid_question_counts(tmp_path):
+    for question_count in [1, 10, 15]:
+        path = make_assignment(tmp_path, question_count=question_count)
+        loaded = assignment.load_assignment(path)
+        assert loaded is not None
+        assert loaded["question_count"] == question_count
+        assert len(loaded["answer_key"]) == question_count
+
+
+def test_load_assignment_accepts_other_valid_question_count(tmp_path):
     path = make_assignment(tmp_path, question_count=8)
+    assert assignment.load_assignment(path) is not None
+
+
+def test_load_assignment_invalid_question_count_zero(tmp_path):
+    path = make_assignment(tmp_path, question_count=0)
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_invalid_question_count_too_large(tmp_path):
+    path = make_assignment(tmp_path, question_count=16)
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_invalid_question_count_non_integer(tmp_path):
+    path = make_assignment(tmp_path, question_count="10")
     assert assignment.load_assignment(path) is None
 
 
@@ -42,13 +77,39 @@ def test_load_assignment_invalid_choices(tmp_path):
 
 
 def test_load_assignment_missing_answer_key_question(tmp_path):
-    # create answer_key missing question 10
+    # create answer_key missing the final required question
     data = {
         "assignment_id": "x",
         "title": "t",
-        "question_count": 10,
+        "question_count": 5,
         "choices": ["A", "B", "C", "D"],
-        "answer_key": {str(i): "A" for i in range(1, 10)},
+        "answer_key": {str(i): "A" for i in range(1, 5)},
+    }
+    p = tmp_path / "assignment.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    assert assignment.load_assignment(str(p)) is None
+
+
+def test_load_assignment_rejects_extra_answer_key_question(tmp_path):
+    data = {
+        "assignment_id": "x",
+        "title": "t",
+        "question_count": 5,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {str(i): "A" for i in range(1, 7)},
+    }
+    p = tmp_path / "assignment.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    assert assignment.load_assignment(str(p)) is None
+
+
+def test_load_assignment_rejects_invalid_answer_choice(tmp_path):
+    data = {
+        "assignment_id": "x",
+        "title": "t",
+        "question_count": 5,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {str(i): ("Z" if i == 3 else "A") for i in range(1, 6)},
     }
     p = tmp_path / "assignment.json"
     p.write_text(json.dumps(data), encoding="utf-8")
@@ -62,6 +123,22 @@ def test_load_answer_key_accepts(tmp_path):
     ak = assignment.load_answer_key(str(p))
     assert ak is not None
     assert isinstance(ak, dict)
+
+
+def test_load_answer_key_accepts_five_questions(tmp_path):
+    data = {str(i): "A" for i in range(1, 6)}
+    p = tmp_path / "answer_key.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    ak = assignment.load_answer_key(str(p))
+    assert ak is not None
+    assert len(ak) == 5
+
+
+def test_load_answer_key_rejects_gapped_questions(tmp_path):
+    data = {"1": "A", "3": "B"}
+    p = tmp_path / "answer_key.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    assert assignment.load_answer_key(str(p)) is None
 
 
 def test_load_answer_key_rejects_invalid_choice(tmp_path):

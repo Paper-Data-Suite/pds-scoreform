@@ -342,6 +342,7 @@ Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
     "temp_test_assignment.json",# Output path
     "test_assignment_v5",       # assignment_id
     "Test Assignment V5",       # title
+    "10",                       # question_count
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "3",                        # Return to main menu
     "9"                         # Exit

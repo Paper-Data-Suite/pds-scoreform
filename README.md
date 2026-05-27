@@ -56,6 +56,7 @@ ScoreForm currently supports:
 * Basic terminal menu via `python main.py menu` or `scoreform`
 * Menu-driven roster creation without manual CSV editing
 * Menu-driven assignment creation without manual JSON editing
+* Single-page assignments with 1-15 questions
 * Editable install support with the `scoreform` command
 
 ## Important Limitations
@@ -67,7 +68,7 @@ Current limitations include:
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * Poor-quality phone scans may fail QR detection.
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
-* Question count support is currently limited.
+* Question count support is currently limited to 1-15 questions on a single page.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
 * Manual verification is recommended before using results for actual grades.
@@ -230,13 +231,13 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 
 5. Enter `assignment_id` and `title`.
 
-6. Enter answers for Q1 through Q10. Current choices are A-D only.
+6. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
 
 7. The tool saves the assignment JSON and validates it automatically.
 
 Notes:
 
-* Current limitation: `question_count` is fixed at 10 and choices are fixed at A-D.
+* Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * Overwrite protection requires `y` or `yes` to overwrite existing files.
 
 ## Data Model
@@ -507,7 +508,7 @@ Future test improvements may include:
 ## Known Issues
 
 * Poor scan quality may prevent QR detection.
-* Some scoring and CSV-export logic still assumes fixed question counts.
+* Multi-page forms are not implemented yet; assignments are currently limited to 1-15 questions on a single page.
 * Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit overwrite/archive workflow has not been implemented yet.

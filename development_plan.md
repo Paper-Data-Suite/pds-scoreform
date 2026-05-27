@@ -21,11 +21,13 @@ The project currently supports:
 * Legacy top-level CSV export
 * External bare `answer_key.json` validation
 * Assignment JSON validation through `validate-assignment`
+* Assignment validation supports `question_count` from 1 to 15
 * Roster CSV validation through `validate-roster`
 * Class/assignment folder setup through `setup-assignment`
 * Multi-roster `generate` command
 * Individual personalized student PDFs
 * Class packet PDF generation
+* Student PDFs and class packet PDFs render only the configured number of question rows
 * QR code generation on individual student PDFs
 * QR code generation on class packet pages
 * QR payload parsing
@@ -37,12 +39,14 @@ The project currently supports:
 * QR payload field validation / path traversal protection
 * QR-aware score output with `class_id`, `assignment_id`, and `student_id`
 * Legacy/manual scoring preserved when an explicit answer key is provided
+* Scoring uses assignment question count for QR-aware scoring and inferred answer-key count for legacy/manual scoring
 * `score` command exits nonzero when no pages are scored successfully
 * QR-based mixed-scan scoring for multi-page PDFs
 * QR-aware class packet scoring with one row per student page
 * Result routing to assignment folders for QR-aware scoring
 * Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
 * Routed CSV output containing page, class, assignment, student, roster, score, total, and answer columns
+* CSV export creates dynamic question columns based on result question count
 * Roster lookup for routed results using `classes/<class_id>/roster.csv`
 * Routed result rows enriched with `last_name`, `first_name`, and `period`
 * CSV export functions return success/failure status
@@ -61,6 +65,7 @@ The project currently supports:
 * Roster validation after save
 * Regression test coverage for menu-driven roster creation
 * Menu-driven assignment creation
+* Menu-driven assignment creation prompts for `question_count`
 * Assignment management submenu with create, validate, and return options
 * Assignment JSON writing with current required schema
 * Assignment overwrite confirmation
@@ -79,6 +84,7 @@ The project currently supports:
 * Regression test coverage for editable install and scoreform command
 * Initial pytest suite added
 * Pytest coverage for QR validation, assignment validation, roster validation, folder helpers, and template filename helpers
+* Pytest coverage for variable question count assignment validation and CSV export
 * `run_tests.ps1` now installs development extras and runs pytest before full workflow regression checks
 
 ## Completed Milestone
@@ -135,6 +141,8 @@ english9_p2,1002,Smith,Marcus,2
 ```
 
 ### Assignment JSON Format
+
+`question_count` currently supports values from 1 to 15 for single-page forms.
 
 ```json
 {
@@ -786,6 +794,10 @@ Features:
 
 Status: Completed initial menu-driven assignment creation (v0.5.0).
 
+### Variable Question Count Support
+
+Status: Completed support for `question_count` from 1 to 15.
+
 The terminal menu now includes a submenu for assignment management with:
 
 * Create a new assignment
@@ -799,7 +811,7 @@ Assignment creation workflow:
 3. Select option 1 (Create a new assignment)
 4. Provide output JSON path
 5. Enter `assignment_id` and `title`
-6. Enter answers for Q1 through Q10
+6. Enter `question_count` (1-15), then enter answers for Q1 through Q{question_count}
 7. Assignment is saved to the specified path
 8. Assignment is validated using existing validation logic
 9. Success message displays if valid
@@ -807,7 +819,7 @@ Assignment creation workflow:
 Features:
 
 * Uses the existing assignment schema
-* Uses fixed `question_count: 10`
+* Supports `question_count` from 1 to 15
 * Uses fixed choices: A, B, C, D
 * Re-prompts invalid answers until A, B, C, or D is entered
 * Stores answer key values uppercase
@@ -825,7 +837,6 @@ Features:
 
 ## Potential Assignment Features
 
-* enter question count
 * optionally attach standards metadata to questions
 * list existing assignments
 * view assignment summary
@@ -865,6 +876,10 @@ v0.5.0
 
 # Phase 9: Variable Question Counts
 
+## Status
+
+Completed for single-page assignments with 1-15 questions.
+
 ## Goal
 
 Move beyond fixed 10-question sheets.
@@ -879,25 +894,16 @@ Support **1–15 questions** on a single page.
 "question_count": 15
 ```
 
-## Current Temporary Restriction
-
-For now, assignment validation intentionally requires:
-
-```json
-"question_count": 10
-```
-
-This prevents a 15-question assignment from validating before template generation, scoring, and CSV export support variable question counts.
-
 ## Requirements
 
-* Assignment validation should allow 1–15 questions.
-* Template generation should draw only the required number of question rows.
-* Student PDFs should draw only the required number of question rows.
-* Class packet PDFs should draw only the required number of question rows.
-* Scoring should score only the required number of questions.
-* CSV export should create columns only for the required number of questions.
-* Validation should check answer key against `question_count`.
+* Assignment validation allows 1-15 questions.
+* Student PDFs draw only the required number of question rows.
+* Class packet PDFs draw only the required number of question rows.
+* QR-aware scoring scores only the assignment’s configured question count.
+* Legacy/manual scoring infers question count from a contiguous bare answer key when possible.
+* CSV export creates columns only for the required number of questions.
+* Validation checks answer keys against `question_count`.
+* Extra answer key entries beyond `question_count` are rejected.
 
 ## Future-Proofing
 
@@ -905,10 +911,9 @@ Design functions so multi-page layouts can be added later without rewriting the 
 
 ## Related Cleanup Items
 
-* Make `score_image()` question-count-aware instead of hardcoding 10.
-* Make template generation question-count-aware instead of hardcoding 10.
-* Make `export_to_csv()` question-count-aware instead of hardcoding Q1–Q10.
 * Extract duplicated answer-key validation from `load_answer_key()` and `load_assignment()`.
+* Consider adding more pytest coverage for routed CSV export with existing rows across mixed question-count histories.
+* Consider introducing a shared maximum question count constant instead of repeating the limit across modules.
 
 ## Suggested GitHub Issue
 
@@ -1122,7 +1127,6 @@ Keep the codebase maintainable as features expand.
 * Remove unused imports where present:
 
   * `CORNERS` / `CORNER_SIZE` in `scoring.py`
-  * `os` and `PDF_WIDTH` in `templates.py`
 * Clarify `score` command help text for QR-aware vs. legacy/manual scoring modes.
 * Rename PowerShell helper `Run-Test` to `Invoke-Test` if we want to satisfy approved-verb linting.
 * Consider consolidating duplicated CSV-writing logic between `export_to_csv()` and `export_routed_results()`.
@@ -1335,7 +1339,7 @@ Suggested issues:
 Suggested issues:
 
 * Add initial pytest test suite — completed
-* Variable question count support
+* Variable question count support — completed
 * Question standards tagging
 * Optional roster columns
 
@@ -1354,11 +1358,10 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add variable question count support up to 15.
-2. Add question standards tagging.
-3. Add optional roster column preservation.
-4. Perform test and CLI robustness improvements.
-5. Perform general cleanup:
+1. Add question standards tagging.
+2. Add optional roster column preservation.
+3. Perform test and CLI robustness improvements.
+4. Perform general cleanup:
 
    * unused imports
    * clarified score help text
@@ -1373,9 +1376,9 @@ Suggested issues:
    * possible further CLI/module split
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-6. Perform repository professionalization:
+5. Perform repository professionalization:
 
    * ROADMAP.md
    * CHANGELOG.md
    * public-readiness audit
-7. Later: support multi-page forms.
+6. Later: support multi-page forms.

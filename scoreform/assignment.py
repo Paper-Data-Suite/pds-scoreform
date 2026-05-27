@@ -1,6 +1,8 @@
 import os
 import json
 
+MAX_QUESTION_COUNT = 15
+
 def load_answer_key(key_path):
     """Loads and validates the JSON answer key file."""
     if not os.path.exists(key_path):
@@ -30,14 +32,14 @@ def load_answer_key(key_path):
         else:
             print(
                 f"Error: Invalid question number in answer key: {key!r}. "
-                "Question numbers must be 1 through 10."
+                f"Question numbers must be 1 through {MAX_QUESTION_COUNT}."
             )
             return None
 
-        if q_num < 1 or q_num > 10:
+        if q_num < 1 or q_num > MAX_QUESTION_COUNT:
             print(
                 f"Error: Invalid question number '{q_num}' in answer key. "
-                "Question numbers must be 1 through 10."
+                f"Question numbers must be 1 through {MAX_QUESTION_COUNT}."
             )
             return None
 
@@ -50,21 +52,21 @@ def load_answer_key(key_path):
 
         answer_key[q_num] = value.strip().upper()
 
-    expected_questions = set(range(1, 11))
-    missing_questions = sorted(expected_questions - set(answer_key.keys()))
-    extra_questions = sorted(set(answer_key.keys()) - expected_questions)
+    if not answer_key:
+        print("Error: Answer key must contain at least one question.")
+        return None
 
-    if missing_questions or extra_questions:
-        if missing_questions:
-            print(
-                "Error: Answer key is incomplete. "
-                f"Missing questions: {', '.join(map(str, missing_questions))}."
-            )
-        if extra_questions:
-            print(
-                "Error: Answer key contains invalid question numbers: "
-                f"{', '.join(map(str, extra_questions))}."
-            )
+    max_question = max(answer_key.keys())
+    expected_questions = set(range(1, max_question + 1))
+    max_question = max(answer_key.keys())
+    expected_questions = set(range(1, max_question + 1))
+    missing_questions = sorted(expected_questions - set(answer_key.keys()))
+
+    if missing_questions:
+        print(
+            "Error: Answer key is incomplete. "
+            f"Missing questions: {', '.join(map(str, missing_questions))}."
+        )
         return None
 
     return answer_key
@@ -99,8 +101,8 @@ def load_assignment(assignment_path):
         return None
 
     question_count = data.get("question_count")
-    if not isinstance(question_count, int) or question_count != 10:
-        print("Error: 'question_count' must be 10 for now. Variable question counts will be supported later.")
+    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_QUESTION_COUNT:
+        print(f"Error: 'question_count' must be an integer between 1 and {MAX_QUESTION_COUNT}.")
         return None
 
     choices = data.get("choices")

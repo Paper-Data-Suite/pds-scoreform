@@ -32,9 +32,40 @@ def order_points(pts):
     return rect
 
 
-def score_image(img, answer_key, page_num=1, debug_dir=None):
+def _infer_question_count(answer_key, default=10):
+    """Infer the question count from a validated answer_key dict if possible."""
+    if not isinstance(answer_key, dict) or not answer_key:
+        return default
+
+    keys = []
+    for key in answer_key.keys():
+        if isinstance(key, int):
+            keys.append(key)
+        elif isinstance(key, str) and key.isdigit():
+            keys.append(int(key))
+        else:
+            return default
+
+    if not keys:
+        return default
+
+    max_question = max(keys)
+    if max_question > 15:
+        return default
+
+    if set(keys) == set(range(1, max_question + 1)):
+        return max_question
+    return default
+
+
+def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     debug_img = img.copy()
+    if question_count is None:
+        question_count = _infer_question_count(answer_key, default=10)
+
+    if not isinstance(question_count, int) or question_count < 1:
+        question_count = 10
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -151,7 +182,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None):
     results = []
 
     # Check each question
-    for i in range(10):
+    for i in range(question_count):
         y = Q_START_Y + i * Q_STEP_Y
 
         row_filled = []
@@ -203,7 +234,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None):
             }
         )
 
-    print(f"\n--- Page {page_num} Final Score: {score}/10 ---")
+    print(f"\n--- Page {page_num} Final Score: {score}/{question_count} ---")
     for r in results:
         print(f"Q{r['Q']}: {r['Answer']} ({'Correct' if r['Correct'] else 'Wrong'})")
 
@@ -218,7 +249,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None):
     return {
         "page_num": page_num,
         "score": score,
-        "total_points": 10,
+        "total_points": question_count,
         "answers": results,
     }
 
@@ -253,7 +284,12 @@ def process_file(file_path, answer_key):
 
                 # Convert PIL image to OpenCV format (RGB to BGR)
                 open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-                res = score_image(open_cv_image, answer_key, page_num)
+                res = score_image(
+                    open_cv_image,
+                    answer_key,
+                    page_num,
+                    question_count=_infer_question_count(answer_key, default=10),
+                )
                 if res:
                     # Attach source file information to each page result
                     res["source_file"] = file_path
@@ -277,7 +313,12 @@ def process_file(file_path, answer_key):
             return []
 
         print(f"Scoring Image...")
-        res = score_image(img, answer_key, page_num=1)
+        res = score_image(
+            img,
+            answer_key,
+            page_num=1,
+            question_count=_infer_question_count(answer_key, default=10),
+        )
         if res:
             res["source_file"] = file_path
             all_results.append(res)
@@ -538,6 +579,10 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
         print(f"Error: Assignment {assignment_path} does not contain an answer_key.")
         return None
 
+    question_count = assignment_data.get("question_count")
+    if not isinstance(question_count, int) or question_count < 1:
+        question_count = _infer_question_count(answer_key, default=10)
+
     debug_dir = os.path.join(
         "classes",
         class_id,
@@ -545,7 +590,13 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
         assignment_id,
         "debug",
     )
-    result = score_image(img, answer_key, page_num, debug_dir=debug_dir)
+    result = score_image(
+        img,
+        answer_key,
+        page_num,
+        debug_dir=debug_dir,
+        question_count=question_count,
+    )
     if result is None:
         return None
 
