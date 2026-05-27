@@ -20,6 +20,11 @@ dependencies = [
   "qrcode[pil]"
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest"
+]
+
 [project.scripts]
 scoreform = "scoreform.cli:main"
 
