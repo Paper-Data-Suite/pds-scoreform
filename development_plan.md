@@ -33,6 +33,7 @@ The project currently supports:
 * Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
 * QR-aware scoring metadata extraction
 * Automatic assignment lookup from QR metadata during scoring
+* QR payload field validation / path traversal protection
 * QR-aware score output with `class_id`, `assignment_id`, and `student_id`
 * Legacy/manual scoring preserved when an explicit answer key is provided
 * `score` command exits nonzero when no pages are scored successfully
@@ -1315,6 +1316,13 @@ Suggested issues:
 * Roster creation and management — completed
 * Assignment creation and management — completed
 
+## `v0.5.1` — Stabilization Before Flexible Forms
+
+Suggested issues:
+
+* Sanitize QR payload fields before building paths — completed
+* Split CLI workflow helpers from command dispatch
+
 ## `v0.6.0` — Flexible Form Configuration and Standards Metadata
 
 Suggested issues:
@@ -1338,7 +1346,7 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Pause for a no-edit senior-developer code review with Antigravity before larger cross-cutting refactors.
+1. Split CLI workflow helpers from command dispatch.
 2. Add variable question count support up to 15.
 3. Add question standards tagging.
 4. Add optional roster column preservation.

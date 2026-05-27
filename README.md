@@ -118,7 +118,7 @@ run_tests.ps1
 README.md
 LICENSE
 development_plan.md
-````
+```
 
 Generated classroom files are organized using a structure like:
 
@@ -287,6 +287,8 @@ This identifies:
 * the student
 
 The QR code is intended to allow ScoreForm to automatically connect a scanned answer sheet to the correct class, assignment, roster entry, and answer key.
+
+ScoreForm validates QR payload fields before using them to build file paths, and rejects malformed or unsafe QR metadata.
 
 ## Requirements
 

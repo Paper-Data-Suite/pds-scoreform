@@ -1,4 +1,5 @@
 import os
+import re
 import cv2
 import numpy as np
 from scoreform.config import (
@@ -290,6 +291,44 @@ def process_file(file_path, answer_key):
     return all_results
 
 
+QR_IDENTIFIER_PATTERN = re.compile(r'^[A-Za-z0-9_-]+$')
+
+
+def is_safe_qr_identifier(value):
+    """Return True when a QR field contains only safe identifier characters."""
+    return isinstance(value, str) and bool(QR_IDENTIFIER_PATTERN.fullmatch(value))
+
+
+def validate_qr_identifier(field_name, value):
+    """Validate a single QR identifier field and print an error when unsafe."""
+    if not isinstance(value, str) or not value:
+        print(f"Error: QR {field_name} is empty or not a string: {value!r}")
+        return False
+    if not QR_IDENTIFIER_PATTERN.fullmatch(value):
+        print(
+            f"Error: QR {field_name} is unsafe: '{value}'. "
+            "Allowed characters are letters, numbers, underscores, and hyphens only."
+        )
+        return False
+    return True
+
+
+def validate_qr_metadata(qr_metadata):
+    """Validate QR metadata fields before they are used as path material."""
+    if not isinstance(qr_metadata, dict):
+        print("Error: QR metadata is not a dictionary.")
+        return False
+
+    for field in ["class_id", "assignment_id", "student_id"]:
+        if field not in qr_metadata:
+            print(f"Error: QR metadata missing required field '{field}'.")
+            return False
+        if not validate_qr_identifier(field, qr_metadata[field]):
+            return False
+
+    return True
+
+
 def parse_qr_payload(payload):
     """Parse an OMR1 QR payload string and return metadata dict or None.
 
@@ -364,6 +403,10 @@ def decode_qr_from_image(img):
     parsed = parse_qr_payload(data)
     if parsed is None:
         print(f"QR code detected but payload invalid: '{data}'")
+        return None
+
+    if not validate_qr_metadata(parsed):
+        print(f"QR code payload failed validation: '{data}'")
         return None
 
     return parsed
@@ -463,6 +506,10 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
     print(f"  class_id: {class_id}")
     print(f"  assignment_id: {assignment_id}")
     print(f"  student_id: {student_id}")
+
+    if not validate_qr_metadata(qr_metadata):
+        print(f"Error: QR metadata for page {page_num} is unsafe, rejecting page.")
+        return None
 
     # Step 2: Locate and load assignment.json
     assignment_path = os.path.join(
