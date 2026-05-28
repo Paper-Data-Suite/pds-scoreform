@@ -1127,12 +1127,12 @@ Make the program and regression tests more reliable across machines.
 * Pytest suite covers QR payload parsing/validation, assignment validation, roster validation, assignment comparison helpers, and template filename helpers.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
+* CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
 
 ## Future Test Improvements
 
 * Add tests for malformed QR payloads.
 * Add tests for missing QR codes.
-* Add tests for missing input files.
 * Add tests for menu workflows once the menu exists.
 * Add QR reliability tests or manual checklist guidance for scan quality.
 * Add real-world scan reliability tests or manual checklist guidance for phone/scanner capture quality.
@@ -1144,7 +1144,7 @@ Create issues:
 
 ```text
 Add synthetic scoring accuracy fixture - completed
-Improve CLI failure-mode tests
+Improve CLI failure-mode tests - completed
 ```
 
 Suggested labels:
@@ -1396,7 +1396,7 @@ Suggested issues:
 Suggested issues:
 
 * Add synthetic scoring accuracy fixture — completed
-* Improve CLI failure-mode tests
+* Improve CLI failure-mode tests — completed
 * General cleanup backlog
 * Convert `development_plan.md` into `ROADMAP.md`
 * Add `CHANGELOG.md`
