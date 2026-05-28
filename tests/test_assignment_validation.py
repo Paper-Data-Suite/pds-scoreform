@@ -1,5 +1,6 @@
 import json
 from scoreform import assignment
+from scoreform import workflows
 
 
 def make_assignment(tmp_path, **overrides):
@@ -34,6 +35,7 @@ def test_load_assignment_accepts_valid(tmp_path):
     assert loaded["assignment_id"] == "test_assignment"
     assert loaded["question_count"] == 10
     assert isinstance(loaded["answer_key"], dict)
+    assert loaded["standards"] == {}
 
 
 def test_load_assignment_missing_field(tmp_path):
@@ -114,6 +116,115 @@ def test_load_assignment_rejects_invalid_answer_choice(tmp_path):
     p = tmp_path / "assignment.json"
     p.write_text(json.dumps(data), encoding="utf-8")
     assert assignment.load_assignment(str(p)) is None
+
+
+def test_load_assignment_accepts_empty_standards_object(tmp_path):
+    path = make_assignment(tmp_path, standards={})
+    loaded = assignment.load_assignment(path)
+    assert loaded is not None
+    assert loaded["standards"] == {}
+
+
+def test_load_assignment_accepts_valid_standards(tmp_path):
+    standards = {
+        "1": ["RL.CI.11-12.2"],
+        "3": ["RL.IT.11-12.3", "L.VI.11-12.4"],
+        "5": ["RL.CR.11-12.1"],
+    }
+    path = make_assignment(tmp_path, question_count=5, standards=standards)
+    loaded = assignment.load_assignment(path)
+    assert loaded is not None
+    assert loaded["standards"] == {
+        1: ["RL.CI.11-12.2"],
+        3: ["RL.IT.11-12.3", "L.VI.11-12.4"],
+        5: ["RL.CR.11-12.1"],
+    }
+
+
+def test_load_assignment_accepts_empty_per_question_standards(tmp_path):
+    standards = {str(i): [] for i in range(1, 4)}
+    path = make_assignment(tmp_path, question_count=3, standards=standards)
+    loaded = assignment.load_assignment(path)
+    assert loaded is not None
+    assert loaded["standards"] == {1: [], 2: [], 3: []}
+
+
+def test_load_assignment_accepts_missing_standards_keys(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=4,
+        standards={"2": ["RL.CI.11-12.2"]},
+    )
+    loaded = assignment.load_assignment(path)
+    assert loaded is not None
+    assert loaded["standards"] == {2: ["RL.CI.11-12.2"]}
+
+
+def test_load_assignment_rejects_standards_key_beyond_question_count(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        standards={"4": ["RL.CI.11-12.2"]},
+    )
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_rejects_invalid_standards_key(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        standards={"Q1": ["RL.CI.11-12.2"]},
+    )
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_rejects_non_list_standards_value(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        standards={"1": "RL.CI.11-12.2"},
+    )
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_rejects_empty_string_standard(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        standards={"1": [""]},
+    )
+    assert assignment.load_assignment(path) is None
+
+
+def test_load_assignment_rejects_non_string_standard(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        standards={"1": ["RL.CI.11-12.2", 42]},
+    )
+    assert assignment.load_assignment(path) is None
+
+
+def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
+    output_path = tmp_path / "created_assignment.json"
+    responses = iter([
+        str(output_path),
+        "test_assignment_v6",
+        "Test Assignment V6",
+        "3",
+        "A",
+        "B",
+        "C",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_create_assignment() == 0
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    assert saved["standards"] == {"1": [], "2": [], "3": []}
+
+    loaded = assignment.load_assignment(str(output_path))
+    assert loaded is not None
+    assert loaded["standards"] == {1: [], 2: [], 3: []}
 
 
 def test_load_answer_key_accepts(tmp_path):

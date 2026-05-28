@@ -241,6 +241,7 @@ def prompt_create_assignment():
         "question_count": question_count,
         "choices": choices,
         "answer_key": answer_key,
+        "standards": {str(i): [] for i in range(1, question_count + 1)},
     }
 
     print(f"Writing assignment to: {output_path}")
