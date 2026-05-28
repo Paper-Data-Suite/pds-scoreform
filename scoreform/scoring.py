@@ -13,6 +13,7 @@ from scoreform.config import (
     BOX_SIZE,
     BOX_START_X,
     BOX_STEP_X,
+    LOCAL_DEBUG_DIR,
 )
 
 def order_points(pts):
@@ -60,6 +61,9 @@ def _infer_question_count(answer_key, default=10):
 
 def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
+    if debug_dir is None:
+        debug_dir = LOCAL_DEBUG_DIR
+
     debug_img = img.copy()
     if question_count is None:
         question_count = _infer_question_count(answer_key, default=10)

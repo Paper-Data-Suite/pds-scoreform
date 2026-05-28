@@ -2,6 +2,23 @@ import os
 import shutil
 import json
 
+from scoreform.config import LOCAL_OUTPUTS_DIR
+
+
+def ensure_parent_dir(path):
+    """Create the parent directory for a file path when one is present."""
+    parent_dir = os.path.dirname(os.fspath(path))
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+
+def ensure_local_output_dir(*parts):
+    """Ensure and return a path under local_outputs/."""
+    path = os.path.join(LOCAL_OUTPUTS_DIR, *parts)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def load_json_for_comparison(path):
     """Load a JSON file for semantic comparison.
     

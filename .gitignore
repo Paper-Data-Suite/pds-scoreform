@@ -43,6 +43,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Organized local generated outputs
+local_outputs/
+
 # Generated generic templates
 template.png
 template.pdf

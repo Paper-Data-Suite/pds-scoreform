@@ -2,6 +2,7 @@ import re
 import sys
 import numpy as np
 import cv2
+from scoreform.folders import ensure_parent_dir
 from scoreform.config import (
     CORNERS,
     CORNER_SIZE,
@@ -14,6 +15,8 @@ from scoreform.config import (
     BOX_STEP_X,
     PDF_SCALE,
     PDF_HEIGHT,
+    LOCAL_TEMPLATE_PDF,
+    LOCAL_TEMPLATE_PNG,
 )
 
 def _pdf_coord(x, y):
@@ -30,6 +33,8 @@ def _pdf_rect(c, x, y, w, h, fill=False, stroke=True):
 
 def _generate_template_png(filename="template.png"):
     """Generates the blank answer sheet template PNG for debugging."""
+    ensure_parent_dir(filename)
+
     # Create a white image
     img = np.ones((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8) * 255
 
@@ -104,6 +109,8 @@ def _generate_template_pdf(filename="template.pdf"):
         print("Please run: pip install reportlab")
         sys.exit(1)
 
+    ensure_parent_dir(filename)
+
     c = canvas.Canvas(filename, pagesize=letter)
     c.setFillColorRGB(0, 0, 0)
     c.setStrokeColorRGB(0, 0, 0)
@@ -135,7 +142,7 @@ def _generate_template_pdf(filename="template.pdf"):
     print(f"Template saved as {filename}")
 
 
-def generate_template(pdf_filename="template.pdf", png_filename="template.png"):
+def generate_template(pdf_filename=LOCAL_TEMPLATE_PDF, png_filename=LOCAL_TEMPLATE_PNG):
     """Generates the answer sheet template PDF and an optional PNG debug template."""
     _generate_template_pdf(pdf_filename)
     _generate_template_png(png_filename)
