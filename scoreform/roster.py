@@ -30,7 +30,11 @@ def load_roster(roster_path):
 
             for row in reader:
                 row_number += 1
-                normalized = {k.strip(): (v.strip() if v is not None else "") for k, v in row.items()}
+                normalized = {
+                    k.strip(): (v.strip() if v is not None else "")
+                    for k, v in row.items()
+                    if k is not None
+                }
 
                 class_id = normalized.get("class_id", "")
                 student_id = normalized.get("student_id", "")
@@ -70,15 +74,7 @@ def load_roster(roster_path):
                     return None
 
                 seen_student_ids.add(student_id)
-                students.append(
-                    {
-                        "class_id": class_id,
-                        "student_id": student_id,
-                        "last_name": last_name,
-                        "first_name": first_name,
-                        "period": period,
-                    }
-                )
+                students.append(normalized)
 
     except Exception as e:
         print(f"Error: Could not read roster file '{roster_path}': {e}")

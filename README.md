@@ -58,6 +58,7 @@ ScoreForm currently supports:
 * Menu-driven assignment creation without manual JSON editing
 * Single-page assignments with 1-15 questions
 * Optional question-level standards metadata in assignment JSON
+* Optional roster columns preserved when roster CSV files are loaded
 * Editable install support with the `scoreform` command
 
 ## Important Limitations
@@ -259,6 +260,10 @@ Required columns:
 * `last_name`
 * `first_name`
 * `period`
+
+Roster CSV files may include additional optional columns, such as `preferred_name`, `email`, or local workflow fields. Optional columns are preserved in each loaded student dictionary, and empty optional values are allowed. The roster creation menu currently writes only the required columns.
+
+Optional roster fields are not automatically added to `results.csv` or routed result CSVs. Routed results continue to include only roster fields needed for scoring context: `last_name`, `first_name`, and `period`. Avoid storing sensitive or private student information in optional columns unless it is necessary and appropriate under local school or district policy.
 
 ### Assignment JSON Format
 
