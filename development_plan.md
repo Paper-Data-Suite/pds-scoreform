@@ -25,6 +25,8 @@ The project currently supports:
 * Assignment JSON supports optional question-level `standards` metadata
 * Assignment validation checks standards metadata against the configured `question_count`
 * Roster CSV validation through `validate-roster`
+* Roster CSV validation allows additional optional columns beyond the required schema
+* Loaded roster student dictionaries preserve optional columns
 * Class/assignment folder setup through `setup-assignment`
 * Multi-roster `generate` command
 * Individual personalized student PDFs
@@ -142,6 +144,8 @@ class_id,student_id,last_name,first_name,period
 english9_p2,1001,Doe,Jane,2
 english9_p2,1002,Smith,Marcus,2
 ```
+
+Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and `period`. Additional optional columns are allowed and preserved when rosters are loaded, but optional roster fields are not automatically exported to `results.csv` or routed result CSVs.
 
 ### Assignment JSON Format
 
@@ -1031,6 +1035,12 @@ v0.6.0
 
 # Phase 11: Optional Roster Enhancements
 
+## Status
+
+Completed for Phase 1 optional roster column preservation.
+
+Menu-driven roster editing, roster import column mapping, roster summaries, and report field selection remain future work.
+
 ## Goal
 
 Allow richer roster data without disrupting current validation.
@@ -1054,6 +1064,24 @@ Allow richer roster data without disrupting current validation.
   * `period`
 * Optional columns should be preserved in student dictionaries if present.
 * Optional columns should not be required for validation.
+* Optional columns should not be automatically included in results CSVs.
+
+## Implemented Phase 1
+
+* Roster CSV files may include additional columns beyond the required schema.
+* `load_roster()` preserves optional fields generically in loaded student dictionaries.
+* Empty optional values are allowed.
+* Required-column and required-field validation remain unchanged.
+* Routed results continue to export only `last_name`, `first_name`, and `period` from roster data.
+
+## Future Work
+
+* Menu-driven roster editing.
+* Add, remove, or update students.
+* List existing rosters.
+* View roster summaries.
+* Import students from CSV with column mapping.
+* Choose which optional fields should be included in reports.
 
 ## Suggested GitHub Issue
 
@@ -1360,7 +1388,7 @@ Suggested issues:
 * Add initial pytest test suite — completed
 * Variable question count support — completed
 * Question standards tagging foundation — completed
-* Optional roster columns
+* Optional roster column preservation — completed
 
 ## `v0.7.0` — Robustness, Cleanup, and Public Readiness
 
@@ -1377,10 +1405,10 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add optional roster column preservation.
-2. Perform test and CLI robustness improvements.
-3. Add menu workflow for assignment standards editing
-4. Add standards performance reporting
+1. Perform test and CLI robustness improvements.
+2. Add menu workflow for assignment standards editing.
+3. Add standards performance reporting.
+4. Add broader roster management enhancements such as editing, summaries, imports, and report field selection.
 5. Perform general cleanup:
 
    * unused imports
