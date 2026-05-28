@@ -57,6 +57,7 @@ ScoreForm currently supports:
 * Menu-driven roster creation without manual CSV editing
 * Menu-driven assignment creation without manual JSON editing
 * Single-page assignments with 1-15 questions
+* Optional question-level standards metadata in assignment JSON
 * Editable install support with the `scoreform` command
 
 ## Important Limitations
@@ -238,6 +239,7 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 Notes:
 
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
+* New assignments include an empty `standards` list for each question. The menu does not prompt for standards yet.
 * Overwrite protection requires `y` or `yes` to overwrite existing files.
 
 ## Data Model
@@ -277,9 +279,20 @@ Required columns:
     "8": "A",
     "9": "D",
     "10": "B"
+  },
+  "standards": {
+    "1": [],
+    "2": ["RL.CI.11-12.2"],
+    "3": ["RL.IT.11-12.3", "L.VI.11-12.4"],
+    "4": [],
+    "5": ["RL.CR.11-12.1"]
   }
 }
 ```
+
+The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty strings. Empty lists and missing question keys are allowed.
+
+Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. Menu-driven standards editing and standards performance reporting are future work.
 
 ### QR Payload Format
 
@@ -450,9 +463,10 @@ The current development plan focuses the next work on flexible form configuratio
 
 Upcoming focus areas (not exhaustive):
 
-* Variable question counts
-* Question standards tagging
+* Menu-driven standards editing
+* Standards reporting
 * Optional roster enhancements
+* Manual answer entry workflow
 * Assignment and roster editing/listing/summaries
 * Test/CLI robustness
 * General cleanup

@@ -3,6 +3,62 @@ import json
 
 MAX_QUESTION_COUNT = 15
 
+
+def _normalize_question_number(key, question_count, field_name):
+    if isinstance(key, str) and key.isdigit():
+        q_num = int(key)
+    elif isinstance(key, int):
+        q_num = key
+    else:
+        print(
+            f"Error: Invalid question number in {field_name}: {key!r}. "
+            f"Question numbers must be 1 through {question_count}."
+        )
+        return None
+
+    if q_num < 1 or q_num > question_count:
+        print(
+            f"Error: Invalid question number '{q_num}' in {field_name}. "
+            f"Question numbers must be 1 through {question_count}."
+        )
+        return None
+
+    return q_num
+
+
+def _normalize_standards(standards, question_count):
+    if standards is None:
+        return {}
+
+    if not isinstance(standards, dict):
+        print("Error: 'standards' must be a JSON object when present.")
+        return None
+
+    normalized_standards = {}
+    for key, values in standards.items():
+        q_num = _normalize_question_number(key, question_count, "standards")
+        if q_num is None:
+            return None
+
+        if not isinstance(values, list):
+            print(f"Error: Standards for question {q_num} must be a list.")
+            return None
+
+        normalized_values = []
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                print(
+                    f"Error: Standards for question {q_num} must contain "
+                    "non-empty strings only."
+                )
+                return None
+            normalized_values.append(value.strip())
+
+        normalized_standards[q_num] = normalized_values
+
+    return normalized_standards
+
+
 def load_answer_key(key_path):
     """Loads and validates the JSON answer key file."""
     if not os.path.exists(key_path):
@@ -56,8 +112,6 @@ def load_answer_key(key_path):
         print("Error: Answer key must contain at least one question.")
         return None
 
-    max_question = max(answer_key.keys())
-    expected_questions = set(range(1, max_question + 1))
     max_question = max(answer_key.keys())
     expected_questions = set(range(1, max_question + 1))
     missing_questions = sorted(expected_questions - set(answer_key.keys()))
@@ -158,10 +212,15 @@ def load_assignment(assignment_path):
         )
         return None
 
+    normalized_standards = _normalize_standards(data.get("standards"), question_count)
+    if normalized_standards is None:
+        return None
+
     return {
         "assignment_id": data["assignment_id"].strip(),
         "title": data["title"].strip(),
         "question_count": question_count,
         "choices": ["A", "B", "C", "D"],
         "answer_key": normalized_answer_key,
+        "standards": normalized_standards,
     }

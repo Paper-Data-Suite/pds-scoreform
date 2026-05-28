@@ -117,6 +117,12 @@ Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
 Run-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -e .[dev] --quiet"
 
+$pythonScriptsDir = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
+    $env:Path = "$pythonScriptsDir;$env:Path"
+    Write-Host "Added Python Scripts directory to PATH for this test run: $pythonScriptsDir" -ForegroundColor DarkGray
+}
+
 Write-Host ""
 Write-Host "Running pytest suite..." -ForegroundColor Yellow
 Run-Test "Run pytest suite" "python -m pytest"
@@ -364,6 +370,7 @@ Assert-FileContains "temp_test_assignment.json" "question_count"
 Assert-FileContains "temp_test_assignment.json" "10"
 Assert-FileContains "temp_test_assignment.json" "choices"
 Assert-FileContains "temp_test_assignment.json" "answer_key"
+Assert-FileContains "temp_test_assignment.json" "standards"
 
 Run-Test "Validate created assignment" "python main.py validate-assignment temp_test_assignment.json"
 

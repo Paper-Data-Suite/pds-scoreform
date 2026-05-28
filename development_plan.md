@@ -22,6 +22,8 @@ The project currently supports:
 * External bare `answer_key.json` validation
 * Assignment JSON validation through `validate-assignment`
 * Assignment validation supports `question_count` from 1 to 15
+* Assignment JSON supports optional question-level `standards` metadata
+* Assignment validation checks standards metadata against the configured `question_count`
 * Roster CSV validation through `validate-roster`
 * Class/assignment folder setup through `setup-assignment`
 * Multi-roster `generate` command
@@ -66,6 +68,7 @@ The project currently supports:
 * Regression test coverage for menu-driven roster creation
 * Menu-driven assignment creation
 * Menu-driven assignment creation prompts for `question_count`
+* Menu-driven assignment creation writes empty standards lists for each question
 * Assignment management submenu with create, validate, and return options
 * Assignment JSON writing with current required schema
 * Assignment overwrite confirmation
@@ -161,9 +164,16 @@ english9_p2,1002,Smith,Marcus,2
     "8": "A",
     "9": "D",
     "10": "B"
+  },
+  "standards": {
+    "1": [],
+    "2": ["RL.CI.11-12.2"],
+    "3": ["RL.IT.11-12.3", "L.VI.11-12.4"]
   }
 }
 ```
+
+The `standards` object is optional assignment metadata. When present, its keys are question numbers validated against `question_count`, and values are lists of non-empty standard-code strings. Missing question keys and empty lists are valid. Standards metadata is not included in `results.csv` and does not affect scoring, QR payloads, result routing, or roster CSVs.
 
 ### Current QR Payload Format
 
@@ -940,6 +950,12 @@ v0.6.0
 
 # Phase 10: Question Standards Tagging
 
+## Status
+
+Completed for the assignment metadata foundation.
+
+Menu-driven standards editing and standards performance reporting remain future work.
+
 ## Goal
 
 Allow assignment questions to be tagged with one or more relevant standards so future reports can analyze performance by standard.
@@ -977,14 +993,17 @@ This is especially important for classroom assessment workflows where teachers m
 * Standards should be optional so simple assignments remain easy to create.
 * Assignment validation should verify standards metadata when present.
 * Standards metadata should not break existing assignment files.
+* Completed: newly menu-created assignments include an empty standards list for each question.
 * Future reports should be able to group results by standard.
-* The assignment creation workflow should eventually support adding standards without manually editing JSON.
+* Future menu workflows should support editing standards without manually editing JSON.
 
 ## Notes
 
 This phase affects both assignment configuration and future reporting.
 
-Do not implement full reporting in this phase unless a later milestone explicitly calls for it.
+Implemented foundation: assignment data model, validation, load preservation, menu-created empty standards lists, and tests.
+
+Future work remains: menu-driven standards editing and standards performance reporting.
 
 ## Suggested GitHub Issue
 
@@ -1340,7 +1359,7 @@ Suggested issues:
 
 * Add initial pytest test suite — completed
 * Variable question count support — completed
-* Question standards tagging
+* Question standards tagging foundation — completed
 * Optional roster columns
 
 ## `v0.7.0` — Robustness, Cleanup, and Public Readiness
@@ -1358,10 +1377,11 @@ Suggested issues:
 
 # Suggested Implementation Order From Here
 
-1. Add question standards tagging.
-2. Add optional roster column preservation.
-3. Perform test and CLI robustness improvements.
-4. Perform general cleanup:
+1. Add optional roster column preservation.
+2. Perform test and CLI robustness improvements.
+3. Add menu workflow for assignment standards editing
+4. Add standards performance reporting
+5. Perform general cleanup:
 
    * unused imports
    * clarified score help text
@@ -1376,9 +1396,9 @@ Suggested issues:
    * possible further CLI/module split
    * QR preprocessing/reliability improvements if needed
    * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-5. Perform repository professionalization:
+6. Perform repository professionalization:
 
    * ROADMAP.md
    * CHANGELOG.md
    * public-readiness audit
-6. Later: support multi-page forms.
+7. Later: support multi-page forms.
