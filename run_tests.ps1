@@ -102,6 +102,20 @@ function Assert-CsvValueCount {
     Write-Host "FOUND CSV COUNT: $Column=$Value appears $ExpectedCount time(s)" -ForegroundColor Green
 }
 
+$LocalOutputsDir = "local_outputs"
+$LocalTemplatesDir = Join-Path $LocalOutputsDir "templates"
+$LocalResultsDir = Join-Path $LocalOutputsDir "results"
+$LocalDebugDir = Join-Path $LocalOutputsDir "debug"
+$LocalTempDir = Join-Path $LocalOutputsDir "temp"
+$TemplatePdf = Join-Path $LocalTemplatesDir "template.pdf"
+$TemplatePng = Join-Path $LocalTemplatesDir "template.png"
+$DefaultResultsCsv = Join-Path $LocalResultsDir "results.csv"
+$QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
+$MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
+$ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
+$TempRosterCsv = Join-Path $LocalTempDir "temp_test_roster.csv"
+$TempAssignmentJson = Join-Path $LocalTempDir "temp_test_assignment.json"
+
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
 Remove-Item "results.csv" -ErrorAction SilentlyContinue
@@ -112,6 +126,17 @@ Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_pag
 Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $LocalTemplatesDir, $LocalResultsDir, $LocalDebugDir, $LocalTempDir -Force | Out-Null
+Remove-Item $TemplatePdf -ErrorAction SilentlyContinue
+Remove-Item $TemplatePng -ErrorAction SilentlyContinue
+Remove-Item $DefaultResultsCsv -ErrorAction SilentlyContinue
+Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
+Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
+Remove-Item "$LocalDebugDir\debug_corners_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item "$LocalDebugDir\debug_warped_page_*.png" -ErrorAction SilentlyContinue
+Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
+Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
+Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
@@ -147,8 +172,8 @@ Run-Test "Generate generic template" "python main.py generate"
 
 Write-Host ""
 Write-Host "Checking generic template files..." -ForegroundColor Yellow
-Assert-Exists "template.pdf"
-Assert-Exists "template.png"
+Assert-Exists $TemplatePdf
+Assert-Exists $TemplatePng
 
 Run-Test "Generate class assignment materials" "python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
 
@@ -198,12 +223,12 @@ $conflictingAssignment = @{
         "10" = "C"
     }
 } | ConvertTo-Json -Depth 5
-[System.IO.File]::WriteAllText("conflicting_assignment.json", $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
+[System.IO.File]::WriteAllText($ConflictingAssignmentJson, $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
 
-Run-Test "Validate conflicting assignment fixture" "python main.py validate-assignment conflicting_assignment.json"
+Run-Test "Validate conflicting assignment fixture" "python main.py validate-assignment $ConflictingAssignmentJson"
 
 # Attempt setup with conflicting assignment - should fail
-Run-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment conflicting_assignment.json examples\sample_roster_english9_p2.csv"
+Run-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
 
 # Verify original assignment.json was NOT overwritten
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
@@ -211,40 +236,40 @@ Assert-FileDoesNotContain "classes\english9_p2\assignments\rj_act1_quiz\assignme
 Write-Host "CONFIRMED: Original assignment.json was protected and not overwritten" -ForegroundColor Green
 
 # Clean up test artifact
-Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
+Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
 
-Run-Test "Score generated template PDF" "python main.py score template.pdf results.csv examples\answer_key.json"
+Run-Test "Score generated template PDF with manual defaults" "python main.py score $TemplatePdf examples\answer_key.json"
 
 Write-Host ""
 Write-Host "Checking scoring output files..." -ForegroundColor Yellow
-Assert-Exists "results.csv"
-Assert-Exists "debug_corners_page_1.png"
-Assert-Exists "debug_warped_page_1.png"
+Assert-Exists $DefaultResultsCsv
+Assert-Exists "$LocalDebugDir\debug_corners_page_1.png"
+Assert-Exists "$LocalDebugDir\debug_warped_page_1.png"
 
 Write-Host ""
 Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
-Remove-Item "qr_metadata_results.csv" -ErrorAction SilentlyContinue
-Run-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf qr_metadata_results.csv"
+Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
+Run-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf $QrMetadataResultsCsv"
 
 Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
-Assert-Exists "qr_metadata_results.csv"
-Assert-FileContains "qr_metadata_results.csv" "source_file"
-Assert-FileContains "qr_metadata_results.csv" "1001_doe_jane.pdf"
+Assert-Exists $QrMetadataResultsCsv
+Assert-FileContains $QrMetadataResultsCsv "source_file"
+Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane.pdf"
 
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
-Remove-Item "mixed_scan_results.csv" -ErrorAction SilentlyContinue
-Run-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf mixed_scan_results.csv"
+Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
+Run-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf $MixedScanResultsCsv"
 
 Write-Host ""
 Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
-Assert-Exists "mixed_scan_results.csv"
-Assert-FileContains "mixed_scan_results.csv" "1001"
-Assert-FileContains "mixed_scan_results.csv" "1002"
-Assert-FileContains "mixed_scan_results.csv" "1003"
-Assert-FileContains "mixed_scan_results.csv" "english9_p2"
-Assert-FileContains "mixed_scan_results.csv" "rj_act1_quiz"
+Assert-Exists $MixedScanResultsCsv
+Assert-FileContains $MixedScanResultsCsv "1001"
+Assert-FileContains $MixedScanResultsCsv "1002"
+Assert-FileContains $MixedScanResultsCsv "1003"
+Assert-FileContains $MixedScanResultsCsv "english9_p2"
+Assert-FileContains $MixedScanResultsCsv "rj_act1_quiz"
 
 Write-Host ""
 Write-Host "Testing result routing..." -ForegroundColor Yellow
@@ -289,7 +314,7 @@ Write-Host ""
 Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
 
 # Clean up test roster if it exists
-Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
+Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
 
 # Use piped input to create a test roster through the menu
 # Main menu: 7 = Roster management
@@ -298,7 +323,7 @@ Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 @(
     "7",                    # Main menu -> Roster management
     "1",                    # Roster menu -> Create a new roster
-    "temp_test_roster.csv", # Output path
+    $TempRosterCsv,         # Output path
     "test_class_v5",        # class_id
     "5",                    # period
     "5001",                 # student 1 id
@@ -322,30 +347,30 @@ Write-Host "PASSED: Roster creation through menu" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Checking roster creation output..." -ForegroundColor Yellow
-Assert-Exists "temp_test_roster.csv"
-Assert-FileContains "temp_test_roster.csv" "class_id,student_id,last_name,first_name,period"
-Assert-FileContains "temp_test_roster.csv" "test_class_v5"
-Assert-FileContains "temp_test_roster.csv" "5001"
-Assert-FileContains "temp_test_roster.csv" "5002"
-Assert-FileContains "temp_test_roster.csv" "Alice"
-Assert-FileContains "temp_test_roster.csv" "Bob"
+Assert-Exists $TempRosterCsv
+Assert-FileContains $TempRosterCsv "class_id,student_id,last_name,first_name,period"
+Assert-FileContains $TempRosterCsv "test_class_v5"
+Assert-FileContains $TempRosterCsv "5001"
+Assert-FileContains $TempRosterCsv "5002"
+Assert-FileContains $TempRosterCsv "Alice"
+Assert-FileContains $TempRosterCsv "Bob"
 
-Run-Test "Validate created roster" "python main.py validate-roster temp_test_roster.csv"
+Run-Test "Validate created roster" "python main.py validate-roster $TempRosterCsv"
 
 # Clean up test roster
-Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
+Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
 
 # Clean up temp assignment if it exists
-Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
+Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 # Use piped input to create a test assignment through the menu
 @(
     "8",                        # Main menu -> Assignment management
     "1",                        # Assignment menu -> Create a new assignment
-    "temp_test_assignment.json",# Output path
+    $TempAssignmentJson,        # Output path
     "test_assignment_v5",       # assignment_id
     "Test Assignment V5",       # title
     "10",                       # question_count
@@ -363,19 +388,19 @@ Write-Host "PASSED: Assignment creation through menu" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Checking assignment creation output..." -ForegroundColor Yellow
-Assert-Exists "temp_test_assignment.json"
-Assert-FileContains "temp_test_assignment.json" "assignment_id"
-Assert-FileContains "temp_test_assignment.json" "test_assignment_v5"
-Assert-FileContains "temp_test_assignment.json" "question_count"
-Assert-FileContains "temp_test_assignment.json" "10"
-Assert-FileContains "temp_test_assignment.json" "choices"
-Assert-FileContains "temp_test_assignment.json" "answer_key"
-Assert-FileContains "temp_test_assignment.json" "standards"
+Assert-Exists $TempAssignmentJson
+Assert-FileContains $TempAssignmentJson "assignment_id"
+Assert-FileContains $TempAssignmentJson "test_assignment_v5"
+Assert-FileContains $TempAssignmentJson "question_count"
+Assert-FileContains $TempAssignmentJson "10"
+Assert-FileContains $TempAssignmentJson "choices"
+Assert-FileContains $TempAssignmentJson "answer_key"
+Assert-FileContains $TempAssignmentJson "standards"
 
-Run-Test "Validate created assignment" "python main.py validate-assignment temp_test_assignment.json"
+Run-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
 
 # Clean up temp assignment
-Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
+Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

@@ -3,6 +3,7 @@ import datetime
 import os
 
 from scoreform.scoring import validate_qr_identifier
+from scoreform.folders import ensure_parent_dir
 
 
 def _get_max_question_count(results):
@@ -66,6 +67,8 @@ def export_to_csv(all_results, output_file):
         headers.append(f"Q{i}_Correct")
 
     try:
+        ensure_parent_dir(output_file)
+
         with open(output_file, mode="w", newline="", encoding="utf-8") as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=headers)
             writer.writeheader()

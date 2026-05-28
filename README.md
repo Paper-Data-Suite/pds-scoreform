@@ -123,6 +123,7 @@ tests/
 pyproject.toml
 
 scans_inbox/
+local_outputs/
 main.py
 requirements.txt
 run_tests.ps1
@@ -152,6 +153,23 @@ classes/
 ```
 
 **Note:** `scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files in `scans_inbox/` are ignored by Git and are not moved or deleted automatically.
+
+Generic/manual development outputs are organized under `local_outputs/` when ScoreForm chooses the default path:
+
+```text
+local_outputs/
+  templates/
+    template.pdf
+    template.png
+  results/
+    results.csv
+  debug/
+    debug_corners_page_1.png
+    debug_warped_page_1.png
+  temp/
+```
+
+`local_outputs/` is ignored by Git. Explicit output paths supplied by the user are still honored as written.
 
 Generated files, scans, debug images, results, and local-only test files should generally not be committed to Git.
 
@@ -410,7 +428,7 @@ scans_inbox/
 
 The program will create this folder automatically when you generate or set up assignment materials. Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
-Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into the assignment `debug/` folder.
+Legacy/manual default results and debug images are written under `local_outputs/results/` and `local_outputs/debug/`. QR-aware routed scoring still writes results and debug images into the assignment folder under `classes/`.
 
 ### Validate an Assignment File
 
@@ -444,6 +462,12 @@ scoreform setup-assignment examples\sample_assignment.json examples\sample_roste
 scoreform generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
 ```
 
+Generic template generation without an assignment writes to `local_outputs/templates/` by default:
+
+```powershell
+scoreform generate
+```
+
 ### Decode a QR Code From a File
 
 ```powershell
@@ -456,7 +480,15 @@ scoreform decode-qr path\to\file.pdf
 scoreform score path\to\scan.pdf
 ```
 
-Some legacy/manual scoring modes may still require an explicit results file and answer key, depending on the current development state:
+QR-aware scoring without an output CSV routes results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
+
+Legacy/manual scoring can use the default local results path when only an answer key is supplied:
+
+```powershell
+scoreform score scanned_file.pdf examples\answer_key.json
+```
+
+Explicit output paths are honored:
 
 ```powershell
 scoreform score scanned_file.pdf results.csv examples\answer_key.json
@@ -528,7 +560,7 @@ Future test improvements may include:
 
 * Poor scan quality may prevent QR detection.
 * Multi-page forms are not implemented yet; assignments are currently limited to 1-15 questions on a single page.
-* Legacy/manual scoring still writes debug images to the project root, while QR-aware scoring routes debug images into assignment debug folders.
+* Legacy/manual scoring writes default debug images to `local_outputs/debug/`, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit overwrite/archive workflow has not been implemented yet.
 * QR preprocessing may be needed for more reliable real-world scanning.

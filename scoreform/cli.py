@@ -17,6 +17,7 @@ from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
 from scoreform.results import export_to_csv, export_routed_results
 from scoreform.workflows import launch_roster_menu, launch_assignment_menu
+from scoreform.config import LOCAL_RESULTS_CSV
 
 
 def run_generate(args):
@@ -104,7 +105,7 @@ def run_score(args):
 
     input_file = args[0]
     use_qr_aware = False
-    output_file = "results.csv"
+    output_file = LOCAL_RESULTS_CSV
     answer_key_file = "answer_key.json"
     explicit_output_csv = False
 
@@ -345,7 +346,7 @@ def launch_menu():
                     if output_csv:
                         args = [input_file, output_csv, answer_key]
                     else:
-                        args = [input_file, "results.csv", answer_key]
+                        args = [input_file, answer_key]
                 elif output_csv:
                     args = [input_file, output_csv]
 

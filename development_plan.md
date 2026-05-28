@@ -10,8 +10,8 @@ The project currently supports:
 * Minimal `scoreform/__init__.py`
 * `requirements.txt` for Python package dependencies
 * Portable PowerShell regression test script: `run_tests.ps1`
-* Printable generic `template.pdf`
-* Debug `template.png`
+* Printable generic `local_outputs/templates/template.pdf`
+* Debug `local_outputs/templates/template.png`
 * Image scoring
 * Scanned PDF scoring
 * Multi-page PDF batch scoring
@@ -91,6 +91,7 @@ The project currently supports:
 * Pytest coverage for QR validation, assignment validation, roster validation, folder helpers, and template filename helpers
 * Pytest coverage for variable question count assignment validation and CSV export
 * `run_tests.ps1` now installs development extras and runs pytest before full workflow regression checks
+* Local generated development/test artifacts are organized under ignored `local_outputs/` folders
 
 ## Completed Milestone
 
@@ -131,7 +132,24 @@ classes/
             1003_brown_alyssa.pdf
         scans/
         debug/
+
+local_outputs/
+  templates/
+    template.pdf
+    template.png
+  results/
+    results.csv
+    qr_metadata_results.csv
+    mixed_scan_results.csv
+  debug/
+    debug_corners_page_1.png
+    debug_warped_page_1.png
+  temp/
+    temp_test_assignment.json
+    temp_test_roster.csv
 ```
+
+The `classes/` structure is the classroom assignment output model. `local_outputs/` is for generic templates, legacy/manual default results, manual debug images, and regression-test scratch files. User-provided explicit output paths are still honored.
 
 ---
 
@@ -263,7 +281,17 @@ Uses the explicitly supplied answer key and preserves the legacy/manual scoring 
 python main.py score scanned_file.pdf examples\answer_key.json
 ```
 
-Uses the explicitly supplied answer key and writes to the default `results.csv`.
+Uses the explicitly supplied answer key and writes to the default local results path:
+
+```text
+local_outputs/results/results.csv
+```
+
+Legacy/manual debug images are written to:
+
+```text
+local_outputs/debug/
+```
 
 ---
 
@@ -433,14 +461,11 @@ Move debug image output out of the project root and into assignment-specific deb
 
 ## Current Behavior
 
-Debug images are saved to the project root:
+Legacy/manual debug images are saved under:
 
 ```text
-debug_corners_page_1.png
-debug_warped_page_1.png
+local_outputs/debug/
 ```
-
-## Target Behavior
 
 For QR-aware routed scoring, debug images should route to:
 
@@ -454,7 +479,7 @@ classes/
 
 ## Requirements
 
-* Keep root-level debug output available for legacy/manual scoring if needed.
+* Keep legacy/manual debug output available under `local_outputs/debug/`.
 * For QR-aware scoring, use QR metadata to identify the assignment debug folder.
 * Avoid overwriting useful debug output where practical.
 * Consider including page number, student ID, or timestamp in debug filenames.
@@ -1128,6 +1153,7 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
+* `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
 
 ## Future Test Improvements
 
@@ -1260,7 +1286,7 @@ Keep the GitHub repository professional, safe, and easy to understand.
 * Keep README current as features change.
 * Keep examples synthetic.
 * Keep `.gitignore` effective.
-* Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders.
+* Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders. Initial `local_outputs/` routing is complete for generic templates, legacy/manual default results, manual debug images, and broad regression-test scratch files.
 * Before public release, audit for accidental real/private/student data.
 
 ## Suggested GitHub Issues
