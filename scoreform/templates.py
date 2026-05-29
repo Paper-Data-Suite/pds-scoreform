@@ -18,6 +18,7 @@ from scoreform.config import (
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
 )
+from scoreform.validation import validate_identifier
 
 def _pdf_coord(x, y):
     """Convert template coordinates to PDF points with origin at bottom-left."""
@@ -217,6 +218,12 @@ def build_qr_payload(assignment_data, student_data):
 
     if not class_id or not assignment_id or not student_id:
         print("Error: Missing required student or assignment metadata for QR payload.")
+        return None
+    if not validate_identifier("class_id", class_id, context="QR payload"):
+        return None
+    if not validate_identifier("assignment_id", assignment_id, context="QR payload"):
+        return None
+    if not validate_identifier("student_id", student_id, context="QR payload"):
         return None
 
     return f"OMR1|class={class_id}|aid={assignment_id}|sid={student_id}"

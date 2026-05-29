@@ -41,6 +41,7 @@ The project currently supports:
 * QR-aware scoring metadata extraction
 * Automatic assignment lookup from QR metadata during scoring
 * QR payload field validation / path traversal protection
+* Shared identifier validation for `class_id`, `assignment_id`, and `student_id` before path use, QR payload generation, folder setup, and menu-created file writing
 * QR-aware score output with `class_id`, `assignment_id`, and `student_id`
 * Legacy/manual scoring preserved when an explicit answer key is provided
 * Scoring uses assignment question count for QR-aware scoring and inferred answer-key count for legacy/manual scoring

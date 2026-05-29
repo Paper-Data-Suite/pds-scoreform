@@ -1,5 +1,6 @@
 import os
 import json
+from scoreform.validation import validate_identifier
 
 MAX_QUESTION_COUNT = 15
 
@@ -149,6 +150,9 @@ def load_assignment(assignment_path):
     if not isinstance(data.get("assignment_id"), str) or not data["assignment_id"].strip():
         print("Error: 'assignment_id' must be a non-empty string.")
         return None
+    assignment_id = data["assignment_id"].strip()
+    if not validate_identifier("assignment_id", assignment_id, context="assignment"):
+        return None
 
     if not isinstance(data.get("title"), str) or not data["title"].strip():
         print("Error: 'title' must be a non-empty string.")
@@ -217,7 +221,7 @@ def load_assignment(assignment_path):
         return None
 
     return {
-        "assignment_id": data["assignment_id"].strip(),
+        "assignment_id": assignment_id,
         "title": data["title"].strip(),
         "question_count": question_count,
         "choices": ["A", "B", "C", "D"],

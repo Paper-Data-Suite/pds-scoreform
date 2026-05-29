@@ -1,5 +1,6 @@
 import csv
 import os
+from scoreform.validation import validate_identifier
 
 def load_roster(roster_path):
     """Loads and validates a roster CSV file."""
@@ -56,6 +57,11 @@ def load_roster(roster_path):
                     return None
                 if not period:
                     print(f"Error: Missing period on row {row_number}.")
+                    return None
+
+                if not validate_identifier("class_id", class_id, context=f"roster row {row_number}"):
+                    return None
+                if not validate_identifier("student_id", student_id, context=f"roster row {row_number}"):
                     return None
 
                 if class_id_value is None:

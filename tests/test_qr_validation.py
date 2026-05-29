@@ -24,7 +24,7 @@ def test_is_safe_qr_identifier_accepts():
 
 
 def test_is_safe_qr_identifier_rejects():
-    bad = ["../secret", "..\\secret", "classes/foo", "C:\\Users\\Teacher", "/absolute/path", "rj.act1.quiz", "", None]
+    bad = ["../secret", "..\\secret", "classes/foo", "C:\\Users\\Teacher", "/absolute/path", "rj.act1.quiz", "english 9 p2", "", None]
     for v in bad:
         assert not scoring.is_safe_qr_identifier(v)
 
