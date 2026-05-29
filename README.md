@@ -482,6 +482,12 @@ scoreform score path\to\scan.pdf
 
 QR-aware scoring without an output CSV routes results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
 
+QR-aware scoring with an explicit output CSV writes the QR-aware results to that file instead of routing:
+
+```powershell
+scoreform score scanned_file.pdf qr_metadata_results.csv
+```
+
 Legacy/manual scoring can use the default local results path when only an answer key is supplied:
 
 ```powershell

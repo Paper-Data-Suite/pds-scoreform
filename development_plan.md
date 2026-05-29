@@ -621,7 +621,7 @@ Use a different assignment_id or remove/archive the existing assignment folder.
 
 Added to `run_tests.ps1`:
 
-* `Run-TestExpectFailure` helper function
+* `Invoke-TestExpectFailure` helper function
 * `Assert-FileDoesNotContain` helper function
 * Collision protection test that creates a valid conflicting assignment and verifies:
 
@@ -1154,6 +1154,7 @@ Make the program and regression tests more reliable across machines.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
 * `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
+* Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
 
 ## Future Test Improvements
 
@@ -1191,18 +1192,24 @@ v0.7.0
 
 # Phase 13: General Code Cleanup
 
+## Status
+
+Phase 1 cleanup pass completed.
+
 ## Goals
 
 Keep the codebase maintainable as features expand.
 
+## Completed Phase 1 Cleanup
+
+* Renamed PowerShell regression helpers from `Run-Test` to `Invoke-Test` and from `Run-TestExpectFailure` to `Invoke-TestExpectFailure`.
+* Updated all `run_tests.ps1` helper call sites to use the approved-verb names.
+* Clarified `score` command usage text for QR-aware routed scoring, QR-aware explicit-output scoring, legacy/manual default-output scoring, and legacy/manual explicit-output scoring.
+* Removed confirmed unused `CORNERS` and `CORNER_SIZE` imports from `scoreform/scoring.py`.
+
 ## Cleanup Items
 
 * Keep `scoreform/__init__.py` as a minimal package marker.
-* Remove unused imports where present:
-
-  * `CORNERS` / `CORNER_SIZE` in `scoring.py`
-* Clarify `score` command help text for QR-aware vs. legacy/manual scoring modes.
-* Rename PowerShell helper `Run-Test` to `Invoke-Test` if we want to satisfy approved-verb linting.
 * Consider consolidating duplicated CSV-writing logic between `export_to_csv()` and `export_routed_results()`.
 * Consider simplifying roster enrichment return behavior.
 * Consider returning enriched result copies instead of mutating result dictionaries in place.
@@ -1235,7 +1242,8 @@ Keep the codebase maintainable as features expand.
 * Replace broad CSV text matching in `run_tests.ps1` with parsed CSV assertions later.
 * Reduce hardcoded sample class/assignment paths in `run_tests.ps1` when moving toward a more isolated test framework.
 * Consider moving inline temporary fixture generation in `run_tests.ps1` into reusable helpers or future pytest fixtures.
-* Consider adding `scoreform --help` and `scoreform --version` later.
+* Add `scoreform --help` and a terminal menu help option later.
+* Consider adding `scoreform --version` later.
 * Consider separating interactive menu code from command-dispatch code if `scoreform/cli.py` grows too large.
 * `python main.py ...` compatibility works, but usage text now emphasizes `scoreform ...`; acceptable for now, but revisit if user confusion appears.
 * `main.py` is now a compatibility wrapper; future CLI work should happen in `scoreform/cli.py` or a split menu module.
@@ -1438,9 +1446,6 @@ Suggested issues:
 4. Add broader roster management enhancements such as editing, summaries, imports, and report field selection.
 5. Perform general cleanup:
 
-   * unused imports
-   * clarified score help text
-   * PowerShell approved-verb cleanup
    * consolidated CSV-writing helpers
    * roster enrichment cleanup
    * routed-result metadata validation

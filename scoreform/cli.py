@@ -99,8 +99,14 @@ def run_score(args):
     if len(args) < 1:
         print("Usage:")
         print("  scoreform score <input_file>")
+        print("      QR-aware scoring with routed results.")
         print("  scoreform score <input_file> <output_csv>")
+        print("      QR-aware scoring with explicit output CSV.")
+        print("  scoreform score <input_file> <answer_key_json>")
+        print("      Legacy/manual scoring with default output:")
+        print(f"      {LOCAL_RESULTS_CSV}")
         print("  scoreform score <input_file> <output_csv> <answer_key_json>")
+        print("      Legacy/manual scoring with explicit output CSV.")
         return 1
 
     input_file = args[0]
