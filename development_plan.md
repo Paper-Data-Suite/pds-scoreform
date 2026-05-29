@@ -1280,7 +1280,7 @@ Keep the GitHub repository professional, safe, and easy to understand.
 
 ## Tasks
 
-* Convert `development_plan.md` into a polished public `ROADMAP.md`.
+* Convert `development_plan.md` into a polished public `ROADMAP.md` — completed; `development_plan.md` remains the detailed working/planning document for now.
 * Keep detailed tactical planning in local ignored notes.
 * Add or update `CHANGELOG.md`.
 * Maintain GitHub Issues and Milestones.
@@ -1432,7 +1432,7 @@ Suggested issues:
 * Add synthetic scoring accuracy fixture — completed
 * Improve CLI failure-mode tests — completed
 * General cleanup backlog
-* Convert `development_plan.md` into `ROADMAP.md`
+* Convert `development_plan.md` into `ROADMAP.md` — completed; `development_plan.md` preserved
 * Add `CHANGELOG.md`
 * Pre-public repository audit
 
