@@ -129,6 +129,7 @@ requirements.txt
 run_tests.ps1
 README.md
 ROADMAP.md
+CHANGELOG.md
 LICENSE
 development_plan.md
 ```
@@ -503,7 +504,7 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 ## Development Roadmap
 
-The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). The detailed `development_plan.md` remains a working planning document for now.
+The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Development history is summarized in [`CHANGELOG.md`](CHANGELOG.md). Detailed working planning notes are preserved in [`docs/development_plan.md`](docs/development_plan.md).
 
 The current development plan focuses the next work on test robustness, cleanup, documentation, and public-readiness work.
 

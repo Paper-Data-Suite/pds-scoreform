@@ -43,17 +43,16 @@ Completed so far:
 * Generated local artifacts organized under ignored `local_outputs/` folders.
 * Phase 1 general cleanup for PowerShell helper names, score command help text, and confirmed unused imports.
 * Public-facing `ROADMAP.md` created while preserving `development_plan.md` as the detailed working document.
+* Public-facing `CHANGELOG.md` created for milestone history and current work.
 
 Remaining v0.7.0 work:
 
-* Create `CHANGELOG.md`.
 * Complete a pre-public repository audit.
 * Run a senior developer review pass.
 * Run a project manager / release-readiness review pass.
 
 ## Near-Term Priorities
 
-* Create `CHANGELOG.md`.
 * Complete the pre-public repository audit.
 * Run senior-developer review.
 * Run project-manager / release-readiness review.
@@ -98,6 +97,6 @@ Future schema and module-boundary decisions should preserve standalone ScoreForm
 * Repository examples must remain synthetic.
 * Real student data, scanned student work, and private classroom records should not be committed.
 * `README.md` should clearly identify current limitations.
-* `SECURITY.md`, `CHANGELOG.md`, and audit work may be needed before public release.
-* `development_plan.md` remains the detailed working document for now.
+* `SECURITY.md` and audit work may be needed before public release.
+* Detailed working planning notes are preserved in `docs/development_plan.md`.
 * A pre-public audit should happen before making the repository public.

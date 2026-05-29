@@ -92,6 +92,7 @@ The project currently supports:
 * Pytest coverage for variable question count assignment validation and CSV export
 * `run_tests.ps1` now installs development extras and runs pytest before full workflow regression checks
 * Local generated development/test artifacts are organized under ignored `local_outputs/` folders
+* Public `CHANGELOG.md` created while preserving `development_plan.md` as the detailed working/planning document
 
 ## Completed Milestone
 
@@ -1282,7 +1283,7 @@ Keep the GitHub repository professional, safe, and easy to understand.
 
 * Convert `development_plan.md` into a polished public `ROADMAP.md` — completed; `development_plan.md` remains the detailed working/planning document for now.
 * Keep detailed tactical planning in local ignored notes.
-* Add or update `CHANGELOG.md`.
+* Add or update `CHANGELOG.md` — completed initial public changelog; keep it current as milestones change.
 * Maintain GitHub Issues and Milestones.
 * Maintain Kanban board columns:
 
@@ -1433,7 +1434,7 @@ Suggested issues:
 * Improve CLI failure-mode tests — completed
 * General cleanup backlog
 * Convert `development_plan.md` into `ROADMAP.md` — completed; `development_plan.md` preserved
-* Add `CHANGELOG.md`
+* Add `CHANGELOG.md` — completed
 * Pre-public repository audit
 
 ---
