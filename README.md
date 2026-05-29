@@ -128,6 +128,7 @@ main.py
 requirements.txt
 run_tests.ps1
 README.md
+ROADMAP.md
 LICENSE
 development_plan.md
 ```
@@ -502,7 +503,9 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 ## Development Roadmap
 
-The current development plan focuses the next work on flexible form configuration, reporting metadata, test robustness, cleanup, and public-readiness work.
+The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). The detailed `development_plan.md` remains a working planning document for now.
+
+The current development plan focuses the next work on test robustness, cleanup, documentation, and public-readiness work.
 
 Upcoming focus areas (not exhaustive):
 

@@ -30,3 +30,7 @@ scoreform = "scoreform.cli:main"
 
 [tool.setuptools]
 packages = ["scoreform"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git", ".venv", "local_outputs", "classes", "scans_inbox"]
