@@ -18,6 +18,7 @@ import json
 
 from scoreform.roster import load_roster
 from scoreform.assignment import load_assignment
+from scoreform.validation import validate_identifier
 
 
 def write_roster_csv(path, class_id, period, students):
@@ -33,6 +34,12 @@ def write_roster_csv(path, class_id, period, students):
         True if successful, False otherwise.
     """
     try:
+        if not validate_identifier("class_id", class_id, context="roster"):
+            return False
+        for student in students:
+            if not validate_identifier("student_id", student.get("student_id"), context="roster"):
+                return False
+
         parent_dir = os.path.dirname(path)
         if parent_dir and not os.path.exists(parent_dir):
             try:
@@ -62,6 +69,9 @@ def write_roster_csv(path, class_id, period, students):
 def write_assignment_json(path, assignment):
     """Write an assignment JSON file to `path`. Creates parent directories if needed."""
     try:
+        if not validate_identifier("assignment_id", assignment.get("assignment_id"), context="assignment"):
+            return False
+
         parent_dir = os.path.dirname(path)
         if parent_dir and not os.path.exists(parent_dir):
             try:
@@ -112,6 +122,8 @@ def prompt_create_roster():
     if not class_id:
         print("Error: class_id is required.")
         return 1
+    if not validate_identifier("class_id", class_id, context="roster"):
+        return 1
 
     period = input("Period: ").strip()
     if not period:
@@ -132,6 +144,8 @@ def prompt_create_roster():
                     print("Error: At least one student is required.")
                     return 1
                 break
+            if not validate_identifier("student_id", student_id, context="roster"):
+                return 1
 
             while True:
                 last_name = input("  last_name: ").strip()
@@ -198,6 +212,8 @@ def prompt_create_assignment():
     assignment_id = input("assignment_id: ").strip()
     if not assignment_id:
         print("Error: assignment_id is required.")
+        return 1
+    if not validate_identifier("assignment_id", assignment_id, context="assignment"):
         return 1
 
     title = input("title: ").strip()

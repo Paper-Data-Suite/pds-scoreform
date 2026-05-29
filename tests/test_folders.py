@@ -25,3 +25,22 @@ def test_assignments_not_match(tmp_path):
 def test_load_json_for_comparison_unreadable(tmp_path):
     # Nonexistent path should return None
     assert folders.load_json_for_comparison(str(tmp_path / "nope.json")) is None
+
+
+def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    roster_path = tmp_path / "roster.csv"
+    assignment_path = tmp_path / "assignment.json"
+    roster_path.write_text("placeholder", encoding="utf-8")
+    assignment_path.write_text("{}", encoding="utf-8")
+
+    result = folders.setup_assignment_folder(
+        {"class_id": "../secret", "students": []},
+        {"assignment_id": "rj_act1_quiz"},
+        str(roster_path),
+        str(assignment_path),
+    )
+
+    assert result is None
+    assert not (tmp_path / "classes").exists()
+    assert not (tmp_path / "scans_inbox").exists()

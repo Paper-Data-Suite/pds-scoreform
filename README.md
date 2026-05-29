@@ -131,7 +131,8 @@ README.md
 ROADMAP.md
 CHANGELOG.md
 LICENSE
-development_plan.md
+docs/
+  development_plan.md
 ```
 
 Generated classroom files are organized using a structure like:
@@ -264,6 +265,8 @@ Notes:
 * Overwrite protection requires `y` or `yes` to overwrite existing files.
 
 ## Data Model
+
+Identifiers used in paths and QR metadata must contain only letters, numbers, underscores, and hyphens. This applies to `class_id`, `assignment_id`, and `student_id`.
 
 ### Roster CSV Format
 

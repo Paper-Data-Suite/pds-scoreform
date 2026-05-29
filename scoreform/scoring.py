@@ -1,5 +1,4 @@
 import os
-import re
 import cv2
 import numpy as np
 from scoreform.config import (
@@ -13,6 +12,7 @@ from scoreform.config import (
     BOX_STEP_X,
     LOCAL_DEBUG_DIR,
 )
+from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validate_identifier
 
 def order_points(pts):
     """Orders points in top-left, top-right, bottom-left, bottom-right order."""
@@ -334,26 +334,17 @@ def process_file(file_path, answer_key):
     return all_results
 
 
-QR_IDENTIFIER_PATTERN = re.compile(r'^[A-Za-z0-9_-]+$')
+QR_IDENTIFIER_PATTERN = IDENTIFIER_PATTERN
 
 
 def is_safe_qr_identifier(value):
     """Return True when a QR field contains only safe identifier characters."""
-    return isinstance(value, str) and bool(QR_IDENTIFIER_PATTERN.fullmatch(value))
+    return is_safe_identifier(value)
 
 
 def validate_qr_identifier(field_name, value):
     """Validate a single QR identifier field and print an error when unsafe."""
-    if not isinstance(value, str) or not value:
-        print(f"Error: QR {field_name} is empty or not a string: {value!r}")
-        return False
-    if not QR_IDENTIFIER_PATTERN.fullmatch(value):
-        print(
-            f"Error: QR {field_name} is unsafe: '{value}'. "
-            "Allowed characters are letters, numbers, underscores, and hyphens only."
-        )
-        return False
-    return True
+    return validate_identifier(field_name, value, context="QR")
 
 
 def validate_qr_metadata(qr_metadata):

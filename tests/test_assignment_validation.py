@@ -38,6 +38,11 @@ def test_load_assignment_accepts_valid(tmp_path):
     assert loaded["standards"] == {}
 
 
+def test_load_assignment_rejects_invalid_assignment_id(tmp_path):
+    path = make_assignment(tmp_path, assignment_id="rj.act1.quiz")
+    assert assignment.load_assignment(path) is None
+
+
 def test_load_assignment_missing_field(tmp_path):
     p = tmp_path / "assignment.json"
     p.write_text(json.dumps({"title": "No ID"}), encoding="utf-8")
@@ -225,6 +230,18 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
     loaded = assignment.load_assignment(str(output_path))
     assert loaded is not None
     assert loaded["standards"] == {1: [], 2: [], 3: []}
+
+
+def test_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):
+    output_path = tmp_path / "created_assignment.json"
+    responses = iter([
+        str(output_path),
+        "../secret",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_create_assignment() == 1
+    assert not output_path.exists()
 
 
 def test_load_answer_key_accepts(tmp_path):

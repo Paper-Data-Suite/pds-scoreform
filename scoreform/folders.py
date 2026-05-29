@@ -3,6 +3,7 @@ import shutil
 import json
 
 from scoreform.config import LOCAL_OUTPUTS_DIR
+from scoreform.validation import validate_identifier
 
 
 def ensure_parent_dir(path):
@@ -31,6 +32,7 @@ def load_json_for_comparison(path):
         print(f"Error loading JSON from {path}: {e}")
         return None
 
+
 def assignments_match(existing_assignment_path, incoming_assignment_path):
     """Compare two assignment JSON files for semantic equivalence.
     
@@ -49,6 +51,7 @@ def assignments_match(existing_assignment_path, incoming_assignment_path):
         return False
     
     return existing == incoming
+
 
 def ensure_scan_inbox():
     """Ensure the project-level scans_inbox/ directory exists.
@@ -78,17 +81,21 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
 
     Returns a dictionary of created paths on success, or None on failure.
     """
-    # Ensure scan inbox exists
-    scan_inbox = ensure_scan_inbox()
-    if scan_inbox is None:
-        return None
-    
     try:
         class_id = roster_data.get("class_id")
         assignment_id = assignment_data.get("assignment_id")
 
         if not class_id or not assignment_id:
             print("Error: roster_data or assignment_data missing required identifiers.")
+            return None
+        if not validate_identifier("class_id", class_id, context="folder setup"):
+            return None
+        if not validate_identifier("assignment_id", assignment_id, context="folder setup"):
+            return None
+
+        # Ensure scan inbox exists only after path-bearing identifiers are safe.
+        scan_inbox = ensure_scan_inbox()
+        if scan_inbox is None:
             return None
 
         class_dir = os.path.join("classes", class_id)
