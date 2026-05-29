@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "=== ScoreForm Test Script ===" -ForegroundColor Cyan
 
-function Run-Test {
+function Invoke-Test {
     param (
         [string]$Name,
         [string]$Command
@@ -22,7 +22,7 @@ function Run-Test {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-function Run-TestExpectFailure {
+function Invoke-TestExpectFailure {
     param (
         [string]$Name,
         [string]$Command
@@ -140,7 +140,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
-Run-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -e .[dev] --quiet"
+Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -e .[dev] --quiet"
 
 $pythonScriptsDir = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
 if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
@@ -150,32 +150,32 @@ if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
 
 Write-Host ""
 Write-Host "Running pytest suite..." -ForegroundColor Yellow
-Run-Test "Run pytest suite" "python -m pytest"
+Invoke-Test "Run pytest suite" "python -m pytest"
 
 Write-Host ""
 Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
-Run-Test "Launch installed scoreform command with menu exit" "Write-Output '9' | scoreform"
-Run-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '9' | scoreform menu"
-Run-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
-Run-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
+Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '9' | scoreform"
+Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '9' | scoreform menu"
+Invoke-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
+Invoke-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
 $qrValidationCmd = @'
 python -c "from scoreform.scoring import validate_qr_metadata; assert validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'../secret','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'classes/foo','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj.act1.quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':r'C:\Users\Teacher'});"
 '@
-Run-Test "Validate QR payload identifier helper" $qrValidationCmd
+Invoke-Test "Validate QR payload identifier helper" $qrValidationCmd
 
 Write-Host ""
 Write-Host "Testing direct python main.py compatibility..." -ForegroundColor Yellow
-Run-Test "Validate assignment with python main.py" "python main.py validate-assignment examples\sample_assignment.json"
-Run-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
+Invoke-Test "Validate assignment with python main.py" "python main.py validate-assignment examples\sample_assignment.json"
+Invoke-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
 
-Run-Test "Generate generic template" "python main.py generate"
+Invoke-Test "Generate generic template" "python main.py generate"
 
 Write-Host ""
 Write-Host "Checking generic template files..." -ForegroundColor Yellow
 Assert-Exists $TemplatePdf
 Assert-Exists $TemplatePng
 
-Run-Test "Generate class assignment materials" "python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
+Invoke-Test "Generate class assignment materials" "python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
 
 Write-Host ""
 Write-Host "Checking generated class/assignment files..." -ForegroundColor Yellow
@@ -191,11 +191,11 @@ Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\scans"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
 Assert-Exists "scans_inbox"
 
-Run-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
+Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
 
-Run-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
+Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Run-Test "Launch menu and exit" "Write-Output '9' | python main.py menu"
+Invoke-Test "Launch menu and exit" "Write-Output '9' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
@@ -225,10 +225,10 @@ $conflictingAssignment = @{
 } | ConvertTo-Json -Depth 5
 [System.IO.File]::WriteAllText($ConflictingAssignmentJson, $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
 
-Run-Test "Validate conflicting assignment fixture" "python main.py validate-assignment $ConflictingAssignmentJson"
+Invoke-Test "Validate conflicting assignment fixture" "python main.py validate-assignment $ConflictingAssignmentJson"
 
 # Attempt setup with conflicting assignment - should fail
-Run-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
+Invoke-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
 
 # Verify original assignment.json was NOT overwritten
 Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
@@ -238,7 +238,7 @@ Write-Host "CONFIRMED: Original assignment.json was protected and not overwritte
 # Clean up test artifact
 Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
 
-Run-Test "Score generated template PDF with manual defaults" "python main.py score $TemplatePdf examples\answer_key.json"
+Invoke-Test "Score generated template PDF with manual defaults" "python main.py score $TemplatePdf examples\answer_key.json"
 
 Write-Host ""
 Write-Host "Checking scoring output files..." -ForegroundColor Yellow
@@ -249,7 +249,7 @@ Assert-Exists "$LocalDebugDir\debug_warped_page_1.png"
 Write-Host ""
 Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
-Run-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf $QrMetadataResultsCsv"
+Invoke-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf $QrMetadataResultsCsv"
 
 Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
@@ -260,7 +260,7 @@ Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane.pdf"
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
-Run-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf $MixedScanResultsCsv"
+Invoke-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf $MixedScanResultsCsv"
 
 Write-Host ""
 Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
@@ -274,7 +274,7 @@ Assert-FileContains $MixedScanResultsCsv "rj_act1_quiz"
 Write-Host ""
 Write-Host "Testing result routing..." -ForegroundColor Yellow
 Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAction SilentlyContinue
-Run-Test "Score class packet with result routing" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+Invoke-Test "Score class packet with result routing" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
 
 Write-Host ""
 Write-Host "Checking routed results output..." -ForegroundColor Yellow
@@ -297,7 +297,7 @@ Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "
 
 Write-Host ""
 Write-Host "Testing duplicate/attempt handling for routed results..." -ForegroundColor Yellow
-Run-Test "Score class packet with result routing again for attempt tracking" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+Invoke-Test "Score class packet with result routing again for attempt tracking" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
 Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
 Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "1" 3
 Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "2" 3
@@ -355,7 +355,7 @@ Assert-FileContains $TempRosterCsv "5002"
 Assert-FileContains $TempRosterCsv "Alice"
 Assert-FileContains $TempRosterCsv "Bob"
 
-Run-Test "Validate created roster" "python main.py validate-roster $TempRosterCsv"
+Invoke-Test "Validate created roster" "python main.py validate-roster $TempRosterCsv"
 
 # Clean up test roster
 Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
@@ -397,7 +397,7 @@ Assert-FileContains $TempAssignmentJson "choices"
 Assert-FileContains $TempAssignmentJson "answer_key"
 Assert-FileContains $TempAssignmentJson "standards"
 
-Run-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
+Invoke-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
 
 # Clean up temp assignment
 Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue

@@ -3,8 +3,6 @@ import re
 import cv2
 import numpy as np
 from scoreform.config import (
-    CORNERS,
-    CORNER_SIZE,
     DST_PTS,
     IMG_WIDTH,
     IMG_HEIGHT,
