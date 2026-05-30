@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 from scoreform.config import (
+    CORNER_SIZE,
     DST_PTS,
     IMG_WIDTH,
     IMG_HEIGHT,
@@ -13,6 +14,12 @@ from scoreform.config import (
     LOCAL_DEBUG_DIR,
 )
 from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validate_identifier
+
+
+CORNER_ZONE_FRACTION = 0.22
+MIN_REGISTRATION_SIZE_RATIO = 0.65
+MAX_REGISTRATION_SIZE_RATIO = 4.0
+
 
 def order_points(pts):
     """Orders points in top-left, top-right, bottom-left, bottom-right order."""
@@ -57,6 +64,129 @@ def _infer_question_count(answer_key, default=10):
     return default
 
 
+def _expected_corner_regions(img_w, img_h):
+    """Return expected registration zones as (expected_center, bounds) pairs."""
+    zone_w = img_w * CORNER_ZONE_FRACTION
+    zone_h = img_h * CORNER_ZONE_FRACTION
+
+    return [
+        ((img_w * 0.1, img_h * 0.1), (0, 0, zone_w, zone_h)),
+        ((img_w * 0.9, img_h * 0.1), (img_w - zone_w, 0, img_w, zone_h)),
+        ((img_w * 0.1, img_h * 0.9), (0, img_h - zone_h, zone_w, img_h)),
+        ((img_w * 0.9, img_h * 0.9), (img_w - zone_w, img_h - zone_h, img_w, img_h)),
+    ]
+
+
+def _registration_size_bounds(img_w, img_h):
+    scale = min(img_w / IMG_WIDTH, img_h / IMG_HEIGHT)
+    expected_size = CORNER_SIZE * scale
+    min_size = max(12, expected_size * MIN_REGISTRATION_SIZE_RATIO)
+    max_size = expected_size * MAX_REGISTRATION_SIZE_RATIO
+    return min_size, max_size, expected_size
+
+
+def _score_registration_candidate(candidate, expected_center, expected_size):
+    cX, cY = candidate["center"]
+    ex_x, ex_y = expected_center
+    distance = np.sqrt((cX - ex_x) ** 2 + (cY - ex_y) ** 2)
+    distance_score = distance / max(expected_size, 1)
+
+    aspect_ratio = candidate["width"] / float(candidate["height"])
+    aspect_score = abs(np.log(aspect_ratio))
+
+    size_score = abs(candidate["area"] - (expected_size * expected_size))
+    size_score = size_score / max(expected_size * expected_size, 1)
+
+    fill_score = max(0, 0.6 - candidate["fill_density"])
+
+    return distance_score + aspect_score + (0.25 * size_score) + fill_score
+
+
+def _dark_component_candidates(
+    thresh,
+    bounds,
+    expected_center,
+    min_size,
+    max_size,
+    expected_size,
+):
+    x_min, y_min, x_max, y_max = [int(round(v)) for v in bounds]
+    roi = thresh[y_min:y_max, x_min:x_max]
+    num_labels, _, stats, centroids = cv2.connectedComponentsWithStats(
+        roi,
+        connectivity=8,
+    )
+
+    min_area = max(80, min_size * min_size * 0.35)
+    candidates = []
+
+    for label in range(1, num_labels):
+        x, y, w, h, area = stats[label]
+        if area < min_area:
+            continue
+        if w < min_size or h < min_size:
+            continue
+        if w > max_size or h > max_size:
+            continue
+
+        aspect_ratio = w / float(h)
+        if not 0.35 <= aspect_ratio <= 3.0:
+            continue
+
+        bounding_area = w * h
+        if bounding_area == 0:
+            continue
+
+        fill_density = area / float(bounding_area)
+        if fill_density < 0.35:
+            continue
+
+        cX = int(round(x_min + centroids[label][0]))
+        cY = int(round(y_min + centroids[label][1]))
+        candidate = {
+            "center": (cX, cY),
+            "width": w,
+            "height": h,
+            "area": area,
+            "fill_density": fill_density,
+        }
+        candidate["score"] = _score_registration_candidate(
+            candidate,
+            expected_center,
+            expected_size,
+        )
+        candidates.append(candidate)
+
+    return candidates
+
+
+def _find_registration_mark_centers(thresh, img_w, img_h):
+    """Find registration mark centers using per-corner dark-component searches."""
+    min_size, max_size, expected_size = _registration_size_bounds(img_w, img_h)
+    candidates = []
+    corner_centers = []
+
+    for expected_center, bounds in _expected_corner_regions(img_w, img_h):
+        zone_candidates = _dark_component_candidates(
+            thresh,
+            bounds,
+            expected_center,
+            min_size,
+            max_size,
+            expected_size,
+        )
+        candidates.extend(candidate["center"] for candidate in zone_candidates)
+
+        if zone_candidates:
+            best_candidate = min(
+                zone_candidates,
+                key=lambda candidate: candidate["score"],
+            )
+            corner_centers.append(best_candidate["center"])
+
+    return candidates, corner_centers
+
+
 def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     if debug_dir is None:
@@ -78,69 +208,8 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
         cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU,
     )[1]
 
-    # Find contours
-    contours, _ = cv2.findContours(
-        thresh,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE,
-    )
-
-    candidates = []
-    for c in contours:
-        # Approximate the contour
-        peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-
-        # We are looking for squares (4 points)
-        if len(approx) == 4:
-            x, y, w, h = cv2.boundingRect(approx)
-            aspect_ratio = w / float(h)
-            bounding_area = w * h
-
-            if bounding_area == 0:
-                continue
-
-            # Compute fill density by counting white pixels in the thresholded image
-            # Since threshold is inverted, black marks on white paper become white pixels.
-            roi = thresh[y : y + h, x : x + w]
-            filled_pixels = cv2.countNonZero(roi)
-            fill_density = filled_pixels / float(bounding_area)
-
-            # Filter by area, aspect ratio, and HIGH fill density (solid square)
-            if 500 < bounding_area < 20000 and 0.8 <= aspect_ratio <= 1.2:
-                if fill_density > 0.7:  # Registration marks are solid (> 70% filled)
-                    M = cv2.moments(c)
-                    if M["m00"] != 0:
-                        cX = int(M["m10"] / M["m00"])
-                        cY = int(M["m01"] / M["m00"])
-                        candidates.append((cX, cY))
-
-    # Identify the 4 corner marks
     img_h, img_w = img.shape[:2]
-    expected_corners = [
-        (img_w * 0.1, img_h * 0.1),  # TL
-        (img_w * 0.9, img_h * 0.1),  # TR
-        (img_w * 0.1, img_h * 0.9),  # BL
-        (img_w * 0.9, img_h * 0.9),  # BR
-    ]
-
-    corner_centers = []
-
-    for ex_x, ex_y in expected_corners:
-        best_candidate = None
-        min_dist = float("inf")
-
-        for cX, cY in candidates:
-            dist = (cX - ex_x) ** 2 + (cY - ex_y) ** 2
-            if dist < min_dist:
-                min_dist = dist
-                best_candidate = (cX, cY)
-
-        if best_candidate is not None:
-            corner_centers.append(best_candidate)
-
-    # Remove duplicates if multiple expected corners mapped to the same candidate
-    corner_centers = list(set(corner_centers))
+    candidates, corner_centers = _find_registration_mark_centers(thresh, img_w, img_h)
 
     # Draw debug information on debug_img
     for cX, cY in candidates:
