@@ -1,6 +1,7 @@
 import csv
 import datetime
 import os
+import tempfile
 
 from scoreform.scoring import validate_qr_identifier
 from scoreform.folders import ensure_parent_dir
@@ -17,16 +18,116 @@ def _get_max_question_count(results):
     return max_question
 
 
-def _header_question_count_from_fieldnames(fieldnames):
-    max_question = 0
-    for field in fieldnames or []:
-        if field.startswith("Q"):
-            suffix = field[1:]
-            if suffix.isdigit():
-                number = int(suffix)
-                if number > max_question:
-                    max_question = number
-    return max_question
+def _routed_headers(question_count):
+    headers = [
+        "Page",
+        "class_id",
+        "assignment_id",
+        "student_id",
+        "last_name",
+        "first_name",
+        "period",
+        "source_file",
+        "attempt_number",
+        "scan_timestamp",
+        "Score",
+        "Total",
+    ]
+
+    for i in range(1, question_count + 1):
+        headers.append(f"Q{i}")
+        headers.append(f"Q{i}_Correct")
+
+    return headers
+
+
+def _routed_header_question_count(fieldnames):
+    base_headers = _routed_headers(0)
+
+    if not fieldnames:
+        return None
+    if fieldnames[: len(base_headers)] != base_headers:
+        return None
+
+    question_fields = fieldnames[len(base_headers) :]
+    if len(question_fields) % 2 != 0:
+        return None
+
+    question_count = len(question_fields) // 2
+    if fieldnames != _routed_headers(question_count):
+        return None
+
+    return question_count
+
+
+def _read_existing_routed_results(output_file):
+    """Read and validate an existing routed results CSV."""
+    try:
+        with open(output_file, mode="r", newline="", encoding="utf-8") as csv_file:
+            reader = csv.DictReader(csv_file, strict=True)
+            question_count = _routed_header_question_count(reader.fieldnames)
+            if question_count is None:
+                print(
+                    f"Error: Existing routed results file has incompatible headers: "
+                    f"{output_file}"
+                )
+                return None, None
+
+            rows = []
+            for row in reader:
+                if None in row or any(value is None for value in row.values()):
+                    print(
+                        f"Error: Existing routed results file has malformed rows: "
+                        f"{output_file}"
+                    )
+                    return None, None
+                rows.append(row)
+            return rows, question_count
+    except csv.Error as e:
+        print(f"Error: Existing routed results file is not valid CSV {output_file}: {e}")
+        return None, None
+    except Exception as e:
+        print(f"Error: Could not read existing routed results file {output_file}: {e}")
+        return None, None
+
+
+def _write_routed_results_safely(output_file, headers, rows):
+    """Write routed results via same-directory temp file and atomic replace."""
+    output_dir = os.path.dirname(output_file) or "."
+    temp_path = None
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            newline="",
+            encoding="utf-8",
+            dir=output_dir,
+            prefix=".results.",
+            suffix=".tmp",
+            delete=False,
+        ) as csv_file:
+            temp_path = csv_file.name
+            writer = csv.DictWriter(csv_file, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(rows)
+            csv_file.flush()
+            os.fsync(csv_file.fileno())
+
+        os.replace(temp_path, output_file)
+        temp_path = None
+        return True
+    except Exception as e:
+        print(f"Error writing routed results to {output_file}: {e}")
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as cleanup_error:
+                print(
+                    f"Warning: Could not remove temporary routed results file "
+                    f"{temp_path}: {cleanup_error}"
+                )
+                print(f"Temporary routed results file remains at: {temp_path}")
+        return False
 
 
 def export_to_csv(all_results, output_file):
@@ -249,49 +350,21 @@ def export_routed_results(all_results):
         
         output_file = os.path.join(output_dir, "results.csv")
 
-        base_headers = [
-            "Page",
-            "class_id",
-            "assignment_id",
-            "student_id",
-            "last_name",
-            "first_name",
-            "period",
-            "source_file",
-            "attempt_number",
-            "scan_timestamp",
-            "Score",
-            "Total",
-        ]
-
         question_count = max(1, _get_max_question_count(results))
         existing_rows_raw = []
-        attempt_counts = {}
-        read_failed = False
 
         if os.path.exists(output_file):
-            try:
-                with open(output_file, mode="r", newline="", encoding="utf-8") as csv_file:
-                    reader = csv.DictReader(csv_file)
-                    existing_question_count = _header_question_count_from_fieldnames(reader.fieldnames)
-                    question_count = max(question_count, existing_question_count)
-
-                    for row in reader:
-                        existing_rows_raw.append(row)
-            except Exception as e:
-                print(f"Error: Could not read existing routed results file {output_file}: {e}")
+            existing_rows_raw, existing_question_count = _read_existing_routed_results(output_file)
+            if existing_rows_raw is None:
                 all_success = False
-                read_failed = True
+                print(
+                    f"Skipping export for assignment {assignment_id} in class "
+                    f"{class_id} due to unsafe existing results."
+                )
+                continue
+            question_count = max(question_count, existing_question_count)
 
-        if read_failed:
-            print(f"Skipping export for assignment {assignment_id} in class {class_id} due to unreadable existing results.")
-            continue
-
-        headers = base_headers.copy()
-        for i in range(1, question_count + 1):
-            headers.append(f"Q{i}")
-            headers.append(f"Q{i}_Correct")
-
+        headers = _routed_headers(question_count)
         existing_rows = []
         attempt_counts = {}
 
@@ -318,50 +391,43 @@ def export_routed_results(all_results):
 
         batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        try:
-            with open(output_file, mode="w", newline="", encoding="utf-8") as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=headers)
-                writer.writeheader()
+        rows_to_write = list(existing_rows)
+        for res in results:
+            key = (
+                res.get("class_id", ""),
+                res.get("assignment_id", ""),
+                res.get("student_id", ""),
+            )
 
-                for old_row in existing_rows:
-                    writer.writerow(old_row)
+            next_attempt = attempt_counts.get(key, 0) + 1
+            attempt_counts[key] = next_attempt
 
-                for res in results:
-                    key = (
-                        res.get("class_id", ""),
-                        res.get("assignment_id", ""),
-                        res.get("student_id", ""),
-                    )
+            row = {
+                "Page": res["page_num"],
+                "class_id": res.get("class_id", ""),
+                "assignment_id": res.get("assignment_id", ""),
+                "student_id": res.get("student_id", ""),
+                "last_name": res.get("last_name", ""),
+                "first_name": res.get("first_name", ""),
+                "period": res.get("period", ""),
+                "source_file": res.get("source_file", ""),
+                "attempt_number": str(next_attempt),
+                "scan_timestamp": batch_timestamp,
+                "Score": res["score"],
+                "Total": res["total_points"],
+            }
 
-                    next_attempt = attempt_counts.get(key, 0) + 1
-                    attempt_counts[key] = next_attempt
+            # Add answer details
+            for ans in res["answers"]:
+                q_num = ans["Q"]
+                row[f"Q{q_num}"] = ans["Answer"]
+                row[f"Q{q_num}_Correct"] = ans["Correct"]
 
-                    row = {
-                        "Page": res["page_num"],
-                        "class_id": res.get("class_id", ""),
-                        "assignment_id": res.get("assignment_id", ""),
-                        "student_id": res.get("student_id", ""),
-                        "last_name": res.get("last_name", ""),
-                        "first_name": res.get("first_name", ""),
-                        "period": res.get("period", ""),
-                        "source_file": res.get("source_file", ""),
-                        "attempt_number": str(next_attempt),
-                        "scan_timestamp": batch_timestamp,
-                        "Score": res["score"],
-                        "Total": res["total_points"],
-                    }
-                    
-                    # Add answer details
-                    for ans in res["answers"]:
-                        q_num = ans["Q"]
-                        row[f"Q{q_num}"] = ans["Answer"]
-                        row[f"Q{q_num}_Correct"] = ans["Correct"]
+            rows_to_write.append(row)
 
-                    writer.writerow(row)
-
+        if _write_routed_results_safely(output_file, headers, rows_to_write):
             print(f"Results routed to {output_file}")
-        except Exception as e:
-            print(f"Error writing routed results to {output_file}: {e}")
+        else:
             all_success = False
 
     return all_success

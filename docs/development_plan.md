@@ -54,6 +54,8 @@ The project currently supports:
 * QR decode preprocessing fallbacks for phone-scan reliability, including grayscale,
   thresholding, upscaling, and generous upper-right QR-region crops
 * Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
+* Routed result CSV writes use same-directory temporary files and replacement so existing results remain intact if a write or replace fails
+* Routed result export validates existing CSV headers before preserving rows and appending new attempts
 * Routed CSV output containing page, class, assignment, student, roster, score, total, and answer columns
 * CSV export creates dynamic question columns based on result question count
 * Roster lookup for routed results using `classes/<class_id>/roster.csv`
@@ -1155,6 +1157,7 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` includes roster lookup regression coverage for routed results.
 * `score` exits nonzero when no pages are scored successfully.
 * CSV export functions report success/failure to the CLI.
+* Routed-results pytest coverage verifies preserved rows, attempt numbering, safe replace failure behavior, and header mismatch failure.
 * Initial Python-native pytest suite added.
 * Pytest suite covers QR payload parsing/validation, assignment validation, roster validation, assignment comparison helpers, and template filename helpers.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
