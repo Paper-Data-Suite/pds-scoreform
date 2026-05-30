@@ -486,6 +486,7 @@ scoreform score path\to\scan.pdf
 ```
 
 QR-aware scoring without an output CSV routes results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
+Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
 
 QR-aware scoring with an explicit output CSV writes the QR-aware results to that file instead of routing:
 
