@@ -482,6 +482,101 @@ def parse_qr_payload(payload):
     return out
 
 
+def _try_decode_qr(detector, img):
+    """Return decoded QR payload text, or None when no QR is detected."""
+    data, _, _ = detector.detectAndDecode(img)
+    if data:
+        return data
+    return None
+
+
+def _as_grayscale(img):
+    if len(img.shape) == 2:
+        return img
+    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+
+def _qr_preprocess_attempts(img):
+    """Yield a bounded set of QR decode images from least to most processed."""
+    yield "raw", img
+
+    gray = _as_grayscale(img)
+    if len(img.shape) != 2:
+        yield "grayscale", gray
+
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    yield "otsu threshold", cv2.threshold(
+        blurred,
+        0,
+        255,
+        cv2.THRESH_BINARY | cv2.THRESH_OTSU,
+    )[1]
+    yield "otsu inverted threshold", cv2.threshold(
+        blurred,
+        0,
+        255,
+        cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU,
+    )[1]
+    yield "adaptive threshold", cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        5,
+    )
+    yield "binary threshold", cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)[1]
+
+    for scale in (1.5, 2.0, 3.0):
+        yield (
+            f"{scale:g}x upscale",
+            cv2.resize(
+                img,
+                None,
+                fx=scale,
+                fy=scale,
+                interpolation=cv2.INTER_CUBIC,
+            ),
+        )
+        yield (
+            f"grayscale {scale:g}x upscale",
+            cv2.resize(
+                gray,
+                None,
+                fx=scale,
+                fy=scale,
+                interpolation=cv2.INTER_CUBIC,
+            ),
+        )
+
+
+def _expected_qr_crops(img):
+    """Yield generous upper-right crops around the template QR location."""
+    h, w = img.shape[:2]
+    crop_bounds = [
+        (0.58, 0.00, 1.00, 0.38),
+        (0.50, 0.00, 1.00, 0.48),
+        (0.65, 0.04, 0.98, 0.30),
+    ]
+
+    for x1f, y1f, x2f, y2f in crop_bounds:
+        x1 = max(0, int(w * x1f))
+        y1 = max(0, int(h * y1f))
+        x2 = min(w, int(w * x2f))
+        y2 = min(h, int(h * y2f))
+        if x2 > x1 and y2 > y1:
+            yield img[y1:y2, x1:x2]
+
+
+def _qr_candidate_images(img):
+    for label, candidate in _qr_preprocess_attempts(img):
+        yield label, candidate
+
+    for crop_index, crop in enumerate(_expected_qr_crops(img), start=1):
+        for label, candidate in _qr_preprocess_attempts(crop):
+            yield f"crop {crop_index} {label}", candidate
+
+
 def decode_qr_from_image(img):
     """Decode a QR code from an OpenCV image and parse the OMR1 payload.
 
@@ -493,14 +588,21 @@ def decode_qr_from_image(img):
 
     detector = cv2.QRCodeDetector()
 
-    try:
-        data, points, _ = detector.detectAndDecode(img)
-    except Exception as e:
-        print(f"Error: Exception while decoding QR: {e}")
-        return None
+    data = None
+    success_label = None
+
+    for label, candidate in _qr_candidate_images(img):
+        try:
+            data = _try_decode_qr(detector, candidate)
+        except Exception as e:
+            print(f"Error: Exception while decoding QR: {e}")
+            return None
+        if data:
+            success_label = label
+            break
 
     if not data:
-        print("No QR code detected in image.")
+        print("No QR code detected after raw/preprocessed decode attempts.")
         return None
 
     parsed = parse_qr_payload(data)
@@ -511,6 +613,9 @@ def decode_qr_from_image(img):
     if not validate_qr_metadata(parsed):
         print(f"QR code payload failed validation: '{data}'")
         return None
+
+    if success_label != "raw":
+        print(f"QR decoded using {success_label} fallback.")
 
     return parsed
 

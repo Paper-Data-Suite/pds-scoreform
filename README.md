@@ -571,12 +571,14 @@ Future test improvements may include:
 
 ## Known Issues
 
-* Poor scan quality may prevent QR detection.
+* Poor scan quality may still prevent QR detection, though ScoreForm now retries
+  with QR preprocessing fallbacks before giving up.
 * Multi-page forms are not implemented yet; assignments are currently limited to 1-15 questions on a single page.
 * Legacy/manual scoring writes default debug images to `local_outputs/debug/`, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit overwrite/archive workflow has not been implemented yet.
-* QR preprocessing may be needed for more reliable real-world scanning.
+* QR preprocessing improves many real-world phone scans, but severe blur, glare,
+  cropping, or rotation can still prevent detection.
 
 ## Design Principles
 
