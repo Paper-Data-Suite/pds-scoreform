@@ -51,6 +51,8 @@ The project currently supports:
 * QR-based mixed-scan scoring for multi-page PDFs
 * QR-aware class packet scoring with one row per student page
 * Result routing to assignment folders for QR-aware scoring
+* QR decode preprocessing fallbacks for phone-scan reliability, including grayscale,
+  thresholding, upscaling, and generous upper-right QR-region crops
 * Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
 * Routed CSV output containing page, class, assignment, student, roster, score, total, and answer columns
 * CSV export creates dynamic question columns based on result question count
@@ -317,7 +319,7 @@ Caveat:
 
 * A poor-quality phone scan failed QR detection.
 * QR reliability may depend on scan quality, camera quality, lighting, document alignment, and scanner app behavior.
-* Future improvements may include larger QR codes, higher QR error correction, preprocessing/cropping before QR detection, or clearer scan-quality guidance for users.
+* Future improvements may include larger QR codes, higher QR error correction, rotation/skew-specific preprocessing, or clearer scan-quality guidance for users.
 
 ---
 
@@ -1225,10 +1227,9 @@ Keep the codebase maintainable as features expand.
 * Consider moving QR dependencies/import checks into a cleaner helper to avoid redundant `qrcode` imports.
 * Move shared PDF/image loading logic out of `main.py` and/or `process_file()` so `score` and `decode-qr` can reuse one helper.
 * Organize generated local artifacts so project-root clutter is reduced. Generated templates, debug images, verification CSVs, manual-test PDFs, and scratch outputs should eventually be routed into predictable ignored folders rather than accumulating in the project root.
-* Consider QR decode preprocessing if scan reliability becomes a problem:
+* Consider further QR decode reliability improvements if field scans still fail:
 
-  * crop around expected QR region,
-  * threshold/contrast adjustment,
+  * rotation/skew-specific preprocessing,
   * larger QR code,
   * higher QR error correction,
   * scanner guidance in the menu/help text.
