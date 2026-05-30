@@ -45,6 +45,8 @@ The project currently supports:
 * QR-aware score output with `class_id`, `assignment_id`, and `student_id`
 * Legacy/manual scoring preserved when an explicit answer key is provided
 * Scoring uses assignment question count for QR-aware scoring and inferred answer-key count for legacy/manual scoring
+* Registration mark detection searches expected corner zones with tolerant dark-component selection so filled answer boxes near Q15 cannot be selected as perspective corners while imperfect true markers can still be recovered
+* 15-question synthetic scoring, Q15 corner-conflict, and imperfect bottom-left marker regression coverage
 * `score` command exits nonzero when no pages are scored successfully
 * QR-based mixed-scan scoring for multi-page PDFs
 * QR-aware class packet scoring with one row per student page
@@ -309,6 +311,7 @@ Confirmed:
 * Printed-and-scanned student sheet can be decoded by `decode-qr` when scan quality is adequate.
 * Printed, filled, and scanned student sheet scored correctly at `10/10`.
 * QR code placement does not interfere with corner registration detection or answer scoring.
+* A field-reported 15-question failure mode was addressed by searching each expected corner zone for registration-sized dark components; synthetic regression coverage verifies that filled Q15 answer boxes do not corrupt corner selection and that an imperfect bottom-left marker is still selected.
 
 Caveat:
 
