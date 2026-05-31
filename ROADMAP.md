@@ -8,33 +8,33 @@ It works for controlled testing and development use, but it is not yet recommend
 
 ## Completed Milestones
 
-### v0.1.0 — QR-Aware Scoring With Routed Results
+### v0.1.0 - QR-Aware Scoring With Routed Results
 
 ScoreForm can generate QR-coded student sheets and class packets, decode QR payloads, score QR-aware scans, route results into class and assignment folders, enrich routed results with roster data, and preserve legacy/manual scoring workflows. Regression coverage exists for QR decoding, QR-aware scoring, mixed scans, routed results, and roster-enriched results.
 
-### v0.2.0 — Scan Workflow and Auditability
+### v0.2.0 - Scan Workflow and Auditability
 
 ScoreForm tracks scan source files in result rows, creates a project-level `scans_inbox/`, routes QR-aware debug output into assignment folders, handles duplicate scan attempts with attempt metadata, and protects existing assignment folders from mismatched assignment JSON collisions.
 
-### v0.3.0 — Teacher-Friendly Terminal Menu
+### v0.3.0 - Teacher-Friendly Terminal Menu
 
 A basic terminal menu wraps the main workflows so users can generate sheets, score scans, decode QR codes, validate files, and set up assignment folders without memorizing every command.
 
-### v0.4.0 — Installable Command
+### v0.4.0 - Installable Command
 
 ScoreForm supports editable installation, a `scoreform` console command, a `scoreform/cli.py` entry point, `pyproject.toml` packaging metadata, and backward-compatible `python main.py` commands.
 
-### v0.5.0 — Roster and Assignment Management
+### v0.5.0 - Roster and Assignment Management
 
 The terminal menu supports creating rosters and assignments without manually editing CSV or JSON files. These workflows include parent-directory creation, overwrite confirmation, validation after save, and support for assignments with configurable question counts.
 
-### v0.6.0 — Flexible Form Configuration and Standards Metadata
+### v0.6.0 - Flexible Form Configuration and Standards Metadata
 
 ScoreForm includes a pytest foundation, supports single-page assignments with 1-15 questions, validates optional question-level standards metadata, preserves optional roster columns when loading rosters, and keeps existing assignment files without standards metadata valid.
 
 ## Current Milestone
 
-### v0.7.0 — Robustness, Cleanup, and Public Readiness
+### v0.7.0 - Robustness, Cleanup, and Public Readiness
 
 Completed so far:
 

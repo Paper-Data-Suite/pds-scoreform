@@ -4,7 +4,7 @@
 
 ScoreForm is an early-stage, local-first classroom OMR tool.
 
-It is intended to run on a teacher’s local machine and is not currently designed as a hosted service.
+It is intended to run on a teacher's local machine and is not currently designed as a hosted service.
 
 ## Student Data and Privacy
 

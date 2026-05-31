@@ -13,7 +13,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 * Project-manager / release-readiness review pass remains pending.
 * Future README and documentation organization improvements may continue as the project stabilizes.
 
-## [v0.7.0] — In Progress
+## [v0.7.0] - In Progress
 
 ### Added
 
@@ -32,7 +32,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Continued public-readiness documentation work while keeping active-development limitations explicit.
 
-## [v0.6.0] — Flexible Form Configuration and Standards Metadata
+## [v0.6.0] - Flexible Form Configuration and Standards Metadata
 
 ### Added
 
@@ -50,7 +50,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Added pytest coverage for QR validation, assignment validation, roster validation, folder helpers, template filename helpers, variable question counts, and CSV export behavior.
 
-## [v0.5.0] — Roster and Assignment Management
+## [v0.5.0] - Roster and Assignment Management
 
 ### Added
 
@@ -68,7 +68,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Added regression coverage for menu-driven roster creation and assignment creation.
 
-## [v0.4.0] — Installable Command
+## [v0.4.0] - Installable Command
 
 ### Added
 
@@ -86,7 +86,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Added regression coverage for editable install and the `scoreform` command.
 
-## [v0.3.0] — Teacher-Friendly Terminal Menu
+## [v0.3.0] - Teacher-Friendly Terminal Menu
 
 ### Added
 
@@ -97,7 +97,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Preserved direct CLI commands while adding a menu-based workflow.
 
-## [v0.2.0] — Scan Workflow and Auditability
+## [v0.2.0] - Scan Workflow and Auditability
 
 ### Added
 
@@ -120,7 +120,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 * Added regression coverage for assignment collision protection and duplicate/attempt handling.
 
-## [v0.1.0] — QR-Aware Scoring With Routed Results
+## [v0.1.0] - QR-Aware Scoring With Routed Results
 
 ### Added
 
