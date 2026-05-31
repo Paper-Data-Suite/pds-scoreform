@@ -1,5 +1,7 @@
 # OMR Program Iterative Development Plan
 
+> Note: This document preserves detailed working and historical planning notes. For a cleaner public summary of project direction, see `ROADMAP.md`.
+
 ## Completed
 
 The project currently supports:
