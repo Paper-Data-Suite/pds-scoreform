@@ -375,7 +375,21 @@ ScoreForm also requires Poppler for PDF conversion through `pdf2image`.
 
 Poppler is not installed by `pip`.
 
-On Windows, Poppler can be installed separately. After installation, make sure the Poppler `bin` directory is available on your system `PATH`.
+On Windows, install Poppler separately using a package manager such as winget, Chocolatey, or Scoop, or by downloading a Windows build of Poppler. After installation, make sure the Poppler `bin` directory is on your system `PATH` so `pdf2image` can find tools such as `pdftoppm`.
+
+On macOS, Homebrew users can install Poppler with:
+
+```bash
+brew install poppler
+```
+
+On Linux, install the Poppler utilities package for your distribution. For example, on Debian or Ubuntu:
+
+```bash
+sudo apt install poppler-utils
+```
+
+Package names vary by distribution.
 
 ## Installation and Setup
 

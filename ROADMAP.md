@@ -64,8 +64,7 @@ Remaining v0.7.0 work:
 
 Planned and possible future work includes:
 
-* Add a `scoreform --help` flag and terminal menu help option.
-* Consider `scoreform --version`.
+* Keep CLI help, version output, and terminal menu help current as commands evolve.
 * Add menu-driven standards editing.
 * Add standards performance reporting.
 * Add roster editing.

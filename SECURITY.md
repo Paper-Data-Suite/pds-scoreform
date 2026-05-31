@@ -40,11 +40,15 @@ ScoreForm is currently in early prototype development. No stable production rele
 
 ScoreForm is not yet recommended for high-stakes grading without manual verification.
 
-Known areas still under development include:
+Implemented areas that are still maturing include:
 
-- QR-based scoring workflow
-- result routing
-- duplicate attempt handling
-- scan storage
+- QR-aware scoring and scan reliability
+- routed result workflows
+- duplicate and repeated-attempt handling policy
+
+Known areas still planned or under development include:
+
+- gradebook export attempt-selection rules
+- scan archiving or moving workflow
 - broader test coverage
-- classroom-ready user interface
+- classroom-ready nontechnical user interface
