@@ -60,6 +60,8 @@ ScoreForm currently supports:
 * Optional question-level standards metadata in assignment JSON
 * Optional roster columns preserved when roster CSV files are loaded
 * Editable install support with the `scoreform` command
+* CLI help and version commands through `scoreform --help`, `scoreform help`, `scoreform --version`, and `scoreform version`
+* Terminal menu help for common workflows and routed-results guidance
 
 ## Important Limitations
 
@@ -187,6 +189,7 @@ scoreform
 For direct Python invocation, `python main.py menu` remains supported.
 
 The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
+Select **9. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 
 ### Create a Roster from the Menu
 
@@ -398,6 +401,8 @@ scoreform
 or use individual commands:
 
 ```powershell
+scoreform --help
+scoreform --version
 scoreform menu
 scoreform validate-assignment examples\sample_assignment.json
 scoreform validate-roster examples\sample_roster_english9_p2.csv
@@ -412,6 +417,8 @@ For backward compatibility, direct `python main.py` commands continue to work:
 
 ```powershell
 python main.py menu
+python main.py --help
+python main.py --version
 python main.py validate-assignment examples\sample_assignment.json
 python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
 python main.py score path\to\scan.pdf
@@ -420,6 +427,8 @@ python main.py score path\to\scan.pdf
 ## Basic Usage
 
 The command-line interface is still evolving. Current commands may change before the first stable release.
+
+Use `scoreform --help`, `scoreform -h`, or `scoreform help` to show available commands, examples, and scoring mode notes. Use `scoreform --version` or `scoreform version` to print the installed package version.
 
 ### Scan Workflow
 
