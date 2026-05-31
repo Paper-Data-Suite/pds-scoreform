@@ -4,6 +4,8 @@ import sys
 import os
 import cv2
 import numpy as np
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 from scoreform.templates import (
     generate_template,
@@ -18,6 +20,116 @@ from scoreform.folders import setup_assignment_folder
 from scoreform.results import export_to_csv, export_routed_results
 from scoreform.workflows import launch_roster_menu, launch_assignment_menu
 from scoreform.config import LOCAL_RESULTS_CSV
+
+
+def get_version():
+    """Return the installed package version, with a local pyproject fallback."""
+    try:
+        return version("scoreform")
+    except PackageNotFoundError:
+        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        try:
+            in_project_section = False
+            for line in pyproject_path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if stripped == "[project]":
+                    in_project_section = True
+                    continue
+                if in_project_section and stripped.startswith("["):
+                    break
+                if in_project_section and stripped.startswith("version"):
+                    return stripped.split("=", 1)[1].strip().strip('"')
+        except OSError:
+            return "unknown"
+        return "unknown"
+
+
+def print_version():
+    print(f"ScoreForm {get_version()}")
+
+
+def print_help():
+    print(
+        """ScoreForm
+A local-first classroom OMR tool for generating printable answer sheets and scoring scanned responses.
+
+Usage:
+  scoreform
+  scoreform menu
+  scoreform generate
+  scoreform generate <assignment.json> --rosters <roster.csv> [more rosters...]
+  scoreform score <scan.pdf>
+  scoreform score <scan.pdf> <output.csv>
+  scoreform score <scan.pdf> <answer_key.json>
+  scoreform score <scan.pdf> <output.csv> <answer_key.json>
+  scoreform decode-qr <file.pdf-or-image>
+  scoreform validate-assignment <assignment.json>
+  scoreform validate-roster <roster.csv>
+  scoreform setup-assignment <assignment.json> <roster.csv>
+  scoreform help
+  scoreform --help
+  scoreform version
+  scoreform --version
+
+Commands:
+  menu                  Launch the terminal menu.
+  generate              Generate a generic template or assignment-based answer sheets.
+  score                 Score scanned responses.
+  decode-qr             Decode QR metadata from a PDF or image.
+  validate-assignment   Validate an assignment JSON file.
+  validate-roster       Validate a roster CSV file.
+  setup-assignment      Create class and assignment folders.
+  help                  Show this help text.
+  version               Show the installed ScoreForm version.
+
+Scoring modes:
+  scoreform score scanned_file.pdf
+      QR-aware scoring. Uses QR metadata to locate the assignment and routes results to
+      classes/<class_id>/assignments/<assignment_id>/results.csv.
+
+  scoreform score scanned_file.pdf output.csv
+      QR-aware scoring with an explicit output CSV instead of routed results.
+
+  scoreform score scanned_file.pdf answer_key.json
+      Legacy/manual scoring with an explicit answer key and default local results path.
+
+  scoreform score scanned_file.pdf output.csv answer_key.json
+      Legacy/manual scoring with an explicit answer key and explicit output CSV.
+
+Examples:
+  scoreform
+  scoreform generate examples\\sample_assignment.json --rosters examples\\sample_roster_english9_p2.csv
+  scoreform score scans_inbox\\class_packet.pdf
+  scoreform decode-qr classes\\english9_p2\\assignments\\rj_act1_quiz\\templates\\class_packet.pdf
+  scoreform validate-assignment examples\\sample_assignment.json
+  scoreform validate-roster examples\\sample_roster_english9_p2.csv
+
+Notes:
+  Running scoreform with no arguments launches the terminal menu.
+  python main.py remains supported for backward compatibility."""
+    )
+
+
+def print_menu_help():
+    print("ScoreForm help")
+    print()
+    print("ScoreForm generates printable answer sheets and scores scanned responses.")
+    print()
+    print("Typical workflow:")
+    print("  1. Create or validate a roster CSV.")
+    print("  2. Create or validate an assignment JSON file.")
+    print("  3. Set up assignment folders.")
+    print("  4. Generate answer sheets.")
+    print("  5. Scan completed sheets.")
+    print("  6. Score scanned responses.")
+    print("  7. Inspect routed results.")
+    print()
+    print("QR-aware routed scoring writes to:")
+    print("  classes/<class_id>/assignments/<assignment_id>/results.csv")
+    print()
+    print("Routed results are an audit log, not a finalized gradebook export.")
+    print("Manually verify scores before using them for grades.")
+    print()
 
 
 def run_generate(args):
@@ -310,7 +422,8 @@ def launch_menu():
             print("6. Set up assignment folders")
             print("7. Roster management")
             print("8. Assignment management")
-            print("9. Exit")
+            print("9. Help")
+            print("10. Exit")
 
             choice = input("Select an option: ").strip()
             print()
@@ -409,11 +522,14 @@ def launch_menu():
                 print()
 
             elif choice == "9":
+                print_menu_help()
+
+            elif choice == "10":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 9.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 10.")
                 print()
 
     except KeyboardInterrupt:
@@ -435,21 +551,19 @@ def main(argv=None, default_to_menu=True):
     if not argv:
         if default_to_menu:
             return launch_menu()
-        print("Usage:")
-        print("  scoreform")
-        print("  scoreform menu")
-        print("  scoreform generate [assignment_json --rosters roster_csv ...]")
-        print("  scoreform score <input_file> [output_csv] [answer_key_json]")
-        print("  scoreform decode-qr <input_file>")
-        print("  scoreform validate-assignment <assignment_json>")
-        print("  scoreform validate-roster <roster_csv>")
-        print("  scoreform setup-assignment <assignment_json> <roster_csv>")
+        print_help()
         return 1
 
     cmd = argv[0]
     args = argv[1:]
 
-    if cmd == "menu":
+    if cmd in ("--help", "-h", "help"):
+        print_help()
+        return 0
+    elif cmd in ("--version", "version"):
+        print_version()
+        return 0
+    elif cmd == "menu":
         return launch_menu()
     elif cmd == "generate":
         return run_generate(args)

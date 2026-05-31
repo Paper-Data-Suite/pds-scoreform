@@ -90,6 +90,10 @@ The project currently supports:
 * Installable `scoreform` console command
 * `scoreform` command with no args launches menu by default
 * `scoreform <subcommand>` maps to existing workflows (generate, score, validate-*, setup-assignment, decode-qr, menu)
+* CLI help support through `scoreform --help`, `scoreform -h`, and `scoreform help`
+* CLI version support through `scoreform --version` and `scoreform version`
+* Version reporting reads installed package metadata with a local `pyproject.toml` fallback
+* Terminal menu help option with workflow, routed-results, audit-log, and manual-verification guidance
 * `scoreform/cli.py` module with main entry point
 * `pyproject.toml` with setuptools configuration
 * Backward-compatible `python main.py` commands preserved
@@ -1162,6 +1166,7 @@ Make the program and regression tests more reliable across machines.
 * Routed-results pytest coverage verifies preserved rows, append behavior, attempt numbering, makeup/separate scan append behavior, dynamic question columns through Q15, safe replace failure behavior, and header mismatch failure.
 * Initial Python-native pytest suite added.
 * Pytest suite covers QR payload parsing/validation, assignment validation, roster validation, assignment comparison helpers, and template filename helpers.
+* Pytest suite covers CLI help/version behavior and menu help exit flow.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
@@ -1253,8 +1258,7 @@ Keep the codebase maintainable as features expand.
 * Replace broad CSV text matching in `run_tests.ps1` with parsed CSV assertions later.
 * Reduce hardcoded sample class/assignment paths in `run_tests.ps1` when moving toward a more isolated test framework.
 * Consider moving inline temporary fixture generation in `run_tests.ps1` into reusable helpers or future pytest fixtures.
-* Add `scoreform --help` and a terminal menu help option later.
-* Consider adding `scoreform --version` later.
+* Keep CLI help current as commands evolve.
 * Consider separating interactive menu code from command-dispatch code if `scoreform/cli.py` grows too large.
 * `python main.py ...` compatibility works, but usage text now emphasizes `scoreform ...`; acceptable for now, but revisit if user confusion appears.
 * `main.py` is now a compatibility wrapper; future CLI work should happen in `scoreform/cli.py` or a split menu module.
