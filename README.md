@@ -598,7 +598,7 @@ ScoreForm is being designed around the following principles:
 
 * Keep the tool local-first.
 * Avoid requiring paid services.
-* Keep classroom data under the teacher’s control.
+* Keep classroom data under the teacher's control.
 * Make generated files predictable and organized.
 * Preserve legacy/manual scoring while newer QR-aware workflows are developed.
 * Prefer simple, inspectable file formats such as CSV and JSON.

@@ -107,7 +107,7 @@ The project currently supports:
 
 ## Completed Milestone
 
-### `v0.1.0` — QR-Aware Scoring With Routed Results
+### `v0.1.0` - QR-Aware Scoring With Routed Results
 
 This milestone is complete.
 
@@ -265,7 +265,7 @@ Uses QR metadata to locate:
 classes/<class_id>/assignments/<assignment_id>/assignment.json
 ```
 
-Then scores each page using that assignment’s answer key and routes results to:
+Then scores each page using that assignment's answer key and routes results to:
 
 ```text
 classes/<class_id>/assignments/<assignment_id>/results.csv
@@ -899,7 +899,7 @@ Features:
 
 ## Notes
 
-This phase should come after the basic menu exists, because it expands the menu from “command wrapper” into a real workflow assistant.
+This phase should come after the basic menu exists, because it expands the menu from "command wrapper" into a real workflow assistant.
 
 Standards tagging may begin as assignment metadata but is tracked separately because it also affects reporting and analytics.
 
@@ -940,7 +940,7 @@ Move beyond fixed 10-question sheets.
 
 ## Initial Limit
 
-Support **1–15 questions** on a single page.
+Support **1-15 questions** on a single page.
 
 ## Assignment JSON Controls
 
@@ -953,7 +953,7 @@ Support **1–15 questions** on a single page.
 * Assignment validation allows 1-15 questions.
 * Student PDFs draw only the required number of question rows.
 * Class packet PDFs draw only the required number of question rows.
-* QR-aware scoring scores only the assignment’s configured question count.
+* QR-aware scoring scores only the assignment's configured question count.
 * Legacy/manual scoring infers question count from a contiguous bare answer key when possible.
 * CSV export creates columns only for the required number of questions.
 * Validation checks answer keys against `question_count`.
@@ -1295,9 +1295,9 @@ Keep the GitHub repository professional, safe, and easy to understand.
 
 ## Tasks
 
-* Convert `development_plan.md` into a polished public `ROADMAP.md` — completed; `development_plan.md` remains the detailed working/planning document for now.
+* Convert `development_plan.md` into a polished public `ROADMAP.md` - completed; `development_plan.md` remains the detailed working/planning document for now.
 * Keep detailed tactical planning in local ignored notes.
-* Add or update `CHANGELOG.md` — completed initial public changelog; keep it current as milestones change.
+* Add or update `CHANGELOG.md` - completed initial public changelog; keep it current as milestones change.
 * Maintain GitHub Issues and Milestones.
 * Maintain Kanban board columns:
 
@@ -1393,62 +1393,62 @@ Do not hardcode assumptions that prevent multi-page forms later.
 
 # Suggested Milestones From Here
 
-## `v0.2.0` — Scan Workflow and Auditability
+## `v0.2.0` - Scan Workflow and Auditability
 
 Suggested issues:
 
-* Scan source tracking — completed
-* Scan storage workflow — in progress (scan inbox created; storage behavior pending)
-* Debug image routing — completed
-* Duplicate and attempt handling — completed
-* Overwrite and collision protection — completed
+* Scan source tracking - completed
+* Scan storage workflow - in progress (scan inbox created; storage behavior pending)
+* Debug image routing - completed
+* Duplicate and attempt handling - completed
+* Overwrite and collision protection - completed
 
-## `v0.3.0` — Teacher-Friendly Terminal Menu
-
-Suggested issues:
-
-* Basic terminal menu interface — completed
-
-## `v0.4.0` — Installable Command
+## `v0.3.0` - Teacher-Friendly Terminal Menu
 
 Suggested issues:
 
-* Installable `scoreform` command — completed
-* Move CLI entry point toward `scoreform/cli.py` — completed
-* Add `pyproject.toml` — completed
+* Basic terminal menu interface - completed
 
-## `v0.5.0` — Roster and Assignment Management
+## `v0.4.0` - Installable Command
 
 Suggested issues:
 
-* Roster creation and management — completed
-* Assignment creation and management — completed
+* Installable `scoreform` command - completed
+* Move CLI entry point toward `scoreform/cli.py` - completed
+* Add `pyproject.toml` - completed
 
-## `v0.5.1` — Stabilization Before Flexible Forms
-
-Suggested issues:
-
-* Sanitize QR payload fields before building paths — completed
-* Split CLI workflow helpers from command dispatch — completed
-
-## `v0.6.0` — Flexible Form Configuration and Standards Metadata
+## `v0.5.0` - Roster and Assignment Management
 
 Suggested issues:
 
-* Add initial pytest test suite — completed
-* Variable question count support — completed
-* Question standards tagging foundation — completed
-* Optional roster column preservation — completed
+* Roster creation and management - completed
+* Assignment creation and management - completed
 
-## `v0.7.0` — Robustness, Cleanup, and Public Readiness
+## `v0.5.1` - Stabilization Before Flexible Forms
 
 Suggested issues:
 
-* Add synthetic scoring accuracy fixture — completed
-* Improve CLI failure-mode tests — completed
+* Sanitize QR payload fields before building paths - completed
+* Split CLI workflow helpers from command dispatch - completed
+
+## `v0.6.0` - Flexible Form Configuration and Standards Metadata
+
+Suggested issues:
+
+* Add initial pytest test suite - completed
+* Variable question count support - completed
+* Question standards tagging foundation - completed
+* Optional roster column preservation - completed
+
+## `v0.7.0` - Robustness, Cleanup, and Public Readiness
+
+Suggested issues:
+
+* Add synthetic scoring accuracy fixture - completed
+* Improve CLI failure-mode tests - completed
 * General cleanup backlog
-* Convert `development_plan.md` into `ROADMAP.md` — completed; `development_plan.md` preserved
-* Add `CHANGELOG.md` — completed
+* Convert `development_plan.md` into `ROADMAP.md` - completed; `development_plan.md` preserved
+* Add `CHANGELOG.md` - completed
 * Pre-public repository audit
 
 ---
