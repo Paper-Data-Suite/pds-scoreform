@@ -217,6 +217,8 @@ OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
 ```
 
+Routed `results.csv` is documented as an audit log of successful scoring events. Repeated scans and makeup/separate scans append rows, `attempt_number` increments per student/assignment, and `source_file` plus `scan_timestamp` support auditability. ScoreForm still does not choose the official grade attempt; one-row-per-student gradebook export and attempt-selection rules remain future work.
+
 ### Runtime Dependencies
 
 Python package dependencies are listed in:
@@ -1157,7 +1159,7 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` includes roster lookup regression coverage for routed results.
 * `score` exits nonzero when no pages are scored successfully.
 * CSV export functions report success/failure to the CLI.
-* Routed-results pytest coverage verifies preserved rows, attempt numbering, safe replace failure behavior, and header mismatch failure.
+* Routed-results pytest coverage verifies preserved rows, append behavior, attempt numbering, makeup/separate scan append behavior, dynamic question columns through Q15, safe replace failure behavior, and header mismatch failure.
 * Initial Python-native pytest suite added.
 * Pytest suite covers QR payload parsing/validation, assignment validation, roster validation, assignment comparison helpers, and template filename helpers.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.

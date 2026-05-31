@@ -137,6 +137,28 @@ def test_routed_results_attempt_number_increments_from_existing_rows(tmp_path, m
     assert [row["source_file"] for row in rows] == ["first.pdf", "rescan.pdf"]
 
 
+def test_routed_results_include_dynamic_question_columns_through_q15(tmp_path, monkeypatch):
+    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
+    result = _routed_result("0001")
+    result["score"] = 15
+    result["total_points"] = 15
+    result["answers"] = [
+        {"Q": i, "Answer": "A", "Correct": True}
+        for i in range(1, 16)
+    ]
+
+    assert results.export_routed_results([result])
+
+    with (assignment_dir / "results.csv").open(encoding="utf-8") as f:
+        header = next(csv.reader(f))
+
+    assert "Q15" in header
+    assert "Q15_Correct" in header
+    assert "Q16" not in header
+    assert "Q16_Correct" not in header
+    assert header[-1] == "Q15_Correct"
+
+
 def test_routed_results_replace_failure_leaves_original_intact(tmp_path, monkeypatch):
     assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
     results_path = assignment_dir / "results.csv"
