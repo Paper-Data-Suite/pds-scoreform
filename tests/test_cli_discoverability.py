@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import scoreform.cli
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,6 +60,12 @@ def test_version_flag_prints_package_version():
 
 def test_version_command_prints_package_version():
     assert_version_output(run_main_command("version"))
+
+
+def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch):
+    monkeypatch.setattr(scoreform.cli, "version", lambda package_name: "0.4.0")
+
+    assert scoreform.cli.get_version() == "0.7.0.dev0"
 
 
 def test_menu_help_can_return_to_menu_and_exit():
