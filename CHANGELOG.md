@@ -4,6 +4,14 @@ All notable changes to ScoreForm will be documented in this file.
 
 ScoreForm uses milestone-based development while it remains in early active development. It is not yet recommended for high-stakes grading without manual verification.
 
+## Version Policy
+
+While ScoreForm is in active pre-1.0 development, `pyproject.toml` tracks the current active development package version using PEP 440 development versions. For example, `0.7.0.dev0` means active development toward the `v0.7.0` milestone.
+
+When a milestone is formally released/tagged, the package version should move to the final release number, such as `0.7.0`. When development resumes toward the next milestone, the version should move to the next development version, such as `0.8.0.dev0`.
+
+GitHub milestones are project-management buckets. Package versions describe installable application/package state. Making the repository public is a visibility change and does not automatically require changing the package version from a development version to a final release version.
+
 ## [Unreleased]
 
 ### Documentation
