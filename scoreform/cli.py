@@ -23,24 +23,29 @@ from scoreform.config import LOCAL_RESULTS_CSV
 
 
 def get_version():
-    """Return the installed package version, with a local pyproject fallback."""
+    """Return the local source version, with installed package metadata fallback."""
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    try:
+        in_project_section = False
+        for line in pyproject_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped == "[project]":
+                in_project_section = True
+                continue
+            if in_project_section and stripped.startswith("["):
+                break
+            if in_project_section and stripped.startswith("version"):
+                key, separator, value = stripped.partition("=")
+                value = value.strip()
+                if key.strip() == "version" and separator and len(value) >= 2:
+                    if value[0] == value[-1] and value[0] in ("'", '"'):
+                        return value[1:-1]
+    except OSError:
+        pass
+
     try:
         return version("scoreform")
     except PackageNotFoundError:
-        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
-        try:
-            in_project_section = False
-            for line in pyproject_path.read_text(encoding="utf-8").splitlines():
-                stripped = line.strip()
-                if stripped == "[project]":
-                    in_project_section = True
-                    continue
-                if in_project_section and stripped.startswith("["):
-                    break
-                if in_project_section and stripped.startswith("version"):
-                    return stripped.split("=", 1)[1].strip().strip('"')
-        except OSError:
-            return "unknown"
         return "unknown"
 
 
