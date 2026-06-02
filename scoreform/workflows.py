@@ -15,10 +15,11 @@ These are designed to be imported by `scoreform.cli` without circular imports.
 import os
 import csv
 import json
+import re
 
 from scoreform.roster import load_roster
 from scoreform.assignment import load_assignment
-from scoreform.validation import validate_identifier
+from scoreform.validation import is_safe_identifier, validate_identifier
 
 
 def normalize_path_input(value):
@@ -27,6 +28,15 @@ def normalize_path_input(value):
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
         return value[1:-1]
     return value
+
+
+def suggest_class_id(class_name):
+    """Derive a safe class_id suggestion from a human-readable class name."""
+    value = class_name.strip().lower()
+    value = re.sub(r"[\s/\\]+", "_", value)
+    value = re.sub(r"[^a-z0-9_-]+", "", value)
+    value = re.sub(r"_+", "_", value)
+    return value.strip("_")
 
 
 def write_roster_csv(path, class_id, period, students):
@@ -109,28 +119,52 @@ def confirm_overwrite(path):
     return response in ['y', 'yes']
 
 
+def confirm_roster_overwrite(path, class_id):
+    """Prompt for confirmation to overwrite an existing class roster."""
+    if not os.path.exists(path):
+        return True
+
+    print(f"Roster already exists for class '{class_id}':")
+    print(path)
+    print()
+    response = input("Overwrite? (y/yes to confirm): ").strip().lower()
+    return response in ['y', 'yes']
+
+
 def prompt_create_roster():
     """Interactive prompt to create a new roster.
 
     Returns 0 on success, 1 on cancellation or error.
     """
-    print("--- Create a New Roster ---")
+    print("--- Create a Class Roster ---")
     print()
 
-    output_path = normalize_path_input(input("Output CSV path: "))
-    if not output_path:
-        print("Cancelled: No output path provided.")
+    class_name = input("Class name: ").strip()
+    if not class_name:
+        print("Error: class name is required.")
         return 1
 
-    if not confirm_overwrite(output_path):
-        print("Cancelled: File overwrite not confirmed.")
-        return 1
+    suggested_class_id = suggest_class_id(class_name)
+    class_id = ""
+    if is_safe_identifier(suggested_class_id):
+        print(f"Suggested class_id: {suggested_class_id}")
+        class_id = input("Press Enter to accept, or type a different class_id: ").strip()
+        if not class_id:
+            class_id = suggested_class_id
+    else:
+        print("Could not create a safe class_id suggestion from that class name.")
+        class_id = input("Enter a valid class_id: ").strip()
 
-    class_id = input("Class ID: ").strip()
     if not class_id:
         print("Error: class_id is required.")
         return 1
     if not validate_identifier("class_id", class_id, context="roster"):
+        return 1
+
+    output_path = os.path.join("classes", class_id, "roster.csv")
+
+    if not confirm_roster_overwrite(output_path, class_id):
+        print("Cancelled: Roster overwrite not confirmed.")
         return 1
 
     period = input("Period: ").strip()
@@ -293,7 +327,7 @@ def launch_roster_menu():
         while True:
             print("Roster Management")
             print()
-            print("1. Create a new roster")
+            print("1. Create a class roster")
             print("2. Validate an existing roster")
             print("3. Return to main menu")
             print()
