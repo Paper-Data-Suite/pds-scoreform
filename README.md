@@ -22,46 +22,77 @@ The project is currently focused on:
 
 ## Current Features
 
-ScoreForm currently supports:
+ScoreForm currently supports the following major workflows and capabilities.
 
-* Modular `scoreform/` package structure
-* Root-level `main.py` command-line entry point
+### Answer Sheet Generation
+
 * Printable generic answer-sheet template generation
+* Assignment-based answer-sheet generation
+* Multi-roster answer-sheet generation
+* Individual personalized student PDFs
+* Class packet PDF generation
+* Single-page assignments with 1-15 questions
+
+### Scoring
+
 * Image scoring
 * Scanned PDF scoring
 * Multi-page PDF batch scoring
 * Corner registration detection
 * Blank answer detection
 * Ambiguous/double-mark detection
+* Legacy/manual scoring with explicit answer keys
+* Legacy scoring of printed, filled, phone-scanned student sheets when scan quality is adequate
+
+### QR Metadata and Routing
+
+* QR code generation on individual student PDFs
+* QR code generation on class packet pages
+* QR payload parsing and validation
+* QR decoding from generated PDFs/images
+* QR decoding from printed-and-scanned sheets when scan quality is adequate
+* QR-aware scoring metadata extraction
+* Automatic assignment lookup from QR payloads
+* Mixed-scan QR-aware scoring for multi-page class packets
+* Result routing into class/assignment folders
+
+### Results and Auditability
+
 * CSV result export
+* Roster-enriched routed results
+* Duplicate/attempt handling for repeated QR-aware scans
+* Per-result `source_file` tracking
+* Per-result `attempt_number` and `scan_timestamp` metadata
+* Safe routed-results writes that preserve existing rows
+* Project-level `scans_inbox/` creation to support scan workflow
+
+### Rosters, Assignments, and Validation
+
 * External `answer_key.json` validation
 * Assignment JSON validation
 * Roster CSV validation
 * Class/assignment folder setup
-* Multi-roster answer-sheet generation
-* Individual personalized student PDFs
-* Class packet PDF generation
-* QR code generation on individual student PDFs
-* QR code generation on class packet pages
-* QR payload parsing
-* QR decoding from generated PDFs/images
-* QR decoding from printed-and-scanned sheets when scan quality is adequate
-* Legacy scoring of printed, filled, phone-scanned student sheets with QR code present
-* QR-aware scoring metadata extraction and automatic assignment lookup from QR payloads
-* Mixed-scan QR-aware scoring (multi-page class packet processing)
-* Result routing into class/assignment folders with roster-enriched routed results
-* Duplicate/attempt handling for repeated QR-aware scans with per-attempt metadata
-* Per-result `source_file` tracking (preserves user-supplied input path)
-* Project-level `scans_inbox/` creation to support scan workflow
-* Basic terminal menu via `python main.py menu` or `scoreform`
 * Menu-driven roster creation without manual CSV editing
 * Menu-driven assignment creation without manual JSON editing
-* Single-page assignments with 1-15 questions
 * Optional question-level standards metadata in assignment JSON
 * Optional roster columns preserved when roster CSV files are loaded
+
+### CLI and Menu Workflows
+
+* Basic terminal menu via `python main.py menu` or `scoreform`
 * Editable install support with the `scoreform` command
+* Backward-compatible root-level `main.py` command-line entry point
+* Direct CLI commands for generation, scoring, validation, setup, and QR decoding
 * CLI help and version commands through `scoreform --help`, `scoreform help`, `scoreform --version`, and `scoreform version`
 * Terminal menu help for common workflows and routed-results guidance
+
+### Project Structure and Development Support
+
+* Modular `scoreform/` package structure
+* Portable PowerShell regression script through `run_tests.ps1`
+* Pytest coverage for validation, scoring, QR behavior, routed results, CLI behavior, and workflow helpers
+* Synthetic example data for public testing and demonstration
+* Git protections for generated classroom files, scans, debug images, local outputs, and private working notes
 
 ## Important Limitations
 
