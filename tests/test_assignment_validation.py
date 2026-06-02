@@ -211,11 +211,17 @@ def test_load_assignment_rejects_non_string_standard(tmp_path):
 
 
 def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
-    output_path = tmp_path / "created_assignment.json"
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "test_class" / "roster.csv"),
+        "test_class",
+        "1",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
     responses = iter([
-        str(output_path),
-        "test_assignment_v6",
+        "1",
         "Test Assignment V6",
+        "test_assignment_v6",
         "3",
         "A",
         "B",
@@ -224,6 +230,7 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert workflows.prompt_create_assignment() == 0
+    output_path = tmp_path / "classes" / "test_class" / "assignments" / "test_assignment_v6" / "assignment.json"
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert saved["standards"] == {"1": [], "2": [], "3": []}
 
@@ -233,15 +240,22 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
 
 
 def test_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):
-    output_path = tmp_path / "created_assignment.json"
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "test_class" / "roster.csv"),
+        "test_class",
+        "1",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
     responses = iter([
-        str(output_path),
+        "1",
+        "Test Assignment",
         "../secret",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert workflows.prompt_create_assignment() == 1
-    assert not output_path.exists()
+    assert not (tmp_path / "classes" / "test_class" / "assignments").exists()
 
 
 def test_load_answer_key_accepts(tmp_path):
