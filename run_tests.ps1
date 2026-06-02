@@ -113,7 +113,8 @@ $DefaultResultsCsv = Join-Path $LocalResultsDir "results.csv"
 $QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
 $MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
 $ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
-$TempRosterCsv = Join-Path $LocalTempDir "temp_test_roster.csv"
+$MenuRosterClassDir = Join-Path "classes" "test_class_v5"
+$MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
 $TempAssignmentJson = Join-Path $LocalTempDir "temp_test_assignment.json"
 
 Write-Host ""
@@ -135,7 +136,7 @@ Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
 Remove-Item "$LocalDebugDir\debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "$LocalDebugDir\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
-Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
+Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
@@ -319,17 +320,17 @@ Write-Host ""
 Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
 
 # Clean up test roster if it exists
-Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
+Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # Use piped input to create a test roster through the menu
 # Main menu: 7 = Roster management
-# Roster menu: 1 = Create a new roster
+# Roster menu: 1 = Create a class roster
 # Then respond to prompts
 @(
     "7",                    # Main menu -> Roster management
-    "1",                    # Roster menu -> Create a new roster
-    $TempRosterCsv,         # Output path
-    "test_class_v5",        # class_id
+    "1",                    # Roster menu -> Create a class roster
+    "Menu Test Class V5",   # Class name
+    "test_class_v5",        # Override suggested class_id
     "5",                    # period
     "5001",                 # student 1 id
     "Test",                 # student 1 last_name
@@ -352,18 +353,18 @@ Write-Host "PASSED: Roster creation through menu" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Checking roster creation output..." -ForegroundColor Yellow
-Assert-Exists $TempRosterCsv
-Assert-FileContains $TempRosterCsv "class_id,student_id,last_name,first_name,period"
-Assert-FileContains $TempRosterCsv "test_class_v5"
-Assert-FileContains $TempRosterCsv "5001"
-Assert-FileContains $TempRosterCsv "5002"
-Assert-FileContains $TempRosterCsv "Alice"
-Assert-FileContains $TempRosterCsv "Bob"
+Assert-Exists $MenuRosterCsv
+Assert-FileContains $MenuRosterCsv "class_id,student_id,last_name,first_name,period"
+Assert-FileContains $MenuRosterCsv "test_class_v5"
+Assert-FileContains $MenuRosterCsv "5001"
+Assert-FileContains $MenuRosterCsv "5002"
+Assert-FileContains $MenuRosterCsv "Alice"
+Assert-FileContains $MenuRosterCsv "Bob"
 
-Invoke-Test "Validate created roster" "python main.py validate-roster $TempRosterCsv"
+Invoke-Test "Validate created roster" "python main.py validate-roster $MenuRosterCsv"
 
 # Clean up test roster
-Remove-Item $TempRosterCsv -ErrorAction SilentlyContinue
+Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
