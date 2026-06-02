@@ -21,6 +21,14 @@ from scoreform.assignment import load_assignment
 from scoreform.validation import validate_identifier
 
 
+def normalize_path_input(value):
+    """Strip whitespace and one matching pair of surrounding quotes from a path input."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
 def write_roster_csv(path, class_id, period, students):
     """Write a roster CSV file.
 
@@ -109,7 +117,7 @@ def prompt_create_roster():
     print("--- Create a New Roster ---")
     print()
 
-    output_path = input("Output CSV path: ").strip()
+    output_path = normalize_path_input(input("Output CSV path: "))
     if not output_path:
         print("Cancelled: No output path provided.")
         return 1
@@ -200,7 +208,7 @@ def prompt_create_assignment():
     print("--- Create a New Assignment ---")
     print()
 
-    output_path = input("Output JSON path: ").strip()
+    output_path = normalize_path_input(input("Output JSON path: "))
     if not output_path:
         print("Cancelled: No output path provided.")
         return 1
@@ -300,7 +308,7 @@ def launch_roster_menu():
                     continue
 
             elif choice == "2":
-                roster_path = input("Roster CSV path: ").strip()
+                roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not roster_path:
                     print("Roster file path is required.")
                     print()
@@ -353,7 +361,7 @@ def launch_assignment_menu():
                     continue
 
             elif choice == "2":
-                assignment_path = input("Assignment JSON path: ").strip()
+                assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 if not assignment_path:
                     print("Assignment file path is required.")
                     print()

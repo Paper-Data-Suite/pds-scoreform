@@ -18,7 +18,11 @@ from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
 from scoreform.results import export_to_csv, export_routed_results
-from scoreform.workflows import launch_roster_menu, launch_assignment_menu
+from scoreform.workflows import (
+    launch_roster_menu,
+    launch_assignment_menu,
+    normalize_path_input,
+)
 from scoreform.config import LOCAL_RESULTS_CSV
 
 
@@ -434,7 +438,7 @@ def launch_menu():
             print()
 
             if choice == "1":
-                assignment_path = input("Assignment JSON path (blank for generic template): ").strip()
+                assignment_path = normalize_path_input(input("Assignment JSON path (blank for generic template): "))
                 if not assignment_path:
                     run_generate([])
                     print()
@@ -446,7 +450,11 @@ def launch_menu():
                     print()
                     continue
 
-                roster_files = [p.strip() for p in roster_input.split(",") if p.strip()]
+                roster_files = []
+                for roster_path in roster_input.split(","):
+                    normalized_path = normalize_path_input(roster_path)
+                    if normalized_path:
+                        roster_files.append(normalized_path)
                 if not roster_files:
                     print("Assignment-based generation requires at least one roster CSV.")
                     print()
@@ -456,14 +464,14 @@ def launch_menu():
                 print()
 
             elif choice == "2":
-                input_file = input("Input scan/PDF/image path: ").strip()
+                input_file = normalize_path_input(input("Input scan/PDF/image path: "))
                 if not input_file:
                     print("Input file path is required.")
                     print()
                     continue
 
-                output_csv = input("Output CSV path (blank for routed QR-aware default): ").strip()
-                answer_key = input("Answer key JSON path (blank for QR-aware scoring): ").strip()
+                output_csv = normalize_path_input(input("Output CSV path (blank for routed QR-aware default): "))
+                answer_key = normalize_path_input(input("Answer key JSON path (blank for QR-aware scoring): "))
 
                 args = [input_file]
                 if answer_key:
@@ -478,7 +486,7 @@ def launch_menu():
                 print()
 
             elif choice == "3":
-                input_file = input("File path: ").strip()
+                input_file = normalize_path_input(input("File path: "))
                 if not input_file:
                     print("File path is required.")
                     print()
@@ -488,7 +496,7 @@ def launch_menu():
                 print()
 
             elif choice == "4":
-                assignment_path = input("Assignment JSON path: ").strip()
+                assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 if not assignment_path:
                     print("Assignment file path is required.")
                     print()
@@ -498,7 +506,7 @@ def launch_menu():
                 print()
 
             elif choice == "5":
-                roster_path = input("Roster CSV path: ").strip()
+                roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not roster_path:
                     print("Roster file path is required.")
                     print()
@@ -508,8 +516,8 @@ def launch_menu():
                 print()
 
             elif choice == "6":
-                assignment_path = input("Assignment JSON path: ").strip()
-                roster_path = input("Roster CSV path: ").strip()
+                assignment_path = normalize_path_input(input("Assignment JSON path: "))
+                roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not assignment_path or not roster_path:
                     print("Both assignment JSON path and roster CSV path are required.")
                     print()
