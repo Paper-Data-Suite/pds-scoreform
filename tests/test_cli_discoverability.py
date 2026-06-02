@@ -77,3 +77,27 @@ def test_menu_help_can_return_to_menu_and_exit():
     assert "Typical workflow:" in output
     assert "classes/<class_id>/assignments/<assignment_id>/results.csv" in output
     assert "Goodbye." in output
+
+
+def test_menu_selection_does_not_strip_quotes():
+    result = run_main_command(
+        "menu",
+        input_text='"4"\n10\n',
+    )
+
+    assert result.returncode == 0
+    output = combined_output(result)
+    assert "Invalid selection" in output
+    assert "Goodbye." in output
+
+
+def test_menu_validate_assignment_accepts_quoted_path():
+    result = run_main_command(
+        "menu",
+        input_text='4\n"examples/sample_assignment.json"\n10\n',
+    )
+
+    assert result.returncode == 0
+    output = combined_output(result)
+    assert "Assignment file is valid." in output
+    assert "Goodbye." in output
