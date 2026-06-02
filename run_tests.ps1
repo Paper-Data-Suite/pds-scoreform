@@ -113,9 +113,9 @@ $DefaultResultsCsv = Join-Path $LocalResultsDir "results.csv"
 $QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
 $MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
 $ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
-$MenuRosterClassDir = Join-Path "classes" "test_class_v5"
+$MenuRosterClassDir = Join-Path "classes" "000_test_class_v5"
 $MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
-$TempAssignmentJson = Join-Path $LocalTempDir "temp_test_assignment.json"
+$TempAssignmentJson = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\assignment.json"
 
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
@@ -330,7 +330,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "7",                    # Main menu -> Roster management
     "1",                    # Roster menu -> Create a class roster
     "Menu Test Class V5",   # Class name
-    "test_class_v5",        # Override suggested class_id
+    "000_test_class_v5",    # Override suggested class_id
     "5",                    # period
     "5001",                 # student 1 id
     "Test",                 # student 1 last_name
@@ -355,16 +355,13 @@ Write-Host ""
 Write-Host "Checking roster creation output..." -ForegroundColor Yellow
 Assert-Exists $MenuRosterCsv
 Assert-FileContains $MenuRosterCsv "class_id,student_id,last_name,first_name,period"
-Assert-FileContains $MenuRosterCsv "test_class_v5"
+Assert-FileContains $MenuRosterCsv "000_test_class_v5"
 Assert-FileContains $MenuRosterCsv "5001"
 Assert-FileContains $MenuRosterCsv "5002"
 Assert-FileContains $MenuRosterCsv "Alice"
 Assert-FileContains $MenuRosterCsv "Bob"
 
 Invoke-Test "Validate created roster" "python main.py validate-roster $MenuRosterCsv"
-
-# Clean up test roster
-Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
@@ -375,10 +372,10 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 # Use piped input to create a test assignment through the menu
 @(
     "8",                        # Main menu -> Assignment management
-    "1",                        # Assignment menu -> Create a new assignment
-    $TempAssignmentJson,        # Output path
-    "test_assignment_v5",       # assignment_id
+    "1",                        # Assignment menu -> Create an assignment for class(es)
+    "1",                        # Select first available class (000_test_class_v5)
     "Test Assignment V5",       # title
+    "test_assignment_v5",       # Override suggested assignment_id
     "10",                       # question_count
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "3",                        # Return to main menu
@@ -405,8 +402,8 @@ Assert-FileContains $TempAssignmentJson "standards"
 
 Invoke-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
 
-# Clean up temp assignment
-Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
+# Clean up test roster and assignment
+Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

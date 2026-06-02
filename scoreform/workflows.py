@@ -39,6 +39,80 @@ def suggest_class_id(class_name):
     return value.strip("_")
 
 
+def suggest_assignment_id(title):
+    """Derive a safe assignment_id suggestion from a human-readable title."""
+    value = title.strip().lower()
+    value = re.sub(r"[\s/\\:]+", "_", value)
+    value = re.sub(r"[^a-z0-9_-]+", "", value)
+    value = re.sub(r"_+", "_", value)
+    return value.strip("_")
+
+
+def discover_class_rosters(classes_dir="classes"):
+    """Return valid class rosters discovered under classes/<class_id>/roster.csv."""
+    if not os.path.isdir(classes_dir):
+        return []
+
+    discovered = []
+    for entry in sorted(os.listdir(classes_dir)):
+        class_dir = os.path.join(classes_dir, entry)
+        roster_path = os.path.join(class_dir, "roster.csv")
+        if not os.path.isdir(class_dir) or not os.path.exists(roster_path):
+            continue
+
+        roster = load_roster(roster_path)
+        if roster is None:
+            print(f"Skipping invalid roster: {roster_path}")
+            continue
+
+        class_id = roster.get("class_id")
+        if class_id != entry:
+            print(
+                f"Skipping roster with mismatched class_id: {roster_path} "
+                f"(folder '{entry}', roster '{class_id}')"
+            )
+            continue
+
+        discovered.append({
+            "class_id": class_id,
+            "roster_path": roster_path,
+            "roster": roster,
+        })
+
+    return discovered
+
+
+def parse_class_selection(selection_text, available_classes):
+    """Parse comma-separated one-based class selections into class records."""
+    if not selection_text or not selection_text.strip():
+        raise ValueError("Select at least one class.")
+
+    selected = []
+    selected_indexes = set()
+    for raw_part in selection_text.split(","):
+        part = raw_part.strip()
+        if not part:
+            raise ValueError("Class selections cannot be empty.")
+        if not part.isdigit():
+            raise ValueError(f"Invalid class selection: {part}")
+
+        index = int(part)
+        if index < 1 or index > len(available_classes):
+            raise ValueError(f"Class selection out of range: {index}")
+
+        zero_based = index - 1
+        if zero_based in selected_indexes:
+            continue
+
+        selected_indexes.add(zero_based)
+        selected.append(available_classes[zero_based])
+
+    if not selected:
+        raise ValueError("Select at least one class.")
+
+    return selected
+
+
 def write_roster_csv(path, class_id, period, students):
     """Write a roster CSV file.
 
@@ -234,33 +308,65 @@ def prompt_create_roster():
     return 0
 
 
+def confirm_assignment_overwrite(path, class_id):
+    """Prompt for confirmation to overwrite an existing class assignment."""
+    if not os.path.exists(path):
+        return True
+
+    print(f"Assignment already exists for class '{class_id}':")
+    print(path)
+    print()
+    response = input("Overwrite? (y/yes to confirm): ").strip().lower()
+    return response in ['y', 'yes']
+
+
 def prompt_create_assignment():
-    """Interactive prompt to create a new assignment JSON file.
+    """Interactive prompt to create assignment JSON files for selected classes.
 
     Returns 0 on success, 1 on cancellation or error.
     """
-    print("--- Create a New Assignment ---")
+    print("--- Create an Assignment for Class(es) ---")
     print()
 
-    output_path = normalize_path_input(input("Output JSON path: "))
-    if not output_path:
-        print("Cancelled: No output path provided.")
+    available_classes = discover_class_rosters()
+    if not available_classes:
+        print("No class rosters found. Create a class roster first from the Roster Management menu.")
         return 1
 
-    if not confirm_overwrite(output_path):
-        print("Cancelled: File overwrite not confirmed.")
+    print("Available classes:")
+    for index, class_record in enumerate(available_classes, start=1):
+        student_count = len(class_record["roster"].get("students", []))
+        print(f"{index}. {class_record['class_id']} ({student_count} students)")
+    print()
+
+    selection_text = input("Select class(es), comma-separated: ").strip()
+    try:
+        selected_classes = parse_class_selection(selection_text, available_classes)
+    except ValueError as e:
+        print(f"Error: {e}")
         return 1
 
-    assignment_id = input("assignment_id: ").strip()
+    print()
+    title = input("Assignment title: ").strip()
+    if not title:
+        print("Error: title is required.")
+        return 1
+
+    suggested_assignment_id = suggest_assignment_id(title)
+    assignment_id = ""
+    if is_safe_identifier(suggested_assignment_id):
+        print(f"Suggested assignment_id: {suggested_assignment_id}")
+        assignment_id = input("Press Enter to accept, or type a different assignment_id: ").strip()
+        if not assignment_id:
+            assignment_id = suggested_assignment_id
+    else:
+        print("Could not create a safe assignment_id suggestion from that title.")
+        assignment_id = input("Enter a valid assignment_id: ").strip()
+
     if not assignment_id:
         print("Error: assignment_id is required.")
         return 1
     if not validate_identifier("assignment_id", assignment_id, context="assignment"):
-        return 1
-
-    title = input("title: ").strip()
-    if not title:
-        print("Error: title is required.")
         return 1
 
     print()
@@ -302,18 +408,50 @@ def prompt_create_assignment():
         "standards": {str(i): [] for i in range(1, question_count + 1)},
     }
 
-    print(f"Writing assignment to: {output_path}")
-    if not write_assignment_json(output_path, assignment):
-        print("Error: Failed to write assignment JSON.")
+    written_paths = []
+    skipped_paths = []
+    for class_record in selected_classes:
+        class_id = class_record["class_id"]
+        output_path = os.path.join(
+            "classes",
+            class_id,
+            "assignments",
+            assignment_id,
+            "assignment.json",
+        )
+
+        if not confirm_assignment_overwrite(output_path, class_id):
+            print(f"Skipped: {output_path}")
+            skipped_paths.append(output_path)
+            continue
+
+        print(f"Writing assignment to: {output_path}")
+        if not write_assignment_json(output_path, assignment):
+            print(f"Error: Failed to write assignment JSON for class '{class_id}'.")
+            skipped_paths.append(output_path)
+            continue
+
+        print("Validating assignment...")
+        loaded = load_assignment(output_path)
+        if loaded is None:
+            print(f"Error: Assignment validation failed after save for class '{class_id}'.")
+            skipped_paths.append(output_path)
+            continue
+
+        written_paths.append(output_path)
+
+    if not written_paths:
+        print("Error: No assignment files were created.")
         return 1
 
-    print("Validating assignment...")
-    loaded = load_assignment(output_path)
-    if loaded is None:
-        print("Error: Assignment validation failed after save.")
-        return 1
+    print()
+    print(f"Success! Assignment created and validated for {len(written_paths)} class(es).")
+    if skipped_paths:
+        print(f"Skipped {len(skipped_paths)} class(es) without overwriting existing files.")
+    print("Created assignment file(s):")
+    for path in written_paths:
+        print(f"  {path}")
 
-    print("Success! Assignment created and validated.")
     return 0
 
 
@@ -380,7 +518,7 @@ def launch_assignment_menu():
         while True:
             print("Assignment Management")
             print()
-            print("1. Create a new assignment")
+            print("1. Create an assignment for class(es)")
             print("2. Validate an existing assignment")
             print("3. Return to main menu")
             print()
