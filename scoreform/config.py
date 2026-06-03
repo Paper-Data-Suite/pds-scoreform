@@ -25,6 +25,7 @@ DST_PTS = np.array(
 )
 
 # Question layout
+MAX_QUESTION_COUNT = 15
 Q_START_Y = 400
 Q_STEP_Y = 80
 BOX_SIZE = 30

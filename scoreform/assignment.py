@@ -1,8 +1,7 @@
 import os
 import json
+from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.validation import validate_identifier
-
-MAX_QUESTION_COUNT = 15
 
 
 def _normalize_question_number(key, question_count, field_name):
