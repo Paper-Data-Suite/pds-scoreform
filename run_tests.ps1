@@ -402,6 +402,31 @@ Assert-FileContains $TempAssignmentJson "standards"
 
 Invoke-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
 
+Write-Host ""
+Write-Host "Testing answer sheet generation through menu class/assignment selection..." -ForegroundColor Yellow
+
+@(
+    "1",                        # Main menu -> Generate answer sheets
+    "1",                        # Generate menu -> Existing class assignment
+    "1",                        # Select first available class (000_test_class_v5)
+    "1",                        # Select first available assignment (test_assignment_v5)
+    "y",                        # Confirm generation
+    "8"                         # Exit
+) | python main.py menu
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAILED: Answer sheet generation through menu" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "PASSED: Answer sheet generation through menu" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Checking menu generation output..." -ForegroundColor Yellow
+Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\class_packet.pdf"
+Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\individual\5001_test_alice.pdf"
+Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\individual\5002_student_bob.pdf"
+
 # Clean up test roster and assignment
 Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 

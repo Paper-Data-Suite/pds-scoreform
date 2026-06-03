@@ -22,6 +22,9 @@ from scoreform.workflows import (
     launch_roster_menu,
     launch_assignment_menu,
     normalize_path_input,
+    discover_class_rosters,
+    discover_class_assignments,
+    parse_single_selection,
 )
 from scoreform.config import LOCAL_RESULTS_CSV
 
@@ -416,6 +419,95 @@ def run_decode_qr(args):
     return 0
 
 
+def launch_generate_menu():
+    """Teacher-centered generate submenu for interactive menu use."""
+    try:
+        while True:
+            print("--- Generate Answer Sheets ---")
+            print()
+            print("1. Generate answer sheets for an existing class assignment")
+            print("2. Generate a generic blank template")
+            print("3. Return to main menu")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                available_classes = discover_class_rosters()
+                if not available_classes:
+                    print("No class rosters found. Create a class roster first from the Roster Management menu.")
+                    return 1
+
+                print("Available classes:")
+                for index, class_record in enumerate(available_classes, start=1):
+                    print(f"{index}. {class_record['class_id']}")
+                print()
+
+                try:
+                    class_record = parse_single_selection(
+                        input("Select class: "),
+                        available_classes,
+                        "class",
+                    )
+                except ValueError as e:
+                    print(f"Error: {e}")
+                    return 1
+
+                class_id = class_record["class_id"]
+                available_assignments = discover_class_assignments(class_id)
+                if not available_assignments:
+                    print(f"No assignments found for class '{class_id}'. Create an assignment first from the Assignment Management menu.")
+                    return 1
+
+                print()
+                print(f"Available assignments for {class_id}:")
+                for index, assignment_record in enumerate(available_assignments, start=1):
+                    print(f"{index}. {assignment_record['assignment_id']}")
+                print()
+
+                try:
+                    assignment_record = parse_single_selection(
+                        input("Select assignment: "),
+                        available_assignments,
+                        "assignment",
+                    )
+                except ValueError as e:
+                    print(f"Error: {e}")
+                    return 1
+
+                assignment_id = assignment_record["assignment_id"]
+                print()
+                print("Generate answer sheets for:")
+                print(f"Class: {class_id}")
+                print(f"Assignment: {assignment_id}")
+                print()
+
+                response = input("Generate answer sheets now? (Y/n): ").strip().lower()
+                if response in ("n", "no"):
+                    print("Cancelled: Answer sheet generation not confirmed.")
+                    return 1
+
+                return run_generate([
+                    assignment_record["assignment_path"],
+                    "--rosters",
+                    class_record["roster_path"],
+                ])
+
+            elif choice == "2":
+                return run_generate([])
+
+            elif choice == "3":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print()
+
+    except KeyboardInterrupt:
+        print("\nExiting generate menu.")
+        return 0
+
 
 def launch_menu():
     print("ScoreForm")
@@ -436,29 +528,7 @@ def launch_menu():
             print()
 
             if choice == "1":
-                assignment_path = normalize_path_input(input("Assignment JSON path (blank for generic template): "))
-                if not assignment_path:
-                    run_generate([])
-                    print()
-                    continue
-
-                roster_input = input("Roster CSV path(s), comma-separated: ").strip()
-                if not roster_input:
-                    print("Assignment-based generation requires at least one roster CSV.")
-                    print()
-                    continue
-
-                roster_files = []
-                for roster_path in roster_input.split(","):
-                    normalized_path = normalize_path_input(roster_path)
-                    if normalized_path:
-                        roster_files.append(normalized_path)
-                if not roster_files:
-                    print("Assignment-based generation requires at least one roster CSV.")
-                    print()
-                    continue
-
-                run_generate([assignment_path, "--rosters"] + roster_files)
+                launch_generate_menu()
                 print()
 
             elif choice == "2":

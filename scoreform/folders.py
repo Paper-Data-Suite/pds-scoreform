@@ -128,8 +128,10 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
         os.makedirs(class_dir, exist_ok=True)
         os.makedirs(assignment_dir, exist_ok=True)
 
-        shutil.copy2(roster_path, roster_copy)
-        shutil.copy2(assignment_path, assignment_copy)
+        if os.path.abspath(roster_path) != os.path.abspath(roster_copy):
+            shutil.copy2(roster_path, roster_copy)
+        if os.path.abspath(assignment_path) != os.path.abspath(assignment_copy):
+            shutil.copy2(assignment_path, assignment_copy)
 
         return {
             "class_dir": class_dir,
