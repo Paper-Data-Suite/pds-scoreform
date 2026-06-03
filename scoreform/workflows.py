@@ -82,6 +82,60 @@ def discover_class_rosters(classes_dir="classes"):
     return discovered
 
 
+def discover_class_assignments(class_id, classes_dir="classes"):
+    """Return valid assignments discovered under classes/<class_id>/assignments/*."""
+    if not is_safe_identifier(class_id):
+        return []
+
+    assignments_dir = os.path.join(classes_dir, class_id, "assignments")
+    if not os.path.isdir(assignments_dir):
+        return []
+
+    discovered = []
+    for entry in sorted(os.listdir(assignments_dir)):
+        assignment_dir = os.path.join(assignments_dir, entry)
+        assignment_path = os.path.join(assignment_dir, "assignment.json")
+        if not os.path.isdir(assignment_dir) or not os.path.exists(assignment_path):
+            continue
+
+        assignment = load_assignment(assignment_path)
+        if assignment is None:
+            print(f"Skipping invalid assignment: {assignment_path}")
+            continue
+
+        assignment_id = assignment.get("assignment_id")
+        if assignment_id != entry:
+            print(
+                f"Skipping assignment with mismatched assignment_id: {assignment_path} "
+                f"(folder '{entry}', assignment '{assignment_id}')"
+            )
+            continue
+
+        discovered.append({
+            "assignment_id": assignment_id,
+            "assignment_path": assignment_path,
+            "assignment": assignment,
+        })
+
+    return discovered
+
+
+def parse_single_selection(selection_text, available_items, item_label):
+    """Parse a one-based numeric selection into one item from available_items."""
+    if not selection_text or not selection_text.strip():
+        raise ValueError(f"Select one {item_label}.")
+
+    selection = selection_text.strip()
+    if not selection.isdigit():
+        raise ValueError(f"Invalid {item_label} selection: {selection}")
+
+    index = int(selection)
+    if index < 1 or index > len(available_items):
+        raise ValueError(f"{item_label.capitalize()} selection out of range: {index}")
+
+    return available_items[index - 1]
+
+
 def parse_class_selection(selection_text, available_classes):
     """Parse comma-separated one-based class selections into class records."""
     if not selection_text or not selection_text.strip():

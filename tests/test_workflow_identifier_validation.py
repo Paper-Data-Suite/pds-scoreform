@@ -61,6 +61,74 @@ def test_discover_class_rosters_ignores_mismatched_folder_and_roster_class_id(tm
     assert workflows.discover_class_rosters() == []
 
 
+def test_discover_class_assignments_finds_valid_assignments_deterministically(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for assignment_id in ["z_assignment", "a_assignment"]:
+        workflows.write_assignment_json(
+            str(tmp_path / "classes" / "class_a" / "assignments" / assignment_id / "assignment.json"),
+            {
+                "assignment_id": assignment_id,
+                "title": assignment_id,
+                "question_count": 1,
+                "choices": ["A", "B", "C", "D"],
+                "answer_key": {"1": "A"},
+                "standards": {"1": []},
+            },
+        )
+    (tmp_path / "classes" / "class_a" / "assignments" / "no_json").mkdir(parents=True)
+    bad_dir = tmp_path / "classes" / "class_a" / "assignments" / "bad_assignment"
+    bad_dir.mkdir()
+    (bad_dir / "assignment.json").write_text("{not json", encoding="utf-8")
+
+    discovered = workflows.discover_class_assignments("class_a")
+
+    assert [item["assignment_id"] for item in discovered] == ["a_assignment", "z_assignment"]
+    assert discovered[0]["assignment_path"].endswith("classes\\class_a\\assignments\\a_assignment\\assignment.json") or discovered[0]["assignment_path"].endswith("classes/class_a/assignments/a_assignment/assignment.json")
+    assert discovered[0]["assignment"]["title"] == "a_assignment"
+
+
+def test_discover_class_assignments_missing_assignments_dir_returns_empty(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    assert workflows.discover_class_assignments("class_a") == []
+
+
+def test_discover_class_assignments_ignores_mismatched_folder_and_assignment_id(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_assignment_json(
+        str(tmp_path / "classes" / "class_a" / "assignments" / "folder_id" / "assignment.json"),
+        {
+            "assignment_id": "assignment_id",
+            "title": "Mismatched",
+            "question_count": 1,
+            "choices": ["A", "B", "C", "D"],
+            "answer_key": {"1": "A"},
+            "standards": {"1": []},
+        },
+    )
+
+    assert workflows.discover_class_assignments("class_a") == []
+
+
+def test_parse_single_selection_accepts_one_valid_numeric_selection():
+    available = [{"id": "a"}, {"id": "b"}]
+
+    assert workflows.parse_single_selection("1", available, "item") == available[0]
+    assert workflows.parse_single_selection(" 2 ", available, "item") == available[1]
+
+
+def test_parse_single_selection_rejects_empty_invalid_and_out_of_range():
+    available = [{"id": "a"}, {"id": "b"}]
+
+    for selection in ["", " ", "x", "1,2", "0", "3"]:
+        try:
+            workflows.parse_single_selection(selection, available, "item")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected ValueError for selection {selection!r}")
+
+
 def test_parse_class_selection_accepts_single_multiple_whitespace_and_duplicates():
     available = [{"class_id": "a"}, {"class_id": "b"}, {"class_id": "c"}]
 

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import scoreform.cli
+from scoreform import workflows
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +77,74 @@ def test_menu_help_can_return_to_menu_and_exit():
     assert "ScoreForm help" in output
     assert "Typical workflow:" in output
     assert "classes/<class_id>/assignments/<assignment_id>/results.csv" in output
+    assert "Goodbye." in output
+
+
+def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
+        "english_9_period_2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    workflows.write_assignment_json(
+        str(tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "assignment.json"),
+        {
+            "assignment_id": "act_1_quiz",
+            "title": "Act 1 Quiz",
+            "question_count": 1,
+            "choices": ["A", "B", "C", "D"],
+            "answer_key": {"1": "A"},
+            "standards": {"1": []},
+        },
+    )
+
+    def fake_student_pdf(output_path, _assignment, _student):
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_text("student pdf", encoding="utf-8")
+        return True
+
+    def fake_class_packet(output_path, _assignment, _roster):
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_text("class packet", encoding="utf-8")
+        return True
+
+    monkeypatch.setattr(scoreform.cli, "generate_student_pdf", fake_student_pdf)
+    monkeypatch.setattr(scoreform.cli, "generate_class_packet_pdf", fake_class_packet)
+    responses = iter(["1", "1", "1", "1", "y", "8"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "--- Generate Answer Sheets ---" in output
+    assert "Generate answer sheets for an existing class assignment" in output
+    assert "Available classes:" in output
+    assert "english_9_period_2" in output
+    assert "Available assignments for english_9_period_2:" in output
+    assert "act_1_quiz" in output
+    assert "Goodbye." in output
+    assert (tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "templates" / "class_packet.pdf").exists()
+    assert (tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "templates" / "individual" / "1001_doe_jane.pdf").exists()
+
+
+def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    generated = []
+
+    def fake_generate_template():
+        generated.append(True)
+
+    monkeypatch.setattr(scoreform.cli, "generate_template", fake_generate_template)
+    responses = iter(["1", "2", "8"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "Generate a generic blank template" in output
+    assert generated == [True]
     assert "Goodbye." in output
 
 
