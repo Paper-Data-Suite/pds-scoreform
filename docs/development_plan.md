@@ -685,7 +685,7 @@ or eventually:
 python main.py
 ```
 
-## Initial Menu Options
+## Current Menu Options
 
 ```text
 ScoreForm
@@ -693,10 +693,11 @@ ScoreForm
 1. Generate answer sheets
 2. Score scanned responses
 3. Decode QR from a file
-4. Validate an assignment file
-5. Validate a roster file
-6. Set up assignment folders
-7. Exit
+4. Set up assignment folders
+5. Roster management
+6. Assignment management
+7. Help
+8. Exit
 ```
 
 ## Requirements
@@ -710,8 +711,8 @@ It should support:
 * generating answer sheets
 * selecting a scan/PDF to score
 * decoding QR from a file
-* validating assignment files
-* validating roster files
+* validating assignment files from the Assignment management submenu
+* validating roster files from the Roster management submenu
 * exiting cleanly
 
 ## Notes
@@ -820,21 +821,19 @@ Status: Completed initial menu-driven roster creation (v0.5.0).
 
 The terminal menu now includes a submenu for roster management with:
 
-* Create a new roster (interactive prompts for class_id, period, and students)
+* Create a class roster (interactive prompts for class name, class_id, period, and students)
 * Validate an existing roster
 * Return to main menu
 
 Roster creation workflow:
 
 1. Launch with `scoreform` or `python main.py menu`
-2. Select option 7 (Roster management)
-3. Select option 1 (Create a new roster)
-4. Provide output CSV path
-5. Enter class_id and period (applied to all students)
-6. Enter students one at a time (student_id, last_name, first_name)
-7. After adding all students, the roster is saved to the specified path
-8. Roster is validated using existing validation logic
-9. Success message displays if valid
+2. Select option 5 (Roster management)
+3. Select option 1 (Create a class roster)
+4. Enter a class name
+5. Accept or edit the suggested class_id
+6. Enter period and student roster data
+7. ScoreForm writes the roster to `classes/<class_id>/roster.csv`
 
 Features:
 
@@ -856,21 +855,20 @@ Status: Completed support for `question_count` from 1 to 15.
 
 The terminal menu now includes a submenu for assignment management with:
 
-* Create a new assignment
+* Create an assignment for class(es)
 * Validate an existing assignment
 * Return to main menu
 
 Assignment creation workflow:
 
 1. Launch with `scoreform` or `python main.py menu`
-2. Select option 8 (Assignment management)
-3. Select option 1 (Create a new assignment)
-4. Provide output JSON path
-5. Enter `assignment_id` and `title`
-6. Enter `question_count` (1-15), then enter answers for Q1 through Q{question_count}
-7. Assignment is saved to the specified path
-8. Assignment is validated using existing validation logic
-9. Success message displays if valid
+2. Select option 6 (Assignment management)
+3. Select option 1 (Create an assignment for class(es))
+4. Select one or more existing classes
+5. Enter an assignment title
+6. Accept or edit the suggested assignment_id
+7. Enter question count and answer key
+8. ScoreForm writes assignment JSON to `classes/<class_id>/assignments/<assignment_id>/assignment.json`
 
 Features:
 

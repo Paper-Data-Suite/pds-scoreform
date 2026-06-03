@@ -426,13 +426,11 @@ def launch_menu():
             print("1. Generate answer sheets")
             print("2. Score scanned responses")
             print("3. Decode QR from a file")
-            print("4. Validate an assignment file")
-            print("5. Validate a roster file")
-            print("6. Set up assignment folders")
-            print("7. Roster management")
-            print("8. Assignment management")
-            print("9. Help")
-            print("10. Exit")
+            print("4. Set up assignment folders")
+            print("5. Roster management")
+            print("6. Assignment management")
+            print("7. Help")
+            print("8. Exit")
 
             choice = input("Select an option: ").strip()
             print()
@@ -497,26 +495,6 @@ def launch_menu():
 
             elif choice == "4":
                 assignment_path = normalize_path_input(input("Assignment JSON path: "))
-                if not assignment_path:
-                    print("Assignment file path is required.")
-                    print()
-                    continue
-
-                run_validate_assignment([assignment_path])
-                print()
-
-            elif choice == "5":
-                roster_path = normalize_path_input(input("Roster CSV path: "))
-                if not roster_path:
-                    print("Roster file path is required.")
-                    print()
-                    continue
-
-                run_validate_roster([roster_path])
-                print()
-
-            elif choice == "6":
-                assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not assignment_path or not roster_path:
                     print("Both assignment JSON path and roster CSV path are required.")
@@ -526,23 +504,23 @@ def launch_menu():
                 run_setup_assignment([assignment_path, roster_path])
                 print()
 
-            elif choice == "7":
+            elif choice == "5":
                 launch_roster_menu()
                 print()
 
-            elif choice == "8":
+            elif choice == "6":
                 launch_assignment_menu()
                 print()
 
-            elif choice == "9":
+            elif choice == "7":
                 print_menu_help()
 
-            elif choice == "10":
+            elif choice == "8":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 10.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
                 print()
 
     except KeyboardInterrupt:

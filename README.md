@@ -220,7 +220,7 @@ scoreform
 For direct Python invocation, `python main.py menu` remains supported.
 
 The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
-Select **9. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
+Select **7. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 
 ### Create a Roster from the Menu
 
@@ -232,27 +232,29 @@ ScoreForm now includes menu-driven roster creation, so you can create valid rost
    scoreform
    ```
 
-2. Select **7. Roster management**
+2. Select **5. Roster management**
 
-3. Select **1. Create a new roster**
+3. Select **1. Create a class roster**
 
-4. Provide the output CSV path, for example:
+4. Enter a class name.
 
-   ```
-   my_class_rosters/english9_p2.csv
-   ```
+5. Accept or edit the suggested `class_id`.
 
-   (Parent directories are created automatically if needed)
+6. Enter the period.
 
-5. Enter the class ID and period (applied to all students in this roster)
-
-6. Enter students one at a time with:
+7. Enter students one at a time with:
 
    * student_id
    * last_name
    * first_name
 
-7. After adding all students, the roster is saved and validated automatically
+8. After adding all students, the roster is saved to:
+
+   ```text
+   classes/<class_id>/roster.csv
+   ```
+
+   and validated automatically.
 
 Example roster created this way:
 
@@ -265,9 +267,8 @@ english9_p2,1003,Brown,Alyssa,2
 
 Features:
 
-* **Overwrite protection**: If the file already exists, you must explicitly confirm before overwriting.
+* **Overwrite protection**: If the class roster already exists, you must explicitly confirm before overwriting.
 * **Validation after save**: The roster is validated using built-in validation logic before reporting success.
-* **Parent directory creation**: Output directories are created automatically if needed.
 * **Exit/cancel support**: Press Ctrl+C to cancel, or leave `student_id` blank after entering at least one student to finish the roster.
 
 ### Create an Assignment from the Menu
@@ -280,23 +281,31 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
    scoreform
    ```
 
-2. Select **8. Assignment management**
+2. Select **6. Assignment management**
 
-3. Select **1. Create a new assignment**
+3. Select **1. Create an assignment for class(es)**
 
-4. Provide the output JSON path. Parent directories are created if needed.
+4. Select one or more existing classes.
 
-5. Enter `assignment_id` and `title`.
+5. Enter an assignment title.
 
-6. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
+6. Accept or edit the suggested `assignment_id`.
 
-7. The tool saves the assignment JSON and validates it automatically.
+7. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
+
+8. The tool saves the assignment JSON to:
+
+   ```text
+   classes/<class_id>/assignments/<assignment_id>/assignment.json
+   ```
+
+   and validates it automatically.
 
 Notes:
 
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * New assignments include an empty `standards` list for each question. The menu does not prompt for standards yet.
-* Overwrite protection requires `y` or `yes` to overwrite existing files.
+* Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
 
 ## Data Model
 
