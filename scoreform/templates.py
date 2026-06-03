@@ -17,6 +17,7 @@ from scoreform.config import (
     PDF_HEIGHT,
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
+    MAX_QUESTION_COUNT,
 )
 from scoreform.validation import validate_identifier
 
@@ -305,7 +306,7 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data):
     c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
 
     question_count = assignment_data.get("question_count", 10)
-    if not isinstance(question_count, int) or question_count < 1 or question_count > 15:
+    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_QUESTION_COUNT:
         question_count = 10
 
     # Draw question boxes based on assignment question_count

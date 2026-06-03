@@ -1,6 +1,7 @@
 import json
 from scoreform import assignment
 from scoreform import workflows
+from scoreform.config import MAX_QUESTION_COUNT
 
 
 def make_assignment(tmp_path, **overrides):
@@ -50,7 +51,7 @@ def test_load_assignment_missing_field(tmp_path):
 
 
 def test_load_assignment_accepts_valid_question_counts(tmp_path):
-    for question_count in [1, 10, 15]:
+    for question_count in [1, 10, MAX_QUESTION_COUNT]:
         path = make_assignment(tmp_path, question_count=question_count)
         loaded = assignment.load_assignment(path)
         assert loaded is not None
@@ -69,7 +70,7 @@ def test_load_assignment_invalid_question_count_zero(tmp_path):
 
 
 def test_load_assignment_invalid_question_count_too_large(tmp_path):
-    path = make_assignment(tmp_path, question_count=16)
+    path = make_assignment(tmp_path, question_count=MAX_QUESTION_COUNT + 1)
     assert assignment.load_assignment(path) is None
 
 
@@ -237,6 +238,70 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
     loaded = assignment.load_assignment(str(output_path))
     assert loaded is not None
     assert loaded["standards"] == {1: [], 2: [], 3: []}
+
+
+def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "test_class" / "roster.csv"),
+        "test_class",
+        "1",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    responses = iter(
+        [
+            "1",
+            "Max Assignment",
+            "max_assignment",
+            str(MAX_QUESTION_COUNT),
+            *["A" for _ in range(MAX_QUESTION_COUNT)],
+        ]
+    )
+    prompts = []
+
+    def fake_input(prompt):
+        prompts.append(prompt)
+        return next(responses)
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    assert workflows.prompt_create_assignment() == 0
+    assert f"Question count (1-{MAX_QUESTION_COUNT}): " in prompts
+
+    output_path = tmp_path / "classes" / "test_class" / "assignments" / "max_assignment" / "assignment.json"
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    assert saved["question_count"] == MAX_QUESTION_COUNT
+    assert len(saved["answer_key"]) == MAX_QUESTION_COUNT
+
+
+def test_prompt_create_assignment_rejects_question_count_above_max(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "test_class" / "roster.csv"),
+        "test_class",
+        "1",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    responses = iter(
+        [
+            "1",
+            "Retry Max Assignment",
+            "retry_max_assignment",
+            str(MAX_QUESTION_COUNT + 1),
+            str(MAX_QUESTION_COUNT),
+            *["B" for _ in range(MAX_QUESTION_COUNT)],
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_create_assignment() == 0
+
+    captured = capsys.readouterr()
+    assert f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}." in captured.out
+
+    output_path = tmp_path / "classes" / "test_class" / "assignments" / "retry_max_assignment" / "assignment.json"
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    assert saved["question_count"] == MAX_QUESTION_COUNT
 
 
 def test_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):

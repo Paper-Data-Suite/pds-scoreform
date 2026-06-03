@@ -17,6 +17,7 @@ import csv
 import json
 import re
 
+from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.roster import load_roster
 from scoreform.assignment import load_assignment
 from scoreform.validation import is_safe_identifier, validate_identifier
@@ -428,13 +429,13 @@ def prompt_create_assignment():
     choices = ["A", "B", "C", "D"]
     question_count = None
     while question_count is None:
-        count_input = input("Question count (1-15): ").strip()
+        count_input = input(f"Question count (1-{MAX_QUESTION_COUNT}): ").strip()
         if not count_input.isdigit():
-            print("Error: question_count must be an integer from 1 to 15.")
+            print(f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}.")
             continue
         count_value = int(count_input)
-        if count_value < 1 or count_value > 15:
-            print("Error: question_count must be an integer from 1 to 15.")
+        if count_value < 1 or count_value > MAX_QUESTION_COUNT:
+            print(f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}.")
             continue
         question_count = count_value
 

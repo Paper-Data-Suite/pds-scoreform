@@ -12,6 +12,7 @@ from scoreform.config import (
     BOX_START_X,
     BOX_STEP_X,
     LOCAL_DEBUG_DIR,
+    MAX_QUESTION_COUNT,
 )
 from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validate_identifier
 
@@ -56,7 +57,7 @@ def _infer_question_count(answer_key, default=10):
         return default
 
     max_question = max(keys)
-    if max_question > 15:
+    if max_question > MAX_QUESTION_COUNT:
         return default
 
     if set(keys) == set(range(1, max_question + 1)):
@@ -747,7 +748,7 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
         return None
 
     question_count = assignment_data.get("question_count")
-    if not isinstance(question_count, int) or question_count < 1:
+    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_QUESTION_COUNT:
         question_count = _infer_question_count(answer_key, default=10)
 
     debug_dir = os.path.join(
