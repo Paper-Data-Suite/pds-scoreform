@@ -36,6 +36,7 @@ def test_load_assignment_accepts_valid(tmp_path):
     assert loaded["assignment_id"] == "test_assignment"
     assert loaded["question_count"] == 10
     assert isinstance(loaded["answer_key"], dict)
+    assert set(loaded["answer_key"].keys()) == set(range(1, 11))
     assert loaded["standards"] == {}
 
 
@@ -122,6 +123,26 @@ def test_load_assignment_rejects_invalid_answer_choice(tmp_path):
     p = tmp_path / "assignment.json"
     p.write_text(json.dumps(data), encoding="utf-8")
     assert assignment.load_assignment(str(p)) is None
+
+
+def test_load_assignment_normalizes_lowercase_answer_choices(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=3,
+        answer_key={"1": "a", "2": " b ", "3": "c"},
+    )
+    loaded = assignment.load_assignment(path)
+    assert loaded is not None
+    assert loaded["answer_key"] == {1: "A", 2: "B", 3: "C"}
+
+
+def test_load_assignment_rejects_answer_key_question_outside_count(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        question_count=5,
+        answer_key={"1": "A", "2": "A", "3": "A", "4": "A", "6": "A"},
+    )
+    assert assignment.load_assignment(path) is None
 
 
 def test_load_assignment_accepts_empty_standards_object(tmp_path):
@@ -330,6 +351,7 @@ def test_load_answer_key_accepts(tmp_path):
     ak = assignment.load_answer_key(str(p))
     assert ak is not None
     assert isinstance(ak, dict)
+    assert set(ak.keys()) == set(range(1, 11))
 
 
 def test_load_answer_key_accepts_five_questions(tmp_path):
@@ -339,6 +361,21 @@ def test_load_answer_key_accepts_five_questions(tmp_path):
     ak = assignment.load_answer_key(str(p))
     assert ak is not None
     assert len(ak) == 5
+
+
+def test_load_answer_key_normalizes_lowercase_answer_choices(tmp_path):
+    data = {"1": "a", "2": " b ", "3": "c"}
+    p = tmp_path / "answer_key.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    ak = assignment.load_answer_key(str(p))
+    assert ak == {1: "A", 2: "B", 3: "C"}
+
+
+def test_normalize_answer_key_rejects_duplicate_normalized_question_numbers(capsys):
+    assert assignment._normalize_answer_key({1: "A", "1": "B"}) is None
+
+    captured = capsys.readouterr()
+    assert "Error: Duplicate question number '1' in answer_key." in captured.out
 
 
 def test_load_answer_key_rejects_gapped_questions(tmp_path):
@@ -352,4 +389,17 @@ def test_load_answer_key_rejects_invalid_choice(tmp_path):
     data = {str(i): "Z" for i in range(1, 11)}
     p = tmp_path / "answer_key.json"
     p.write_text(json.dumps(data), encoding="utf-8")
+    assert assignment.load_answer_key(str(p)) is None
+
+
+def test_load_answer_key_rejects_question_above_max(tmp_path):
+    data = {str(i): "A" for i in range(1, MAX_QUESTION_COUNT + 2)}
+    p = tmp_path / "answer_key.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    assert assignment.load_answer_key(str(p)) is None
+
+
+def test_load_answer_key_rejects_non_dict(tmp_path):
+    p = tmp_path / "answer_key.json"
+    p.write_text(json.dumps(["A", "B", "C"]), encoding="utf-8")
     assert assignment.load_answer_key(str(p)) is None
