@@ -498,6 +498,69 @@ The program will create this folder automatically when you generate or set up as
 
 Legacy/manual default results and debug images are written under `local_outputs/results/` and `local_outputs/debug/`. QR-aware routed scoring still writes results and debug images into the assignment folder under `classes/`.
 
+### Scan Quality Guidance
+
+ScoreForm depends on clear scans for QR detection, corner registration, and answer-box scoring. For best results, scan completed sheets with:
+
+* good, even lighting
+* no glare or shadows over QR codes, corner marks, or answer boxes
+* the entire page visible
+* all four corner registration squares visible
+* the QR code clearly visible
+* paper as flat as possible
+* dark, complete student marks
+* no heavy stray marks near answer boxes
+* enough resolution for QR and box detection
+
+Supported input file types are:
+
+```text
+PDF
+PNG
+JPG/JPEG
+BMP
+TIFF/TIF
+```
+
+Recommended workflow:
+
+1. Place scanned files in `scans_inbox/`.
+2. Use generated class packets or individual student PDFs when possible.
+3. Prefer QR-aware routed scoring for generated sheets.
+4. Review debug images when scoring fails.
+5. Manually verify results before using them for grades.
+
+Common causes of scan failure include:
+
+* missing or cropped corner registration marks
+* cropped or cut-off QR codes
+* blurry images
+* shadows or glare
+* very light pencil marks
+* forms photographed at a steep angle
+* paper not lying flat
+* scan apps that warp, crop, enhance, or resize the page aggressively
+* using a sheet that does not match the assignment being scored
+* printing or scanning at unusual scaling settings
+
+If scoring fails or results look suspicious, try:
+
+* rescanning the page with better lighting
+* keeping the page flat
+* making sure all four corner squares are visible
+* avoiding cropped page edges
+* avoiding extreme camera angles
+* using a scanner when possible
+* trying a higher-resolution scan
+* checking that the QR code is not damaged or covered
+* verifying that the correct generated sheet was used
+* inspecting generated debug images
+* manually verifying results before recording grades
+
+ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring.
+
+ScoreForm is still under active development. Because scan quality directly affects grading reliability, manually verify results before using them for actual grades.
+
 ### Validate an Assignment File
 
 With editable install (preferred for development):
