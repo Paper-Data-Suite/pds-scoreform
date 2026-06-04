@@ -71,7 +71,7 @@ The project currently supports:
 * Collision detection prevents overwrite of mismatched assignments
 * Regression test coverage for collision protection
 * Menu-driven roster creation
-* Roster management submenu with create, validate, and return options
+* Roster management submenu with create, view, validate, and return options
 * Roster CSV writing with required schema
 * Roster overwrite confirmation
 * Roster parent-directory creation when needed
@@ -712,7 +712,7 @@ It should support:
 * selecting a scan/PDF to score
 * decoding QR from a file
 * validating assignment files from the Assignment management submenu
-* validating roster files from the Roster management submenu
+* viewing and validating roster files from the Roster management submenu
 * exiting cleanly
 
 ## Notes
@@ -822,6 +822,7 @@ Status: Completed initial menu-driven roster creation (v0.5.0).
 The terminal menu now includes a submenu for roster management with:
 
 * Create a class roster (interactive prompts for class name, class_id, period, and students)
+* View a class roster
 * Validate an existing roster
 * Return to main menu
 

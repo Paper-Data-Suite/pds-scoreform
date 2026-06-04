@@ -150,6 +150,105 @@ def test_parse_class_selection_rejects_empty_invalid_and_out_of_range():
             raise AssertionError(f"Expected ValueError for selection {selection!r}")
 
 
+def test_format_roster_for_display_includes_summary_rows_and_optional_columns():
+    class_record = {
+        "class_id": "english_9_period_2",
+        "roster_path": "classes/english_9_period_2/roster.csv",
+        "roster": {
+            "students": [
+                {
+                    "class_id": "english_9_period_2",
+                    "student_id": "1001",
+                    "last_name": "Doe",
+                    "first_name": "Jane",
+                    "period": "2",
+                    "preferred_name": "Janie",
+                },
+                {
+                    "class_id": "english_9_period_2",
+                    "student_id": "1002",
+                    "last_name": "Smith",
+                    "first_name": "Marcus",
+                    "period": "2",
+                    "preferred_name": "",
+                },
+            ],
+        },
+    }
+
+    output = workflows.format_roster_for_display(class_record)
+
+    assert "Class: english_9_period_2" in output
+    assert "Roster: classes/english_9_period_2/roster.csv" in output
+    assert "Students: 2" in output
+    assert "student_id" in output
+    assert "last_name" in output
+    assert "first_name" in output
+    assert "period" in output
+    assert "preferred_name" in output
+    assert "1001" in output
+    assert "Doe" in output
+    assert "Jane" in output
+
+
+def test_prompt_view_roster_handles_no_available_rosters(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    assert workflows.prompt_view_roster() == 1
+
+    output = capsys.readouterr().out
+    assert "No class rosters found." in output
+    assert "Create a class roster first" in output
+
+
+def test_prompt_view_roster_displays_selected_class_roster(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
+        "english_9_period_2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_12_p5" / "roster.csv"),
+        "english_12_p5",
+        "5",
+        [{"student_id": "1002", "last_name": "Smith", "first_name": "Marcus"}],
+    )
+    responses = iter(["2"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_view_roster() == 0
+
+    output = capsys.readouterr().out
+    assert "Available classes:" in output
+    assert "1. english_12_p5" in output
+    assert "2. english_9_period_2" in output
+    assert "Class: english_9_period_2" in output
+    assert "Roster: classes" in output
+    assert "Students: 1" in output
+    assert "1001" in output
+    assert "Doe" in output
+    assert "Jane" in output
+
+
+def test_prompt_view_roster_rejects_invalid_selection(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
+        "english_9_period_2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    responses = iter(["3"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_view_roster() == 1
+
+    output = capsys.readouterr().out
+    assert "Error: Class selection out of range: 3" in output
+
+
 def test_write_roster_csv_rejects_unsafe_class_id(tmp_path):
     output_path = tmp_path / "roster.csv"
     students = [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}]
@@ -246,7 +345,7 @@ def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
         "Smith",
         "Marcus",
         "n",
-        "3",
+        "4",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -257,6 +356,27 @@ def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
     assert loaded is not None
     assert loaded["class_id"] == "english_12_p5"
     assert loaded["students"][0]["student_id"] == "1002"
+
+
+def test_roster_menu_view_class_roster_flow(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
+        "english_9_period_2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    responses = iter(["2", "1", "4"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.launch_roster_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "2. View a class roster" in output
+    assert "3. Validate an existing roster" in output
+    assert "Class: english_9_period_2" in output
+    assert "Students: 1" in output
+    assert "1001" in output
 
 
 def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, monkeypatch):

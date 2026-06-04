@@ -193,7 +193,7 @@ def test_assignment_submenu_validate_assignment_accepts_quoted_path():
 def test_roster_submenu_validate_roster_accepts_quoted_path():
     result = run_main_command(
         "menu",
-        input_text='5\n2\n"examples/sample_roster_english9_p2.csv"\n3\n8\n',
+        input_text='5\n3\n"examples/sample_roster_english9_p2.csv"\n4\n8\n',
     )
 
     assert result.returncode == 0

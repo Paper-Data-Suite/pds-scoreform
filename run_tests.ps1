@@ -340,7 +340,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "Student",              # student 2 last_name
     "Bob",                  # student 2 first_name
     "n",                    # add another? no
-    "3",                    # Return to main menu
+    "4",                    # Return to main menu
     "8"                     # Exit
 ) | python main.py menu
 
