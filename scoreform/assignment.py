@@ -4,6 +4,9 @@ from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.validation import validate_identifier
 
 
+VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}
+
+
 def _normalize_question_number(key, question_count, field_name):
     if isinstance(key, str) and key.isdigit():
         q_num = int(key)
@@ -24,6 +27,84 @@ def _normalize_question_number(key, question_count, field_name):
         return None
 
     return q_num
+
+
+def _normalize_answer_choice(value, q_num, valid_choices):
+    if not isinstance(value, str):
+        print(
+            f"Error: Invalid answer for question {q_num}: {value!r}. "
+            "Answers must be A, B, C, or D."
+        )
+        return None
+
+    answer = value.strip().upper()
+    if answer not in valid_choices:
+        print(
+            f"Error: Invalid answer for question {q_num}: {value!r}. "
+            "Answers must be A, B, C, or D."
+        )
+        return None
+
+    return answer
+
+
+def _normalize_answer_key(
+    answer_key,
+    *,
+    question_count=None,
+    valid_choices=None,
+    max_questions=MAX_QUESTION_COUNT,
+    field_name="answer_key",
+):
+    if valid_choices is None:
+        valid_choices = VALID_ANSWER_CHOICES
+
+    if not isinstance(answer_key, dict):
+        print(f"Error: '{field_name}' must be a JSON object.")
+        return None
+
+    if question_count is not None and len(answer_key) != question_count:
+        print(
+            f"Error: '{field_name}' must contain exactly {question_count} entries."
+        )
+        return None
+
+    question_limit = question_count if question_count is not None else max_questions
+    normalized_answer_key = {}
+    for key, value in answer_key.items():
+        q_num = _normalize_question_number(key, question_limit, field_name)
+        if q_num is None:
+            return None
+
+        if q_num in normalized_answer_key:
+            print(f"Error: Duplicate question number '{q_num}' in {field_name}.")
+            return None
+
+        answer = _normalize_answer_choice(value, q_num, valid_choices)
+        if answer is None:
+            return None
+
+        normalized_answer_key[q_num] = answer
+
+    if not normalized_answer_key:
+        print("Error: Answer key must contain at least one question.")
+        return None
+
+    expected_max_question = question_count
+    if expected_max_question is None:
+        expected_max_question = max(normalized_answer_key.keys())
+
+    expected_questions = set(range(1, expected_max_question + 1))
+    missing_questions = sorted(expected_questions - set(normalized_answer_key.keys()))
+
+    if missing_questions:
+        print(
+            f"Error: {field_name} is incomplete. "
+            f"Missing questions: {', '.join(map(str, missing_questions))}."
+        )
+        return None
+
+    return normalized_answer_key
 
 
 def _normalize_standards(standards, question_count):
@@ -79,51 +160,7 @@ def load_answer_key(key_path):
         print(f"Error: Answer key file '{key_path}' must contain a JSON object.")
         return None
 
-    answer_key = {}
-    for key, value in data.items():
-        if isinstance(key, str) and key.isdigit():
-            q_num = int(key)
-        elif isinstance(key, int):
-            q_num = key
-        else:
-            print(
-                f"Error: Invalid question number in answer key: {key!r}. "
-                f"Question numbers must be 1 through {MAX_QUESTION_COUNT}."
-            )
-            return None
-
-        if q_num < 1 or q_num > MAX_QUESTION_COUNT:
-            print(
-                f"Error: Invalid question number '{q_num}' in answer key. "
-                f"Question numbers must be 1 through {MAX_QUESTION_COUNT}."
-            )
-            return None
-
-        if not isinstance(value, str) or value.strip().upper() not in {"A", "B", "C", "D"}:
-            print(
-                f"Error: Invalid answer for question {q_num}: {value!r}. "
-                "Answers must be A, B, C, or D."
-            )
-            return None
-
-        answer_key[q_num] = value.strip().upper()
-
-    if not answer_key:
-        print("Error: Answer key must contain at least one question.")
-        return None
-
-    max_question = max(answer_key.keys())
-    expected_questions = set(range(1, max_question + 1))
-    missing_questions = sorted(expected_questions - set(answer_key.keys()))
-
-    if missing_questions:
-        print(
-            "Error: Answer key is incomplete. "
-            f"Missing questions: {', '.join(map(str, missing_questions))}."
-        )
-        return None
-
-    return answer_key
+    return _normalize_answer_key(data, field_name="answer key")
 
 
 def load_assignment(assignment_path):
@@ -167,52 +204,13 @@ def load_assignment(assignment_path):
         print("Error: 'choices' must equal exactly ['A', 'B', 'C', 'D'].")
         return None
 
-    answer_key = data.get("answer_key")
-    if not isinstance(answer_key, dict):
-        print("Error: 'answer_key' must be a JSON object.")
-        return None
-
-    if len(answer_key) != question_count:
-        print(
-            f"Error: 'answer_key' must contain exactly {question_count} entries."
-        )
-        return None
-
-    normalized_answer_key = {}
-    for key, value in answer_key.items():
-        if isinstance(key, str) and key.isdigit():
-            q_num = int(key)
-        elif isinstance(key, int):
-            q_num = key
-        else:
-            print(
-                f"Error: Invalid question number in answer_key: {key!r}. "
-                f"Question numbers must be 1 through {question_count}."
-            )
-            return None
-
-        if q_num < 1 or q_num > question_count:
-            print(
-                f"Error: Invalid question number '{q_num}' in answer_key. "
-                f"Question numbers must be 1 through {question_count}."
-            )
-            return None
-
-        if not isinstance(value, str) or value.strip().upper() not in {"A", "B", "C", "D"}:
-            print(
-                f"Error: Invalid answer for question {q_num}: {value!r}. "
-                "Answers must be A, B, C, or D."
-            )
-            return None
-
-        normalized_answer_key[q_num] = value.strip().upper()
-
-    missing_questions = sorted(set(range(1, question_count + 1)) - set(normalized_answer_key.keys()))
-    if missing_questions:
-        print(
-            "Error: answer_key is incomplete. "
-            f"Missing questions: {', '.join(map(str, missing_questions))}."
-        )
+    normalized_answer_key = _normalize_answer_key(
+        data.get("answer_key"),
+        question_count=question_count,
+        valid_choices=set(choices),
+        field_name="answer_key",
+    )
+    if normalized_answer_key is None:
         return None
 
     normalized_standards = _normalize_standards(data.get("standards"), question_count)
