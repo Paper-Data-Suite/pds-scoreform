@@ -15,6 +15,7 @@ from scoreform.config import (
 from scoreform.scoring import (
     _expected_corner_regions,
     _find_registration_mark_centers,
+    non_overwriting_path,
     score_image,
 )
 
@@ -58,6 +59,65 @@ def _draw_synthetic_answer_sheet(marked_answers, question_count):
                 )
 
     return img
+
+
+def test_non_overwriting_path_returns_missing_path_unchanged(tmp_path):
+    path = tmp_path / "debug_corners_page_1.png"
+
+    assert non_overwriting_path(path) == str(path)
+
+
+def test_non_overwriting_path_adds_suffix_for_existing_path(tmp_path):
+    path = tmp_path / "debug_corners_page_1.png"
+    path.write_text("existing", encoding="utf-8")
+
+    assert non_overwriting_path(path) == str(tmp_path / "debug_corners_page_1_2.png")
+
+
+def test_non_overwriting_path_skips_existing_suffixes(tmp_path):
+    path = tmp_path / "debug_warped_page_1.png"
+    path.write_text("existing", encoding="utf-8")
+    (tmp_path / "debug_warped_page_1_2.png").write_text("existing", encoding="utf-8")
+    (tmp_path / "debug_warped_page_1_3.png").write_text("existing", encoding="utf-8")
+
+    assert non_overwriting_path(path) == str(tmp_path / "debug_warped_page_1_4.png")
+
+
+def test_non_overwriting_path_preserves_extension_and_directory(tmp_path):
+    debug_dir = tmp_path / "classes" / "english9_p2" / "assignments" / "quiz" / "debug"
+    debug_dir.mkdir(parents=True)
+    path = debug_dir / "debug_warped_page_2.jpeg"
+    path.write_text("existing", encoding="utf-8")
+
+    assert non_overwriting_path(path) == str(debug_dir / "debug_warped_page_2_2.jpeg")
+
+
+def test_score_image_preserves_existing_debug_outputs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    debug_dir = tmp_path / "debug"
+    debug_dir.mkdir()
+    (debug_dir / "debug_corners_page_1.png").write_text("existing", encoding="utf-8")
+    (debug_dir / "debug_warped_page_1.png").write_text("existing", encoding="utf-8")
+
+    question_count = 10
+    answer_key = {q_num: "A" for q_num in range(1, question_count + 1)}
+    marked_answers = answer_key.copy()
+    image = _draw_synthetic_answer_sheet(marked_answers, question_count)
+
+    result = score_image(
+        image,
+        answer_key,
+        page_num=1,
+        debug_dir=debug_dir,
+        question_count=question_count,
+    )
+
+    assert result is not None
+    assert (debug_dir / "debug_corners_page_1.png").read_text(encoding="utf-8") == "existing"
+    assert (debug_dir / "debug_warped_page_1.png").read_text(encoding="utf-8") == "existing"
+    assert (debug_dir / "debug_corners_page_1_2.png").exists()
+    assert (debug_dir / "debug_warped_page_1_2.png").exists()
 
 
 def test_score_image_detects_synthetic_marked_answers(tmp_path, monkeypatch):

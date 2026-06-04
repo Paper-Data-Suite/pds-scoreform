@@ -185,6 +185,21 @@ def _infer_question_count(answer_key, default=10):
     return default
 
 
+def non_overwriting_path(path):
+    """Return path unchanged unless it exists, then append a numeric suffix."""
+    path = os.fspath(path)
+    if not os.path.exists(path):
+        return path
+
+    root, ext = os.path.splitext(path)
+    counter = 2
+    while True:
+        candidate = f"{root}_{counter}{ext}"
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
 def _expected_corner_regions(img_w, img_h):
     """Return expected registration zones as (expected_center, bounds) pairs."""
     zone_w = img_w * CORNER_ZONE_FRACTION
@@ -343,6 +358,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
     if debug_dir:
         os.makedirs(debug_dir, exist_ok=True)
         debug_corners_filename = os.path.join(debug_dir, debug_corners_filename)
+    debug_corners_filename = non_overwriting_path(debug_corners_filename)
     cv2.imwrite(debug_corners_filename, debug_img)
     print(f"Saved {debug_corners_filename}")
 
@@ -435,6 +451,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
     if debug_dir:
         os.makedirs(debug_dir, exist_ok=True)
         debug_filename = os.path.join(debug_dir, debug_filename)
+    debug_filename = non_overwriting_path(debug_filename)
     cv2.imwrite(debug_filename, warped)
     print(f"Saved {debug_filename} for visual verification.\n")
 

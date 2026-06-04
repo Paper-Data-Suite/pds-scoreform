@@ -557,7 +557,7 @@ If scoring fails or results look suspicious, try:
 * inspecting generated debug images
 * manually verifying results before recording grades
 
-ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring.
+ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
 
 ScoreForm is still under active development. Because scan quality directly affects grading reliability, manually verify results before using them for actual grades.
 
