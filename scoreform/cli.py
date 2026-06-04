@@ -13,7 +13,14 @@ from scoreform.templates import (
     generate_student_pdf,
     generate_class_packet_pdf,
 )
-from scoreform.scoring import process_file, decode_qr_from_image, process_file_qr_aware
+from scoreform.scoring import (
+    decode_qr_from_image,
+    get_qr_batch_summary,
+    print_qr_batch_summary,
+    process_file,
+    process_file_qr_aware,
+    update_qr_batch_result_write_status,
+)
 from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.roster import load_roster
 from scoreform.folders import setup_assignment_folder
@@ -266,6 +273,8 @@ def run_score(args):
         results_data = process_file(input_file, key)
 
     if not results_data:
+        if use_qr_aware:
+            print_qr_batch_summary(get_qr_batch_summary(results_data))
         print("Error: No pages were scored successfully.")
         return 1
 
@@ -275,8 +284,23 @@ def run_score(args):
         export_success = export_to_csv(results_data, output_file)
 
     if not export_success:
+        if use_qr_aware:
+            update_qr_batch_result_write_status(
+                results_data,
+                export_success,
+                output_file if explicit_output_csv else None,
+            )
+            print_qr_batch_summary(get_qr_batch_summary(results_data))
         print("Error: Failed to export results.")
         return 1
+
+    if use_qr_aware:
+        update_qr_batch_result_write_status(
+            results_data,
+            export_success,
+            output_file if explicit_output_csv else None,
+        )
+        print_qr_batch_summary(get_qr_batch_summary(results_data))
 
     return 0
 
