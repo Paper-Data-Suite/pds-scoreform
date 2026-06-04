@@ -1,4 +1,6 @@
 import os
+from dataclasses import dataclass, field
+
 import cv2
 import numpy as np
 from scoreform.config import (
@@ -20,6 +22,124 @@ from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validat
 CORNER_ZONE_FRACTION = 0.22
 MIN_REGISTRATION_SIZE_RATIO = 0.65
 MAX_REGISTRATION_SIZE_RATIO = 4.0
+
+QR_FAILURE_LABELS = {
+    "missing_qr": "Missing QR code",
+    "malformed_qr": "Malformed QR payload",
+    "unsafe_qr": "Unsafe QR payload",
+    "assignment_lookup_failed": "Assignment lookup failure",
+    "image_processing_failed": "Image loading/processing failure",
+    "registration_or_scoring_failed": "Registration/scoring failure",
+    "result_write_failed": "Result writing failure",
+    "unknown_failed": "Unknown failure",
+}
+
+
+@dataclass
+class QRBatchFailure:
+    page_num: int | None
+    category: str
+    reason: str
+
+
+@dataclass
+class QRBatchSummary:
+    pages_processed: int = 0
+    pages_scored: int = 0
+    failures: list[QRBatchFailure] = field(default_factory=list)
+    output_paths: list[str] = field(default_factory=list)
+    results_written: bool = False
+    result_write_failed: bool = False
+
+    @property
+    def pages_skipped_failed(self):
+        return len([failure for failure in self.failures if failure.page_num is not None])
+
+    def record_processed_page(self):
+        self.pages_processed += 1
+
+    def record_scored_page(self):
+        self.pages_scored += 1
+
+    def record_failure(self, page_num, category, reason):
+        self.failures.append(QRBatchFailure(page_num, category, reason))
+
+    def record_results_written(self, output_paths):
+        self.results_written = True
+        self.output_paths = list(dict.fromkeys(output_paths))
+
+    def record_result_write_failed(self, output_paths=None):
+        self.result_write_failed = True
+        if output_paths:
+            self.output_paths = list(dict.fromkeys(output_paths))
+        self.failures.append(
+            QRBatchFailure(None, "result_write_failed", "results could not be written")
+        )
+
+    def failure_counts(self):
+        counts = {}
+        for failure in self.failures:
+            counts[failure.category] = counts.get(failure.category, 0) + 1
+        return counts
+
+    def format(self):
+        lines = [
+            "",
+            "QR-Aware Batch Summary",
+            "",
+            f"Pages processed: {self.pages_processed}",
+            f"Pages scored: {self.pages_scored}",
+            f"Pages skipped/failed: {self.pages_skipped_failed}",
+        ]
+
+        counts = self.failure_counts()
+        if counts:
+            lines.extend(["", "Failures:"])
+            for category, label in QR_FAILURE_LABELS.items():
+                count = counts.get(category, 0)
+                if count:
+                    lines.append(f"- {label}: {count}")
+
+        page_failures = [failure for failure in self.failures if failure.page_num is not None]
+        if page_failures:
+            lines.extend(["", "Skipped pages:"])
+            for failure in page_failures:
+                lines.append(f"- Page {failure.page_num}: {failure.reason}")
+
+        lines.extend(["", "Results written:"])
+        if self.results_written:
+            if self.output_paths:
+                lines.extend(self.output_paths)
+            else:
+                lines.append("Yes")
+        elif self.result_write_failed:
+            lines.append("No - result writing failed.")
+            if self.output_paths:
+                lines.append("Attempted output path(s):")
+                lines.extend(self.output_paths)
+        else:
+            lines.append("No results were written.")
+
+        if self.pages_skipped_failed or self.result_write_failed:
+            lines.extend(["", "Review skipped pages before treating results as final."])
+
+        return "\n".join(lines)
+
+    def print(self):
+        print(self.format())
+
+
+class QRBatchResults(list):
+    def __init__(self, *args, summary=None):
+        super().__init__(*args)
+        self.summary = summary or QRBatchSummary()
+
+
+@dataclass
+class QRDecodeResult:
+    metadata: dict | None
+    failure_category: str | None = None
+    failure_reason: str | None = None
 
 
 def order_points(pts):
@@ -578,14 +698,15 @@ def _qr_candidate_images(img):
             yield f"crop {crop_index} {label}", candidate
 
 
-def decode_qr_from_image(img):
-    """Decode a QR code from an OpenCV image and parse the OMR1 payload.
-
-    Returns parsed metadata dict or None on failure.
-    """
+def _decode_qr_from_image_with_status(img):
+    """Decode QR metadata and return structured failure status when it fails."""
     if img is None:
         print("Error: Provided image is None")
-        return None
+        return QRDecodeResult(
+            None,
+            "image_processing_failed",
+            "image could not be loaded or processed",
+        )
 
     detector = cv2.QRCodeDetector()
 
@@ -597,28 +718,297 @@ def decode_qr_from_image(img):
             data = _try_decode_qr(detector, candidate)
         except Exception as e:
             print(f"Error: Exception while decoding QR: {e}")
-            return None
+            return QRDecodeResult(
+                None,
+                "image_processing_failed",
+                "QR decoding failed while processing the image",
+            )
         if data:
             success_label = label
             break
 
     if not data:
         print("No QR code detected after raw/preprocessed decode attempts.")
-        return None
+        return QRDecodeResult(None, "missing_qr", "missing QR code")
 
     parsed = parse_qr_payload(data)
     if parsed is None:
         print(f"QR code detected but payload invalid: '{data}'")
-        return None
+        return QRDecodeResult(None, "malformed_qr", "invalid QR payload")
 
     if not validate_qr_metadata(parsed):
         print(f"QR code payload failed validation: '{data}'")
-        return None
+        return QRDecodeResult(None, "unsafe_qr", "unsafe QR payload")
 
     if success_label != "raw":
         print(f"QR decoded using {success_label} fallback.")
 
-    return parsed
+    return QRDecodeResult(parsed)
+
+
+def decode_qr_from_image(img):
+    """Decode a QR code from an OpenCV image and parse the OMR1 payload.
+
+    Returns parsed metadata dict or None on failure.
+    """
+    return _decode_qr_from_image_with_status(img).metadata
+
+
+def _default_qr_failure_reason(category):
+    return {
+        "missing_qr": "missing QR code",
+        "malformed_qr": "invalid QR payload",
+        "unsafe_qr": "unsafe QR payload",
+        "assignment_lookup_failed": "assignment lookup failed",
+        "image_processing_failed": "image loading/processing failed",
+        "registration_or_scoring_failed": "registration/scoring failed",
+    }.get(category, "failed")
+
+
+def _record_qr_failure(summary, page_num, category, reason=None):
+    if summary is not None:
+        summary.record_failure(
+            page_num,
+            category,
+            reason or _default_qr_failure_reason(category),
+        )
+
+
+def _record_qr_success(summary):
+    if summary is not None:
+        summary.record_scored_page()
+
+
+def _record_qr_processed(summary):
+    if summary is not None:
+        summary.record_processed_page()
+
+
+def _record_qr_results_written(summary, output_paths):
+    if summary is not None:
+        summary.record_results_written(output_paths)
+
+
+def _record_qr_result_write_failed(summary, output_paths=None):
+    if summary is not None:
+        summary.record_result_write_failed(output_paths)
+
+
+def _qr_output_paths_for_results(all_results, explicit_output_file=None):
+    if explicit_output_file:
+        return [explicit_output_file]
+
+    paths = []
+    for res in all_results:
+        class_id = res.get("class_id")
+        assignment_id = res.get("assignment_id")
+        if class_id and assignment_id:
+            paths.append(
+                os.path.join(
+                    "classes",
+                    class_id,
+                    "assignments",
+                    assignment_id,
+                    "results.csv",
+                )
+            )
+
+    return list(dict.fromkeys(paths))
+
+
+def print_qr_batch_summary(summary):
+    if summary is not None:
+        summary.print()
+
+
+def update_qr_batch_result_write_status(
+    all_results,
+    export_success,
+    explicit_output_file=None,
+):
+    summary = getattr(all_results, "summary", None)
+    output_paths = _qr_output_paths_for_results(all_results, explicit_output_file)
+    if export_success:
+        _record_qr_results_written(summary, output_paths)
+    else:
+        _record_qr_result_write_failed(summary, output_paths)
+
+
+def get_qr_batch_summary(all_results):
+    return getattr(all_results, "summary", None)
+
+
+def _score_page_qr_aware_with_summary(img, page_num=1, file_path=None, summary=None):
+    result = _score_page_qr_aware(img, page_num, file_path, summary=summary)
+    if result is not None:
+        _record_qr_success(summary)
+    return result
+
+
+def _score_page_qr_aware_decode_metadata(img, page_num, summary):
+    decoded = _decode_qr_from_image_with_status(img)
+    if decoded.metadata is None:
+        _record_qr_failure(
+            summary,
+            page_num,
+            decoded.failure_category or "unknown_failed",
+            decoded.failure_reason,
+        )
+    return decoded.metadata
+
+
+def _score_page_qr_aware_assignment_path(class_id, assignment_id):
+    return os.path.join(
+        "classes",
+        class_id,
+        "assignments",
+        assignment_id,
+        "assignment.json",
+    )
+
+
+def _load_qr_aware_assignment(assignment_path, page_num, summary):
+    if not os.path.exists(assignment_path):
+        print(f"Error: Assignment file not found: {assignment_path}")
+        _record_qr_failure(
+            summary,
+            page_num,
+            "assignment_lookup_failed",
+            "assignment file not found",
+        )
+        return None
+
+    # Import locally to avoid circular imports
+    from scoreform.assignment import load_assignment
+
+    assignment_data = load_assignment(assignment_path)
+    if assignment_data is None:
+        print(f"Error: Failed to load assignment from {assignment_path}")
+        _record_qr_failure(
+            summary,
+            page_num,
+            "assignment_lookup_failed",
+            "assignment could not be loaded",
+        )
+        return None
+
+    return assignment_data
+
+
+def _question_count_for_assignment(assignment_data, answer_key):
+    question_count = assignment_data.get("question_count")
+    if (
+        not isinstance(question_count, int)
+        or question_count < 1
+        or question_count > MAX_QUESTION_COUNT
+    ):
+        question_count = _infer_question_count(answer_key, default=10)
+    return question_count
+
+
+def _score_qr_aware_image(
+    img,
+    answer_key,
+    page_num,
+    debug_dir,
+    question_count,
+    summary,
+):
+    result = score_image(
+        img,
+        answer_key,
+        page_num,
+        debug_dir=debug_dir,
+        question_count=question_count,
+    )
+    if result is None:
+        _record_qr_failure(
+            summary,
+            page_num,
+            "registration_or_scoring_failed",
+            "registration/scoring failed",
+        )
+    return result
+
+
+def _image_extensions():
+    return [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]
+
+
+def _process_qr_pdf(file_path, all_results, summary):
+    try:
+        from pdf2image import convert_from_path
+        from pdf2image.exceptions import PDFInfoNotInstalledError
+    except ImportError:
+        print("Error: The 'pdf2image' module is not installed.")
+        print("Please run: pip install pdf2image")
+        return
+
+    print("PDF detected. Converting pages to images...")
+
+    try:
+        pages = convert_from_path(file_path)
+
+        for page_num, page in enumerate(pages, start=1):
+            print(f"Processing Page {page_num}...")
+            _record_qr_processed(summary)
+
+            # Convert PIL image to OpenCV format (RGB to BGR)
+            try:
+                open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
+            except Exception as e:
+                print(f"Error: Could not process image for page {page_num}: {e}")
+                _record_qr_failure(
+                    summary,
+                    page_num,
+                    "image_processing_failed",
+                    "image loading/processing failed",
+                )
+                continue
+
+            res = _score_page_qr_aware_with_summary(
+                open_cv_image,
+                page_num,
+                file_path,
+                summary,
+            )
+            if res:
+                all_results.append(res)
+
+    except PDFInfoNotInstalledError:
+        print("Error: Poppler is not installed or not in PATH.")
+        print(
+            "Please install Poppler and add its 'bin' folder to your system PATH."
+        )
+        print("Then test with: pdftoppm -h")
+
+    except Exception as e:
+        print(f"Error while processing PDF: {e}")
+
+
+def _process_qr_image(file_path, all_results, summary):
+    img = cv2.imread(file_path)
+
+    _record_qr_processed(summary)
+    if img is None:
+        print(f"Error: Could not read image {file_path}")
+        _record_qr_failure(
+            summary,
+            1,
+            "image_processing_failed",
+            "image could not be loaded",
+        )
+        return
+
+    print("Processing Image...")
+    res = _score_page_qr_aware_with_summary(
+        img,
+        page_num=1,
+        file_path=file_path,
+        summary=summary,
+    )
+    if res:
+        all_results.append(res)
 
 
 def process_file_qr_aware(file_path):
@@ -630,57 +1020,20 @@ def process_file_qr_aware(file_path):
     Returns a list of structured results for each successfully scored page,
     or an empty list if no pages were scored successfully.
     """
+    summary = QRBatchSummary()
+    all_results = QRBatchResults(summary=summary)
+
     if not os.path.exists(file_path):
         print(f"Error: File {file_path} does not exist.")
-        return []
+        return all_results
 
     ext = os.path.splitext(file_path)[1].lower()
-    all_results = []
 
     if ext == ".pdf":
-        try:
-            from pdf2image import convert_from_path
-            from pdf2image.exceptions import PDFInfoNotInstalledError
-        except ImportError:
-            print("Error: The 'pdf2image' module is not installed.")
-            print("Please run: pip install pdf2image")
-            return []
+        _process_qr_pdf(file_path, all_results, summary)
 
-        print("PDF detected. Converting pages to images...")
-
-        try:
-            pages = convert_from_path(file_path)
-
-            for page_num, page in enumerate(pages, start=1):
-                print(f"Processing Page {page_num}...")
-
-                # Convert PIL image to OpenCV format (RGB to BGR)
-                open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-                res = _score_page_qr_aware(open_cv_image, page_num, file_path)
-                if res:
-                    all_results.append(res)
-
-        except PDFInfoNotInstalledError:
-            print("Error: Poppler is not installed or not in PATH.")
-            print(
-                "Please install Poppler and add its 'bin' folder to your system PATH."
-            )
-            print("Then test with: pdftoppm -h")
-
-        except Exception as e:
-            print(f"Error while processing PDF: {e}")
-
-    elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
-        img = cv2.imread(file_path)
-
-        if img is None:
-            print(f"Error: Could not read image {file_path}")
-            return []
-
-        print("Processing Image...")
-        res = _score_page_qr_aware(img, page_num=1, file_path=file_path)
-        if res:
-            all_results.append(res)
+    elif ext in _image_extensions():
+        _process_qr_image(file_path, all_results, summary)
 
     else:
         print(
@@ -691,7 +1044,7 @@ def process_file_qr_aware(file_path):
     return all_results
 
 
-def _score_page_qr_aware(img, page_num=1, file_path=None):
+def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
     """Score a single page with QR-aware metadata extraction.
     
     1. Decode QR metadata from the image.
@@ -702,7 +1055,7 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
     Returns a scored result dict with metadata, or None on failure.
     """
     # Step 1: Decode QR metadata
-    qr_metadata = decode_qr_from_image(img)
+    qr_metadata = _score_page_qr_aware_decode_metadata(img, page_num, summary)
     if qr_metadata is None:
         print(f"Error: Could not decode QR metadata from page {page_num}.")
         return None
@@ -718,38 +1071,33 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
 
     if not validate_qr_metadata(qr_metadata):
         print(f"Error: QR metadata for page {page_num} is unsafe, rejecting page.")
+        _record_qr_failure(
+            summary,
+            page_num,
+            "unsafe_qr",
+            "unsafe QR payload",
+        )
         return None
 
     # Step 2: Locate and load assignment.json
-    assignment_path = os.path.join(
-        "classes",
-        class_id,
-        "assignments",
-        assignment_id,
-        "assignment.json",
-    )
-
-    if not os.path.exists(assignment_path):
-        print(f"Error: Assignment file not found: {assignment_path}")
-        return None
-
-    # Import locally to avoid circular imports
-    from scoreform.assignment import load_assignment
-
-    assignment_data = load_assignment(assignment_path)
+    assignment_path = _score_page_qr_aware_assignment_path(class_id, assignment_id)
+    assignment_data = _load_qr_aware_assignment(assignment_path, page_num, summary)
     if assignment_data is None:
-        print(f"Error: Failed to load assignment from {assignment_path}")
         return None
 
     # Step 3: Extract answer key and score the page
     answer_key = assignment_data.get("answer_key")
     if not answer_key:
         print(f"Error: Assignment {assignment_path} does not contain an answer_key.")
+        _record_qr_failure(
+            summary,
+            page_num,
+            "assignment_lookup_failed",
+            "assignment missing answer key",
+        )
         return None
 
-    question_count = assignment_data.get("question_count")
-    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_QUESTION_COUNT:
-        question_count = _infer_question_count(answer_key, default=10)
+    question_count = _question_count_for_assignment(assignment_data, answer_key)
 
     debug_dir = os.path.join(
         "classes",
@@ -758,12 +1106,13 @@ def _score_page_qr_aware(img, page_num=1, file_path=None):
         assignment_id,
         "debug",
     )
-    result = score_image(
+    result = _score_qr_aware_image(
         img,
         answer_key,
         page_num,
         debug_dir=debug_dir,
         question_count=question_count,
+        summary=summary,
     )
     if result is None:
         return None
