@@ -168,6 +168,76 @@ def parse_class_selection(selection_text, available_classes):
     return selected
 
 
+def format_roster_for_display(class_record):
+    """Return readable terminal text for a discovered class roster."""
+    roster = class_record["roster"]
+    students = roster.get("students", [])
+    fieldnames = ["student_id", "last_name", "first_name", "period"]
+
+    for student in students:
+        for field in student:
+            if field != "class_id" and field not in fieldnames:
+                fieldnames.append(field)
+
+    widths = {
+        field: max(
+            len(field),
+            *(len(str(student.get(field, ""))) for student in students),
+        )
+        for field in fieldnames
+    }
+
+    lines = [
+        f"Class: {class_record['class_id']}",
+        f"Roster: {class_record['roster_path']}",
+        f"Students: {len(students)}",
+        "",
+    ]
+
+    if not students:
+        lines.append("(No student rows)")
+        return "\n".join(lines)
+
+    lines.append(" ".join(field.ljust(widths[field]) for field in fieldnames))
+    for student in students:
+        lines.append(
+            " ".join(str(student.get(field, "")).ljust(widths[field]) for field in fieldnames)
+        )
+
+    return "\n".join(lines)
+
+
+def prompt_view_roster():
+    """Interactive read-only workflow for viewing an existing class roster."""
+    print("--- View a Class Roster ---")
+    print()
+
+    available_classes = discover_class_rosters()
+    if not available_classes:
+        print("No class rosters found.")
+        print("Create a class roster first, then return to this option.")
+        return 1
+
+    print("Available classes:")
+    for index, class_record in enumerate(available_classes, start=1):
+        print(f"{index}. {class_record['class_id']}")
+    print()
+
+    try:
+        class_record = parse_single_selection(
+            input("Select class: "),
+            available_classes,
+            "class",
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    print()
+    print(format_roster_for_display(class_record))
+    return 0
+
+
 def write_roster_csv(path, class_id, period, students):
     """Write a roster CSV file.
 
@@ -521,8 +591,9 @@ def launch_roster_menu():
             print("Roster Management")
             print()
             print("1. Create a class roster")
-            print("2. Validate an existing roster")
-            print("3. Return to main menu")
+            print("2. View a class roster")
+            print("3. Validate an existing roster")
+            print("4. Return to main menu")
             print()
 
             choice = input("Select an option: ").strip()
@@ -535,6 +606,12 @@ def launch_roster_menu():
                     continue
 
             elif choice == "2":
+                result = prompt_view_roster()
+                print()
+                if result != 0:
+                    continue
+
+            elif choice == "3":
                 roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not roster_path:
                     print("Roster file path is required.")
@@ -555,11 +632,11 @@ def launch_roster_menu():
                         print(f"  {student['student_id']}: {student['last_name']}, {student['first_name']}")
                 print()
 
-            elif choice == "3":
+            elif choice == "4":
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
                 print()
 
     except KeyboardInterrupt:
