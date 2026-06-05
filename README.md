@@ -89,6 +89,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 ### Project Structure and Development Support
 
 * Modular `scoreform/` package structure
+* Fast PowerShell development checks through `run_fast_tests.ps1`
 * Portable PowerShell regression script through `run_tests.ps1`
 * Pytest coverage for validation, scoring, QR behavior, routed results, CLI behavior, and workflow helpers
 * Synthetic example data for public testing and demonstration
@@ -159,6 +160,7 @@ scans_inbox/
 local_outputs/
 main.py
 requirements.txt
+run_fast_tests.ps1
 run_tests.ps1
 README.md
 ROADMAP.md
@@ -668,23 +670,27 @@ v1.0.0  Stable classroom-ready release
 
 ## Testing
 
-ScoreForm now includes two layers of tests.
+ScoreForm now includes fast development checks and a full packaging/regression workflow.
 
-Run the focused Python test suite with:
+### Fast Development Checks
+
+Use this during normal development:
 
 ```powershell
-python -m pytest
+.\run_fast_tests.ps1
 ```
 
-The pytest suite is intended for focused module-level checks such as QR payload validation, assignment validation, roster validation, folder helpers, and filename helpers.
+This runs the pytest suite, `git diff --check`, and a Git tracking check that verifies generated/private artifact paths such as `classes/`, `local_outputs/`, and `scans_inbox/` are not tracked.
 
-A portable PowerShell regression script is also included:
+### Full Regression Checks
+
+Use this before opening a PR, merging, releasing, or making broad workflow changes:
 
 ```powershell
 .\run_tests.ps1
 ```
 
-The PowerShell script installs the package in editable mode with development extras, runs the pytest suite, and then verifies full workflow behaviors such as generation, validation, QR-aware scoring, routed results, duplicate/attempt handling, and menu workflows.
+This installs ScoreForm in editable mode with development extras, runs the pytest suite, and verifies the full packaging, CLI, generation, validation, QR-aware scoring, routed results, duplicate/attempt handling, and menu workflow behavior.
 
 The test scripts are intended to verify core development behaviors without relying on private or local-only scan files.
 
