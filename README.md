@@ -8,6 +8,8 @@ It is being developed as a local-first tool for teachers who want a lightweight,
 
 **Early prototype / active development**
 
+Current version: `0.8.0`.
+
 ScoreForm currently works for controlled testing and development use, but it is not yet recommended for high-stakes grading without manual verification.
 
 The project is currently focused on:
@@ -85,7 +87,9 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Direct CLI commands for generation, scoring, validation, setup, and QR decoding
 * CLI help and version commands through `scoreform --help`, `scoreform help`, `scoreform --version`, and `scoreform version`
 * Terminal menu help for common workflows and routed-results guidance
+* Terminal menu screen clearing between workflows and pauses after important output
 * Menu scoring picker for supported files in `scans_inbox/`, with custom path fallback
+* QR-aware routed scoring as the recommended/default terminal-menu scoring workflow
 
 ### Project Structure and Development Support
 
@@ -272,6 +276,7 @@ english9_p2,1003,Brown,Alyssa,2
 Features:
 
 * **Overwrite protection**: If the class roster already exists, you must explicitly confirm before overwriting.
+* **Read-only viewing**: The roster management menu can display an existing roster without editing it.
 * **Validation after save**: The roster is validated using built-in validation logic before reporting success.
 * **Exit/cancel support**: Press Ctrl+C to cancel, or leave `student_id` blank after entering at least one student to finish the roster.
 
@@ -310,6 +315,7 @@ Notes:
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * New assignments include an empty `standards` list for each question. The menu does not prompt for standards yet.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
+* The assignment management menu also validates existing assignment JSON files; assignment editing and standards editing remain future work.
 
 ## Data Model
 
@@ -646,7 +652,7 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Development history is summarized in [`CHANGELOG.md`](CHANGELOG.md). Detailed working planning notes are preserved in [`docs/development_plan.md`](docs/development_plan.md).
 
-The current development plan focuses the next work on test robustness, cleanup, documentation, and public-readiness work.
+After `v0.8.0`, the current development plan continues toward reporting foundations, broader workflow improvements, cleanup, and public-readiness work.
 
 Upcoming focus areas (not exhaustive):
 
@@ -671,6 +677,7 @@ v0.4.0  Installable scoreform command
 v0.5.0  Roster and assignment creation/management
 v0.6.0  Flexible form configuration and standards metadata
 v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
+v0.8.0  Completed menu workflow polish, scan inbox picker, QR-aware routed menu scoring, and release documentation
 v1.0.0  Stable classroom-ready release
 ```
 

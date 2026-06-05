@@ -106,6 +106,14 @@ The project currently supports:
 * `run_tests.ps1` now installs development extras and runs pytest before full workflow regression checks
 * Local generated development/test artifacts are organized under ignored `local_outputs/` folders
 * Public `CHANGELOG.md` created while preserving `development_plan.md` as the detailed working/planning document
+* Interactive menu clears between screens and pauses after important output
+* Roster management submenu supports read-only roster viewing
+* Menu scoring can select supported scans from `scans_inbox/`
+* QR-aware routed scoring is the recommended/default terminal-menu scoring workflow
+* QR-aware batch scoring reports failure summaries
+* Debug image filenames avoid overwriting earlier debug output from repeated runs
+* Fast development checks are available through `run_fast_tests.ps1`
+* Version finalized at `0.8.0` for the completed v0.8.0 release
 
 ## Completed Milestone
 
@@ -396,7 +404,7 @@ v0.2.0
 
 ## Status
 
-Partially implemented: project-level scan inbox setup is implemented (v0.2.0 milestone in progress). Other scan storage behaviors such as moving or copying scans into assignment folders are not implemented yet.
+Implemented for the current picker workflow: project-level scan inbox setup is implemented, and the terminal menu can select supported scans from `scans_inbox/`. Other scan storage behaviors such as moving, copying, archiving, or deleting scans are not implemented yet.
 
 ## Goal
 
@@ -1178,6 +1186,8 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
 * `run_fast_tests.ps1` added for fast development checks: pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
 * Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
+* QR-aware batch scoring now reports summary information for failed pages.
+* Menu workflow tests cover clear/pause behavior, scan inbox selection, QR-aware default menu scoring, manual menu scoring, and direct CLI scoring remaining picker-free.
 
 ## Future Test Improvements
 
@@ -1186,6 +1196,7 @@ Make the program and regression tests more reliable across machines.
 * Add tests for menu workflows once the menu exists.
 * Add QR reliability tests or manual checklist guidance for scan quality.
 * Add real-world scan reliability tests or manual checklist guidance for phone/scanner capture quality.
+* Add coverage for future scan archiving/storage if that workflow is implemented.
 * Expand pytest coverage as the architecture stabilizes.
 
 ## Suggested GitHub Issues
@@ -1269,6 +1280,9 @@ Keep the codebase maintainable as features expand.
 * `python main.py ...` compatibility works, but usage text now emphasizes `scoreform ...`; acceptable for now, but revisit if user confusion appears.
 * `main.py` is now a compatibility wrapper; future CLI work should happen in `scoreform/cli.py` or a split menu module.
 * Fast development checks are separated into `run_fast_tests.ps1`; `run_tests.ps1` remains the full packaging/regression workflow for PRs, merges, releases, and broad workflow changes.
+* Project root/home directory configuration remains future architecture work.
+* Structured logging remains future work.
+* Scan archiving/storage remains future work separate from the current `scans_inbox/` picker.
 
 ## Suggested GitHub Issue
 
@@ -1316,7 +1330,8 @@ Keep the GitHub repository professional, safe, and easy to understand.
 * Keep examples synthetic.
 * Keep `.gitignore` effective.
 * Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders. Initial `local_outputs/` routing is complete for generic templates, legacy/manual default results, manual debug images, and broad regression-test scratch files.
-* Before public release, audit for accidental real/private/student data.
+* Perform a post-public repository audit before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
+* `v0.8.0` documentation and version closeout is complete; package version is `0.8.0`.
 
 ## Suggested GitHub Issues
 
@@ -1457,15 +1472,28 @@ Suggested issues:
 * Add `CHANGELOG.md` - completed
 * Pre-public repository audit
 
+## `v0.8.0` - Menu Workflow Polish and Release Documentation
+
+Suggested issues:
+
+* Interactive menu clear/pause behavior - completed
+* Read-only roster viewing - completed
+* `scans_inbox/` picker for menu scoring - completed
+* QR-aware routed scoring as recommended/default menu scoring - completed
+* QR-aware batch summaries - completed
+* Non-overwriting debug image filenames - completed
+* Fast test script - completed
+* Documentation and version closeout - completed
+
 ---
 
 # Suggested Implementation Order From Here
 
-1. Perform test and CLI robustness improvements.
+1. Complete public-readiness audit and review passes.
 2. Add menu workflow for assignment standards editing.
 3. Add standards performance reporting.
 4. Add broader roster management enhancements such as editing, summaries, imports, and report field selection.
-5. Perform general cleanup:
+5. Perform general cleanup and future architecture work:
 
    * consolidated CSV-writing helpers
    * roster enrichment cleanup
@@ -1476,10 +1504,13 @@ Suggested issues:
    * shared PDF/image loading helper
    * possible further CLI/module split
    * QR preprocessing/reliability improvements if needed
-   * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter; treat this as later cleanup/test hygiene work rather than a current v0.2.0 development priority.
-6. Perform repository professionalization:
+   * project root/home directory configuration
+   * structured logging
+   * future scan archiving/storage beyond the current `scans_inbox/` picker
+   * Organize generated local artifacts into ignored folders or assignment-specific folders to reduce project-root clutter.
+6. Continue repository professionalization:
 
-   * ROADMAP.md
-   * CHANGELOG.md
-   * public-readiness audit
+    * keep ROADMAP.md current
+    * keep CHANGELOG.md current
+    * complete public-readiness audit
 7. Later: support multi-page forms.

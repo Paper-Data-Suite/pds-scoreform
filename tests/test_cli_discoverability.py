@@ -52,7 +52,7 @@ def assert_version_output(result):
     assert result.returncode == 0
     output = combined_output(result)
     assert "ScoreForm" in output
-    assert re.search(r"0\.8\.0\.dev0", output)
+    assert re.search(r"0\.8\.0", output)
 
 
 def test_version_flag_prints_package_version():
@@ -66,7 +66,7 @@ def test_version_command_prints_package_version():
 def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch):
     monkeypatch.setattr(scoreform.cli, "version", lambda package_name: "0.4.0")
 
-    assert scoreform.cli.get_version() == "0.8.0.dev0"
+    assert scoreform.cli.get_version() == "0.8.0"
 
 
 def test_menu_help_can_return_to_menu_and_exit():

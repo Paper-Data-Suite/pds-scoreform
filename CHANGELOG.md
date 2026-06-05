@@ -8,7 +8,7 @@ ScoreForm uses milestone-based development while it remains in early active deve
 
 While ScoreForm is in active pre-1.0 development, `pyproject.toml` tracks the current active development package version using PEP 440 development versions. For example, `0.7.0.dev0` means active development toward the `v0.7.0` milestone.
 
-When a milestone is formally released/tagged, the package version should move to the final release number, such as `0.7.0`. When development resumes toward the next milestone, the version should move to the next development version, such as `0.8.0.dev0`.
+When a milestone is formally released/tagged, the package version should move to the final release number, such as `0.8.0`. When development resumes toward the next milestone, the version should move to the next development version, such as `0.9.0.dev0`.
 
 GitHub milestones are project-management buckets. Package versions describe installable application/package state. Making the repository public is a visibility change and does not automatically require changing the package version from a development version to a final release version.
 
@@ -21,7 +21,31 @@ GitHub milestones are project-management buckets. Package versions describe inst
 * Project-manager / release-readiness review pass remains pending.
 * Future README and documentation organization improvements may continue as the project stabilizes.
 
-## [v0.7.0] - In Progress
+## [v0.8.0] - 2026-06-05
+
+### Added
+
+* Added interactive terminal-menu screen clearing and pauses after important output.
+* Added read-only roster viewing through the roster management menu.
+* Added a scan picker for supported files in `scans_inbox/`.
+* Made QR-aware routed scoring the recommended/default terminal-menu scoring workflow.
+* Added QR-aware batch failure summaries.
+* Added non-overwriting debug image filenames for repeated scoring runs.
+* Added `run_fast_tests.ps1` for fast pytest, whitespace, and generated/private artifact checks.
+
+### Changed
+
+* Kept direct CLI scoring script-friendly with explicit path support and existing scoring modes.
+* Clarified that routed `results.csv` files are audit logs, not final gradebook exports.
+* Updated README, roadmap, changelog, and development-plan documentation for the completed `v0.8.0` workflow state.
+* Finalized the package version at `0.8.0`.
+
+### Testing
+
+* Updated version assertions for `0.8.0`.
+* Preserved full regression coverage through `run_tests.ps1` and fast development checks through `run_fast_tests.ps1`.
+
+## [v0.7.0] - Robustness, Cleanup, and Public Readiness
 
 ### Added
 
