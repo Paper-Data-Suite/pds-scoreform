@@ -498,9 +498,9 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program will create this folder automatically when you generate or set up assignment materials. From the terminal menu, **Score scanned responses** can list supported files directly inside `scans_inbox/` and let you choose one by number. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program will create this folder automatically when you generate or set up assignment materials. From the terminal menu, **Score scanned responses** can list supported files directly inside `scans_inbox/` and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `classes/<class_id>/assignments/<assignment_id>/results.csv`. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
 
-The picker only selects the input file. It does not move, copy, rename, delete, archive, or route scan files. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
+The picker only selects the input file. It does not move, copy, rename, delete, archive, or route scan files. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
 
 Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
