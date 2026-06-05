@@ -85,6 +85,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Direct CLI commands for generation, scoring, validation, setup, and QR decoding
 * CLI help and version commands through `scoreform --help`, `scoreform help`, `scoreform --version`, and `scoreform version`
 * Terminal menu help for common workflows and routed-results guidance
+* Menu scoring picker for supported files in `scans_inbox/`, with custom path fallback
 
 ### Project Structure and Development Support
 
@@ -497,7 +498,11 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program will create this folder automatically when you generate or set up assignment materials. Results include the source path or filename in the `source_file` column for audit and verification purposes.
+The program will create this folder automatically when you generate or set up assignment materials. From the terminal menu, **Score scanned responses** can list supported files directly inside `scans_inbox/` and let you choose one by number. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+
+The picker only selects the input file. It does not move, copy, rename, delete, archive, or route scan files. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
+
+Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
 Legacy/manual default results and debug images are written under `local_outputs/results/` and `local_outputs/debug/`. QR-aware routed scoring still writes results and debug images into the assignment folder under `classes/`.
 

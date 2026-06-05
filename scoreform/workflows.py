@@ -24,6 +24,9 @@ from scoreform.assignment import load_assignment
 from scoreform.validation import is_safe_identifier, validate_identifier
 
 
+SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
+
+
 def clear_screen():
     """Clear the terminal for interactive menu screens."""
     if sys.stdin.isatty() and sys.stdout.isatty():
@@ -44,6 +47,27 @@ def normalize_path_input(value):
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
         return value[1:-1]
     return value
+
+
+def is_supported_scan_file(path):
+    """Return True when path has a supported scan file extension."""
+    filename = os.path.basename(os.fspath(path))
+    if not filename or filename.startswith("."):
+        return False
+    return os.path.splitext(filename)[1].lower() in SUPPORTED_SCAN_EXTENSIONS
+
+
+def discover_scans_in_inbox(scans_dir="scans_inbox"):
+    """Return supported scan files directly inside scans_dir in deterministic order."""
+    if not os.path.isdir(scans_dir):
+        return []
+
+    scans = []
+    for entry in sorted(os.listdir(scans_dir), key=lambda value: value.lower()):
+        path = os.path.join(scans_dir, entry)
+        if os.path.isfile(path) and is_supported_scan_file(path):
+            scans.append(path)
+    return scans
 
 
 def suggest_class_id(class_name):

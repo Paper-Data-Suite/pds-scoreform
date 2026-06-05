@@ -231,6 +231,103 @@ def test_menu_clear_and_pause_helpers_are_used_for_help(monkeypatch):
     assert calls.index("pause") < len(calls) - 1
 
 
+def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    scans_dir = tmp_path / "scans_inbox"
+    scans_dir.mkdir()
+    (scans_dir / "z_unsupported.txt").write_text("not a scan", encoding="utf-8")
+    (scans_dir / "mixed_scan.pdf").write_text("synthetic scan", encoding="utf-8")
+    (scans_dir / "class_packet_period2.jpg").write_text("synthetic scan", encoding="utf-8")
+
+    run_score_calls = []
+    responses = iter(["2", "1", "2", "", "", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "Score Scanned Responses" in output
+    assert "Available scans in scans_inbox:" in output
+    assert "1. class_packet_period2.jpg" in output
+    assert "2. mixed_scan.pdf" in output
+    assert "z_unsupported.txt" not in output
+    assert "Selected scan:" in output
+    assert run_score_calls == [[str(Path("scans_inbox") / "mixed_scan.pdf")]]
+
+
+def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    scans_dir = tmp_path / "scans_inbox"
+    scans_dir.mkdir()
+    (scans_dir / "class_packet.pdf").write_text("synthetic scan", encoding="utf-8")
+
+    pauses = []
+    run_score_calls = []
+    responses = iter(["2", "1", "99", "2", "custom_scan.pdf", "", "", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "Error: Scan selection out of range: 99" in output
+    assert output.count("Score Scanned Responses") >= 2
+    assert pauses == ["pause", "pause"]
+    assert run_score_calls == [["custom_scan.pdf"]]
+
+
+def test_menu_score_custom_path_fallback_preserves_quoted_path_normalization(monkeypatch):
+    run_score_calls = []
+    responses = iter(["2", "2", '"Downloads/my scan.pdf"', "results.csv", "answer_key.json", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    assert run_score_calls == [["Downloads/my scan.pdf", "results.csv", "answer_key.json"]]
+
+
+def test_prompt_select_scan_from_inbox_handles_missing_and_empty_inbox(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    pauses = []
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
+
+    assert scoreform.cli.prompt_select_scan_from_inbox() is None
+
+    scans_dir = tmp_path / "scans_inbox"
+    scans_dir.mkdir()
+    (scans_dir / "notes.txt").write_text("not a scan", encoding="utf-8")
+
+    assert scoreform.cli.prompt_select_scan_from_inbox() is None
+
+    output = capsys.readouterr().out
+    assert output.count("No scans found in scans_inbox.") == 2
+    assert "Place scanned PDFs or images in scans_inbox, then try again." in output
+    assert pauses == ["pause", "pause"]
+
+
+def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
+    monkeypatch.setattr(
+        scoreform.cli,
+        "prompt_scoring_input_file",
+        lambda: (_ for _ in ()).throw(AssertionError("scan picker should not be called")),
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "process_file_qr_aware",
+        lambda _input_file: [],
+    )
+
+    assert scoreform.cli.main(["score", "scan.pdf"]) == 1
+
+
 def test_direct_cli_subcommand_does_not_clear_or_pause(monkeypatch):
     monkeypatch.setattr(
         scoreform.cli,
