@@ -112,10 +112,13 @@ $TemplatePng = Join-Path $LocalTemplatesDir "template.png"
 $DefaultResultsCsv = Join-Path $LocalResultsDir "results.csv"
 $QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
 $MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
+$MenuInboxResultsCsv = Join-Path $LocalResultsDir "menu_inbox_results.csv"
 $ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
 $MenuRosterClassDir = Join-Path "classes" "000_test_class_v5"
 $MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
 $TempAssignmentJson = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\assignment.json"
+$MenuInboxScanPdf = Join-Path "scans_inbox" "000_menu_picker_class_packet.pdf"
+$MenuInboxIgnoredTxt = Join-Path "scans_inbox" "000_menu_picker_ignored.txt"
 
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
@@ -133,6 +136,9 @@ Remove-Item $TemplatePng -ErrorAction SilentlyContinue
 Remove-Item $DefaultResultsCsv -ErrorAction SilentlyContinue
 Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
 Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
+Remove-Item $MenuInboxResultsCsv -ErrorAction SilentlyContinue
+Remove-Item $MenuInboxScanPdf -ErrorAction SilentlyContinue
+Remove-Item $MenuInboxIgnoredTxt -ErrorAction SilentlyContinue
 Remove-Item "$LocalDebugDir\debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "$LocalDebugDir\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
@@ -202,6 +208,28 @@ Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr 
 Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
 Invoke-Test "Launch menu help and exit" "Write-Output '7', '', '8' | python main.py menu"
+
+Write-Host ""
+Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
+Copy-Item "classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf" $MenuInboxScanPdf -Force
+Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding UTF8
+@(
+    "2",                    # Main menu -> Score scanned responses
+    "1",                    # Scoring input menu -> Choose from scans_inbox
+    "1",                    # Select generated menu picker scan
+    $MenuInboxResultsCsv,    # Explicit output CSV to avoid routed-results side effects
+    "",                     # Blank answer key -> QR-aware scoring
+    "",                     # pause after scoring
+    "8"                     # Exit
+) | python main.py menu
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAILED: Scan inbox picker through menu" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "PASSED: Scan inbox picker through menu" -ForegroundColor Green
+Assert-Exists $MenuInboxResultsCsv
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow

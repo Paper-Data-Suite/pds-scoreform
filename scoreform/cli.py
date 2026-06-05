@@ -29,6 +29,7 @@ from scoreform.workflows import (
     launch_roster_menu,
     launch_assignment_menu,
     normalize_path_input,
+    discover_scans_in_inbox,
     discover_class_rosters,
     discover_class_assignments,
     parse_single_selection,
@@ -562,6 +563,75 @@ def launch_generate_menu():
         return 0
 
 
+def prompt_select_scan_from_inbox(scans_dir="scans_inbox"):
+    """Prompt for one supported scan file from scans_dir."""
+    clear_screen()
+    scans = discover_scans_in_inbox(scans_dir)
+    if not scans:
+        print(f"No scans found in {scans_dir}.")
+        print(f"Place scanned PDFs or images in {scans_dir}, then try again.")
+        print()
+        pause_for_user()
+        return None
+
+    print(f"Available scans in {scans_dir}:")
+    print()
+    for index, scan_path in enumerate(scans, start=1):
+        print(f"{index}. {os.path.basename(scan_path)}")
+    print()
+
+    try:
+        return parse_single_selection(input("Select scan: "), scans, "scan")
+    except ValueError as e:
+        print()
+        print(f"Error: {e}")
+        print()
+        pause_for_user()
+        return None
+
+
+def prompt_scoring_input_file():
+    """Prompt for the input scan path used by interactive menu scoring."""
+    while True:
+        clear_screen()
+        print("Score Scanned Responses")
+        print()
+        print("1. Choose a file from scans_inbox")
+        print("2. Enter a custom path")
+        print("3. Return to main menu")
+        print()
+
+        choice = input("Select an option: ").strip()
+        print()
+
+        if choice == "1":
+            selected_scan = prompt_select_scan_from_inbox()
+            if selected_scan:
+                print()
+                print("Selected scan:")
+                print(selected_scan)
+                print()
+                return selected_scan
+
+        elif choice == "2":
+            clear_screen()
+            input_file = normalize_path_input(input("Input scan/PDF/image path: "))
+            if not input_file:
+                print("Input file path is required.")
+                print()
+                pause_for_user()
+                continue
+            return input_file
+
+        elif choice == "3":
+            return None
+
+        else:
+            print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+            print()
+            pause_for_user()
+
+
 def launch_menu():
     try:
         while True:
@@ -584,12 +654,8 @@ def launch_menu():
                 launch_generate_menu()
 
             elif choice == "2":
-                clear_screen()
-                input_file = normalize_path_input(input("Input scan/PDF/image path: "))
+                input_file = prompt_scoring_input_file()
                 if not input_file:
-                    print("Input file path is required.")
-                    print()
-                    pause_for_user()
                     continue
 
                 output_csv = normalize_path_input(input("Output CSV path (blank for routed QR-aware default): "))

@@ -406,7 +406,8 @@ Keep scan files organized.
 
 * Project-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
 * `ensure_scan_inbox()` helper in `scoreform/folders.py`.
-* Scan inbox path available for future scan management workflows.
+* Interactive menu scoring can pick supported `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif` files directly from `scans_inbox/`.
+* Unsupported inbox files are ignored, and custom path entry remains available.
 * Source file tracking already enabled in routed results.
 
 ## Possible Structure
@@ -434,6 +435,7 @@ Decide whether to:
 Initial preference:
 
 * Keep original scans in `scans_inbox/`.
+* Let the menu select scans from `scans_inbox/` without moving, copying, renaming, or deleting them.
 * Record source filename in `results.csv`.
 * Optionally copy scans later if needed.
 
