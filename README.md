@@ -223,6 +223,7 @@ For direct Python invocation, `python main.py menu` remains supported.
 
 The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
 Select **7. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
+The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
 
 ### Create a Roster from the Menu
 
