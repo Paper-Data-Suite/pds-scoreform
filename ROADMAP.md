@@ -32,24 +32,17 @@ The terminal menu supports creating rosters and assignments without manually edi
 
 ScoreForm includes a pytest foundation, supports single-page assignments with 1-15 questions, validates optional question-level standards metadata, preserves optional roster columns when loading rosters, and keeps existing assignment files without standards metadata valid.
 
-## Current Milestone
-
 ### v0.7.0 - Robustness, Cleanup, and Public Readiness
 
-Completed so far:
+ScoreForm added deterministic scoring accuracy coverage, CLI failure-mode tests, ignored `local_outputs/` routing for generated local artifacts, PowerShell helper cleanup, clearer score command help, and initial public-facing roadmap and changelog files while preserving `docs/development_plan.md` as the detailed working document.
 
-* Synthetic scoring accuracy fixture for deterministic known-answer OMR detection.
-* CLI failure-mode tests for invalid commands, missing files, invalid assignment files, invalid roster files, and nonexistent score inputs.
-* Generated local artifacts organized under ignored `local_outputs/` folders.
-* Phase 1 general cleanup for PowerShell helper names, score command help text, and confirmed unused imports.
-* Public-facing `ROADMAP.md` created while preserving `development_plan.md` as the detailed working document.
-* Public-facing `CHANGELOG.md` created for milestone history and current work.
+### v0.8.0 - Menu Workflow Polish and Release Documentation
 
-Remaining v0.7.0 work:
+ScoreForm completed interactive menu clear/pause behavior, read-only roster viewing, the `scans_inbox/` picker, QR-aware routed scoring as the recommended/default menu scoring workflow, QR-aware batch summaries, non-overwriting debug image filenames, fast development checks through `run_fast_tests.ps1`, and documentation/version closeout for the `0.8.0` release.
 
-* Complete a pre-public repository audit.
-* Run a senior developer review pass.
-* Run a project manager / release-readiness review pass.
+## Current Direction
+
+The `v0.8.0` milestone is complete. Current near-term work remains focused on public-readiness, workflow polish, and carefully scoped architecture cleanup without changing scoring schemas or generated form formats unnecessarily.
 
 ## Near-Term Priorities
 
@@ -72,7 +65,9 @@ Planned and possible future work includes:
 * Add roster summaries.
 * Add optional report/export field selection.
 * Add a manual answer entry workflow.
-* Add a scan storage or archive workflow.
+* Add a scan storage or archive workflow separate from the current `scans_inbox/` picker.
+* Add project root/home directory configuration as future architecture work.
+* Add structured logging.
 * Improve QR and scan reliability.
 * Add malformed and missing QR test coverage.
 * Support multi-page forms.
@@ -98,4 +93,4 @@ Future schema and module-boundary decisions should preserve standalone ScoreForm
 * `README.md` should clearly identify current limitations.
 * `SECURITY.md` and audit work may be needed before public release.
 * Detailed working planning notes are preserved in `docs/development_plan.md`.
-* A pre-public audit should happen before making the repository public.
+* A post-public repository audit should happen before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
