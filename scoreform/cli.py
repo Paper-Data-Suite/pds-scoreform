@@ -632,6 +632,81 @@ def prompt_scoring_input_file():
             pause_for_user()
 
 
+def run_menu_qr_aware_routed_scoring(input_file):
+    """Run the menu's recommended QR-aware routed scoring workflow."""
+    clear_screen()
+    print("Using QR-aware routed scoring.")
+    print("Results will be routed using QR metadata.")
+    print()
+    run_score([input_file])
+    print()
+    pause_for_user()
+
+
+def run_menu_manual_scoring(input_file):
+    """Run manual menu scoring with a required answer key."""
+    clear_screen()
+    print("Manual scoring with answer key")
+    print()
+    print("Selected scan:")
+    print(input_file)
+    print()
+
+    answer_key = normalize_path_input(input("Answer key JSON path: "))
+    if not answer_key:
+        print()
+        print("Answer key JSON path is required for manual scoring.")
+        print()
+        pause_for_user()
+        return False
+
+    output_csv = normalize_path_input(input("Output CSV path (blank for default local results): "))
+
+    if output_csv:
+        args = [input_file, output_csv, answer_key]
+    else:
+        args = [input_file, answer_key]
+
+    run_score(args)
+    print()
+    pause_for_user()
+    return True
+
+
+def prompt_scoring_mode(input_file):
+    """Prompt for QR-aware routed or manual scoring after a scan is selected."""
+    while True:
+        clear_screen()
+        print("Selected scan:")
+        print(input_file)
+        print()
+        print("Scoring mode:")
+        print()
+        print("1. QR-aware routed scoring (recommended)")
+        print("2. Manual scoring with answer key")
+        print("3. Return to main menu")
+        print()
+
+        choice = input("Select an option: ").strip()
+        print()
+
+        if choice == "1":
+            run_menu_qr_aware_routed_scoring(input_file)
+            return
+
+        if choice == "2":
+            if run_menu_manual_scoring(input_file):
+                return
+            continue
+
+        if choice == "3":
+            return
+
+        print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+        print()
+        pause_for_user()
+
+
 def launch_menu():
     try:
         while True:
@@ -658,21 +733,7 @@ def launch_menu():
                 if not input_file:
                     continue
 
-                output_csv = normalize_path_input(input("Output CSV path (blank for routed QR-aware default): "))
-                answer_key = normalize_path_input(input("Answer key JSON path (blank for QR-aware scoring): "))
-
-                args = [input_file]
-                if answer_key:
-                    if output_csv:
-                        args = [input_file, output_csv, answer_key]
-                    else:
-                        args = [input_file, answer_key]
-                elif output_csv:
-                    args = [input_file, output_csv]
-
-                run_score(args)
-                print()
-                pause_for_user()
+                prompt_scoring_mode(input_file)
 
             elif choice == "3":
                 clear_screen()

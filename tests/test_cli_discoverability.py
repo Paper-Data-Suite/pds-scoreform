@@ -240,7 +240,7 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     (scans_dir / "class_packet_period2.jpg").write_text("synthetic scan", encoding="utf-8")
 
     run_score_calls = []
-    responses = iter(["2", "1", "2", "", "", "8"])
+    responses = iter(["2", "1", "2", "1", "8"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
@@ -255,6 +255,8 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     assert "2. mixed_scan.pdf" in output
     assert "z_unsupported.txt" not in output
     assert "Selected scan:" in output
+    assert "QR-aware routed scoring (recommended)" in output
+    assert "Output CSV path (blank for routed QR-aware default):" not in output
     assert run_score_calls == [[str(Path("scans_inbox") / "mixed_scan.pdf")]]
 
 
@@ -266,7 +268,7 @@ def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_pa
 
     pauses = []
     run_score_calls = []
-    responses = iter(["2", "1", "99", "2", "custom_scan.pdf", "", "", "8"])
+    responses = iter(["2", "1", "99", "2", "custom_scan.pdf", "1", "8"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
@@ -281,9 +283,17 @@ def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_pa
     assert run_score_calls == [["custom_scan.pdf"]]
 
 
-def test_menu_score_custom_path_fallback_preserves_quoted_path_normalization(monkeypatch):
+def test_menu_score_manual_scoring_with_explicit_output_preserves_quoted_path_normalization(monkeypatch):
     run_score_calls = []
-    responses = iter(["2", "2", '"Downloads/my scan.pdf"', "results.csv", "answer_key.json", "8"])
+    responses = iter([
+        "2",
+        "2",
+        '"Downloads/my scan.pdf"',
+        "2",
+        '"answer key.json"',
+        '"results.csv"',
+        "8",
+    ])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
@@ -291,7 +301,56 @@ def test_menu_score_custom_path_fallback_preserves_quoted_path_normalization(mon
 
     assert scoreform.cli.launch_menu() == 0
 
-    assert run_score_calls == [["Downloads/my scan.pdf", "results.csv", "answer_key.json"]]
+    assert run_score_calls == [["Downloads/my scan.pdf", "results.csv", "answer key.json"]]
+
+
+def test_menu_score_manual_scoring_with_answer_key_only(monkeypatch):
+    run_score_calls = []
+    responses = iter(["2", "2", "scan.pdf", "2", "answer_key.json", "", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    assert run_score_calls == [["scan.pdf", "answer_key.json"]]
+
+
+def test_menu_score_manual_scoring_rejects_blank_answer_key(monkeypatch, capsys):
+    pauses = []
+    run_score_calls = []
+    responses = iter(["2", "2", "scan.pdf", "2", "", "3", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "Answer key JSON path is required for manual scoring." in output
+    assert output.count("Scoring mode:") >= 2
+    assert pauses == ["pause"]
+    assert run_score_calls == []
+
+
+def test_menu_score_invalid_scoring_mode_returns_to_mode_selection(monkeypatch, capsys):
+    pauses = []
+    run_score_calls = []
+    responses = iter(["2", "2", "scan.pdf", "9", "3", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+
+    assert scoreform.cli.launch_menu() == 0
+
+    output = capsys.readouterr().out
+    assert "Invalid selection: 9. Please enter a number from 1 to 3." in output
+    assert output.count("Scoring mode:") >= 2
+    assert pauses == ["pause"]
+    assert run_score_calls == []
 
 
 def test_prompt_select_scan_from_inbox_handles_missing_and_empty_inbox(tmp_path, monkeypatch, capsys):
@@ -318,6 +377,11 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
         scoreform.cli,
         "prompt_scoring_input_file",
         lambda: (_ for _ in ()).throw(AssertionError("scan picker should not be called")),
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "prompt_scoring_mode",
+        lambda _input_file: (_ for _ in ()).throw(AssertionError("scoring mode menu should not be called")),
     )
     monkeypatch.setattr(
         scoreform.cli,
