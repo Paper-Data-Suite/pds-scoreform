@@ -36,6 +36,20 @@ from scoreform.workflows import (
 from scoreform.config import LOCAL_RESULTS_CSV
 
 
+def clear_screen():
+    """Clear the terminal for interactive menu screens."""
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        os.system("cls" if os.name == "nt" else "clear")
+
+
+def pause_for_user():
+    """Pause after important interactive menu output."""
+    try:
+        input("Press Enter to continue...")
+    except KeyboardInterrupt:
+        print()
+
+
 def get_version():
     """Return the local source version, with installed package metadata fallback."""
     pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
@@ -447,6 +461,7 @@ def launch_generate_menu():
     """Teacher-centered generate submenu for interactive menu use."""
     try:
         while True:
+            clear_screen()
             print("--- Generate Answer Sheets ---")
             print()
             print("1. Generate answer sheets for an existing class assignment")
@@ -458,9 +473,13 @@ def launch_generate_menu():
             print()
 
             if choice == "1":
+                clear_screen()
+                print("--- Generate Answer Sheets ---")
+                print()
                 available_classes = discover_class_rosters()
                 if not available_classes:
                     print("No class rosters found. Create a class roster first from the Roster Management menu.")
+                    pause_for_user()
                     return 1
 
                 print("Available classes:")
@@ -476,12 +495,14 @@ def launch_generate_menu():
                     )
                 except ValueError as e:
                     print(f"Error: {e}")
+                    pause_for_user()
                     return 1
 
                 class_id = class_record["class_id"]
                 available_assignments = discover_class_assignments(class_id)
                 if not available_assignments:
                     print(f"No assignments found for class '{class_id}'. Create an assignment first from the Assignment Management menu.")
+                    pause_for_user()
                     return 1
 
                 print()
@@ -498,6 +519,7 @@ def launch_generate_menu():
                     )
                 except ValueError as e:
                     print(f"Error: {e}")
+                    pause_for_user()
                     return 1
 
                 assignment_id = assignment_record["assignment_id"]
@@ -510,16 +532,22 @@ def launch_generate_menu():
                 response = input("Generate answer sheets now? (Y/n): ").strip().lower()
                 if response in ("n", "no"):
                     print("Cancelled: Answer sheet generation not confirmed.")
+                    pause_for_user()
                     return 1
 
-                return run_generate([
+                result = run_generate([
                     assignment_record["assignment_path"],
                     "--rosters",
                     class_record["roster_path"],
                 ])
+                pause_for_user()
+                return result
 
             elif choice == "2":
-                return run_generate([])
+                clear_screen()
+                result = run_generate([])
+                pause_for_user()
+                return result
 
             elif choice == "3":
                 return 0
@@ -527,6 +555,7 @@ def launch_generate_menu():
             else:
                 print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
                 print()
+                pause_for_user()
 
     except KeyboardInterrupt:
         print("\nExiting generate menu.")
@@ -534,11 +563,11 @@ def launch_generate_menu():
 
 
 def launch_menu():
-    print("ScoreForm")
-    print()
-
     try:
         while True:
+            clear_screen()
+            print("ScoreForm")
+            print()
             print("1. Generate answer sheets")
             print("2. Score scanned responses")
             print("3. Decode QR from a file")
@@ -553,13 +582,14 @@ def launch_menu():
 
             if choice == "1":
                 launch_generate_menu()
-                print()
 
             elif choice == "2":
+                clear_screen()
                 input_file = normalize_path_input(input("Input scan/PDF/image path: "))
                 if not input_file:
                     print("Input file path is required.")
                     print()
+                    pause_for_user()
                     continue
 
                 output_csv = normalize_path_input(input("Output CSV path (blank for routed QR-aware default): "))
@@ -576,38 +606,45 @@ def launch_menu():
 
                 run_score(args)
                 print()
+                pause_for_user()
 
             elif choice == "3":
+                clear_screen()
                 input_file = normalize_path_input(input("File path: "))
                 if not input_file:
                     print("File path is required.")
                     print()
+                    pause_for_user()
                     continue
 
                 run_decode_qr([input_file])
                 print()
+                pause_for_user()
 
             elif choice == "4":
+                clear_screen()
                 assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not assignment_path or not roster_path:
                     print("Both assignment JSON path and roster CSV path are required.")
                     print()
+                    pause_for_user()
                     continue
 
                 run_setup_assignment([assignment_path, roster_path])
                 print()
+                pause_for_user()
 
             elif choice == "5":
                 launch_roster_menu()
-                print()
 
             elif choice == "6":
                 launch_assignment_menu()
-                print()
 
             elif choice == "7":
+                clear_screen()
                 print_menu_help()
+                pause_for_user()
 
             elif choice == "8":
                 print("Goodbye.")
@@ -616,6 +653,7 @@ def launch_menu():
             else:
                 print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
                 print()
+                pause_for_user()
 
     except KeyboardInterrupt:
         print("\nExiting menu.")

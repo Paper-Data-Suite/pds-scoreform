@@ -201,7 +201,7 @@ Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr 
 
 Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Invoke-Test "Launch menu help and exit" "Write-Output '7', '8' | python main.py menu"
+Invoke-Test "Launch menu help and exit" "Write-Output '7', '', '8' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
@@ -340,6 +340,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "Student",              # student 2 last_name
     "Bob",                  # student 2 first_name
     "n",                    # add another? no
+    "",                     # pause after roster creation output
     "4",                    # Return to main menu
     "8"                     # Exit
 ) | python main.py menu
@@ -378,6 +379,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "test_assignment_v5",       # Override suggested assignment_id
     "10",                       # question_count
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
+    "",                         # pause after assignment creation output
     "3",                        # Return to main menu
     "8"                         # Exit
 ) | python main.py menu
@@ -411,6 +413,7 @@ Write-Host "Testing answer sheet generation through menu class/assignment select
     "1",                        # Select first available class (000_test_class_v5)
     "1",                        # Select first available assignment (test_assignment_v5)
     "y",                        # Confirm generation
+    "",                         # pause after generation output
     "8"                         # Exit
 ) | python main.py menu
 

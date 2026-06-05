@@ -345,6 +345,7 @@ def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
         "Smith",
         "Marcus",
         "n",
+        "",
         "4",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
@@ -366,7 +367,7 @@ def test_roster_menu_view_class_roster_flow(tmp_path, monkeypatch, capsys):
         "2",
         [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
     )
-    responses = iter(["2", "1", "4"])
+    responses = iter(["2", "1", "", "4"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert workflows.launch_roster_menu() == 0
@@ -377,6 +378,27 @@ def test_roster_menu_view_class_roster_flow(tmp_path, monkeypatch, capsys):
     assert "Class: english_9_period_2" in output
     assert "Students: 1" in output
     assert "1001" in output
+
+
+def test_roster_menu_clears_for_submenu_and_pauses_after_view(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
+        "english_9_period_2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    calls = []
+    responses = iter(["2", "1", "4"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+    monkeypatch.setattr(workflows, "clear_screen", lambda: calls.append("clear"))
+    monkeypatch.setattr(workflows, "pause_for_user", lambda: calls.append("pause"))
+
+    assert workflows.launch_roster_menu() == 0
+
+    assert calls.count("clear") >= 3
+    assert "pause" in calls
 
 
 def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, monkeypatch):

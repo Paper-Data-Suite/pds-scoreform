@@ -70,7 +70,7 @@ def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch
 
 
 def test_menu_help_can_return_to_menu_and_exit():
-    result = run_main_command("menu", input_text="7\n8\n")
+    result = run_main_command("menu", input_text="7\n\n8\n")
 
     assert result.returncode == 0
     output = combined_output(result)
@@ -112,7 +112,7 @@ def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_pa
 
     monkeypatch.setattr(scoreform.cli, "generate_student_pdf", fake_student_pdf)
     monkeypatch.setattr(scoreform.cli, "generate_class_packet_pdf", fake_class_packet)
-    responses = iter(["1", "1", "1", "1", "y", "8"])
+    responses = iter(["1", "1", "1", "1", "y", "", "8"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert scoreform.cli.launch_menu() == 0
@@ -137,7 +137,7 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
         generated.append(True)
 
     monkeypatch.setattr(scoreform.cli, "generate_template", fake_generate_template)
-    responses = iter(["1", "2", "8"])
+    responses = iter(["1", "2", "", "8"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert scoreform.cli.launch_menu() == 0
@@ -168,7 +168,7 @@ def test_main_menu_is_compact_and_omits_top_level_validation_options():
 def test_menu_selection_does_not_strip_quotes():
     result = run_main_command(
         "menu",
-        input_text='"4"\n8\n',
+        input_text='"4"\n\n8\n',
     )
 
     assert result.returncode == 0
@@ -181,7 +181,7 @@ def test_menu_selection_does_not_strip_quotes():
 def test_assignment_submenu_validate_assignment_accepts_quoted_path():
     result = run_main_command(
         "menu",
-        input_text='6\n2\n"examples/sample_assignment.json"\n3\n8\n',
+        input_text='6\n2\n"examples/sample_assignment.json"\n\n3\n8\n',
     )
 
     assert result.returncode == 0
@@ -193,7 +193,7 @@ def test_assignment_submenu_validate_assignment_accepts_quoted_path():
 def test_roster_submenu_validate_roster_accepts_quoted_path():
     result = run_main_command(
         "menu",
-        input_text='5\n3\n"examples/sample_roster_english9_p2.csv"\n4\n8\n',
+        input_text='5\n3\n"examples/sample_roster_english9_p2.csv"\n\n4\n8\n',
     )
 
     assert result.returncode == 0
@@ -214,3 +214,33 @@ def test_direct_cli_validate_roster_remains_available():
 
     assert result.returncode == 0
     assert "Roster file is valid." in combined_output(result)
+
+
+def test_menu_clear_and_pause_helpers_are_used_for_help(monkeypatch):
+    calls = []
+    responses = iter(["7", "8"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(scoreform.cli, "clear_screen", lambda: calls.append("clear"))
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: calls.append("pause"))
+
+    assert scoreform.cli.launch_menu() == 0
+
+    assert calls.count("clear") >= 3
+    assert "pause" in calls
+    assert calls.index("pause") < len(calls) - 1
+
+
+def test_direct_cli_subcommand_does_not_clear_or_pause(monkeypatch):
+    monkeypatch.setattr(
+        scoreform.cli,
+        "clear_screen",
+        lambda: (_ for _ in ()).throw(AssertionError("clear_screen should not be called")),
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "pause_for_user",
+        lambda: (_ for _ in ()).throw(AssertionError("pause_for_user should not be called")),
+    )
+
+    assert scoreform.cli.main(["validate-assignment", "examples/sample_assignment.json"]) == 0

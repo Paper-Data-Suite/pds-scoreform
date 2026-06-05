@@ -16,11 +16,26 @@ import os
 import csv
 import json
 import re
+import sys
 
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.roster import load_roster
 from scoreform.assignment import load_assignment
 from scoreform.validation import is_safe_identifier, validate_identifier
+
+
+def clear_screen():
+    """Clear the terminal for interactive menu screens."""
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        os.system("cls" if os.name == "nt" else "clear")
+
+
+def pause_for_user():
+    """Pause after important interactive menu output."""
+    try:
+        input("Press Enter to continue...")
+    except KeyboardInterrupt:
+        print()
 
 
 def normalize_path_input(value):
@@ -588,6 +603,7 @@ def launch_roster_menu():
     """
     try:
         while True:
+            clear_screen()
             print("Roster Management")
             print()
             print("1. Create a class roster")
@@ -600,28 +616,31 @@ def launch_roster_menu():
             print()
 
             if choice == "1":
-                result = prompt_create_roster()
+                clear_screen()
+                prompt_create_roster()
                 print()
-                if result != 0:
-                    continue
+                pause_for_user()
 
             elif choice == "2":
-                result = prompt_view_roster()
+                clear_screen()
+                prompt_view_roster()
                 print()
-                if result != 0:
-                    continue
+                pause_for_user()
 
             elif choice == "3":
+                clear_screen()
                 roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not roster_path:
                     print("Roster file path is required.")
                     print()
+                    pause_for_user()
                     continue
 
                 # Validate using load_roster and print results
                 roster = load_roster(roster_path)
                 if roster is None:
                     print()
+                    pause_for_user()
                     continue
                 print("Roster file is valid.")
                 print(f"class_id: {roster['class_id']}")
@@ -631,6 +650,7 @@ def launch_roster_menu():
                     for student in roster['students'][:5]:
                         print(f"  {student['student_id']}: {student['last_name']}, {student['first_name']}")
                 print()
+                pause_for_user()
 
             elif choice == "4":
                 return 0
@@ -638,6 +658,7 @@ def launch_roster_menu():
             else:
                 print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
                 print()
+                pause_for_user()
 
     except KeyboardInterrupt:
         print("\nExiting roster menu.")
@@ -648,6 +669,7 @@ def launch_assignment_menu():
     """Assignment management submenu."""
     try:
         while True:
+            clear_screen()
             print("Assignment Management")
             print()
             print("1. Create an assignment for class(es)")
@@ -659,26 +681,30 @@ def launch_assignment_menu():
             print()
 
             if choice == "1":
-                result = prompt_create_assignment()
+                clear_screen()
+                prompt_create_assignment()
                 print()
-                if result != 0:
-                    continue
+                pause_for_user()
 
             elif choice == "2":
+                clear_screen()
                 assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 if not assignment_path:
                     print("Assignment file path is required.")
                     print()
+                    pause_for_user()
                     continue
 
                 # Validate using load_assignment and print results
                 assignment = load_assignment(assignment_path)
                 if assignment is None:
                     print()
+                    pause_for_user()
                     continue
                 print("Assignment file is valid.")
                 print(assignment)
                 print()
+                pause_for_user()
 
             elif choice == "3":
                 return 0
@@ -686,6 +712,7 @@ def launch_assignment_menu():
             else:
                 print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
                 print()
+                pause_for_user()
 
     except KeyboardInterrupt:
         print("\nExiting assignment menu.")
