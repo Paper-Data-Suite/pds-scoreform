@@ -1172,6 +1172,7 @@ Make the program and regression tests more reliable across machines.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
 * `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
+* `run_fast_tests.ps1` added for fast development checks: pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
 * Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
 
 ## Future Test Improvements
@@ -1263,7 +1264,7 @@ Keep the codebase maintainable as features expand.
 * Consider separating interactive menu code from command-dispatch code if `scoreform/cli.py` grows too large.
 * `python main.py ...` compatibility works, but usage text now emphasizes `scoreform ...`; acceptable for now, but revisit if user confusion appears.
 * `main.py` is now a compatibility wrapper; future CLI work should happen in `scoreform/cli.py` or a split menu module.
-* `run_tests.ps1` now performs editable pip installation every run; later consider separating packaging smoke tests from fast regression tests if runtime becomes annoying.
+* Fast development checks are separated into `run_fast_tests.ps1`; `run_tests.ps1` remains the full packaging/regression workflow for PRs, merges, releases, and broad workflow changes.
 
 ## Suggested GitHub Issue
 
