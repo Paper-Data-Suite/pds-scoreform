@@ -25,6 +25,40 @@ from scoreform.validation import is_safe_identifier, validate_identifier
 
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
+GREEN_ANSI = "\033[32m"
+RESET_ANSI = "\033[0m"
+
+
+def _stdout_supports_color():
+    """Return True when stdout is an interactive terminal with likely ANSI support."""
+    try:
+        if not sys.stdout.isatty():
+            return False
+    except (AttributeError, OSError):
+        return False
+
+    if os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb":
+        return False
+
+    if os.name != "nt":
+        return True
+
+    return any(
+        os.environ.get(name)
+        for name in ("ANSICON", "WT_SESSION", "TERM_PROGRAM")
+    ) or os.environ.get("TERM", "").startswith("xterm")
+
+
+def print_menu_header(title=None):
+    """Print the ScoreForm menu identity and an optional workflow title."""
+    application_name = "ScoreForm"
+    if _stdout_supports_color():
+        application_name = f"{GREEN_ANSI}{application_name}{RESET_ANSI}"
+
+    print(application_name)
+    if title:
+        print(title)
+    print()
 
 
 def clear_screen():
@@ -248,8 +282,7 @@ def format_roster_for_display(class_record):
 
 def prompt_view_roster():
     """Interactive read-only workflow for viewing an existing class roster."""
-    print("--- View a Class Roster ---")
-    print()
+    print_menu_header("View a Class Roster")
 
     available_classes = discover_class_rosters()
     if not available_classes:
@@ -374,8 +407,7 @@ def prompt_create_roster():
 
     Returns 0 on success, 1 on cancellation or error.
     """
-    print("--- Create a Class Roster ---")
-    print()
+    print_menu_header("Create a Class Roster")
 
     class_name = input("Class name: ").strip()
     if not class_name:
@@ -489,8 +521,7 @@ def prompt_create_assignment():
 
     Returns 0 on success, 1 on cancellation or error.
     """
-    print("--- Create an Assignment for Class(es) ---")
-    print()
+    print_menu_header("Create an Assignment for Class(es)")
 
     available_classes = discover_class_rosters()
     if not available_classes:
@@ -628,8 +659,7 @@ def launch_roster_menu():
     try:
         while True:
             clear_screen()
-            print("Roster Management")
-            print()
+            print_menu_header("Roster Management")
             print("1. Create a class roster")
             print("2. View a class roster")
             print("3. Validate a roster file")
@@ -653,6 +683,7 @@ def launch_roster_menu():
 
             elif choice == "3":
                 clear_screen()
+                print_menu_header("Validate a Roster File")
                 roster_path = normalize_path_input(input("Roster CSV path: "))
                 if not roster_path:
                     print("Roster file path is required.")
@@ -694,8 +725,7 @@ def launch_assignment_menu():
     try:
         while True:
             clear_screen()
-            print("Assignment Management")
-            print()
+            print_menu_header("Assignment Management")
             print("1. Create an assignment")
             print("2. Validate an assignment file")
             print("3. Generate answer sheets")
@@ -715,6 +745,7 @@ def launch_assignment_menu():
 
             elif choice == "2":
                 clear_screen()
+                print_menu_header("Validate an Assignment File")
                 assignment_path = normalize_path_input(input("Assignment JSON path: "))
                 if not assignment_path:
                     print("Assignment file path is required.")
@@ -749,6 +780,7 @@ def launch_assignment_menu():
                 from scoreform.cli import run_decode_qr
 
                 clear_screen()
+                print_menu_header("Decode QR from a File")
                 input_file = normalize_path_input(input("File path: "))
                 if not input_file:
                     print("File path is required.")
