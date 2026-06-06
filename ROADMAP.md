@@ -40,9 +40,13 @@ ScoreForm added deterministic scoring accuracy coverage, CLI failure-mode tests,
 
 ScoreForm completed interactive menu clear/pause behavior, read-only roster viewing, the `scans_inbox/` picker, QR-aware routed scoring as the recommended/default menu scoring workflow, QR-aware batch summaries, non-overwriting debug image filenames, fast development checks through `run_fast_tests.ps1`, and documentation/version closeout for the `0.8.0` release.
 
+### v0.8.1 - Manual Run-Through Fixes and Menu Refinement
+
+ScoreForm refined the interactive teacher workflow after a full manual run-through. The top-level menu now centers on Assignment Management, Roster Management, Help, and Exit. Assignment workflows now live under Assignment Management, while path-oriented primitives such as `setup-assignment` remain direct-CLI-only. The interactive menu now uses consistent `ScoreForm` headers with restrained terminal styling where supported, and release tooling now generates stricter version assertions.
+
 ## Current Direction
 
-The `v0.8.0` milestone is complete. Current near-term work is organized around `v0.8.1` menu refinement and `v0.9.0` project-organization / data-lifecycle planning, while avoiding unnecessary scoring-schema or generated-form changes.
+The `v0.8.1` milestone is complete. Current near-term work is moving into `v0.9.0`, focused on project organization, project-root/home directory planning, scan archiving, data lifecycle design, and schema/version contract documentation.
 
 The terminal menu is organized around teacher workflows: Assignment Management, Roster Management, Help, and Exit. Assignment creation, validation, generation, scoring, and QR decoding live under Assignment Management. Stable path-oriented primitives such as `setup-assignment` remain available through the direct CLI without appearing in the normal teacher-facing menu.
 
