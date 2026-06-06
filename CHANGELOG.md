@@ -16,10 +16,27 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Documentation
 
-* Pre-public repository audit remains pending.
+* Post-public repository audit remains pending.
 * Senior-developer review pass remains pending.
 * Project-manager / release-readiness review pass remains pending.
 * Future README and documentation organization improvements may continue as the project stabilizes.
+
+## [v0.8.1] - 2026-06-06
+
+### Changed
+
+* Reorganized the terminal menu around teacher-centered workflows.
+* Moved generation, scoring, QR decoding, assignment creation, and assignment validation under Assignment Management.
+* Kept `setup-assignment` available through direct CLI while removing it from the normal teacher-facing menu.
+* Standardized interactive menu headers so `ScoreForm` appears consistently above main menu and submenu screens.
+* Added restrained green title styling for supported interactive terminals, with plain-text fallback for captured or non-interactive output.
+* Tightened `scripts/update_version.py` so generated version assertions distinguish final release versions from matching development versions.
+
+### Testing
+
+* Updated menu workflow tests for the reorganized menu structure.
+* Added tests for menu header formatting and color fallback behavior.
+* Added tests for strict version updater assertion generation.
 
 ## [v0.8.0] - 2026-06-05
 

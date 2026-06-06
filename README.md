@@ -8,7 +8,7 @@ It is being developed as a local-first tool for teachers who want a lightweight,
 
 **Early prototype / active development**
 
-Current version: `0.8.0`.
+Current version: `0.8.1`.
 
 ScoreForm currently works for controlled testing and development use, but it is not yet recommended for high-stakes grading without manual verification.
 
@@ -671,7 +671,7 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Development history is summarized in [`CHANGELOG.md`](CHANGELOG.md). Detailed working planning notes are preserved in [`docs/development_plan.md`](docs/development_plan.md).
 
-After `v0.8.0`, active development is moving through `v0.8.1` menu refinement work and then toward `v0.9.0` project-organization and data-lifecycle planning.
+The `v0.8.1` milestone is complete. Active development is moving toward `v0.9.0` project-organization and data-lifecycle planning.
 
 Upcoming focus areas (not exhaustive):
 
@@ -697,7 +697,7 @@ v0.5.0  Roster and assignment creation/management
 v0.6.0  Flexible form configuration and standards metadata
 v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
 v0.8.0  Completed menu workflow polish, scan inbox picker, QR-aware routed menu scoring, and release documentation
-v0.8.1  Manual run-through fixes and teacher menu refinement
+v0.8.1  Manual run-through fixes, teacher-centered menu refinement, persistent menu headers, and stricter version-update assertions
 v0.9.0  Project organization, project-root planning, scan archiving, and data-lifecycle design
 v1.0.0  Stable classroom-ready release
 ```
@@ -766,7 +766,7 @@ ScoreForm is being designed around the following principles:
 
 This project is currently in early solo development.
 
-If the repository becomes public, contributions should follow these expectations:
+Contributions should follow these expectations:
 
 * Use synthetic test data only.
 * Do not submit real student data.

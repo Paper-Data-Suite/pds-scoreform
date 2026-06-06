@@ -116,7 +116,10 @@ The project currently supports:
 * QR-aware batch scoring reports failure summaries
 * Debug image filenames avoid overwriting earlier debug output from repeated runs
 * Fast development checks are available through `run_fast_tests.ps1`
-* Version finalized at `0.8.0` for the completed v0.8.0 release
+* Teacher-centered menu reorganization groups assignment workflows under Assignment Management
+* Interactive main menu and submenu screens use persistent `ScoreForm` headers
+* Version updater assertions strictly distinguish final releases from matching development versions
+* Version finalized at `0.8.1` for the completed v0.8.1 release
 
 ## Completed Milestone
 
@@ -712,6 +715,8 @@ ScoreForm
 ```
 
 ```text
+ScoreForm
+
 Assignment Management
 
 1. Create an assignment
@@ -1348,7 +1353,9 @@ Keep the GitHub repository professional, safe, and easy to understand.
 * Keep `.gitignore` effective.
 * Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders. Initial `local_outputs/` routing is complete for generic templates, legacy/manual default results, manual debug images, and broad regression-test scratch files.
 * Perform a post-public repository audit before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
-* `v0.8.0` documentation and version closeout is complete; package version is `0.8.0`.
+* `v0.8.1` documentation and version closeout is complete; package version is `0.8.1`.
+* Teacher-centered menu organization, persistent menu headers, and strict version-updater assertions are complete.
+* `v0.9.0` is the next active milestone.
 
 ## Suggested GitHub Issues
 
@@ -1357,7 +1364,7 @@ Create issues:
 ```text
 Convert development_plan.md into ROADMAP.md
 Add CHANGELOG.md
-Pre-public repository audit
+Post-public repository audit
 ```
 
 Suggested labels:
@@ -1501,6 +1508,25 @@ Suggested issues:
 * Non-overwriting debug image filenames - completed
 * Fast test script - completed
 * Documentation and version closeout - completed
+
+## `v0.8.1` - Manual Run-Through Fixes and Menu Refinement
+
+Suggested issues:
+
+* Reorganize the terminal menu around teacher-centered workflows - completed
+* Keep path-oriented setup primitives direct-CLI-only - completed
+* Standardize persistent `ScoreForm` menu headers and restrained terminal styling - completed
+* Tighten generated version assertions - completed
+* Documentation and version closeout - completed
+
+## `v0.9.0` - Project Organization and Data Lifecycle
+
+Next active direction:
+
+* Project organization and project-root/home directory planning
+* Scan archiving
+* Data lifecycle design
+* Schema and version contract documentation
 
 ---
 
