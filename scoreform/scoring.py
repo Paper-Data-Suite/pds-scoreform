@@ -23,6 +23,10 @@ CORNER_ZONE_FRACTION = 0.22
 MIN_REGISTRATION_SIZE_RATIO = 0.65
 MAX_REGISTRATION_SIZE_RATIO = 4.0
 
+STRONG_MARK_FILL_RATIO = 0.30
+POSSIBLE_SECONDARY_FILL_RATIO = 0.15
+POSSIBLE_SECONDARY_RELATIVE_RATIO = 0.20
+
 QR_FAILURE_LABELS = {
     "missing_qr": "Missing QR code",
     "malformed_qr": "Malformed QR payload",
@@ -323,6 +327,24 @@ def _find_registration_mark_centers(thresh, img_w, img_h):
     return candidates, corner_centers
 
 
+def _classify_answer_row(row_filled):
+    """Classify one question from (fill_ratio, letter) pairs."""
+    ranked = sorted(row_filled, reverse=True, key=lambda item: item[0])
+    best_fill, best_letter = ranked[0]
+
+    if best_fill < STRONG_MARK_FILL_RATIO:
+        return "BLANK"
+
+    secondary_threshold = max(
+        POSSIBLE_SECONDARY_FILL_RATIO,
+        best_fill * POSSIBLE_SECONDARY_RELATIVE_RATIO,
+    )
+    if any(fill >= secondary_threshold for fill, _ in ranked[1:]):
+        return "AMBIGUOUS"
+
+    return best_letter
+
+
 def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     if debug_dir is None:
@@ -412,21 +434,7 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
             fill_ratio = filled_pixels / total_pixels
             row_filled.append((fill_ratio, letter))
 
-        # Determine the chosen answer
-        row_filled.sort(reverse=True, key=lambda x: x[0])
-
-        best_fill, best_letter = row_filled[0]
-        second_fill, _ = row_filled[1]
-
-        # Thresholds: a box needs at least 30% fill to be considered marked.
-        if best_fill > 0.3:
-            # Check for ambiguity (two boxes filled)
-            if second_fill > 0.3 and (best_fill - second_fill < 0.2):
-                answer = "AMBIGUOUS"
-            else:
-                answer = best_letter
-        else:
-            answer = "BLANK"
+        answer = _classify_answer_row(row_filled)
 
         # Score it
         correct = False

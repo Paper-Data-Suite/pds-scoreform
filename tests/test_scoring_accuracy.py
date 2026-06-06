@@ -13,6 +13,7 @@ from scoreform.config import (
     Q_STEP_Y,
 )
 from scoreform.scoring import (
+    _classify_answer_row,
     _expected_corner_regions,
     _find_registration_mark_centers,
     non_overwriting_path,
@@ -23,8 +24,13 @@ from scoreform.scoring import (
 CHOICES = ["A", "B", "C", "D"]
 
 
-def _draw_synthetic_answer_sheet(marked_answers, question_count):
+def _draw_synthetic_answer_sheet(
+    marked_answers,
+    question_count,
+    lighter_marks=None,
+):
     """Build a clean synthetic sheet using the production template geometry."""
+    lighter_marks = lighter_marks or {}
     img = np.ones((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8) * 255
 
     for x, y in CORNERS:
@@ -54,6 +60,14 @@ def _draw_synthetic_answer_sheet(marked_answers, question_count):
                     img,
                     (x + 6, y + 6),
                     (x + BOX_SIZE - 6, y + BOX_SIZE - 6),
+                    (0, 0, 0),
+                    -1,
+                )
+            elif lighter_marks.get(question_index + 1) == letter:
+                cv2.rectangle(
+                    img,
+                    (x + 11, y + 10),
+                    (x + 18, y + 19),
                     (0, 0, 0),
                     -1,
                 )
@@ -169,6 +183,62 @@ def test_score_image_detects_synthetic_marked_answers(tmp_path, monkeypatch):
 
         assert answer["Answer"] == expected_answer
         assert answer["Correct"] == (expected_answer == answer_key[q_num])
+
+
+def test_score_image_detects_lighter_double_mark_as_ambiguous(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    answer_key = {1: "A", 2: "B", 3: "C"}
+    marked_answers = {1: "A", 2: None, 3: "C"}
+    image = _draw_synthetic_answer_sheet(
+        marked_answers,
+        question_count=3,
+        lighter_marks={1: "B"},
+    )
+
+    result = score_image(
+        image,
+        answer_key,
+        page_num=1,
+        debug_dir=tmp_path / "debug",
+        question_count=3,
+    )
+
+    assert result is not None
+    assert result["answers"][0] == {
+        "Q": 1,
+        "Answer": "AMBIGUOUS",
+        "Correct": False,
+    }
+    assert result["answers"][1] == {
+        "Q": 2,
+        "Answer": "BLANK",
+        "Correct": False,
+    }
+    assert result["answers"][2] == {
+        "Q": 3,
+        "Answer": "C",
+        "Correct": True,
+    }
+    assert result["score"] == 1
+
+
+def test_answer_classification_requires_a_confident_primary_mark():
+    row_filled = [(0.18, "A"), (0.16, "B"), (0.0, "C"), (0.0, "D")]
+
+    assert _classify_answer_row(row_filled) == "BLANK"
+
+
+def test_answer_classification_ignores_minor_secondary_noise():
+    row_filled = [(0.60, "A"), (0.10, "B"), (0.02, "C"), (0.0, "D")]
+
+    assert _classify_answer_row(row_filled) == "A"
+
+
+def test_answer_classification_treats_two_strong_marks_as_ambiguous():
+    row_filled = [(0.85, "A"), (0.31, "B"), (0.0, "C"), (0.0, "D")]
+
+    assert _classify_answer_row(row_filled) == "AMBIGUOUS"
 
 
 def test_score_image_detects_synthetic_15_question_answers(tmp_path, monkeypatch):
