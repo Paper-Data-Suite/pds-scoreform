@@ -1,4 +1,5 @@
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "update_version.py"
 
 spec = importlib.util.spec_from_file_location("update_version", SCRIPT_PATH)
-update_version = importlib.util.module_from_spec(spec)
+assert spec is not None
 assert spec.loader is not None
+update_version = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(update_version)
 
 
@@ -22,6 +24,68 @@ def test_validate_version_rejects_malformed_or_unsafe_values():
     for version in ("../secret", "version=0.8.0", "0.8.0; rm -rf", "abc"):
         with pytest.raises(update_version.VersionUpdateError):
             update_version.validate_version(version)
+
+
+@pytest.mark.parametrize(
+    ("version", "matching_output", "nonmatching_output"),
+    [
+        ("0.8.0", "ScoreForm 0.8.0", "ScoreForm 0.8.0.dev0"),
+        ("0.9.0.dev0", "ScoreForm 0.9.0.dev0", "ScoreForm 0.9.0"),
+    ],
+)
+def test_version_regex_literal_matches_only_the_exact_version_line(
+    version,
+    matching_output,
+    nonmatching_output,
+):
+    pattern = update_version.version_regex_literal(version)
+
+    assert re.search(pattern, f"prefix\n{matching_output}\nsuffix", re.MULTILINE)
+    assert not re.search(pattern, nonmatching_output, re.MULTILINE)
+
+
+def test_update_pyproject_version_updates_project_version():
+    text = '[project]\nname = "scoreform"\nversion = "0.7.0.dev0"\n'
+
+    updated = update_version.update_pyproject_version(text, "0.8.0")
+
+    assert updated == '[project]\nname = "scoreform"\nversion = "0.8.0"\n'
+
+
+@pytest.mark.parametrize(
+    "existing_assertion",
+    [
+        'assert re.search(r"0\\.7\\.0", output)',
+        'assert re.search(r"^ScoreForm 0\\.7\\.0$", output, re.MULTILINE)',
+    ],
+)
+def test_update_cli_discoverability_test_version_replaces_loose_and_strict_assertions(
+    existing_assertion,
+):
+    text = (
+        f"{existing_assertion}\n"
+        'assert scoreform.cli.get_version() == "0.7.0"\n'
+    )
+
+    updated = update_version.update_cli_discoverability_test_version(text, "0.8.0")
+
+    assert 'assert re.search(r"^ScoreForm 0\\.8\\.0$", output, re.MULTILINE)' in updated
+    assert 'assert scoreform.cli.get_version() == "0.8.0"' in updated
+
+
+def test_update_cli_discoverability_test_version_supports_repeated_strict_updates():
+    text = (
+        'assert re.search(r"^ScoreForm 0\\.8\\.0$", output, re.MULTILINE)\n'
+        'assert scoreform.cli.get_version() == "0.8.0"\n'
+    )
+
+    updated = update_version.update_cli_discoverability_test_version(text, "0.9.0.dev0")
+
+    assert (
+        'assert re.search(r"^ScoreForm 0\\.9\\.0\\.dev0$", output, re.MULTILINE)'
+        in updated
+    )
+    assert 'assert scoreform.cli.get_version() == "0.9.0.dev0"' in updated
 
 
 def test_main_rejects_missing_or_extra_arguments(capsys):
@@ -66,7 +130,10 @@ def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch
 
     assert 'version = "0.8.0.dev0"' in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
     cli_test_text = (tmp_path / "tests" / "test_cli_discoverability.py").read_text(encoding="utf-8")
-    assert 'assert re.search(r"0\\.8\\.0\\.dev0", output)' in cli_test_text
+    assert (
+        'assert re.search(r"^ScoreForm 0\\.8\\.0\\.dev0$", output, re.MULTILINE)'
+        in cli_test_text
+    )
     assert 'assert scoreform.cli.get_version() == "0.8.0.dev0"' in cli_test_text
 
 

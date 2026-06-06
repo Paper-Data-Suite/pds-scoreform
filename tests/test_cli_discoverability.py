@@ -52,7 +52,7 @@ def assert_version_output(result):
     assert result.returncode == 0
     output = combined_output(result)
     assert "ScoreForm" in output
-    assert re.search(r"0\.8\.0", output)
+    assert re.search(r"^ScoreForm 0\.8\.0$", output, re.MULTILINE)
 
 
 def test_version_flag_prints_package_version():
