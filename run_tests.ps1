@@ -166,8 +166,8 @@ Invoke-Test "Show scoreform short help" "scoreform -h"
 Invoke-Test "Show scoreform help command" "scoreform help"
 Invoke-Test "Show scoreform version" "scoreform --version"
 Invoke-Test "Show scoreform version command" "scoreform version"
-Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '8' | scoreform"
-Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '8' | scoreform menu"
+Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '4' | scoreform"
+Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '4' | scoreform menu"
 Invoke-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Invoke-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
 $qrValidationCmd = @'
@@ -207,7 +207,7 @@ Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr 
 
 Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Invoke-Test "Launch menu help and exit" "Write-Output '7', '', '8' | python main.py menu"
+Invoke-Test "Launch menu help and exit" "Write-Output '3', '', '4' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
@@ -215,12 +215,14 @@ Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAct
 Copy-Item "classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf" $MenuInboxScanPdf -Force
 Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding UTF8
 @(
-    "2",                    # Main menu -> Score scanned responses
+    "1",                    # Main menu -> Assignment Management
+    "4",                    # Assignment Management -> Score scanned responses
     "1",                    # Scoring input menu -> Choose from scans_inbox
     "1",                    # Select generated menu picker scan
     "1",                    # Scoring mode -> QR-aware routed scoring (recommended)
     "",                     # pause after scoring
-    "8"                     # Exit
+    "6",                    # Return to main menu
+    "4"                     # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -352,11 +354,11 @@ Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
 Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # Use piped input to create a test roster through the menu
-# Main menu: 5 = Roster management
+# Main menu: 2 = Roster Management
 # Roster menu: 1 = Create a class roster
 # Then respond to prompts
 @(
-    "5",                    # Main menu -> Roster management
+    "2",                    # Main menu -> Roster Management
     "1",                    # Roster menu -> Create a class roster
     "Menu Test Class V5",   # Class name
     "000_test_class_v5",    # Override suggested class_id
@@ -371,7 +373,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "n",                    # add another? no
     "",                     # pause after roster creation output
     "4",                    # Return to main menu
-    "8"                     # Exit
+    "4"                     # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -401,7 +403,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 # Use piped input to create a test assignment through the menu
 @(
-    "6",                        # Main menu -> Assignment management
+    "1",                        # Main menu -> Assignment Management
     "1",                        # Assignment menu -> Create an assignment for class(es)
     "1",                        # Select first available class (000_test_class_v5)
     "Test Assignment V5",       # title
@@ -409,8 +411,8 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "10",                       # question_count
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "",                         # pause after assignment creation output
-    "3",                        # Return to main menu
-    "8"                         # Exit
+    "6",                        # Return to main menu
+    "4"                         # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -437,13 +439,15 @@ Write-Host ""
 Write-Host "Testing answer sheet generation through menu class/assignment selection..." -ForegroundColor Yellow
 
 @(
-    "1",                        # Main menu -> Generate answer sheets
+    "1",                        # Main menu -> Assignment Management
+    "3",                        # Assignment Management -> Generate answer sheets
     "1",                        # Generate menu -> Existing class assignment
     "1",                        # Select first available class (000_test_class_v5)
     "1",                        # Select first available assignment (test_assignment_v5)
     "y",                        # Confirm generation
     "",                         # pause after generation output
-    "8"                         # Exit
+    "6",                        # Return to main menu
+    "4"                         # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {

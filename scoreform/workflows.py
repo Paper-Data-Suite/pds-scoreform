@@ -632,7 +632,7 @@ def launch_roster_menu():
             print()
             print("1. Create a class roster")
             print("2. View a class roster")
-            print("3. Validate an existing roster")
+            print("3. Validate a roster file")
             print("4. Return to main menu")
             print()
 
@@ -696,9 +696,12 @@ def launch_assignment_menu():
             clear_screen()
             print("Assignment Management")
             print()
-            print("1. Create an assignment for class(es)")
-            print("2. Validate an existing assignment")
-            print("3. Return to main menu")
+            print("1. Create an assignment")
+            print("2. Validate an assignment file")
+            print("3. Generate answer sheets")
+            print("4. Score scanned responses")
+            print("5. Decode QR from a file")
+            print("6. Return to main menu")
             print()
 
             choice = input("Select an option: ").strip()
@@ -731,10 +734,37 @@ def launch_assignment_menu():
                 pause_for_user()
 
             elif choice == "3":
+                from scoreform.cli import launch_generate_menu
+
+                launch_generate_menu()
+
+            elif choice == "4":
+                from scoreform.cli import prompt_scoring_input_file, prompt_scoring_mode
+
+                input_file = prompt_scoring_input_file()
+                if input_file:
+                    prompt_scoring_mode(input_file)
+
+            elif choice == "5":
+                from scoreform.cli import run_decode_qr
+
+                clear_screen()
+                input_file = normalize_path_input(input("File path: "))
+                if not input_file:
+                    print("File path is required.")
+                    print()
+                    pause_for_user()
+                    continue
+
+                run_decode_qr([input_file])
+                print()
+                pause_for_user()
+
+            elif choice == "6":
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
                 print()
                 pause_for_user()
 

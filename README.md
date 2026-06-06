@@ -73,7 +73,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * External `answer_key.json` validation
 * Assignment JSON validation
 * Roster CSV validation
-* Class/assignment folder setup
+* Class/assignment folder setup through direct CLI workflows
 * Menu-driven roster creation without manual CSV editing
 * Menu-driven assignment creation without manual JSON editing
 * Optional question-level standards metadata in assignment JSON
@@ -226,8 +226,27 @@ scoreform
 
 For direct Python invocation, `python main.py menu` remains supported.
 
-The menu wraps existing workflows while preserving direct CLI commands such as `generate`, `setup-assignment`, `score`, `decode-qr`, `validate-assignment`, and `validate-roster`.
-Select **7. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
+The teacher-centered main menu is:
+
+```text
+ScoreForm
+
+1. Assignment Management
+2. Roster Management
+3. Help
+4. Exit
+```
+
+Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, and validation.
+
+ScoreForm supports two interaction layers:
+
+1. **Direct CLI** exposes stable operations for scripting, testing, automation, development, and power users.
+2. **Interactive menu** exposes guided teacher workflows built from those operations.
+
+The layers intentionally do not have one-to-one command parity. Path-oriented setup operations such as `setup-assignment` remain available through `scoreform setup-assignment ...` and `python main.py setup-assignment ...`, but are not shown in the normal teacher-facing menu.
+
+Select **3. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
 
 ### Create a Roster from the Menu
@@ -240,7 +259,7 @@ ScoreForm now includes menu-driven roster creation, so you can create valid rost
    scoreform
    ```
 
-2. Select **5. Roster management**
+2. Select **2. Roster Management**
 
 3. Select **1. Create a class roster**
 
@@ -290,9 +309,9 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
    scoreform
    ```
 
-2. Select **6. Assignment management**
+2. Select **1. Assignment Management**
 
-3. Select **1. Create an assignment for class(es)**
+3. Select **1. Create an assignment**
 
 4. Select one or more existing classes.
 
@@ -315,7 +334,7 @@ Notes:
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * New assignments include an empty `standards` list for each question. The menu does not prompt for standards yet.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
-* The assignment management menu also validates existing assignment JSON files; assignment editing and standards editing remain future work.
+* Assignment Management also validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata; assignment editing and standards editing remain future work.
 
 ## Data Model
 
@@ -652,7 +671,7 @@ scoreform score scanned_file.pdf results.csv examples\answer_key.json
 
 The public roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Development history is summarized in [`CHANGELOG.md`](CHANGELOG.md). Detailed working planning notes are preserved in [`docs/development_plan.md`](docs/development_plan.md).
 
-After `v0.8.0`, the current development plan continues toward reporting foundations, broader workflow improvements, cleanup, and public-readiness work.
+After `v0.8.0`, active development is moving through `v0.8.1` menu refinement work and then toward `v0.9.0` project-organization and data-lifecycle planning.
 
 Upcoming focus areas (not exhaustive):
 
@@ -678,6 +697,8 @@ v0.5.0  Roster and assignment creation/management
 v0.6.0  Flexible form configuration and standards metadata
 v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
 v0.8.0  Completed menu workflow polish, scan inbox picker, QR-aware routed menu scoring, and release documentation
+v0.8.1  Manual run-through fixes and teacher menu refinement
+v0.9.0  Project organization, project-root planning, scan archiving, and data-lifecycle design
 v1.0.0  Stable classroom-ready release
 ```
 

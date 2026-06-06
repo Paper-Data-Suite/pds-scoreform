@@ -80,14 +80,17 @@ The project currently supports:
 * Menu-driven assignment creation
 * Menu-driven assignment creation prompts for `question_count`
 * Menu-driven assignment creation writes empty standards lists for each question
-* Assignment management submenu with create, validate, and return options
+* Assignment management submenu with create, validate, generate, score, decode QR, and return options
 * Assignment JSON writing with current required schema
 * Assignment overwrite confirmation
 * Assignment parent-directory creation when needed
 * Assignment validation after save
 * Regression test coverage for menu-driven assignment creation
 * Basic terminal menu interface through `python main.py menu` and `scoreform menu`
-* Menu wraps existing workflows while preserving direct CLI commands
+* Teacher-centered main menu organized around Assignment Management, Roster Management, Help, and Exit
+* Menu wraps guided teacher workflows while preserving direct CLI commands
+* Direct CLI and interactive menu intentionally do not require one-to-one command parity
+* Path-oriented setup primitives such as `setup-assignment` may remain direct-CLI-only
 * Editable package installation with `python -m pip install -e .`
 * Installable `scoreform` console command
 * `scoreform` command with no args launches menu by default
@@ -702,14 +705,21 @@ python main.py
 ```text
 ScoreForm
 
-1. Generate answer sheets
-2. Score scanned responses
-3. Decode QR from a file
-4. Set up assignment folders
-5. Roster management
-6. Assignment management
-7. Help
-8. Exit
+1. Assignment Management
+2. Roster Management
+3. Help
+4. Exit
+```
+
+```text
+Assignment Management
+
+1. Create an assignment
+2. Validate an assignment file
+3. Generate answer sheets
+4. Score scanned responses
+5. Decode QR from a file
+6. Return to main menu
 ```
 
 ## Requirements
@@ -718,14 +728,18 @@ The first version of the menu should mostly call existing functionality rather t
 
 It should support:
 
-* selecting an assignment JSON
-* selecting one or more roster CSV files
+* creating and validating assignments
 * generating answer sheets
 * selecting a scan/PDF to score
 * decoding QR from a file
-* validating assignment files from the Assignment management submenu
-* viewing and validating roster files from the Roster management submenu
+* creating, viewing, and validating rosters
 * exiting cleanly
+
+The direct CLI remains the stable primitive layer for scripting, testing, automation,
+development, and power users. The interactive menu is the guided teacher-workflow
+layer and does not need one-to-one parity with every command. Operations requiring
+pre-existing file paths or advanced setup knowledge, including `setup-assignment`,
+may remain CLI-only until a clear teacher-facing workflow emerges.
 
 ## Notes
 
@@ -835,13 +849,13 @@ The terminal menu now includes a submenu for roster management with:
 
 * Create a class roster (interactive prompts for class name, class_id, period, and students)
 * View a class roster
-* Validate an existing roster
+* Validate a roster file
 * Return to main menu
 
 Roster creation workflow:
 
 1. Launch with `scoreform` or `python main.py menu`
-2. Select option 5 (Roster management)
+2. Select option 2 (Roster Management)
 3. Select option 1 (Create a class roster)
 4. Enter a class name
 5. Accept or edit the suggested class_id
@@ -868,15 +882,18 @@ Status: Completed support for `question_count` from 1 to 15.
 
 The terminal menu now includes a submenu for assignment management with:
 
-* Create an assignment for class(es)
-* Validate an existing assignment
+* Create an assignment
+* Validate an assignment file
+* Generate answer sheets
+* Score scanned responses
+* Decode QR from a file
 * Return to main menu
 
 Assignment creation workflow:
 
 1. Launch with `scoreform` or `python main.py menu`
-2. Select option 6 (Assignment management)
-3. Select option 1 (Create an assignment for class(es))
+2. Select option 1 (Assignment Management)
+3. Select option 1 (Create an assignment)
 4. Select one or more existing classes
 5. Enter an assignment title
 6. Accept or edit the suggested assignment_id

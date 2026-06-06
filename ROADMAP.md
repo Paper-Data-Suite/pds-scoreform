@@ -18,7 +18,7 @@ ScoreForm tracks scan source files in result rows, creates a project-level `scan
 
 ### v0.3.0 - Teacher-Friendly Terminal Menu
 
-A basic terminal menu wraps the main workflows so users can generate sheets, score scans, decode QR codes, validate files, and set up assignment folders without memorizing every command.
+A basic terminal menu wraps the main workflows so users can generate sheets, score scans, decode QR codes, and validate files without memorizing every command. Assignment-folder setup remains available through the direct CLI.
 
 ### v0.4.0 - Installable Command
 
@@ -42,11 +42,13 @@ ScoreForm completed interactive menu clear/pause behavior, read-only roster view
 
 ## Current Direction
 
-The `v0.8.0` milestone is complete. Current near-term work remains focused on public-readiness, workflow polish, and carefully scoped architecture cleanup without changing scoring schemas or generated form formats unnecessarily.
+The `v0.8.0` milestone is complete. Current near-term work is organized around `v0.8.1` menu refinement and `v0.9.0` project-organization / data-lifecycle planning, while avoiding unnecessary scoring-schema or generated-form changes.
+
+The terminal menu is organized around teacher workflows: Assignment Management, Roster Management, Help, and Exit. Assignment creation, validation, generation, scoring, and QR decoding live under Assignment Management. Stable path-oriented primitives such as `setup-assignment` remain available through the direct CLI without appearing in the normal teacher-facing menu.
 
 ## Near-Term Priorities
 
-* Complete the pre-public repository audit.
+* Complete the post-public repository audit.
 * Run senior-developer review.
 * Run project-manager / release-readiness review.
 * Keep `README.md` current.
@@ -91,6 +93,6 @@ Future schema and module-boundary decisions should preserve standalone ScoreForm
 * Repository examples must remain synthetic.
 * Real student data, scanned student work, and private classroom records should not be committed.
 * `README.md` should clearly identify current limitations.
-* `SECURITY.md` and audit work may be needed before public release.
+* `SECURITY.md` and audit work may be needed before broader classroom use or a stable release.
 * Detailed working planning notes are preserved in `docs/development_plan.md`.
 * A post-public repository audit should happen before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
