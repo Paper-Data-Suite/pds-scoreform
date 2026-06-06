@@ -1,6 +1,26 @@
 from scoreform import assignment, roster, workflows
 
 
+def test_print_menu_header_uses_plain_text_for_captured_output(capsys):
+    workflows.print_menu_header("Example Workflow")
+
+    assert capsys.readouterr().out == "ScoreForm\nExample Workflow\n\n"
+
+
+def test_print_menu_header_uses_restrained_green_when_color_is_supported(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(workflows, "_stdout_supports_color", lambda: True)
+
+    workflows.print_menu_header("Example Workflow")
+
+    output = capsys.readouterr().out
+    assert output == "\x1b[32mScoreForm\x1b[0m\nExample Workflow\n\n"
+    assert "\x1b[34m" not in output
+    assert "\x1b[36m" not in output
+
+
 def test_suggest_class_id_examples():
     assert workflows.suggest_class_id("English 9 Period 2") == "english_9_period_2"
     assert workflows.suggest_class_id("English 12 P5") == "english_12_p5"

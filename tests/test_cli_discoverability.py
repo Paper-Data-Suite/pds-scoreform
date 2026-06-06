@@ -74,7 +74,7 @@ def test_menu_help_can_return_to_menu_and_exit():
 
     assert result.returncode == 0
     output = combined_output(result)
-    assert "ScoreForm help" in output
+    assert "ScoreForm\nHelp" in output
     assert "Typical workflow:" in output
     assert "classes/<class_id>/assignments/<assignment_id>/results.csv" in output
     assert "Goodbye." in output
@@ -118,7 +118,7 @@ def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_pa
     assert scoreform.cli.launch_menu() == 0
 
     output = capsys.readouterr().out
-    assert "--- Generate Answer Sheets ---" in output
+    assert "ScoreForm\nGenerate Answer Sheets" in output
     assert "Generate answer sheets for an existing class assignment" in output
     assert "Available classes:" in output
     assert "english_9_period_2" in output
@@ -154,6 +154,8 @@ def test_main_menu_is_teacher_centered_and_omits_assignment_operations():
     assert result.returncode == 0
     output = combined_output(result)
     assert "ScoreForm" in output
+    assert "Main Menu" in output
+    assert "\x1b[" not in output
     assert "1. Assignment Management" in output
     assert "2. Roster Management" in output
     assert "3. Help" in output
@@ -172,6 +174,7 @@ def test_assignment_management_menu_contains_teacher_workflows():
     assert result.returncode == 0
     output = combined_output(result)
     assert "Assignment Management" in output
+    assert "ScoreForm\nAssignment Management" in output
     assert "1. Create an assignment" in output
     assert "2. Validate an assignment file" in output
     assert "3. Generate answer sheets" in output
@@ -187,6 +190,7 @@ def test_roster_management_menu_still_contains_teacher_workflows():
     assert result.returncode == 0
     output = combined_output(result)
     assert "Roster Management" in output
+    assert "ScoreForm\nRoster Management" in output
     assert "1. Create a class roster" in output
     assert "2. View a class roster" in output
     assert "3. Validate a roster file" in output
@@ -452,6 +456,13 @@ def test_direct_cli_subcommand_does_not_clear_or_pause(monkeypatch):
         scoreform.cli,
         "pause_for_user",
         lambda: (_ for _ in ()).throw(AssertionError("pause_for_user should not be called")),
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "print_menu_header",
+        lambda _title=None: (_ for _ in ()).throw(
+            AssertionError("print_menu_header should not be called")
+        ),
     )
 
     assert scoreform.cli.main(["validate-assignment", "examples/sample_assignment.json"]) == 0

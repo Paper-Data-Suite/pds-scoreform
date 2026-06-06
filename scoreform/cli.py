@@ -33,6 +33,7 @@ from scoreform.workflows import (
     discover_class_rosters,
     discover_class_assignments,
     parse_single_selection,
+    print_menu_header,
 )
 from scoreform.config import LOCAL_RESULTS_CSV
 
@@ -145,8 +146,7 @@ Notes:
 
 
 def print_menu_help():
-    print("ScoreForm help")
-    print()
+    print_menu_header("Help")
     print("ScoreForm generates printable answer sheets and scores scanned responses.")
     print()
     print("Typical workflow:")
@@ -462,8 +462,7 @@ def launch_generate_menu():
     try:
         while True:
             clear_screen()
-            print("--- Generate Answer Sheets ---")
-            print()
+            print_menu_header("Generate Answer Sheets")
             print("1. Generate answer sheets for an existing class assignment")
             print("2. Generate a generic blank template")
             print("3. Return to Assignment Management")
@@ -474,8 +473,7 @@ def launch_generate_menu():
 
             if choice == "1":
                 clear_screen()
-                print("--- Generate Answer Sheets ---")
-                print()
+                print_menu_header("Generate Answer Sheets")
                 available_classes = discover_class_rosters()
                 if not available_classes:
                     print("No class rosters found. Create a class roster first from the Roster Management menu.")
@@ -545,6 +543,7 @@ def launch_generate_menu():
 
             elif choice == "2":
                 clear_screen()
+                print_menu_header("Generate a Generic Blank Template")
                 result = run_generate([])
                 pause_for_user()
                 return result
@@ -565,6 +564,7 @@ def launch_generate_menu():
 def prompt_select_scan_from_inbox(scans_dir="scans_inbox"):
     """Prompt for one supported scan file from scans_dir."""
     clear_screen()
+    print_menu_header("Select a Scan")
     scans = discover_scans_in_inbox(scans_dir)
     if not scans:
         print(f"No scans found in {scans_dir}.")
@@ -593,8 +593,7 @@ def prompt_scoring_input_file():
     """Prompt for the input scan path used by interactive menu scoring."""
     while True:
         clear_screen()
-        print("Score Scanned Responses")
-        print()
+        print_menu_header("Score Scanned Responses")
         print("1. Choose a file from scans_inbox")
         print("2. Enter a custom path")
         print("3. Return to Assignment Management")
@@ -614,6 +613,7 @@ def prompt_scoring_input_file():
 
         elif choice == "2":
             clear_screen()
+            print_menu_header("Score Scanned Responses")
             input_file = normalize_path_input(input("Input scan/PDF/image path: "))
             if not input_file:
                 print("Input file path is required.")
@@ -634,6 +634,7 @@ def prompt_scoring_input_file():
 def run_menu_qr_aware_routed_scoring(input_file):
     """Run the menu's recommended QR-aware routed scoring workflow."""
     clear_screen()
+    print_menu_header("QR-Aware Routed Scoring")
     print("Using QR-aware routed scoring.")
     print("Results will be routed using QR metadata.")
     print()
@@ -645,8 +646,7 @@ def run_menu_qr_aware_routed_scoring(input_file):
 def run_menu_manual_scoring(input_file):
     """Run manual menu scoring with a required answer key."""
     clear_screen()
-    print("Manual scoring with answer key")
-    print()
+    print_menu_header("Manual Scoring with Answer Key")
     print("Selected scan:")
     print(input_file)
     print()
@@ -676,6 +676,7 @@ def prompt_scoring_mode(input_file):
     """Prompt for QR-aware routed or manual scoring after a scan is selected."""
     while True:
         clear_screen()
+        print_menu_header("Select Scoring Mode")
         print("Selected scan:")
         print(input_file)
         print()
@@ -710,8 +711,7 @@ def launch_menu():
     try:
         while True:
             clear_screen()
-            print("ScoreForm")
-            print()
+            print_menu_header("Main Menu")
             print("1. Assignment Management")
             print("2. Roster Management")
             print("3. Help")
