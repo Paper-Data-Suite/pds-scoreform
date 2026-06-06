@@ -152,11 +152,10 @@ def print_menu_help():
     print("Typical workflow:")
     print("  1. Create or validate a roster CSV.")
     print("  2. Create or validate an assignment JSON file.")
-    print("  3. Set up assignment folders.")
-    print("  4. Generate answer sheets.")
-    print("  5. Scan completed sheets.")
-    print("  6. Score scanned responses.")
-    print("  7. Inspect routed results.")
+    print("  3. Generate answer sheets.")
+    print("  4. Scan completed sheets.")
+    print("  5. Score scanned responses.")
+    print("  6. Inspect routed results.")
     print()
     print("QR-aware routed scoring writes to:")
     print("  classes/<class_id>/assignments/<assignment_id>/results.csv")
@@ -467,7 +466,7 @@ def launch_generate_menu():
             print()
             print("1. Generate answer sheets for an existing class assignment")
             print("2. Generate a generic blank template")
-            print("3. Return to main menu")
+            print("3. Return to Assignment Management")
             print()
 
             choice = input("Select an option: ").strip()
@@ -598,7 +597,7 @@ def prompt_scoring_input_file():
         print()
         print("1. Choose a file from scans_inbox")
         print("2. Enter a custom path")
-        print("3. Return to main menu")
+        print("3. Return to Assignment Management")
         print()
 
         choice = input("Select an option: ").strip()
@@ -684,7 +683,7 @@ def prompt_scoring_mode(input_file):
         print()
         print("1. QR-aware routed scoring (recommended)")
         print("2. Manual scoring with answer key")
-        print("3. Return to main menu")
+        print("3. Return to Assignment Management")
         print()
 
         choice = input("Select an option: ").strip()
@@ -713,72 +712,31 @@ def launch_menu():
             clear_screen()
             print("ScoreForm")
             print()
-            print("1. Generate answer sheets")
-            print("2. Score scanned responses")
-            print("3. Decode QR from a file")
-            print("4. Set up assignment folders")
-            print("5. Roster management")
-            print("6. Assignment management")
-            print("7. Help")
-            print("8. Exit")
+            print("1. Assignment Management")
+            print("2. Roster Management")
+            print("3. Help")
+            print("4. Exit")
 
             choice = input("Select an option: ").strip()
             print()
 
             if choice == "1":
-                launch_generate_menu()
-
-            elif choice == "2":
-                input_file = prompt_scoring_input_file()
-                if not input_file:
-                    continue
-
-                prompt_scoring_mode(input_file)
-
-            elif choice == "3":
-                clear_screen()
-                input_file = normalize_path_input(input("File path: "))
-                if not input_file:
-                    print("File path is required.")
-                    print()
-                    pause_for_user()
-                    continue
-
-                run_decode_qr([input_file])
-                print()
-                pause_for_user()
-
-            elif choice == "4":
-                clear_screen()
-                assignment_path = normalize_path_input(input("Assignment JSON path: "))
-                roster_path = normalize_path_input(input("Roster CSV path: "))
-                if not assignment_path or not roster_path:
-                    print("Both assignment JSON path and roster CSV path are required.")
-                    print()
-                    pause_for_user()
-                    continue
-
-                run_setup_assignment([assignment_path, roster_path])
-                print()
-                pause_for_user()
-
-            elif choice == "5":
-                launch_roster_menu()
-
-            elif choice == "6":
                 launch_assignment_menu()
 
-            elif choice == "7":
+            elif choice == "2":
+                launch_roster_menu()
+
+            elif choice == "3":
                 clear_screen()
                 print_menu_help()
                 pause_for_user()
 
-            elif choice == "8":
+            elif choice == "4":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
                 print()
                 pause_for_user()
 

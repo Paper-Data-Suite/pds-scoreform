@@ -374,7 +374,7 @@ def test_roster_menu_view_class_roster_flow(tmp_path, monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "2. View a class roster" in output
-    assert "3. Validate an existing roster" in output
+    assert "3. Validate a roster file" in output
     assert "Class: english_9_period_2" in output
     assert "Students: 1" in output
     assert "1001" in output
