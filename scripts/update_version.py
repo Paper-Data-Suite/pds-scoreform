@@ -26,7 +26,7 @@ def validate_version(version: str) -> str:
 
 
 def version_regex_literal(version: str) -> str:
-    return re.escape(version)
+    return rf"^ScoreForm {re.escape(version)}$"
 
 
 def update_pyproject_version(text: str, version: str) -> str:
@@ -61,8 +61,8 @@ def update_cli_discoverability_test_version(text: str, version: str) -> str:
     updated = text
 
     updated, regex_count = re.subn(
-        r'assert re\.search\(r"[0-9]+\\\.[0-9]+\\\.[0-9]+(?:\\\.dev[0-9]+)?", output\)',
-        f'assert re.search(r"{escaped_version}", output)',
+        r'assert re\.search\(r"(?:\^ScoreForm )?[0-9]+\\\.[0-9]+\\\.[0-9]+(?:\\\.dev[0-9]+)?(?:\$)?", output(?:, re\.MULTILINE)?\)',
+        f'assert re.search(r"{escaped_version}", output, re.MULTILINE)',
         updated,
     )
     updated, string_count = re.subn(
