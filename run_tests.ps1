@@ -147,7 +147,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
-Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -e .[dev] --quiet"
+Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -r requirements-dev.txt --quiet"
 
 $pythonScriptsDir = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
 if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
