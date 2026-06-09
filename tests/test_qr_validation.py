@@ -32,9 +32,52 @@ def test_parse_qr_valid():
     assert parsed == VALID_QR_METADATA
 
 
-@pytest.mark.parametrize("payload", [None, "", "class=english9_p2|aid=rj_act1_quiz|sid=1001", "OMR1|class=|aid=a|sid=1", "OMR1|class=english9_p2|aid"])
-def test_parse_qr_rejects_malformed(payload):
+def test_parse_qr_strips_payload():
+    assert scoring.parse_qr_payload(f"  {VALID_QR_PAYLOAD}  ") == VALID_QR_METADATA
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        "",
+        "PDS1|class=english9_p2|aid=rj_act1_quiz|sid=1001",
+        "OMR1|class=english9_p2|aid",
+        "OMR1|class=english9_p2|sid=1001",
+        "OMR1|class=|aid=rj_act1_quiz|sid=1001",
+        "OMR1|class=../secret|aid=rj_act1_quiz|sid=1001",
+    ],
+)
+def test_parse_qr_rejects_invalid_payload(payload):
     assert scoring.parse_qr_payload(payload) is None
+
+
+def test_parse_qr_delegates_to_pds_core(monkeypatch):
+    class ParsedPayload:
+        class_id = "class_from_core"
+        assignment_id = "assignment_from_core"
+        student_id = "student_from_core"
+
+    seen = []
+
+    def fake_parse(payload):
+        seen.append(payload)
+        return ParsedPayload()
+
+    monkeypatch.setattr(scoring, "parse_omr1_payload", fake_parse)
+
+    assert scoring.parse_qr_payload("  delegated payload  ") == {
+        "class_id": "class_from_core",
+        "assignment_id": "assignment_from_core",
+        "student_id": "student_from_core",
+    }
+    assert seen == ["delegated payload"]
+
+
+def test_parse_qr_result_still_passes_metadata_validation():
+    parsed = scoring.parse_qr_payload(VALID_QR_PAYLOAD)
+
+    assert scoring.validate_qr_metadata(parsed)
 
 
 def test_is_safe_qr_identifier_accepts():

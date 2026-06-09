@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
+from pds_core.omr1 import Omr1PayloadError, parse_omr1_payload
 from scoreform.config import (
     CORNER_SIZE,
     DST_PTS,
@@ -594,38 +595,17 @@ def parse_qr_payload(payload):
         print("Error: QR payload is empty")
         return None
 
-    parts = payload.split("|")
-
-    if len(parts) < 4:
-        print(f"Error: QR payload malformed: '{payload}'")
+    try:
+        parsed_payload = parse_omr1_payload(payload)
+    except Omr1PayloadError as error:
+        print(f"Error: QR payload invalid: {error}")
         return None
 
-    if parts[0] != "OMR1":
-        print(f"Error: QR payload missing OMR1 header: '{payload}'")
-        return None
-
-    kv = {}
-    for p in parts[1:]:
-        if "=" not in p:
-            print(f"Error: QR payload part malformed: '{p}' in '{payload}'")
-            return None
-        k, v = p.split("=", 1)
-        k = k.strip()
-        v = v.strip()
-        if not v:
-            print(f"Error: QR payload key '{k}' has empty value in '{payload}'")
-            return None
-        kv[k] = v
-
-    required = {"class": "class_id", "aid": "assignment_id", "sid": "student_id"}
-    out = {}
-    for src, dst in required.items():
-        if src not in kv:
-            print(f"Error: QR payload missing required key '{src}' in '{payload}'")
-            return None
-        out[dst] = kv[src]
-
-    return out
+    return {
+        "class_id": parsed_payload.class_id,
+        "assignment_id": parsed_payload.assignment_id,
+        "student_id": parsed_payload.student_id,
+    }
 
 
 def _try_decode_qr(detector, img):
