@@ -426,6 +426,27 @@ def test_prompt_select_scan_from_inbox_handles_missing_and_empty_inbox(tmp_path,
     assert pauses == ["pause", "pause"]
 
 
+def test_prompt_select_scan_from_inbox_uses_core_route_by_default(monkeypatch):
+    route_calls = []
+    discovery_calls = []
+
+    monkeypatch.setattr(
+        scoreform.cli,
+        "scans_inbox_dir",
+        lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "discover_scans_in_inbox",
+        lambda scans_dir: discovery_calls.append(scans_dir) or [],
+    )
+    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
+
+    assert scoreform.cli.prompt_select_scan_from_inbox() is None
+    assert route_calls == ["."]
+    assert discovery_calls == ["scans_inbox"]
+
+
 def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
     monkeypatch.setattr(
         scoreform.cli,

@@ -18,6 +18,8 @@ import json
 import re
 import sys
 
+from pds_core.scan_routes import scans_inbox_dir
+
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.roster import load_roster
 from scoreform.assignment import load_assignment
@@ -91,8 +93,11 @@ def is_supported_scan_file(path):
     return os.path.splitext(filename)[1].lower() in SUPPORTED_SCAN_EXTENSIONS
 
 
-def discover_scans_in_inbox(scans_dir="scans_inbox"):
+def discover_scans_in_inbox(scans_dir=None):
     """Return supported scan files directly inside scans_dir in deterministic order."""
+    if scans_dir is None:
+        scans_dir = os.fspath(scans_inbox_dir("."))
+
     if not os.path.isdir(scans_dir):
         return []
 

@@ -7,6 +7,7 @@ from pds_core.routes import (
     class_dir as core_class_dir,
     class_roster_path as core_class_roster_path,
 )
+from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform.config import LOCAL_OUTPUTS_DIR
 from scoreform.validation import validate_identifier
@@ -66,7 +67,7 @@ def ensure_scan_inbox():
     Creates the directory if it doesn't exist.
     Prints a message when the inbox is first created.
     """
-    inbox_path = "scans_inbox"
+    inbox_path = os.fspath(scans_inbox_dir("."))
     if not os.path.exists(inbox_path):
         try:
             os.makedirs(inbox_path, exist_ok=True)

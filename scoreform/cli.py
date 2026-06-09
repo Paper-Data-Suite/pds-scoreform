@@ -7,6 +7,8 @@ import numpy as np
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from pds_core.scan_routes import scans_inbox_dir
+
 from scoreform.templates import (
     generate_template,
     student_pdf_filename,
@@ -561,8 +563,11 @@ def launch_generate_menu():
         return 0
 
 
-def prompt_select_scan_from_inbox(scans_dir="scans_inbox"):
+def prompt_select_scan_from_inbox(scans_dir=None):
     """Prompt for one supported scan file from scans_dir."""
+    if scans_dir is None:
+        scans_dir = os.fspath(scans_inbox_dir("."))
+
     clear_screen()
     print_menu_header("Select a Scan")
     scans = discover_scans_in_inbox(scans_dir)

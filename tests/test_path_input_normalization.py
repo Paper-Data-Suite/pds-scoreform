@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from scoreform import workflows
 from scoreform.workflows import normalize_path_input
 from scoreform.workflows import discover_scans_in_inbox, is_supported_scan_file
 
@@ -62,3 +65,22 @@ def test_discover_scans_in_inbox_returns_empty_for_missing_or_empty_dir(tmp_path
     (scans_dir / "notes.txt").write_text("not a scan", encoding="utf-8")
 
     assert discover_scans_in_inbox(scans_dir) == []
+
+
+def test_discover_scans_in_inbox_uses_core_route_by_default(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    route_calls = []
+    scans_dir = tmp_path / "scans_inbox"
+    scans_dir.mkdir()
+    scan_path = scans_dir / "scan.pdf"
+    scan_path.write_text("synthetic", encoding="utf-8")
+
+    monkeypatch.setattr(
+        workflows,
+        "scans_inbox_dir",
+        lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
+    )
+
+    assert discover_scans_in_inbox() == [str(Path("scans_inbox") / "scan.pdf")]
+    assert route_calls == ["."]
+    assert scan_path.exists()
