@@ -3,9 +3,13 @@ import datetime
 import os
 import tempfile
 
+from pds_core.routes import (
+    assignment_dir as core_assignment_dir,
+    class_roster_path as core_class_roster_path,
+)
+
 from scoreform.scoring import validate_qr_identifier
 from scoreform.folders import ensure_parent_dir
-
 
 def _get_max_question_count(results):
     """Return the maximum question number seen across a list of results."""
@@ -230,7 +234,7 @@ def _enrich_results_with_roster(all_results):
     any_loaded = False
 
     for class_id, results in by_class.items():
-        roster_path = os.path.join("classes", class_id, "roster.csv")
+        roster_path = os.fspath(core_class_roster_path(".", class_id))
 
         # Import locally to avoid circular imports
         try:
@@ -341,7 +345,7 @@ def export_routed_results(all_results):
     # Write each group to its assignment folder
     all_success = True
     for (class_id, assignment_id), results in groups.items():
-        output_dir = os.path.join("classes", class_id, "assignments", assignment_id)
+        output_dir = os.fspath(core_assignment_dir(".", class_id, assignment_id))
         
         if not os.path.exists(output_dir):
             print(f"Error: Assignment directory does not exist: {output_dir}")
