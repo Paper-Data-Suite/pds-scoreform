@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from scoreform import folders
 
@@ -27,6 +28,25 @@ def test_assignments_not_match(tmp_path):
 def test_load_json_for_comparison_unreadable(tmp_path):
     # Nonexistent path should return None
     assert folders.load_json_for_comparison(str(tmp_path / "nope.json")) is None
+
+
+def test_ensure_scan_inbox_uses_core_route_without_modifying_files(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    route_calls = []
+    scan_path = tmp_path / "scans_inbox" / "original_scan.pdf"
+    scan_path.parent.mkdir()
+    scan_path.write_text("raw scan", encoding="utf-8")
+
+    monkeypatch.setattr(
+        folders,
+        "scans_inbox_dir",
+        lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
+    )
+
+    assert folders.ensure_scan_inbox() == "scans_inbox"
+    assert route_calls == ["."]
+    assert scan_path.read_text(encoding="utf-8") == "raw scan"
+    assert [path.name for path in scan_path.parent.iterdir()] == ["original_scan.pdf"]
 
 
 def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs(tmp_path, monkeypatch):
