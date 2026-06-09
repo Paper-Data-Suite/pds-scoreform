@@ -1,4 +1,6 @@
 import json
+import os
+
 from scoreform import folders
 
 
@@ -44,3 +46,32 @@ def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs
     assert result is None
     assert not (tmp_path / "classes").exists()
     assert not (tmp_path / "scans_inbox").exists()
+
+
+def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    roster_path = tmp_path / "incoming_roster.csv"
+    assignment_path = tmp_path / "incoming_assignment.json"
+    roster_path.write_text("placeholder", encoding="utf-8")
+    assignment_path.write_text('{"assignment_id": "act_1_quiz"}', encoding="utf-8")
+
+    result = folders.setup_assignment_folder(
+        {"class_id": "english9_p2", "students": []},
+        {"assignment_id": "act_1_quiz"},
+        str(roster_path),
+        str(assignment_path),
+    )
+
+    assert result is not None
+    assert result["class_dir"] == os.path.join("classes", "english9_p2")
+    assert result["assignment_dir"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+    )
+    assert result["roster_copy"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "roster.csv",
+    )

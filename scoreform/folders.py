@@ -2,6 +2,12 @@ import os
 import shutil
 import json
 
+from pds_core.routes import (
+    assignment_dir as core_assignment_dir,
+    class_dir as core_class_dir,
+    class_roster_path as core_class_roster_path,
+)
+
 from scoreform.config import LOCAL_OUTPUTS_DIR
 from scoreform.validation import validate_identifier
 
@@ -98,16 +104,15 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
         if scan_inbox is None:
             return None
 
-        class_dir = os.path.join("classes", class_id)
-        assignments_dir = os.path.join(class_dir, "assignments")
-        assignment_dir = os.path.join(assignments_dir, assignment_id)
+        class_dir = os.fspath(core_class_dir(".", class_id))
+        assignment_dir = os.fspath(core_assignment_dir(".", class_id, assignment_id))
         templates_dir = os.path.join(assignment_dir, "templates")
         individual_templates_dir = os.path.join(templates_dir, "individual")
         scans_dir = os.path.join(assignment_dir, "scans")
         debug_dir = os.path.join(assignment_dir, "debug")
 
         # Compute paths for copies before creating directories
-        roster_copy = os.path.join(class_dir, "roster.csv")
+        roster_copy = os.fspath(core_class_roster_path(".", class_id))
         assignment_copy = os.path.join(assignment_dir, "assignment.json")
 
         # Check for existing assignment.json and collision protection

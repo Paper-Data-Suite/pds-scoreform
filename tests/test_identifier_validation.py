@@ -1,5 +1,8 @@
 import pytest
 
+from pds_core.identifiers import IdentifierValidationError
+
+from scoreform import validation
 from scoreform.validation import is_safe_identifier, validate_identifier
 
 
@@ -33,3 +36,39 @@ def test_validate_identifier_prints_field_and_value(capsys):
     out = capsys.readouterr().out
     assert "class_id" in out
     assert "../secret" in out
+
+
+def test_is_safe_identifier_delegates_to_pds_core(monkeypatch):
+    calls = []
+
+    def fake_is_valid_identifier(value):
+        calls.append(value)
+        return value == "accepted_by_core"
+
+    monkeypatch.setattr(
+        validation.core_identifiers,
+        "is_valid_identifier",
+        fake_is_valid_identifier,
+    )
+
+    assert is_safe_identifier("accepted_by_core")
+    assert not is_safe_identifier("english9_p2")
+    assert calls == ["accepted_by_core", "english9_p2"]
+
+
+def test_validate_identifier_delegates_to_pds_core(monkeypatch, capsys):
+    calls = []
+
+    def fake_validate_identifier(value, field_name):
+        calls.append((value, field_name))
+        raise IdentifierValidationError("rejected by core")
+
+    monkeypatch.setattr(
+        validation.core_identifiers,
+        "validate_identifier",
+        fake_validate_identifier,
+    )
+
+    assert not validate_identifier("student_id", "1001", context="roster")
+    assert calls == [("1001", "student_id")]
+    assert "Error: roster student_id is unsafe: '1001'." in capsys.readouterr().out
