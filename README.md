@@ -464,48 +464,34 @@ Package names vary by distribution.
 
 For development use, install ScoreForm in editable mode within your virtual environment:
 
-```powershell
-python -m pip install -r requirements.txt
-python -m pip install -e .
-```
+    python -m pip install -r requirements.txt
+    python -m pip install -e .
 
 To include development/test dependencies such as `pytest`, install with the `dev` extra:
 
-```powershell
-python -m pip install -e .[dev]
-```
+    python -m pip install -e .[dev]
 
-Then launch the interactive menu with:
+### Paper Data Suite Local Development Setup
 
-```powershell
-scoreform
-```
+ScoreForm is beginning to consume shared utilities from `pds-core`.
 
-or use individual commands:
+For local Paper Data Suite development, clone `pds-core` and `pds-scoreform` under the same parent folder:
 
-```powershell
-scoreform --help
-scoreform --version
-scoreform menu
-scoreform validate-assignment examples\sample_assignment.json
-scoreform validate-roster examples\sample_roster_english9_p2.csv
-scoreform generate
-scoreform generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
-scoreform score path\to\scan.pdf
-scoreform decode-qr path\to\file.pdf
-scoreform setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv
-```
+    Paper-Data-Suite/
+      pds-core/
+      pds-scoreform/
 
-For backward compatibility, direct `python main.py` commands continue to work:
+From inside the activated `pds-scoreform` virtual environment, install the local development dependencies with:
 
-```powershell
-python main.py menu
-python main.py --help
-python main.py --version
-python main.py validate-assignment examples\sample_assignment.json
-python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
-python main.py score path\to\scan.pdf
-```
+    python -m pip install -r requirements-dev.txt
+
+This installs:
+
+* ScoreForm’s normal runtime dependencies;
+* the sibling `pds-core` checkout in editable mode;
+* ScoreForm itself with development/test extras.
+
+Avoid committing machine-specific absolute paths for `pds-core`. Until packaging is settled, local development expects the sibling repo layout shown above.
 
 ## Basic Usage
 
