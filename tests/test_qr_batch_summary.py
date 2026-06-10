@@ -104,6 +104,8 @@ def test_process_file_qr_aware_records_missing_qr_failure(tmp_path, monkeypatch)
 def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monkeypatch):
     scan_path = tmp_path / "scan.png"
     scan_path.write_bytes(b"synthetic")
+    assignment_paths = []
+    debug_dirs = []
 
     monkeypatch.setattr(
         scoring.cv2,
@@ -124,12 +126,21 @@ def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monke
     monkeypatch.setattr(
         scoring,
         "_load_qr_aware_assignment",
-        lambda assignment_path, page_num, summary: {
-            "answer_key": {1: "A"},
-            "question_count": 1,
-        },
+        lambda assignment_path, page_num, summary: (
+            assignment_paths.append(assignment_path)
+            or {
+                "answer_key": {1: "A"},
+                "question_count": 1,
+            }
+        ),
     )
-    monkeypatch.setattr(scoring, "score_image", lambda *args, **kwargs: _scored_result())
+    monkeypatch.setattr(
+        scoring,
+        "score_image",
+        lambda *args, **kwargs: (
+            debug_dirs.append(kwargs["debug_dir"]) or _scored_result()
+        ),
+    )
 
     results = scoring.process_file_qr_aware(str(scan_path))
     scoring.update_qr_batch_result_write_status(results, export_success=True)
@@ -139,20 +150,40 @@ def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monke
     assert results.summary.pages_scored == 1
     assert results.summary.pages_skipped_failed == 0
     expected_path = (
-        Path("classes")
+        tmp_path
+        / "classes"
         / "english9_p2"
         / "assignments"
         / "rj_act1_quiz"
         / "results.csv"
     )
     assert results.summary.output_paths == [str(expected_path)]
+    assert assignment_paths == [
+        str(
+            tmp_path
+            / "classes"
+            / "english9_p2"
+            / "assignments"
+            / "rj_act1_quiz"
+            / "assignment.json"
+        )
+    ]
+    assert debug_dirs == [
+        str(
+            tmp_path
+            / "classes"
+            / "english9_p2"
+            / "assignments"
+            / "rj_act1_quiz"
+            / "debug"
+        )
+    ]
 
 
 def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(
     tmp_path,
     monkeypatch,
 ):
-    monkeypatch.setattr(scoring, "LOCAL_OUTPUTS_DIR", str(tmp_path))
     now = datetime.datetime(2026, 6, 10, 14, 32)
     image = np.ones((400, 300, 3), dtype=np.uint8) * 255
 
@@ -163,7 +194,7 @@ def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(
         now=now,
     )
 
-    expected_dir = tmp_path / "qr_failures" / "2026-06-10"
+    expected_dir = tmp_path / "local_outputs" / "qr_failures" / "2026-06-10"
     assert len(paths) == 6
     assert all(Path(path).parent == expected_dir for path in paths)
     assert all(Path(path).exists() for path in paths)
@@ -174,7 +205,6 @@ def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(
 
 
 def test_missing_qr_decode_saves_failure_diagnostics(tmp_path, monkeypatch):
-    monkeypatch.setattr(scoring, "LOCAL_OUTPUTS_DIR", str(tmp_path))
     monkeypatch.setattr(
         scoring,
         "_qr_candidate_images",
@@ -204,7 +234,6 @@ def test_save_qr_batch_summary_includes_failures_and_result_paths(
     monkeypatch,
     capsys,
 ):
-    monkeypatch.setattr(scoring, "LOCAL_OUTPUTS_DIR", str(tmp_path))
     now = datetime.datetime(2026, 6, 10, 14, 32)
     summary = scoring.QRBatchSummary()
     summary.record_processed_page()
@@ -228,6 +257,7 @@ def test_save_qr_batch_summary_includes_failures_and_result_paths(
     assert "QR-Aware Batch Summary" in output
     assert Path(output_path) == (
         tmp_path
+        / "local_outputs"
         / "qr_batch_summaries"
         / "2026-06-10"
         / "English_12_Trial_Responses_2026-06-10_1432_summary.txt"

@@ -18,8 +18,12 @@ import os
 import re
 import sys
 
+from pds_core.routes import assignment_config_path as core_assignment_config_path
+from pds_core.routes import class_roster_path as core_class_roster_path
+from pds_core.routes import classes_dir as core_classes_dir
 from pds_core.scan_routes import scans_inbox_dir
 
+from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.roster import load_roster
@@ -95,7 +99,8 @@ def is_supported_scan_file(path):
 def discover_scans_in_inbox(scans_dir=None):
     """Return supported scan files directly inside scans_dir in deterministic order."""
     if scans_dir is None:
-        scans_dir = os.fspath(scans_inbox_dir("."))
+        workspace_root = workspace.get_scoreform_workspace_root()
+        scans_dir = os.fspath(scans_inbox_dir(workspace_root))
 
     if not os.path.isdir(scans_dir):
         return []
@@ -126,8 +131,12 @@ def suggest_assignment_id(title):
     return value.strip("_")
 
 
-def discover_class_rosters(classes_dir="classes"):
+def discover_class_rosters(classes_dir=None):
     """Return valid class rosters discovered under classes/<class_id>/roster.csv."""
+    if classes_dir is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+        classes_dir = os.fspath(core_classes_dir(workspace_root))
+
     if not os.path.isdir(classes_dir):
         return []
 
@@ -160,10 +169,14 @@ def discover_class_rosters(classes_dir="classes"):
     return discovered
 
 
-def discover_class_assignments(class_id, classes_dir="classes"):
+def discover_class_assignments(class_id, classes_dir=None):
     """Return valid assignments discovered under classes/<class_id>/assignments/*."""
     if not is_safe_identifier(class_id):
         return []
+
+    if classes_dir is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+        classes_dir = os.fspath(core_classes_dir(workspace_root))
 
     assignments_dir = os.path.join(classes_dir, class_id, "assignments")
     if not os.path.isdir(assignments_dir):
@@ -435,7 +448,8 @@ def prompt_create_roster():
     if not validate_identifier("class_id", class_id, context="roster"):
         return 1
 
-    output_path = os.path.join("classes", class_id, "roster.csv")
+    workspace_root = workspace.get_scoreform_workspace_root()
+    output_path = os.fspath(core_class_roster_path(workspace_root, class_id))
 
     if not confirm_roster_overwrite(output_path, class_id):
         print("Cancelled: Roster overwrite not confirmed.")
@@ -611,12 +625,13 @@ def prompt_create_assignment():
     skipped_paths = []
     for class_record in selected_classes:
         class_id = class_record["class_id"]
-        output_path = os.path.join(
-            "classes",
-            class_id,
-            "assignments",
-            assignment_id,
-            "assignment.json",
+        workspace_root = workspace.get_scoreform_workspace_root()
+        output_path = os.fspath(
+            core_assignment_config_path(
+                workspace_root,
+                class_id,
+                assignment_id,
+            )
         )
 
         if not confirm_assignment_overwrite(output_path, class_id):

@@ -245,7 +245,7 @@ def test_prompt_view_roster_displays_selected_class_roster(tmp_path, monkeypatch
     assert "1. english_12_p5" in output
     assert "2. english_9_period_2" in output
     assert "Class: english_9_period_2" in output
-    assert "Roster: classes" in output
+    assert f"Roster: {tmp_path / 'classes'}" in output
     assert "Students: 1" in output
     assert "1001" in output
     assert "Doe" in output

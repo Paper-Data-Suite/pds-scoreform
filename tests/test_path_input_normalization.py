@@ -71,7 +71,6 @@ def test_discover_scans_in_inbox_returns_empty_for_missing_or_empty_dir(tmp_path
 
 
 def test_discover_scans_in_inbox_uses_core_route_by_default(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
     route_calls = []
     scans_dir = tmp_path / "scans_inbox"
     scans_dir.mkdir()
@@ -84,6 +83,6 @@ def test_discover_scans_in_inbox_uses_core_route_by_default(tmp_path, monkeypatc
         lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
     )
 
-    assert discover_scans_in_inbox() == [str(Path("scans_inbox") / "scan.pdf")]
-    assert route_calls == ["."]
+    assert discover_scans_in_inbox() == [str(scans_dir / "scan.pdf")]
+    assert route_calls == [tmp_path]
     assert scan_path.exists()

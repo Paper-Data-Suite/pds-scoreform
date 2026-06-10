@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from pds_core.scan_routes import scans_inbox_dir
 
+from scoreform import workspace
 from scoreform.assignment import load_answer_key, load_assignment
 from scoreform.config import LOCAL_RESULTS_CSV
 from scoreform.folders import setup_assignment_folder
@@ -252,14 +253,17 @@ def run_score(args):
         print("      QR-aware scoring with explicit output CSV.")
         print("  scoreform score <input_file> <answer_key_json>")
         print("      Legacy/manual scoring with default output:")
-        print(f"      {LOCAL_RESULTS_CSV}")
+        print("      <PDS workspace root>/local_outputs/results/results.csv")
         print("  scoreform score <input_file> <output_csv> <answer_key_json>")
         print("      Legacy/manual scoring with explicit output CSV.")
         return 1
 
+    default_results_csv = os.fspath(
+        workspace.get_scoreform_workspace_root() / LOCAL_RESULTS_CSV
+    )
     input_file = args[0]
     use_qr_aware = False
-    output_file = LOCAL_RESULTS_CSV
+    output_file = default_results_csv
     answer_key_file = "answer_key.json"
     explicit_output_csv = False
 
@@ -573,7 +577,8 @@ def launch_generate_menu():
 def prompt_select_scan_from_inbox(scans_dir=None):
     """Prompt for one supported scan file from scans_dir."""
     if scans_dir is None:
-        scans_dir = os.fspath(scans_inbox_dir("."))
+        workspace_root = workspace.get_scoreform_workspace_root()
+        scans_dir = os.fspath(scans_inbox_dir(workspace_root))
 
     clear_screen()
     print_menu_header("Select a Scan")

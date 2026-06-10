@@ -288,14 +288,14 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "Score Scanned Responses" in output
-    assert "Available scans in scans_inbox:" in output
+    assert f"Available scans in {scans_dir}:" in output
     assert "1. class_packet_period2.jpg" in output
     assert "2. mixed_scan.pdf" in output
     assert "z_unsupported.txt" not in output
     assert "Selected scan:" in output
     assert "QR-aware routed scoring (recommended)" in output
     assert "Output CSV path (blank for routed QR-aware default):" not in output
-    assert run_score_calls == [[str(Path("scans_inbox") / "mixed_scan.pdf")]]
+    assert run_score_calls == [[str(scans_dir / "mixed_scan.pdf")]]
 
 
 def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_path, monkeypatch, capsys):
@@ -420,12 +420,18 @@ def test_prompt_select_scan_from_inbox_handles_missing_and_empty_inbox(tmp_path,
     assert scoreform.cli.prompt_select_scan_from_inbox() is None
 
     output = capsys.readouterr().out
-    assert output.count("No scans found in scans_inbox.") == 2
-    assert "Place scanned PDFs or images in scans_inbox, then try again." in output
+    assert output.count(f"No scans found in {scans_dir}.") == 2
+    assert (
+        f"Place scanned PDFs or images in {scans_dir}, then try again."
+        in output
+    )
     assert pauses == ["pause", "pause"]
 
 
-def test_prompt_select_scan_from_inbox_uses_core_route_by_default(monkeypatch):
+def test_prompt_select_scan_from_inbox_uses_core_route_by_default(
+    tmp_path,
+    monkeypatch,
+):
     route_calls = []
     discovery_calls = []
 
@@ -442,8 +448,8 @@ def test_prompt_select_scan_from_inbox_uses_core_route_by_default(monkeypatch):
     monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
 
     assert scoreform.cli.prompt_select_scan_from_inbox() is None
-    assert route_calls == ["."]
-    assert discovery_calls == ["scans_inbox"]
+    assert route_calls == [tmp_path]
+    assert discovery_calls == [str(tmp_path / "scans_inbox")]
 
 
 def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
@@ -464,6 +470,55 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
     )
 
     assert scoreform.cli.main(["score", "scan.pdf"]) == 1
+
+
+def test_invalid_score_usage_does_not_resolve_workspace(monkeypatch, capsys):
+    monkeypatch.setattr(
+        scoreform.cli.workspace,
+        "get_scoreform_workspace_root",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("workspace should not be resolved for usage text")
+        ),
+    )
+
+    assert scoreform.cli.run_score([]) == 1
+
+    output = capsys.readouterr().out
+    assert "<PDS workspace root>/local_outputs/results/results.csv" in output
+
+
+def test_manual_score_defaults_to_workspace_and_preserves_explicit_inputs(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+    scan_path = r"C:\Somewhere\scan.pdf"
+    answer_key_path = r"C:\Somewhere\answer_key.json"
+
+    monkeypatch.setattr(
+        scoreform.cli,
+        "load_answer_key",
+        lambda path: calls.setdefault("answer_key", path) or {1: "A"},
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "process_file",
+        lambda path, key: calls.setdefault("input_file", path) or [{"page_num": 1}],
+    )
+    monkeypatch.setattr(
+        scoreform.cli,
+        "export_to_csv",
+        lambda results, path: calls.setdefault("output_file", path) or True,
+    )
+
+    assert scoreform.cli.run_score([scan_path, answer_key_path]) == 0
+    assert calls == {
+        "answer_key": answer_key_path,
+        "input_file": scan_path,
+        "output_file": str(
+            tmp_path / "local_outputs" / "results" / "results.csv"
+        ),
+    }
 
 
 def test_direct_cli_subcommand_does_not_clear_or_pause(monkeypatch):

@@ -10,6 +10,7 @@ from pds_core.routes import (
     class_roster_path as core_class_roster_path,
 )
 
+from scoreform import workspace
 from scoreform.folders import ensure_parent_dir
 from scoreform.scoring import validate_qr_identifier
 
@@ -235,9 +236,10 @@ def _enrich_results_with_roster(all_results):
         by_class.setdefault(class_id, []).append(res)
 
     any_loaded = False
+    workspace_root = workspace.get_scoreform_workspace_root()
 
     for class_id, results in by_class.items():
-        roster_path = os.fspath(core_class_roster_path(".", class_id))
+        roster_path = os.fspath(core_class_roster_path(workspace_root, class_id))
 
         # Import locally to avoid circular imports
         try:
@@ -347,8 +349,11 @@ def export_routed_results(all_results):
 
     # Write each group to its assignment folder
     all_success = True
+    workspace_root = workspace.get_scoreform_workspace_root()
     for (class_id, assignment_id), results in groups.items():
-        output_dir = os.fspath(core_assignment_dir(".", class_id, assignment_id))
+        output_dir = os.fspath(
+            core_assignment_dir(workspace_root, class_id, assignment_id)
+        )
         
         if not os.path.exists(output_dir):
             print(f"Error: Assignment directory does not exist: {output_dir}")
