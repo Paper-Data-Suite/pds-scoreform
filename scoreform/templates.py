@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -6,6 +7,7 @@ import numpy as np
 from pds_core.pds1 import Pds1PayloadError, build_pds1_payload
 from pds_core.qr_payload import QrPayload, QrPayloadValidationError
 
+from scoreform import workspace
 from scoreform.config import (
     BOX_SIZE,
     BOX_START_X,
@@ -149,8 +151,14 @@ def _generate_template_pdf(filename="template.pdf"):
     print(f"Template saved as {filename}")
 
 
-def generate_template(pdf_filename=LOCAL_TEMPLATE_PDF, png_filename=LOCAL_TEMPLATE_PNG):
+def generate_template(pdf_filename=None, png_filename=None):
     """Generates the answer sheet template PDF and an optional PNG debug template."""
+    workspace_root = workspace.get_scoreform_workspace_root()
+    if pdf_filename is None:
+        pdf_filename = os.fspath(workspace_root / LOCAL_TEMPLATE_PDF)
+    if png_filename is None:
+        png_filename = os.fspath(workspace_root / LOCAL_TEMPLATE_PNG)
+
     _generate_template_pdf(pdf_filename)
     _generate_template_png(png_filename)
 

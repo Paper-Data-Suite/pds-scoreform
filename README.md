@@ -66,7 +66,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Per-result `source_file` tracking
 * Per-result `attempt_number` and `scan_timestamp` metadata
 * Safe routed-results writes that preserve existing rows
-* Project-level `scans_inbox/` creation to support scan workflow
+* Workspace-level `scans_inbox/` creation to support scan workflow
 
 ### Rosters, Assignments, and Validation
 
@@ -163,8 +163,6 @@ tests/
 
 pyproject.toml
 
-scans_inbox/
-local_outputs/
 main.py
 requirements.txt
 run_fast_tests.ps1
@@ -177,29 +175,45 @@ docs/
   development_plan.md
 ```
 
-Generated classroom files are organized using a structure like:
+## Paper Data Suite Workspace
+
+ScoreForm-managed data is stored under the shared Paper Data Suite workspace
+root defined by `pds-core`. The default root is `~/Paper Data Suite`; a
+different root can be selected through the shared PDS workspace configuration
+or the `PDS_WORKSPACE_ROOT` environment variable.
+
+The source checkout, installed package, virtual environment, and current
+working directory are not implicit data roots. ScoreForm currently does not
+provide menu or CLI commands for changing the workspace root; that interface is
+tracked separately in issue #35.
+
+Generated classroom files preserve the existing layout under the workspace
+root:
 
 ```text
-classes/
-  english9_p2/
-    roster.csv
-    assignments/
-      rj_act1_quiz/
-        assignment.json
-        results.csv
-        templates/
-          class_packet.pdf
-          individual/
-            1001_doe_jane.pdf
-            1002_smith_marcus.pdf
-            1003_brown_alyssa.pdf
-        scans/
-        debug/
+<PDS workspace root>/
+  classes/
+    english9_p2/
+      roster.csv
+      assignments/
+        rj_act1_quiz/
+          assignment.json
+          results.csv
+          templates/
+            class_packet.pdf
+            individual/
+              1001_doe_jane.pdf
+              1002_smith_marcus.pdf
+              1003_brown_alyssa.pdf
+          scans/
+          debug/
+  scans_inbox/
+  local_outputs/
 ```
 
-**Note:** `scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files in `scans_inbox/` are ignored by Git and are not moved or deleted automatically.
+**Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
 
-Generic/manual development outputs are organized under `local_outputs/` when ScoreForm chooses the default path:
+Generic/manual development outputs are organized under `<PDS workspace root>/local_outputs/` when ScoreForm chooses the default path:
 
 ```text
 local_outputs/
@@ -221,7 +235,8 @@ local_outputs/
   temp/
 ```
 
-`local_outputs/` is ignored by Git. Explicit output paths supplied by the user are still honored as written.
+Explicit input and output paths supplied by the user are still honored as
+written. Workspace routing applies to ScoreForm-managed paths and defaults.
 
 When QR-aware scoring cannot decode a page, ScoreForm saves the failed page and
 a bounded set of attempted QR-region images under
@@ -554,7 +569,7 @@ Use `scoreform --help`, `scoreform -h`, or `scoreform help` to show available co
 
 ### Scan Workflow
 
-Scanned PDFs and images should be placed in the `scans_inbox/` folder:
+Scanned PDFs and images should be placed in the workspace `scans_inbox/` folder:
 
 ```text
 scans_inbox/
@@ -562,13 +577,15 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program will create this folder automatically when you generate or set up assignment materials. From the terminal menu, **Score scanned responses** can list supported files directly inside `scans_inbox/` and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `classes/<class_id>/assignments/<assignment_id>/results.csv`. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
 
 The picker only selects the input file. It does not move, copy, rename, delete, archive, or route scan files. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
 
 Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
-Legacy/manual default results and debug images are written under `local_outputs/results/` and `local_outputs/debug/`. QR-aware routed scoring still writes results and debug images into the assignment folder under `classes/`.
+Legacy/manual default results and debug images are written under the workspace
+`local_outputs/results/` and `local_outputs/debug/` folders. QR-aware routed
+scoring writes results and debug images into the workspace assignment folder.
 
 ### Scan Quality Guidance
 
@@ -665,7 +682,8 @@ scoreform setup-assignment examples\sample_assignment.json examples\sample_roste
 scoreform generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv
 ```
 
-Generic template generation without an assignment writes to `local_outputs/templates/` by default:
+Generic template generation without an assignment writes to
+`<PDS workspace root>/local_outputs/templates/` by default:
 
 ```powershell
 scoreform generate
@@ -683,7 +701,7 @@ scoreform decode-qr path\to\file.pdf
 scoreform score path\to\scan.pdf
 ```
 
-QR-aware scoring without an output CSV routes results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
+QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`.
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
 
 Routed `results.csv` is an audit log, not a finalized gradebook export. If a student sheet is scanned more than once, ScoreForm preserves each successful scan as a separate row instead of overwriting earlier results. The `attempt_number` column increments for repeated scans of the same student and assignment, while `scan_timestamp` and `source_file` identify when the row was created and which scan, PDF, or image produced it. Makeup or separate scans append to the existing class-assignment results file when the QR metadata matches. ScoreForm does not yet decide which attempt is the official grade, so teachers should manually verify which row to use until gradebook export rules are implemented.

@@ -28,7 +28,9 @@ def _prepare_routed_assignment(tmp_path, monkeypatch):
         "english9_p2,0004,Delta,Dan,2\n",
         encoding="utf-8",
     )
-    monkeypatch.chdir(tmp_path)
+    run_dir = tmp_path / "run-directory"
+    run_dir.mkdir()
+    monkeypatch.chdir(run_dir)
     return assignment_dir
 
 

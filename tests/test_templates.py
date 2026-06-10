@@ -19,6 +19,27 @@ def test_student_pdf_filename():
     assert fname == "1001_doe_jane.pdf"
 
 
+def test_generate_template_uses_workspace_defaults(tmp_path, monkeypatch):
+    generated = []
+    monkeypatch.setattr(
+        templates,
+        "_generate_template_pdf",
+        lambda path: generated.append(("pdf", path)),
+    )
+    monkeypatch.setattr(
+        templates,
+        "_generate_template_png",
+        lambda path: generated.append(("png", path)),
+    )
+
+    templates.generate_template()
+
+    assert generated == [
+        ("pdf", str(tmp_path / "local_outputs" / "templates" / "template.pdf")),
+        ("png", str(tmp_path / "local_outputs" / "templates" / "template.png")),
+    ]
+
+
 def test_safe_filename_none():
     assert templates.safe_filename(None) == ""
 

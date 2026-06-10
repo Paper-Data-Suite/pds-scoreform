@@ -102,7 +102,24 @@ function Assert-CsvValueCount {
     Write-Host "FOUND CSV COUNT: $Column=$Value appears $ExpectedCount time(s)" -ForegroundColor Green
 }
 
-$LocalOutputsDir = "local_outputs"
+$RepoRoot = (Get-Location).Path
+$TestWorkspaceRoot = Join-Path $RepoRoot "local_outputs\regression_workspace"
+$resolvedWorkspaceRoot = [System.IO.Path]::GetFullPath($TestWorkspaceRoot)
+$resolvedRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
+$workspaceRootWasSet = Test-Path Env:PDS_WORKSPACE_ROOT
+$previousWorkspaceRoot = $env:PDS_WORKSPACE_ROOT
+if (-not $resolvedWorkspaceRoot.StartsWith(
+    $resolvedRepoRoot + [System.IO.Path]::DirectorySeparatorChar,
+    [System.StringComparison]::OrdinalIgnoreCase
+)) {
+    throw "Refusing to use regression workspace outside the repository: $resolvedWorkspaceRoot"
+}
+
+$env:PDS_WORKSPACE_ROOT = $resolvedWorkspaceRoot
+try {
+$ClassesDir = Join-Path $TestWorkspaceRoot "classes"
+$ScansInboxDir = Join-Path $TestWorkspaceRoot "scans_inbox"
+$LocalOutputsDir = Join-Path $TestWorkspaceRoot "local_outputs"
 $LocalTemplatesDir = Join-Path $LocalOutputsDir "templates"
 $LocalResultsDir = Join-Path $LocalOutputsDir "results"
 $LocalDebugDir = Join-Path $LocalOutputsDir "debug"
@@ -114,23 +131,28 @@ $QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
 $MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
 $MenuInboxResultsCsv = Join-Path $LocalResultsDir "menu_inbox_results.csv"
 $ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
-$MenuRosterClassDir = Join-Path "classes" "000_test_class_v5"
+$SampleClassDir = Join-Path $ClassesDir "english9_p2"
+$SampleAssignmentDir = Join-Path $SampleClassDir "assignments\rj_act1_quiz"
+$SampleTemplatesDir = Join-Path $SampleAssignmentDir "templates"
+$SampleIndividualDir = Join-Path $SampleTemplatesDir "individual"
+$SampleDebugDir = Join-Path $SampleAssignmentDir "debug"
+$SampleResultsCsv = Join-Path $SampleAssignmentDir "results.csv"
+$MenuRosterClassDir = Join-Path $ClassesDir "000_test_class_v5"
 $MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
 $TempAssignmentJson = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\assignment.json"
-$MenuInboxScanPdf = Join-Path "scans_inbox" "000_menu_picker_class_packet.pdf"
-$MenuInboxIgnoredTxt = Join-Path "scans_inbox" "000_menu_picker_ignored.txt"
+$MenuInboxScanPdf = Join-Path $ScansInboxDir "000_menu_picker_class_packet.pdf"
+$MenuInboxIgnoredTxt = Join-Path $ScansInboxDir "000_menu_picker_ignored.txt"
 
 Write-Host ""
 Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
+Remove-Item $TestWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "results.csv" -ErrorAction SilentlyContinue
 Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_*.png" -ErrorAction SilentlyContinue
 Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
 Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $LocalTemplatesDir, $LocalResultsDir, $LocalDebugDir, $LocalTempDir -Force | Out-Null
+New-Item -ItemType Directory -Path $LocalTemplatesDir, $LocalResultsDir, $LocalDebugDir, $LocalTempDir, $ScansInboxDir -Force | Out-Null
 Remove-Item $TemplatePdf -ErrorAction SilentlyContinue
 Remove-Item $TemplatePng -ErrorAction SilentlyContinue
 Remove-Item $DefaultResultsCsv -ErrorAction SilentlyContinue
@@ -191,19 +213,21 @@ Invoke-Test "Generate class assignment materials" "python main.py generate examp
 
 Write-Host ""
 Write-Host "Checking generated class/assignment files..." -ForegroundColor Yellow
-Assert-Exists "classes\english9_p2\roster.csv"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\assignment.json"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1002_smith_marcus.pdf"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1003_brown_alyssa.pdf"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\scans"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug"
-Assert-Exists "scans_inbox"
+Assert-Exists (Join-Path $SampleClassDir "roster.csv")
+Assert-Exists (Join-Path $SampleAssignmentDir "assignment.json")
+Assert-Exists $SampleTemplatesDir
+Assert-Exists $SampleIndividualDir
+Assert-Exists (Join-Path $SampleTemplatesDir "class_packet.pdf")
+Assert-Exists (Join-Path $SampleIndividualDir "1001_doe_jane.pdf")
+Assert-Exists (Join-Path $SampleIndividualDir "1002_smith_marcus.pdf")
+Assert-Exists (Join-Path $SampleIndividualDir "1003_brown_alyssa.pdf")
+Assert-Exists (Join-Path $SampleAssignmentDir "scans")
+Assert-Exists $SampleDebugDir
+Assert-Exists $ScansInboxDir
 
-Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf"
+$SampleStudentPdf = Join-Path $SampleIndividualDir "1001_doe_jane.pdf"
+$SampleClassPacketPdf = Join-Path $SampleTemplatesDir "class_packet.pdf"
+Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr `"$SampleStudentPdf`""
 
 Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
@@ -211,8 +235,8 @@ Invoke-Test "Launch menu help and exit" "Write-Output '3', '', '4' | python main
 
 Write-Host ""
 Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
-Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAction SilentlyContinue
-Copy-Item "classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf" $MenuInboxScanPdf -Force
+Remove-Item $SampleResultsCsv -ErrorAction SilentlyContinue
+Copy-Item $SampleClassPacketPdf $MenuInboxScanPdf -Force
 Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding UTF8
 @(
     "1",                    # Main menu -> Assignment Management
@@ -231,14 +255,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "PASSED: Scan inbox picker through menu" -ForegroundColor Green
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "000_menu_picker_class_packet.pdf"
+Assert-Exists $SampleResultsCsv
+Assert-FileContains $SampleResultsCsv "000_menu_picker_class_packet.pdf"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
 
 # Verify original assignment.json exists and contains expected title
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
+$SampleAssignmentJson = Join-Path $SampleAssignmentDir "assignment.json"
+Assert-FileContains $SampleAssignmentJson "Romeo and Juliet Act 1 Quiz"
 Write-Host "CONFIRMED: Original assignment.json has expected title" -ForegroundColor Green
 
 # Create conflicting assignment with same assignment_id but different content
@@ -268,8 +293,8 @@ Invoke-Test "Validate conflicting assignment fixture" "python main.py validate-a
 Invoke-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
 
 # Verify original assignment.json was NOT overwritten
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "Romeo and Juliet Act 1 Quiz"
-Assert-FileDoesNotContain "classes\english9_p2\assignments\rj_act1_quiz\assignment.json" "CONFLICTING VERSION"
+Assert-FileContains $SampleAssignmentJson "Romeo and Juliet Act 1 Quiz"
+Assert-FileDoesNotContain $SampleAssignmentJson "CONFLICTING VERSION"
 Write-Host "CONFIRMED: Original assignment.json was protected and not overwritten" -ForegroundColor Green
 
 # Clean up test artifact
@@ -286,7 +311,7 @@ Assert-Exists "$LocalDebugDir\debug_warped_page_1.png"
 Write-Host ""
 Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score with QR-aware metadata extraction" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\individual\1001_doe_jane.pdf $QrMetadataResultsCsv"
+Invoke-Test "Score with QR-aware metadata extraction" "python main.py score `"$SampleStudentPdf`" `"$QrMetadataResultsCsv`""
 
 Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
@@ -297,7 +322,7 @@ Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane.pdf"
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf $MixedScanResultsCsv"
+Invoke-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score `"$SampleClassPacketPdf`" `"$MixedScanResultsCsv`""
 
 Write-Host ""
 Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
@@ -310,42 +335,42 @@ Assert-FileContains $MixedScanResultsCsv "rj_act1_quiz"
 
 Write-Host ""
 Write-Host "Testing result routing..." -ForegroundColor Yellow
-Remove-Item "classes\english9_p2\assignments\rj_act1_quiz\results.csv" -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with result routing" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
+Remove-Item $SampleResultsCsv -ErrorAction SilentlyContinue
+Invoke-Test "Score class packet with result routing" "python main.py score `"$SampleClassPacketPdf`""
 
 Write-Host ""
 Write-Host "Checking routed results output..." -ForegroundColor Yellow
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1001"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1002"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "1003"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "english9_p2"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "rj_act1_quiz"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Doe"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Jane"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Smith"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Marcus"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Brown"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "Alyssa"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "2"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "class_packet.pdf"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "scan_timestamp"
+Assert-Exists $SampleResultsCsv
+Assert-FileContains $SampleResultsCsv "1001"
+Assert-FileContains $SampleResultsCsv "1002"
+Assert-FileContains $SampleResultsCsv "1003"
+Assert-FileContains $SampleResultsCsv "english9_p2"
+Assert-FileContains $SampleResultsCsv "rj_act1_quiz"
+Assert-FileContains $SampleResultsCsv "Doe"
+Assert-FileContains $SampleResultsCsv "Jane"
+Assert-FileContains $SampleResultsCsv "Smith"
+Assert-FileContains $SampleResultsCsv "Marcus"
+Assert-FileContains $SampleResultsCsv "Brown"
+Assert-FileContains $SampleResultsCsv "Alyssa"
+Assert-FileContains $SampleResultsCsv "2"
+Assert-FileContains $SampleResultsCsv "source_file"
+Assert-FileContains $SampleResultsCsv "class_packet.pdf"
+Assert-FileContains $SampleResultsCsv "scan_timestamp"
 
 Write-Host ""
 Write-Host "Testing duplicate/attempt handling for routed results..." -ForegroundColor Yellow
-Invoke-Test "Score class packet with result routing again for attempt tracking" "python main.py score classes\english9_p2\assignments\rj_act1_quiz\templates\class_packet.pdf"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\results.csv"
-Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "1" 3
-Assert-CsvValueCount "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "attempt_number" "2" 3
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "source_file"
-Assert-FileContains "classes\english9_p2\assignments\rj_act1_quiz\results.csv" "scan_timestamp"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_1.png"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_1.png"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_2.png"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_2.png"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_corners_page_3.png"
-Assert-Exists "classes\english9_p2\assignments\rj_act1_quiz\debug\debug_warped_page_3.png"
+Invoke-Test "Score class packet with result routing again for attempt tracking" "python main.py score `"$SampleClassPacketPdf`""
+Assert-Exists $SampleResultsCsv
+Assert-CsvValueCount $SampleResultsCsv "attempt_number" "1" 3
+Assert-CsvValueCount $SampleResultsCsv "attempt_number" "2" 3
+Assert-FileContains $SampleResultsCsv "source_file"
+Assert-FileContains $SampleResultsCsv "scan_timestamp"
+Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_1.png")
+Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_1.png")
+Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_2.png")
+Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_2.png")
+Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_3.png")
+Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_3.png")
 
 Write-Host ""
 Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
@@ -459,12 +484,22 @@ Write-Host "PASSED: Answer sheet generation through menu" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Checking menu generation output..." -ForegroundColor Yellow
-Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\class_packet.pdf"
-Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\individual\5001_test_alice.pdf"
-Assert-Exists "classes\000_test_class_v5\assignments\test_assignment_v5\templates\individual\5002_student_bob.pdf"
+$MenuAssignmentTemplatesDir = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\templates"
+Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "class_packet.pdf")
+Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "individual\5001_test_alice.pdf")
+Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "individual\5002_student_bob.pdf")
 
 # Clean up test roster and assignment
 Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green
+}
+finally {
+    if ($workspaceRootWasSet) {
+        $env:PDS_WORKSPACE_ROOT = $previousWorkspaceRoot
+    }
+    else {
+        Remove-Item Env:PDS_WORKSPACE_ROOT -ErrorAction SilentlyContinue
+    }
+}

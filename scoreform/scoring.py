@@ -8,7 +8,11 @@ import numpy as np
 from pds_core.omr1 import Omr1PayloadError, parse_omr1_payload
 from pds_core.pds1 import Pds1PayloadError, parse_pds1_payload
 from pds_core.qr_payload import QrPayloadValidationError
+from pds_core.routes import assignment_config_path as core_assignment_config_path
+from pds_core.routes import assignment_debug_dir as core_assignment_debug_dir
+from pds_core.routes import assignment_dir as core_assignment_dir
 
+from scoreform import workspace
 from scoreform.config import (
     BOX_SIZE,
     BOX_START_X,
@@ -369,7 +373,9 @@ def _classify_answer_row(row_filled):
 def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     if debug_dir is None:
-        debug_dir = LOCAL_DEBUG_DIR
+        debug_dir = os.fspath(
+            workspace.get_scoreform_workspace_root() / LOCAL_DEBUG_DIR
+        )
 
     debug_img = img.copy()
     if question_count is None:
@@ -850,10 +856,12 @@ def _sanitize_output_stem(file_path):
 
 def _dated_local_output_dir(category, now=None):
     timestamp = now or datetime.datetime.now()
-    output_dir = os.path.join(
-        LOCAL_OUTPUTS_DIR,
-        category,
-        timestamp.strftime("%Y-%m-%d"),
+    output_dir = os.fspath(
+        workspace.get_scoreform_workspace_root().joinpath(
+            LOCAL_OUTPUTS_DIR,
+            category,
+            timestamp.strftime("%Y-%m-%d"),
+        )
     )
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
@@ -1035,17 +1043,19 @@ def _qr_output_paths_for_results(all_results, explicit_output_file=None):
         return [explicit_output_file]
 
     paths = []
+    workspace_root = workspace.get_scoreform_workspace_root()
     for res in all_results:
         class_id = res.get("class_id")
         assignment_id = res.get("assignment_id")
         if class_id and assignment_id:
             paths.append(
-                os.path.join(
-                    "classes",
-                    class_id,
-                    "assignments",
-                    assignment_id,
-                    "results.csv",
+                os.fspath(
+                    core_assignment_dir(
+                        workspace_root,
+                        class_id,
+                        assignment_id,
+                    )
+                    / "results.csv"
                 )
             )
 
@@ -1129,12 +1139,13 @@ def _score_page_qr_aware_decode_metadata(
 
 
 def _score_page_qr_aware_assignment_path(class_id, assignment_id):
-    return os.path.join(
-        "classes",
-        class_id,
-        "assignments",
-        assignment_id,
-        "assignment.json",
+    workspace_root = workspace.get_scoreform_workspace_root()
+    return os.fspath(
+        core_assignment_config_path(
+            workspace_root,
+            class_id,
+            assignment_id,
+        )
     )
 
 
@@ -1375,12 +1386,13 @@ def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
 
     question_count = _question_count_for_assignment(assignment_data, answer_key)
 
-    debug_dir = os.path.join(
-        "classes",
-        class_id,
-        "assignments",
-        assignment_id,
-        "debug",
+    workspace_root = workspace.get_scoreform_workspace_root()
+    debug_dir = os.fspath(
+        core_assignment_debug_dir(
+            workspace_root,
+            class_id,
+            assignment_id,
+        )
     )
     result = _score_qr_aware_image(
         img,

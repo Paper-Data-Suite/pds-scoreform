@@ -31,7 +31,6 @@ def test_load_json_for_comparison_unreadable(tmp_path):
 
 
 def test_ensure_scan_inbox_uses_core_route_without_modifying_files(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
     route_calls = []
     scan_path = tmp_path / "scans_inbox" / "original_scan.pdf"
     scan_path.parent.mkdir()
@@ -43,8 +42,8 @@ def test_ensure_scan_inbox_uses_core_route_without_modifying_files(tmp_path, mon
         lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
     )
 
-    assert folders.ensure_scan_inbox() == "scans_inbox"
-    assert route_calls == ["."]
+    assert folders.ensure_scan_inbox() == str(tmp_path / "scans_inbox")
+    assert route_calls == [tmp_path]
     assert scan_path.read_text(encoding="utf-8") == "raw scan"
     assert [path.name for path in scan_path.parent.iterdir()] == ["original_scan.pdf"]
 
@@ -69,7 +68,6 @@ def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs
 
 
 def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
     roster_path = tmp_path / "incoming_roster.csv"
     assignment_path = tmp_path / "incoming_assignment.json"
     roster_path.write_text("placeholder", encoding="utf-8")
@@ -83,14 +81,16 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
     )
 
     assert result is not None
-    assert result["class_dir"] == os.path.join("classes", "english9_p2")
+    assert result["class_dir"] == os.fspath(tmp_path / "classes" / "english9_p2")
     assert result["assignment_dir"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
         "act_1_quiz",
     )
     assert result["templates_dir"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
@@ -98,6 +98,7 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
         "templates",
     )
     assert result["individual_templates_dir"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
@@ -106,6 +107,7 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
         "individual",
     )
     assert result["scans_dir"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
@@ -113,6 +115,7 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
         "scans",
     )
     assert result["debug_dir"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
@@ -120,15 +123,25 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
         "debug",
     )
     assert result["roster_copy"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "roster.csv",
     )
     assert result["assignment_copy"] == os.path.join(
+        tmp_path,
         "classes",
         "english9_p2",
         "assignments",
         "act_1_quiz",
         "assignment.json",
     )
-    assert result["scan_inbox"] == "scans_inbox"
+    assert result["scan_inbox"] == os.fspath(tmp_path / "scans_inbox")
+    assert not (
+        tmp_path
+        / "classes"
+        / "english9_p2"
+        / "assignments"
+        / "act_1_quiz"
+        / "results"
+    ).exists()

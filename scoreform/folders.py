@@ -25,6 +25,7 @@ from pds_core.routes import (
 )
 from pds_core.scan_routes import scans_inbox_dir
 
+from scoreform import workspace
 from scoreform.config import LOCAL_OUTPUTS_DIR
 from scoreform.validation import validate_identifier
 
@@ -38,7 +39,12 @@ def ensure_parent_dir(path):
 
 def ensure_local_output_dir(*parts):
     """Ensure and return a path under local_outputs/."""
-    path = os.path.join(LOCAL_OUTPUTS_DIR, *parts)
+    path = os.fspath(
+        workspace.get_scoreform_workspace_root().joinpath(
+            LOCAL_OUTPUTS_DIR,
+            *parts,
+        )
+    )
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -77,13 +83,14 @@ def assignments_match(existing_assignment_path, incoming_assignment_path):
 
 
 def ensure_scan_inbox():
-    """Ensure the project-level scans_inbox/ directory exists.
+    """Ensure the workspace-level scans_inbox/ directory exists.
     
-    Returns the path string "scans_inbox" on success.
+    Returns the workspace-rooted path on success.
     Creates the directory if it doesn't exist.
     Prints a message when the inbox is first created.
     """
-    inbox_path = os.fspath(scans_inbox_dir("."))
+    workspace_root = workspace.get_scoreform_workspace_root()
+    inbox_path = os.fspath(scans_inbox_dir(workspace_root))
     if not os.path.exists(inbox_path):
         try:
             os.makedirs(inbox_path, exist_ok=True)
@@ -121,23 +128,26 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
         if scan_inbox is None:
             return None
 
-        class_dir = os.fspath(core_class_dir(".", class_id))
-        assignment_dir = os.fspath(core_assignment_dir(".", class_id, assignment_id))
+        workspace_root = workspace.get_scoreform_workspace_root()
+        class_dir = os.fspath(core_class_dir(workspace_root, class_id))
+        assignment_dir = os.fspath(
+            core_assignment_dir(workspace_root, class_id, assignment_id)
+        )
         templates_dir = os.fspath(
-            core_assignment_templates_dir(".", class_id, assignment_id)
+            core_assignment_templates_dir(workspace_root, class_id, assignment_id)
         )
         individual_templates_dir = os.path.join(templates_dir, "individual")
         scans_dir = os.fspath(
-            core_assignment_scans_dir(".", class_id, assignment_id)
+            core_assignment_scans_dir(workspace_root, class_id, assignment_id)
         )
         debug_dir = os.fspath(
-            core_assignment_debug_dir(".", class_id, assignment_id)
+            core_assignment_debug_dir(workspace_root, class_id, assignment_id)
         )
 
         # Compute paths for copies before creating directories
-        roster_copy = os.fspath(core_class_roster_path(".", class_id))
+        roster_copy = os.fspath(core_class_roster_path(workspace_root, class_id))
         assignment_copy = os.fspath(
-            core_assignment_config_path(".", class_id, assignment_id)
+            core_assignment_config_path(workspace_root, class_id, assignment_id)
         )
 
         # Check for existing assignment.json and collision protection

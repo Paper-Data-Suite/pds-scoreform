@@ -65,7 +65,7 @@ The project currently supports:
 * CSV export functions return success/failure status
 * Regression coverage for QR decoding, QR-aware scoring, mixed-scan scoring, routed results, and roster-enriched routed results
 * Scan source file tracking in all result rows
-* Project-level `scans_inbox/` folder creation and setup
+* Workspace-level `scans_inbox/` folder creation and setup
 * Scan inbox automatically created during assignment setup
 * Assignment collision protection with semantic JSON comparison
 * Collision detection prevents overwrite of mismatched assignments
@@ -142,42 +142,53 @@ Completed scope:
 
 ---
 
-## Current Generated Folder Structure
+## Current Workspace And Generated Folder Structure
+
+ScoreForm resolves and ensures the shared Paper Data Suite workspace root
+through `pds-core`. The default root is `~/Paper Data Suite`, and shared PDS
+configuration or `PDS_WORKSPACE_ROOT` can select another location. The current
+working directory is no longer the implicit root for ScoreForm-managed data.
+Workspace-changing menu and CLI commands remain separate issue #35 work.
 
 ```text
-classes/
-  english9_p2/
-    roster.csv
-    assignments/
-      rj_act1_quiz/
-        assignment.json
-        results.csv
-        templates/
-          class_packet.pdf
-          individual/
-            1001_doe_jane.pdf
-            1002_smith_marcus.pdf
-            1003_brown_alyssa.pdf
-        scans/
-        debug/
-
-local_outputs/
-  templates/
-    template.pdf
-    template.png
-  results/
-    results.csv
-    qr_metadata_results.csv
-    mixed_scan_results.csv
-  debug/
-    debug_corners_page_1.png
-    debug_warped_page_1.png
-  temp/
-    temp_test_assignment.json
-    temp_test_roster.csv
+<PDS workspace root>/
+  classes/
+    english9_p2/
+      roster.csv
+      assignments/
+        rj_act1_quiz/
+          assignment.json
+          results.csv
+          templates/
+            class_packet.pdf
+            individual/
+              1001_doe_jane.pdf
+              1002_smith_marcus.pdf
+              1003_brown_alyssa.pdf
+          scans/
+          debug/
+  scans_inbox/
+  local_outputs/
+    templates/
+      template.pdf
+      template.png
+    results/
+      results.csv
+      qr_metadata_results.csv
+      mixed_scan_results.csv
+    debug/
+      debug_corners_page_1.png
+      debug_warped_page_1.png
+    temp/
+      temp_test_assignment.json
+      temp_test_roster.csv
 ```
 
-The `classes/` structure is the classroom assignment output model. `local_outputs/` is for generic templates, legacy/manual default results, manual debug images, and regression-test scratch files. User-provided explicit output paths are still honored.
+The `classes/` structure is the classroom assignment output model.
+`local_outputs/` is for generic templates, legacy/manual default results,
+manual debug images, and regression-test scratch files. Both live directly
+under the workspace root, without an added `scoreform/` namespace. User-provided
+explicit input and output paths are still honored.
 
 ---
 
@@ -417,7 +428,7 @@ v0.2.0
 
 ## Status
 
-Implemented for the current picker workflow: project-level scan inbox setup is implemented, and the terminal menu can select supported scans from `scans_inbox/`. Other scan storage behaviors such as moving, copying, archiving, or deleting scans are not implemented yet.
+Implemented for the current picker workflow: workspace-level scan inbox setup is implemented, and the terminal menu can select supported scans from `<PDS workspace root>/scans_inbox/`. Other scan storage behaviors such as moving, copying, archiving, or deleting scans are not implemented yet.
 
 ## Goal
 
@@ -425,7 +436,7 @@ Keep scan files organized.
 
 ## Implemented Features
 
-* Project-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
+* Workspace-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
 * `ensure_scan_inbox()` helper in `scoreform/folders.py`.
 * Interactive menu scoring can pick supported `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif` files directly from `scans_inbox/`.
 * After scan selection, the default recommended menu mode is QR-aware routed scoring, which uses QR metadata to route results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
@@ -1212,7 +1223,9 @@ Make the program and regression tests more reliable across machines.
 * `run_tests.ps1` now installs the package with development extras and runs pytest before the full workflow regression checks.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
-* `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
+* `run_tests.ps1` uses an isolated `PDS_WORKSPACE_ROOT` and routes managed
+  classes, scans, generic templates, manual/default results, explicit QR-aware
+  result CSVs, and temporary fixtures under that test workspace.
 * `run_fast_tests.ps1` provides fast development checks: Ruff, pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
 * Ruff uses the conservative `E`, `F`, and `I` rule sets and can be run directly with `python -m ruff check .`.
 * Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
@@ -1364,7 +1377,10 @@ Keep the GitHub repository professional, safe, and easy to understand.
 * Keep README current as features change.
 * Keep examples synthetic.
 * Keep `.gitignore` effective.
-* Keep the repository root tidy by moving or routing local generated artifacts into ignored folders such as `local_outputs/`, `scratch/`, or assignment-specific folders. Initial `local_outputs/` routing is complete for generic templates, legacy/manual default results, manual debug images, and broad regression-test scratch files.
+* Keep the source checkout tidy by routing ScoreForm-managed data through the
+  shared PDS workspace root. Workspace routing is complete for classes,
+  assignments, scans inbox, generic templates, default results, debug images,
+  QR diagnostics, and batch summaries.
 * Perform a post-public repository audit before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
 * `v0.8.1` documentation and version closeout is complete; package version is `0.8.1`.
 * Teacher-centered menu organization, persistent menu headers, and strict version-updater assertions are complete.
