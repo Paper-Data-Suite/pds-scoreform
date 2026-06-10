@@ -3,7 +3,19 @@ import os
 import shutil
 
 from pds_core.routes import (
+    assignment_config_path as core_assignment_config_path,
+)
+from pds_core.routes import (
+    assignment_debug_dir as core_assignment_debug_dir,
+)
+from pds_core.routes import (
     assignment_dir as core_assignment_dir,
+)
+from pds_core.routes import (
+    assignment_scans_dir as core_assignment_scans_dir,
+)
+from pds_core.routes import (
+    assignment_templates_dir as core_assignment_templates_dir,
 )
 from pds_core.routes import (
     class_dir as core_class_dir,
@@ -111,14 +123,22 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
 
         class_dir = os.fspath(core_class_dir(".", class_id))
         assignment_dir = os.fspath(core_assignment_dir(".", class_id, assignment_id))
-        templates_dir = os.path.join(assignment_dir, "templates")
+        templates_dir = os.fspath(
+            core_assignment_templates_dir(".", class_id, assignment_id)
+        )
         individual_templates_dir = os.path.join(templates_dir, "individual")
-        scans_dir = os.path.join(assignment_dir, "scans")
-        debug_dir = os.path.join(assignment_dir, "debug")
+        scans_dir = os.fspath(
+            core_assignment_scans_dir(".", class_id, assignment_id)
+        )
+        debug_dir = os.fspath(
+            core_assignment_debug_dir(".", class_id, assignment_id)
+        )
 
         # Compute paths for copies before creating directories
         roster_copy = os.fspath(core_class_roster_path(".", class_id))
-        assignment_copy = os.path.join(assignment_dir, "assignment.json")
+        assignment_copy = os.fspath(
+            core_assignment_config_path(".", class_id, assignment_id)
+        )
 
         # Check for existing assignment.json and collision protection
         if os.path.exists(assignment_copy):
