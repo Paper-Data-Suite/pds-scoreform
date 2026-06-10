@@ -396,21 +396,29 @@ Standards metadata is preserved when assignments are loaded, but it is not writt
 
 ### QR Payload Format
 
-ScoreForm currently uses a compact QR payload format:
+New ScoreForm answer sheets use the shared Paper Data Suite PDS1 payload format:
 
 ```text
-OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+PDS1|module=scoreform|class=english9_p2|aid=rj_act1_quiz|sid=1001|page=1
 ```
 
 This identifies:
 
+* the Paper Data Suite module
 * the class
 * the assignment
 * the student
+* the answer-sheet page
 
 The QR code is intended to allow ScoreForm to automatically connect a scanned answer sheet to the correct class, assignment, roster entry, and answer key.
 
-ScoreForm validates QR payload fields before using them to build file paths, and rejects malformed or unsafe QR metadata.
+ScoreForm validates QR payload fields before using them to build file paths, rejects malformed or unsafe QR metadata, and rejects PDS1 payloads for modules other than `scoreform`.
+
+Legacy answer sheets using the earlier OMR1 format remain supported as a parsing fallback:
+
+```text
+OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+```
 
 ## Requirements
 

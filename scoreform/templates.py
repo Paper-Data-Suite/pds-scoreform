@@ -2,6 +2,8 @@ import re
 import sys
 import numpy as np
 import cv2
+from pds_core.pds1 import Pds1PayloadError, build_pds1_payload
+from pds_core.qr_payload import QrPayload, QrPayloadValidationError
 from scoreform.folders import ensure_parent_dir
 from scoreform.config import (
     CORNERS,
@@ -209,9 +211,9 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
 
 def build_qr_payload(assignment_data, student_data):
-    """Build the QR code payload string.
+    """Build the default PDS1 QR code payload string.
 
-    OMR1|class=<class_id>|aid=<assignment_id>|sid=<student_id>
+    PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=1
     """
     class_id = student_data.get("class_id")
     assignment_id = assignment_data.get("assignment_id")
@@ -227,7 +229,19 @@ def build_qr_payload(assignment_data, student_data):
     if not validate_identifier("student_id", student_id, context="QR payload"):
         return None
 
-    return f"OMR1|class={class_id}|aid={assignment_id}|sid={student_id}"
+    try:
+        payload = QrPayload(
+            schema="PDS1",
+            module="scoreform",
+            class_id=class_id,
+            assignment_id=assignment_id,
+            student_id=student_id,
+            page=1,
+        )
+        return build_pds1_payload(payload)
+    except (Pds1PayloadError, QrPayloadValidationError) as error:
+        print(f"Error: QR payload invalid: {error}")
+        return None
 
 
 def make_qr_image(payload):

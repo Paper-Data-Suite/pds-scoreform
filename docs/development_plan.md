@@ -228,9 +228,16 @@ The `standards` object is optional assignment metadata. When present, its keys a
 ### Current QR Payload Format
 
 ```text
-OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+PDS1|module=scoreform|class=english9_p2|aid=rj_act1_quiz|sid=1001|page=1
 ```
 
+Newly generated ScoreForm sheets use the shared PDS1 contract with
+`module=scoreform` and `page=1`. ScoreForm accepts legacy OMR1 payloads from
+older sheets as a parsing fallback:
+
+```text
+OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
+```
 ### Current Routed Results CSV Format
 
 ```csv
