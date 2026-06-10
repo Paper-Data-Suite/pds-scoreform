@@ -1216,6 +1216,11 @@ Make the program and regression tests more reliable across machines.
 * `run_fast_tests.ps1` added for fast development checks: pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
 * Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
 * QR-aware batch scoring now reports summary information for failed pages.
+* QR-aware scoring now saves dated failure diagnostics and batch summary text
+  files under ignored `local_outputs/` folders.
+* ScoreForm QR decoding now includes a tighter expected-region crop, crop-first
+  4x/5x scaling, quiet-zone padding, contrast normalization, light morphology,
+  and bounded small-angle rotations.
 * Menu workflow tests cover clear/pause behavior, scan inbox selection, QR-aware default menu scoring, manual menu scoring, and direct CLI scoring remaining picker-free.
 
 ## Future Test Improvements

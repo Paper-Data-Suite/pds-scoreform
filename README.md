@@ -107,7 +107,9 @@ ScoreForm is still under active development.
 Current limitations include:
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
-* Poor-quality phone scans may fail QR detection.
+* ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
+  scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
+  small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
 * Question count support is currently limited to 1-15 questions on a single page.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
@@ -209,10 +211,23 @@ local_outputs/
   debug/
     debug_corners_page_1.png
     debug_warped_page_1.png
+  qr_failures/
+    YYYY-MM-DD/
+      scan_packet_page_2.png
+      scan_packet_page_2_qr_crop_tight.png
+  qr_batch_summaries/
+    YYYY-MM-DD/
+      scan_packet_YYYY-MM-DD_HHMM_summary.txt
   temp/
 ```
 
 `local_outputs/` is ignored by Git. Explicit output paths supplied by the user are still honored as written.
+
+When QR-aware scoring cannot decode a page, ScoreForm saves the failed page and
+a bounded set of attempted QR-region images under
+`local_outputs/qr_failures/<date>/`. Each QR-aware scoring run also saves the
+terminal batch summary under `local_outputs/qr_batch_summaries/<date>/` after
+result-writing status is known.
 
 Generated files, scans, debug images, results, and local-only test files should generally not be committed to Git.
 

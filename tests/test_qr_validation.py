@@ -172,6 +172,22 @@ def test_decode_qr_from_image_uses_expected_region_crop(monkeypatch):
     assert scoring.decode_qr_from_image(page) == VALID_QR_METADATA
 
 
+def test_decode_qr_from_image_uses_tight_crop_threshold_5x_fallback(monkeypatch):
+    page = np.ones((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8) * 255
+    tight_h = int(IMG_HEIGHT * 0.28) - int(IMG_HEIGHT * 0.06)
+    tight_w = int(IMG_WIDTH * 0.92) - int(IMG_WIDTH * 0.68)
+    expected_shape = (tight_h * 5, tight_w * 5)
+
+    def fake_try_decode_qr(detector, img):
+        if img.shape[:2] == expected_shape and len(img.shape) == 2:
+            return VALID_QR_PAYLOAD
+        return None
+
+    monkeypatch.setattr(scoring, "_try_decode_qr", fake_try_decode_qr)
+
+    assert scoring.decode_qr_from_image(page) == VALID_QR_METADATA
+
+
 def test_decode_qr_from_image_fallback_still_rejects_unsafe_metadata(monkeypatch):
     unsafe_payload = "OMR1|class=../secret|aid=rj_act1_quiz|sid=1001"
 

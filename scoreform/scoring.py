@@ -1,4 +1,6 @@
+import datetime
 import os
+import re
 from dataclasses import dataclass, field
 
 import cv2
@@ -17,6 +19,7 @@ from scoreform.config import (
     BOX_START_X,
     BOX_STEP_X,
     LOCAL_DEBUG_DIR,
+    LOCAL_OUTPUTS_DIR,
     MAX_QUESTION_COUNT,
 )
 from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validate_identifier
@@ -55,6 +58,7 @@ class QRBatchSummary:
     pages_scored: int = 0
     failures: list[QRBatchFailure] = field(default_factory=list)
     output_paths: list[str] = field(default_factory=list)
+    diagnostic_paths: list[str] = field(default_factory=list)
     results_written: bool = False
     result_write_failed: bool = False
 
@@ -74,6 +78,11 @@ class QRBatchSummary:
     def record_results_written(self, output_paths):
         self.results_written = True
         self.output_paths = list(dict.fromkeys(output_paths))
+
+    def record_diagnostics(self, diagnostic_paths):
+        self.diagnostic_paths = list(
+            dict.fromkeys([*self.diagnostic_paths, *diagnostic_paths])
+        )
 
     def record_result_write_failed(self, output_paths=None):
         self.result_write_failed = True
@@ -113,6 +122,10 @@ class QRBatchSummary:
             for failure in page_failures:
                 lines.append(f"- Page {failure.page_num}: {failure.reason}")
 
+        if self.diagnostic_paths:
+            lines.extend(["", "QR failure diagnostics:"])
+            lines.extend(self.diagnostic_paths)
+
         lines.extend(["", "Results written:"])
         if self.results_written:
             if self.output_paths:
@@ -147,6 +160,7 @@ class QRDecodeResult:
     metadata: dict | None
     failure_category: str | None = None
     failure_reason: str | None = None
+    diagnostic_paths: list[str] = field(default_factory=list)
 
 
 def order_points(pts):
@@ -690,34 +704,223 @@ def _qr_preprocess_attempts(img):
         )
 
 
-def _expected_qr_crops(img):
-    """Yield generous upper-right crops around the template QR location."""
+def _expected_qr_crop_candidates(img):
+    """Yield named upper-right crops around the ScoreForm template QR location."""
     h, w = img.shape[:2]
     crop_bounds = [
-        (0.58, 0.00, 1.00, 0.38),
-        (0.50, 0.00, 1.00, 0.48),
-        (0.65, 0.04, 0.98, 0.30),
+        ("broad_1", 0.58, 0.00, 1.00, 0.38),
+        ("broad_2", 0.50, 0.00, 1.00, 0.48),
+        ("broad_3", 0.65, 0.04, 0.98, 0.30),
+        ("tight", 0.68, 0.06, 0.92, 0.28),
     ]
 
-    for x1f, y1f, x2f, y2f in crop_bounds:
+    for label, x1f, y1f, x2f, y2f in crop_bounds:
         x1 = max(0, int(w * x1f))
         y1 = max(0, int(h * y1f))
         x2 = min(w, int(w * x2f))
         y2 = min(h, int(h * y2f))
         if x2 > x1 and y2 > y1:
-            yield img[y1:y2, x1:x2]
+            yield label, img[y1:y2, x1:x2]
+
+
+def _expected_qr_crops(img):
+    """Yield upper-right crop images for backward-compatible callers."""
+    for _, crop in _expected_qr_crop_candidates(img):
+        yield crop
+
+
+def _pad_qr_crop(crop, border_fraction=0.15):
+    """Add a white quiet-zone border around a QR crop."""
+    border = max(4, int(round(max(crop.shape[:2]) * border_fraction)))
+    fill = 255 if len(crop.shape) == 2 else (255, 255, 255)
+    return cv2.copyMakeBorder(
+        crop,
+        border,
+        border,
+        border,
+        border,
+        cv2.BORDER_CONSTANT,
+        value=fill,
+    )
+
+
+def _rotate_qr_crop(crop, angle):
+    """Rotate a QR crop around its center using a white background."""
+    h, w = crop.shape[:2]
+    matrix = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, 1.0)
+    fill = 255 if len(crop.shape) == 2 else (255, 255, 255)
+    return cv2.warpAffine(
+        crop,
+        matrix,
+        (w, h),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=fill,
+    )
+
+
+def _tight_qr_crop_attempts(crop):
+    """Yield bounded enhanced attempts for the known ScoreForm QR region."""
+    gray = _as_grayscale(crop)
+    normalized = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    threshold = cv2.threshold(
+        cv2.GaussianBlur(gray, (3, 3), 0),
+        0,
+        255,
+        cv2.THRESH_BINARY | cv2.THRESH_OTSU,
+    )[1]
+    kernel = np.ones((2, 2), dtype=np.uint8)
+    opened = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
+    closed = cv2.morphologyEx(threshold, cv2.MORPH_CLOSE, kernel)
+
+    prepared = [
+        ("grayscale normalized", normalized),
+        ("otsu threshold", threshold),
+        ("otsu opened", opened),
+        ("otsu closed", closed),
+    ]
+    for label, candidate in prepared:
+        yield label, candidate
+        for scale in (4.0, 5.0):
+            yield (
+                f"{label} {scale:g}x upscale",
+                cv2.resize(
+                    candidate,
+                    None,
+                    fx=scale,
+                    fy=scale,
+                    interpolation=cv2.INTER_CUBIC,
+                ),
+            )
+
+    for label, candidate in [("raw", crop), *prepared]:
+        padded = _pad_qr_crop(candidate)
+        yield f"{label} padded", padded
+        for scale in (2.0, 3.0, 4.0, 5.0):
+            yield (
+                f"{label} padded {scale:g}x upscale",
+                cv2.resize(
+                    padded,
+                    None,
+                    fx=scale,
+                    fy=scale,
+                    interpolation=cv2.INTER_CUBIC,
+                ),
+            )
+
+    padded_normalized = _pad_qr_crop(normalized)
+    for angle in (-3, -2, -1, 1, 2, 3):
+        rotated = _rotate_qr_crop(padded_normalized, angle)
+        yield (
+            f"grayscale normalized padded rotated {angle:+g} degrees 3x upscale",
+            cv2.resize(
+                rotated,
+                None,
+                fx=3.0,
+                fy=3.0,
+                interpolation=cv2.INTER_CUBIC,
+            ),
+        )
 
 
 def _qr_candidate_images(img):
     for label, candidate in _qr_preprocess_attempts(img):
         yield label, candidate
 
-    for crop_index, crop in enumerate(_expected_qr_crops(img), start=1):
+    for crop_index, (crop_label, crop) in enumerate(
+        _expected_qr_crop_candidates(img),
+        start=1,
+    ):
         for label, candidate in _qr_preprocess_attempts(crop):
-            yield f"crop {crop_index} {label}", candidate
+            yield f"crop {crop_index} ({crop_label}) {label}", candidate
+        if crop_label == "tight":
+            for label, candidate in _tight_qr_crop_attempts(crop):
+                yield f"crop {crop_index} ({crop_label}) {label}", candidate
 
 
-def _decode_qr_from_image_with_status(img):
+def _sanitize_output_stem(file_path):
+    stem = os.path.splitext(os.path.basename(os.fspath(file_path or "scan")))[0]
+    sanitized = re.sub(r"[^A-Za-z0-9_-]+", "_", stem).strip("_")
+    return sanitized or "scan"
+
+
+def _dated_local_output_dir(category, now=None):
+    timestamp = now or datetime.datetime.now()
+    output_dir = os.path.join(
+        LOCAL_OUTPUTS_DIR,
+        category,
+        timestamp.strftime("%Y-%m-%d"),
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
+
+
+def _write_diagnostic_image(path, image):
+    output_path = non_overwriting_path(path)
+    if cv2.imwrite(output_path, image):
+        return output_path
+    print(f"Warning: Could not save QR failure diagnostic image: {output_path}")
+    return None
+
+
+def save_qr_failure_diagnostics(img, file_path, page_num, now=None):
+    """Save a bounded set of useful QR failure images and return their paths."""
+    if img is None:
+        return []
+
+    try:
+        output_dir = _dated_local_output_dir("qr_failures", now=now)
+    except OSError as error:
+        print(f"Warning: Could not create QR failure diagnostic folder: {error}")
+        return []
+    stem = f"{_sanitize_output_stem(file_path)}_page_{page_num}"
+    images = [(f"{stem}.png", img)]
+    crops = dict(_expected_qr_crop_candidates(img))
+
+    for crop_label in ("broad_1", "broad_3", "tight"):
+        crop = crops.get(crop_label)
+        if crop is not None:
+            images.append((f"{stem}_qr_crop_{crop_label}.png", crop))
+
+    tight_crop = crops.get("tight")
+    if tight_crop is not None:
+        gray = _as_grayscale(tight_crop)
+        threshold = cv2.threshold(
+            cv2.GaussianBlur(gray, (3, 3), 0),
+            0,
+            255,
+            cv2.THRESH_BINARY | cv2.THRESH_OTSU,
+        )[1]
+        padded = _pad_qr_crop(threshold)
+        padded_5x = cv2.resize(
+            padded,
+            None,
+            fx=5.0,
+            fy=5.0,
+            interpolation=cv2.INTER_CUBIC,
+        )
+        images.extend(
+            [
+                (f"{stem}_qr_crop_tight_threshold.png", threshold),
+                (f"{stem}_qr_crop_tight_threshold_padded_5x.png", padded_5x),
+            ]
+        )
+
+    saved_paths = []
+    for filename, image in images:
+        saved_path = _write_diagnostic_image(
+            os.path.join(output_dir, filename),
+            image,
+        )
+        if saved_path:
+            saved_paths.append(saved_path)
+
+    if saved_paths:
+        print(f"Saved QR failure diagnostics to {output_dir}")
+    return saved_paths
+
+
+def _decode_qr_from_image_with_status(img, file_path=None, page_num=1):
     """Decode QR metadata and return structured failure status when it fails."""
     if img is None:
         print("Error: Provided image is None")
@@ -748,7 +951,17 @@ def _decode_qr_from_image_with_status(img):
 
     if not data:
         print("No QR code detected after raw/preprocessed decode attempts.")
-        return QRDecodeResult(None, "missing_qr", "missing QR code")
+        diagnostic_paths = save_qr_failure_diagnostics(
+            img,
+            file_path,
+            page_num,
+        )
+        return QRDecodeResult(
+            None,
+            "missing_qr",
+            "missing QR code",
+            diagnostic_paths,
+        )
 
     parsed = parse_qr_payload(data)
     if parsed is None:
@@ -840,6 +1053,30 @@ def print_qr_batch_summary(summary):
         summary.print()
 
 
+def save_qr_batch_summary(summary, source_file, now=None):
+    """Save the QR-aware terminal summary to a dated local text file."""
+    if summary is None:
+        return None
+
+    timestamp = now or datetime.datetime.now()
+    try:
+        output_dir = _dated_local_output_dir("qr_batch_summaries", now=timestamp)
+        filename = (
+            f"{_sanitize_output_stem(source_file)}_"
+            f"{timestamp.strftime('%Y-%m-%d_%H%M')}_summary.txt"
+        )
+        output_path = non_overwriting_path(os.path.join(output_dir, filename))
+        with open(output_path, "w", encoding="utf-8") as summary_file:
+            summary_file.write(summary.format().lstrip())
+            summary_file.write("\n")
+    except OSError as error:
+        print(f"Warning: Could not save QR batch summary: {error}")
+        return None
+
+    print(f"Saved QR batch summary to {output_path}")
+    return output_path
+
+
 def update_qr_batch_result_write_status(
     all_results,
     export_success,
@@ -864,8 +1101,17 @@ def _score_page_qr_aware_with_summary(img, page_num=1, file_path=None, summary=N
     return result
 
 
-def _score_page_qr_aware_decode_metadata(img, page_num, summary):
-    decoded = _decode_qr_from_image_with_status(img)
+def _score_page_qr_aware_decode_metadata(
+    img,
+    page_num,
+    summary,
+    file_path=None,
+):
+    decoded = _decode_qr_from_image_with_status(
+        img,
+        file_path=file_path,
+        page_num=page_num,
+    )
     if decoded.metadata is None:
         _record_qr_failure(
             summary,
@@ -873,6 +1119,8 @@ def _score_page_qr_aware_decode_metadata(img, page_num, summary):
             decoded.failure_category or "unknown_failed",
             decoded.failure_reason,
         )
+        if summary is not None and decoded.diagnostic_paths:
+            summary.record_diagnostics(decoded.diagnostic_paths)
     return decoded.metadata
 
 
@@ -1074,7 +1322,12 @@ def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
     Returns a scored result dict with metadata, or None on failure.
     """
     # Step 1: Decode QR metadata
-    qr_metadata = _score_page_qr_aware_decode_metadata(img, page_num, summary)
+    qr_metadata = _score_page_qr_aware_decode_metadata(
+        img,
+        page_num,
+        summary,
+        file_path=file_path,
+    )
     if qr_metadata is None:
         print(f"Error: Could not decode QR metadata from page {page_num}.")
         return None
