@@ -424,7 +424,7 @@ OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
 
 ### Python Dependencies
 
-Python package dependencies are listed in:
+Ordinary third-party Python dependencies are listed in:
 
 ```text
 requirements.txt
@@ -440,11 +440,18 @@ reportlab
 qrcode[pil]
 ```
 
-Install them with:
+Installing this file alone does not produce a working local ScoreForm
+installation. ScoreForm also requires `pds-core`, which is currently installed
+from a sibling repository checkout for Paper Data Suite development.
+
+To install only the third-party packages, run:
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
+
+For a working local ScoreForm development or classroom-trial installation, use
+the complete setup under [Installation and Setup](#installation-and-setup).
 
 ### External Dependency
 
@@ -470,36 +477,59 @@ Package names vary by distribution.
 
 ## Installation and Setup
 
-For development use, install ScoreForm in editable mode within your virtual environment:
+`pds-core` is a required runtime dependency of ScoreForm. It provides shared
+identifier validation, route and scan-inbox helpers, legacy OMR1 parsing, and
+PDS1 QR payload generation and parsing.
 
-    python -m pip install -r requirements.txt
-    python -m pip install -e .
+For the current local Paper Data Suite workflow, clone `pds-core` and
+`pds-scoreform` as sibling repositories under any parent directory:
 
-To include development/test dependencies such as `pytest`, install with the `dev` extra:
+```text
+Paper-Data-Suite/
+  pds-core/
+  pds-scoreform/
+```
 
-    python -m pip install -e .[dev]
+The parent directory name and location may vary. Do not replace the relative
+sibling setup with a machine-specific absolute path.
 
-### Paper Data Suite Local Development Setup
+From inside `pds-scoreform`, with the intended virtual environment activated,
+run:
 
-ScoreForm is beginning to consume shared utilities from `pds-core`.
+```powershell
+python -m pip install -r requirements-dev.txt
+```
 
-For local Paper Data Suite development, clone `pds-core` and `pds-scoreform` under the same parent folder:
+This is the correct install command for local Paper Data Suite development. It
+installs:
 
-    Paper-Data-Suite/
-      pds-core/
-      pds-scoreform/
+* the ordinary third-party dependencies from `requirements.txt`;
+* the sibling `../pds-core` checkout in editable mode;
+* ScoreForm itself in editable mode with development/test dependencies such as
+  `pytest`.
 
-From inside the activated `pds-scoreform` virtual environment, install the local development dependencies with:
+`requirements.txt` remains useful as the list of ordinary third-party
+dependencies, but it does not install the local `pds-core` checkout and is not
+the complete setup command for the current application.
 
-    python -m pip install -r requirements-dev.txt
+If installation reports that `../pds-core` does not exist, check that both
+repositories are present as siblings in the layout above, then rerun the
+command from inside `pds-scoreform`.
 
-This installs:
+### Classroom-Trial Machine Setup
 
-* ScoreForm’s normal runtime dependencies;
-* the sibling `pds-core` checkout in editable mode;
-* ScoreForm itself with development/test extras.
+Every classroom-trial machine must have both `pds-core` and `pds-scoreform`
+checked out as sibling repositories. Activate the machine's ScoreForm virtual
+environment and run the same complete install command from inside
+`pds-scoreform`:
 
-Avoid committing machine-specific absolute paths for `pds-core`. Until packaging is settled, local development expects the sibling repo layout shown above.
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+Do not prepare a classroom-trial machine with `requirements.txt` alone; that
+leaves the required local `pds-core` package uninstalled and ScoreForm will not
+start. Poppler must also be installed separately as described above.
 
 ## Basic Usage
 
