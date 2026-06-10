@@ -90,8 +90,45 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
         "assignments",
         "act_1_quiz",
     )
+    assert result["templates_dir"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+        "templates",
+    )
+    assert result["individual_templates_dir"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+        "templates",
+        "individual",
+    )
+    assert result["scans_dir"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+        "scans",
+    )
+    assert result["debug_dir"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+        "debug",
+    )
     assert result["roster_copy"] == os.path.join(
         "classes",
         "english9_p2",
         "roster.csv",
     )
+    assert result["assignment_copy"] == os.path.join(
+        "classes",
+        "english9_p2",
+        "assignments",
+        "act_1_quiz",
+        "assignment.json",
+    )
+    assert result["scan_inbox"] == "scans_inbox"
