@@ -22,7 +22,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest"
+  "pytest",
+  "ruff"
 ]
 
 [project.scripts]
@@ -34,3 +35,12 @@ packages = ["scoreform"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".git", ".venv", "local_outputs", "classes", "scans_inbox"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+# Existing long lines are deferred to avoid a broad formatting-only rewrite.
+ignore = ["E501"]

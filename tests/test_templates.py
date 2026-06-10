@@ -1,6 +1,5 @@
 from scoreform import templates
 
-
 VALID_ASSIGNMENT = {"assignment_id": "rj_act1_quiz"}
 VALID_STUDENT = {
     "class_id": "english9_p2",

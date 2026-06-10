@@ -6,7 +6,6 @@ from pathlib import Path
 import scoreform.cli
 from scoreform import workflows
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 

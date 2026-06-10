@@ -1,5 +1,6 @@
-import numpy as np
 import os
+
+import numpy as np
 
 IMG_WIDTH = 1275
 IMG_HEIGHT = 1650

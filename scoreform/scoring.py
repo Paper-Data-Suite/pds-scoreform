@@ -8,22 +8,26 @@ import numpy as np
 from pds_core.omr1 import Omr1PayloadError, parse_omr1_payload
 from pds_core.pds1 import Pds1PayloadError, parse_pds1_payload
 from pds_core.qr_payload import QrPayloadValidationError
+
 from scoreform.config import (
-    CORNER_SIZE,
-    DST_PTS,
-    IMG_WIDTH,
-    IMG_HEIGHT,
-    Q_START_Y,
-    Q_STEP_Y,
     BOX_SIZE,
     BOX_START_X,
     BOX_STEP_X,
+    CORNER_SIZE,
+    DST_PTS,
+    IMG_HEIGHT,
+    IMG_WIDTH,
     LOCAL_DEBUG_DIR,
     LOCAL_OUTPUTS_DIR,
     MAX_QUESTION_COUNT,
+    Q_START_Y,
+    Q_STEP_Y,
 )
-from scoreform.validation import IDENTIFIER_PATTERN, is_safe_identifier, validate_identifier
-
+from scoreform.validation import (
+    IDENTIFIER_PATTERN,
+    is_safe_identifier,
+    validate_identifier,
+)
 
 CORNER_ZONE_FRACTION = 0.22
 MIN_REGISTRATION_SIZE_RATIO = 0.65
@@ -546,7 +550,7 @@ def process_file(file_path, answer_key):
             print(f"Error: Could not read image {file_path}")
             return []
 
-        print(f"Scoring Image...")
+        print("Scoring Image...")
         res = score_image(
             img,
             answer_key,
@@ -585,11 +589,11 @@ def validate_qr_metadata(qr_metadata):
         print("Error: QR metadata is not a dictionary.")
         return False
 
-    for field in ["class_id", "assignment_id", "student_id"]:
-        if field not in qr_metadata:
-            print(f"Error: QR metadata missing required field '{field}'.")
+    for field_name in ["class_id", "assignment_id", "student_id"]:
+        if field_name not in qr_metadata:
+            print(f"Error: QR metadata missing required field '{field_name}'.")
             return False
-        if not validate_qr_identifier(field, qr_metadata[field]):
+        if not validate_qr_identifier(field_name, qr_metadata[field_name]):
             return False
 
     return True

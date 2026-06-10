@@ -1,6 +1,8 @@
 import csv
 import os
+
 from scoreform.validation import validate_identifier
+
 
 def load_roster(roster_path):
     """Loads and validates a roster CSV file."""

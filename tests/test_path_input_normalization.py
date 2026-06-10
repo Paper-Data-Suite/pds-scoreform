@@ -1,8 +1,11 @@
 from pathlib import Path
 
 from scoreform import workflows
-from scoreform.workflows import normalize_path_input
-from scoreform.workflows import discover_scans_in_inbox, is_supported_scan_file
+from scoreform.workflows import (
+    discover_scans_in_inbox,
+    is_supported_scan_file,
+    normalize_path_input,
+)
 
 
 def test_normalize_path_input_strips_matching_surrounding_quotes():

@@ -1,44 +1,44 @@
 """Command-line interface for ScoreForm."""
 
-import sys
 import os
-import cv2
-import numpy as np
+import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+import cv2
+import numpy as np
 from pds_core.scan_routes import scans_inbox_dir
 
-from scoreform.templates import (
-    generate_template,
-    student_pdf_filename,
-    generate_student_pdf,
-    generate_class_packet_pdf,
-)
+from scoreform.assignment import load_answer_key, load_assignment
+from scoreform.config import LOCAL_RESULTS_CSV
+from scoreform.folders import setup_assignment_folder
+from scoreform.results import export_routed_results, export_to_csv
+from scoreform.roster import load_roster
 from scoreform.scoring import (
     decode_qr_from_image,
     get_qr_batch_summary,
     print_qr_batch_summary,
-    save_qr_batch_summary,
     process_file,
     process_file_qr_aware,
+    save_qr_batch_summary,
     update_qr_batch_result_write_status,
 )
-from scoreform.assignment import load_answer_key, load_assignment
-from scoreform.roster import load_roster
-from scoreform.folders import setup_assignment_folder
-from scoreform.results import export_to_csv, export_routed_results
+from scoreform.templates import (
+    generate_class_packet_pdf,
+    generate_student_pdf,
+    generate_template,
+    student_pdf_filename,
+)
 from scoreform.workflows import (
-    launch_roster_menu,
-    launch_assignment_menu,
-    normalize_path_input,
-    discover_scans_in_inbox,
-    discover_class_rosters,
     discover_class_assignments,
+    discover_class_rosters,
+    discover_scans_in_inbox,
+    launch_assignment_menu,
+    launch_roster_menu,
+    normalize_path_input,
     parse_single_selection,
     print_menu_header,
 )
-from scoreform.config import LOCAL_RESULTS_CSV
 
 
 def clear_screen():
@@ -443,7 +443,7 @@ def run_decode_qr(args):
         parsed = decode_qr_from_image(img)
         if parsed:
             found_any = True
-            print(f"Decoded QR:")
+            print("Decoded QR:")
             print(f"  class_id: {parsed.get('class_id')}")
             print(f"  assignment_id: {parsed.get('assignment_id')}")
             print(f"  student_id: {parsed.get('student_id')}")

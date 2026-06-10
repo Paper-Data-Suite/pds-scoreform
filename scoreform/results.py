@@ -5,11 +5,14 @@ import tempfile
 
 from pds_core.routes import (
     assignment_dir as core_assignment_dir,
+)
+from pds_core.routes import (
     class_roster_path as core_class_roster_path,
 )
 
-from scoreform.scoring import validate_qr_identifier
 from scoreform.folders import ensure_parent_dir
+from scoreform.scoring import validate_qr_identifier
+
 
 def _get_max_question_count(results):
     """Return the maximum question number seen across a list of results."""

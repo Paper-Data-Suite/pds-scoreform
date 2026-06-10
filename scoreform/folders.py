@@ -1,10 +1,14 @@
+import json
 import os
 import shutil
-import json
 
 from pds_core.routes import (
     assignment_dir as core_assignment_dir,
+)
+from pds_core.routes import (
     class_dir as core_class_dir,
+)
+from pds_core.routes import (
     class_roster_path as core_class_roster_path,
 )
 from pds_core.scan_routes import scans_inbox_dir
