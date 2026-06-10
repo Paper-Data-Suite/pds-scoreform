@@ -19,6 +19,7 @@ from scoreform.scoring import (
     decode_qr_from_image,
     get_qr_batch_summary,
     print_qr_batch_summary,
+    save_qr_batch_summary,
     process_file,
     process_file_qr_aware,
     update_qr_batch_result_write_status,
@@ -290,7 +291,9 @@ def run_score(args):
 
     if not results_data:
         if use_qr_aware:
-            print_qr_batch_summary(get_qr_batch_summary(results_data))
+            summary = get_qr_batch_summary(results_data)
+            print_qr_batch_summary(summary)
+            save_qr_batch_summary(summary, input_file)
         print("Error: No pages were scored successfully.")
         return 1
 
@@ -306,7 +309,9 @@ def run_score(args):
                 export_success,
                 output_file if explicit_output_csv else None,
             )
-            print_qr_batch_summary(get_qr_batch_summary(results_data))
+            summary = get_qr_batch_summary(results_data)
+            print_qr_batch_summary(summary)
+            save_qr_batch_summary(summary, input_file)
         print("Error: Failed to export results.")
         return 1
 
@@ -316,7 +321,9 @@ def run_score(args):
             export_success,
             output_file if explicit_output_csv else None,
         )
-        print_qr_batch_summary(get_qr_batch_summary(results_data))
+        summary = get_qr_batch_summary(results_data)
+        print_qr_batch_summary(summary)
+        save_qr_batch_summary(summary, input_file)
 
     return 0
 
