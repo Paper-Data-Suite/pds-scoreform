@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 from pds_core.omr1 import Omr1PayloadError, parse_omr1_payload
+from pds_core.pds1 import Pds1PayloadError, parse_pds1_payload
+from pds_core.qr_payload import QrPayloadValidationError
 from scoreform.config import (
     CORNER_SIZE,
     DST_PTS,
@@ -580,10 +582,10 @@ def validate_qr_metadata(qr_metadata):
 
 
 def parse_qr_payload(payload):
-    """Parse an OMR1 QR payload string and return metadata dict or None.
+    """Parse a PDS1 or legacy OMR1 payload and return metadata dict or None.
 
-    Expected format:
-      OMR1|class=<class_id>|aid=<assignment_id>|sid=<student_id>
+    PDS1 payloads must use module=scoreform. OMR1 remains supported for
+    previously generated answer sheets.
     """
     if payload is None:
         print("Error: QR payload is None")
@@ -596,8 +598,20 @@ def parse_qr_payload(payload):
         return None
 
     try:
-        parsed_payload = parse_omr1_payload(payload)
-    except Omr1PayloadError as error:
+        if payload.startswith("PDS1"):
+            parsed_payload = parse_pds1_payload(payload)
+            if parsed_payload.module != "scoreform":
+                print(
+                    "Error: QR payload invalid: "
+                    f"expected module 'scoreform', got '{parsed_payload.module}'"
+                )
+                return None
+        elif payload.startswith("OMR1"):
+            parsed_payload = parse_omr1_payload(payload)
+        else:
+            print("Error: QR payload invalid: unsupported payload schema")
+            return None
+    except (Pds1PayloadError, Omr1PayloadError, QrPayloadValidationError) as error:
         print(f"Error: QR payload invalid: {error}")
         return None
 
@@ -752,7 +766,7 @@ def _decode_qr_from_image_with_status(img):
 
 
 def decode_qr_from_image(img):
-    """Decode a QR code from an OpenCV image and parse the OMR1 payload.
+    """Decode a QR code from an OpenCV image and parse its ScoreForm payload.
 
     Returns parsed metadata dict or None on failure.
     """

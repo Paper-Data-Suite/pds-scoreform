@@ -6,7 +6,11 @@ from scoreform import scoring
 from scoreform.config import IMG_HEIGHT, IMG_WIDTH
 
 
-VALID_QR_PAYLOAD = "OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001"
+VALID_QR_PAYLOAD = (
+    "PDS1|module=scoreform|class=english9_p2|"
+    "aid=rj_act1_quiz|sid=1001|page=1"
+)
+LEGACY_QR_PAYLOAD = "OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001"
 VALID_QR_METADATA = {
     "class_id": "english9_p2",
     "assignment_id": "rj_act1_quiz",
@@ -27,9 +31,13 @@ def _make_qr_image(payload):
     return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
 
-def test_parse_qr_valid():
+def test_parse_qr_valid_pds1():
     parsed = scoring.parse_qr_payload(VALID_QR_PAYLOAD)
     assert parsed == VALID_QR_METADATA
+
+
+def test_parse_qr_valid_legacy_omr1():
+    assert scoring.parse_qr_payload(LEGACY_QR_PAYLOAD) == VALID_QR_METADATA
 
 
 def test_parse_qr_strips_payload():
@@ -42,6 +50,11 @@ def test_parse_qr_strips_payload():
         None,
         "",
         "PDS1|class=english9_p2|aid=rj_act1_quiz|sid=1001",
+        (
+            "PDS1|module=quillan|class=english9_p2|"
+            "aid=rj_act1_quiz|sid=1001|page=1"
+        ),
+        "UNKNOWN|class=english9_p2|aid=rj_act1_quiz|sid=1001",
         "OMR1|class=english9_p2|aid",
         "OMR1|class=english9_p2|sid=1001",
         "OMR1|class=|aid=rj_act1_quiz|sid=1001",
@@ -52,7 +65,30 @@ def test_parse_qr_rejects_invalid_payload(payload):
     assert scoring.parse_qr_payload(payload) is None
 
 
-def test_parse_qr_delegates_to_pds_core(monkeypatch):
+def test_parse_qr_delegates_pds1_to_pds_core(monkeypatch):
+    class ParsedPayload:
+        module = "scoreform"
+        class_id = "class_from_core"
+        assignment_id = "assignment_from_core"
+        student_id = "student_from_core"
+
+    seen = []
+
+    def fake_parse(payload):
+        seen.append(payload)
+        return ParsedPayload()
+
+    monkeypatch.setattr(scoring, "parse_pds1_payload", fake_parse)
+
+    assert scoring.parse_qr_payload("  PDS1|delegated payload  ") == {
+        "class_id": "class_from_core",
+        "assignment_id": "assignment_from_core",
+        "student_id": "student_from_core",
+    }
+    assert seen == ["PDS1|delegated payload"]
+
+
+def test_parse_qr_delegates_legacy_omr1_to_pds_core(monkeypatch):
     class ParsedPayload:
         class_id = "class_from_core"
         assignment_id = "assignment_from_core"
@@ -66,12 +102,12 @@ def test_parse_qr_delegates_to_pds_core(monkeypatch):
 
     monkeypatch.setattr(scoring, "parse_omr1_payload", fake_parse)
 
-    assert scoring.parse_qr_payload("  delegated payload  ") == {
+    assert scoring.parse_qr_payload("  OMR1|delegated payload  ") == {
         "class_id": "class_from_core",
         "assignment_id": "assignment_from_core",
         "student_id": "student_from_core",
     }
-    assert seen == ["delegated payload"]
+    assert seen == ["OMR1|delegated payload"]
 
 
 def test_parse_qr_result_still_passes_metadata_validation():
