@@ -521,7 +521,7 @@ installs:
 * the ordinary third-party dependencies from `requirements.txt`;
 * the sibling `../pds-core` checkout in editable mode;
 * ScoreForm itself in editable mode with development/test dependencies such as
-  `pytest`.
+  `pytest` and `ruff`.
 
 `requirements.txt` remains useful as the list of ordinary third-party
 dependencies, but it does not install the local `pds-core` checkout and is not
@@ -753,7 +753,15 @@ Use this during normal development:
 .\run_fast_tests.ps1
 ```
 
-This runs the pytest suite, `git diff --check`, and a Git tracking check that verifies generated/private artifact paths such as `classes/`, `local_outputs/`, and `scans_inbox/` are not tracked.
+This runs Ruff, the pytest suite, `git diff --check`, and a Git tracking check
+that verifies generated/private artifact paths such as `classes/`,
+`local_outputs/`, and `scans_inbox/` are not tracked.
+
+Run linting directly with:
+
+```powershell
+python -m ruff check .
+```
 
 ### Full Regression Checks
 

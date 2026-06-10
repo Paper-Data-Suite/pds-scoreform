@@ -1,8 +1,8 @@
-import os
 import json
+import os
+
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.validation import validate_identifier
-
 
 VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}
 

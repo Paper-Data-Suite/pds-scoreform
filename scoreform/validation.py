@@ -1,7 +1,6 @@
 from pds_core import identifiers as core_identifiers
 from pds_core.identifiers import IdentifierValidationError
 
-
 # Preserve the existing ScoreForm-facing name while making pds-core authoritative.
 IDENTIFIER_PATTERN = core_identifiers.IDENTIFIER_PATTERN
 IDENTIFIER_RULE_MESSAGE = (

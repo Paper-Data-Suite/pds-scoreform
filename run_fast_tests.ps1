@@ -22,6 +22,7 @@ function Invoke-Test {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
+Invoke-Test "Run Ruff checks" "python -m ruff check ."
 Invoke-Test "Run pytest suite" "python -m pytest"
 Invoke-Test "Check diff whitespace" "git diff --check"
 

@@ -1,10 +1,10 @@
-import pytest
 import cv2
 import numpy as np
+import pytest
 import qrcode
+
 from scoreform import scoring
 from scoreform.config import IMG_HEIGHT, IMG_WIDTH
-
 
 VALID_QR_PAYLOAD = (
     "PDS1|module=scoreform|class=english9_p2|"

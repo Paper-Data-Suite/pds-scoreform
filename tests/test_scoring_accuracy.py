@@ -20,7 +20,6 @@ from scoreform.scoring import (
     score_image,
 )
 
-
 CHOICES = ["A", "B", "C", "D"]
 
 

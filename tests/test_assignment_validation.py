@@ -1,6 +1,6 @@
 import json
-from scoreform import assignment
-from scoreform import workflows
+
+from scoreform import assignment, workflows
 from scoreform.config import MAX_QUESTION_COUNT
 
 

@@ -1,27 +1,30 @@
 import re
 import sys
-import numpy as np
+
 import cv2
+import numpy as np
 from pds_core.pds1 import Pds1PayloadError, build_pds1_payload
 from pds_core.qr_payload import QrPayload, QrPayloadValidationError
-from scoreform.folders import ensure_parent_dir
+
 from scoreform.config import (
-    CORNERS,
-    CORNER_SIZE,
-    IMG_WIDTH,
-    IMG_HEIGHT,
-    Q_START_Y,
-    Q_STEP_Y,
     BOX_SIZE,
     BOX_START_X,
     BOX_STEP_X,
-    PDF_SCALE,
-    PDF_HEIGHT,
+    CORNER_SIZE,
+    CORNERS,
+    IMG_HEIGHT,
+    IMG_WIDTH,
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
     MAX_QUESTION_COUNT,
+    PDF_HEIGHT,
+    PDF_SCALE,
+    Q_START_Y,
+    Q_STEP_Y,
 )
+from scoreform.folders import ensure_parent_dir
 from scoreform.validation import validate_identifier
+
 
 def _pdf_coord(x, y):
     """Convert template coordinates to PDF points with origin at bottom-left."""
@@ -179,7 +182,7 @@ def generate_student_pdf(output_path, assignment_data, student_data):
     Returns True on success, False on failure.
     """
     try:
-        import qrcode
+        import qrcode  # noqa: F401 - dependency availability check
     except ImportError:
         print("Error: The 'qrcode' package is required to generate QR codes.")
         print('Please run: python -m pip install "qrcode[pil]"')
@@ -246,8 +249,9 @@ def build_qr_payload(assignment_data, student_data):
 
 def make_qr_image(payload):
     """Create a QR code image from the payload using qrcode."""
-    import qrcode
     import io
+
+    import qrcode
     from reportlab.lib.utils import ImageReader
 
     qr = qrcode.QRCode(
@@ -351,7 +355,7 @@ def generate_class_packet_pdf(output_path, assignment_data, roster_data):
     Returns True on success, False on failure.
     """
     try:
-        import qrcode
+        import qrcode  # noqa: F401 - dependency availability check
     except ImportError:
         print("Error: The 'qrcode' package is required to generate QR codes.")
         print('Please run: python -m pip install "qrcode[pil]"')

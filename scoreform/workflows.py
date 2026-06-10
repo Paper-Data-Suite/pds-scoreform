@@ -12,19 +12,18 @@ Contains:
 These are designed to be imported by `scoreform.cli` without circular imports.
 """
 
-import os
 import csv
 import json
+import os
 import re
 import sys
 
 from pds_core.scan_routes import scans_inbox_dir
 
+from scoreform.assignment import load_assignment
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.roster import load_roster
-from scoreform.assignment import load_assignment
 from scoreform.validation import is_safe_identifier, validate_identifier
-
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
 GREEN_ANSI = "\033[32m"

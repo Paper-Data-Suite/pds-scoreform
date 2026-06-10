@@ -1213,7 +1213,8 @@ Make the program and regression tests more reliable across machines.
 * Synthetic scoring accuracy fixture added for deterministic known-answer OMR detection.
 * CLI failure-mode pytest coverage added for invalid commands, missing files, malformed/invalid assignment files, invalid roster files, and nonexistent score inputs.
 * `run_tests.ps1` routes generic templates, manual/default results, explicit QR-aware result CSVs, and temporary fixtures under `local_outputs/`.
-* `run_fast_tests.ps1` added for fast development checks: pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
+* `run_fast_tests.ps1` provides fast development checks: Ruff, pytest, `git diff --check`, and generated/private artifact tracking checks without package installation or generated-file workflow checks.
+* Ruff uses the conservative `E`, `F`, and `I` rule sets and can be run directly with `python -m ruff check .`.
 * Phase 1 general cleanup pass completed for approved PowerShell helper names, score command help text, and confirmed unused imports.
 * QR-aware batch scoring now reports summary information for failed pages.
 * QR-aware scoring now saves dated failure diagnostics and batch summary text

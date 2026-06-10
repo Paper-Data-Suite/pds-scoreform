@@ -6,7 +6,6 @@ import re
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = Path("pyproject.toml")
 CLI_DISCOVERABILITY_TEST_PATH = Path("tests/test_cli_discoverability.py")

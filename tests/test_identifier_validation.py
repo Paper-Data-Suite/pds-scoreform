@@ -1,5 +1,4 @@
 import pytest
-
 from pds_core.identifiers import IdentifierValidationError
 
 from scoreform import validation
