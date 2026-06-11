@@ -188,8 +188,8 @@ Invoke-Test "Show scoreform short help" "scoreform -h"
 Invoke-Test "Show scoreform help command" "scoreform help"
 Invoke-Test "Show scoreform version" "scoreform --version"
 Invoke-Test "Show scoreform version command" "scoreform version"
-Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '4' | scoreform"
-Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '4' | scoreform menu"
+Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '5' | scoreform"
+Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '5' | scoreform menu"
 Invoke-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Invoke-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
 $qrValidationCmd = @'
@@ -231,7 +231,7 @@ Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr 
 
 Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Invoke-Test "Launch menu help and exit" "Write-Output '3', '', '4' | python main.py menu"
+Invoke-Test "Launch menu help and exit" "Write-Output '4', '', '5' | python main.py menu"
 
 Write-Host ""
 Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
@@ -246,7 +246,7 @@ Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding U
     "1",                    # Scoring mode -> QR-aware routed scoring (recommended)
     "",                     # pause after scoring
     "6",                    # Return to main menu
-    "4"                     # Exit
+    "5"                     # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -398,7 +398,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "n",                    # add another? no
     "",                     # pause after roster creation output
     "4",                    # Return to main menu
-    "4"                     # Exit
+    "5"                     # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -437,7 +437,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "",                         # pause after assignment creation output
     "6",                        # Return to main menu
-    "4"                         # Exit
+    "5"                         # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
@@ -472,7 +472,7 @@ Write-Host "Testing answer sheet generation through menu class/assignment select
     "y",                        # Confirm generation
     "",                         # pause after generation output
     "6",                        # Return to main menu
-    "4"                         # Exit
+    "5"                         # Exit
 ) | python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
