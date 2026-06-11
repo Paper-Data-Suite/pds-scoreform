@@ -183,9 +183,26 @@ different root can be selected through the shared PDS workspace configuration
 or the `PDS_WORKSPACE_ROOT` environment variable.
 
 The source checkout, installed package, virtual environment, and current
-working directory are not implicit data roots. ScoreForm currently does not
-provide menu or CLI commands for changing the workspace root; that interface is
-tracked separately in issue #35.
+working directory are not implicit data roots. ScoreForm exposes the shared
+configuration through direct CLI commands and the terminal menu, while all
+workspace resolution, validation, saving, and reset behavior remains provided
+by `pds-core`.
+
+Use these commands to inspect or manage the shared workspace:
+
+```powershell
+scoreform workspace show
+scoreform workspace set "C:\Users\teacher\OneDrive - District Name\Paper Data Suite"
+scoreform workspace validate
+scoreform workspace reset
+```
+
+`workspace set` validates or creates the selected folder and saves it as the
+shared preference. It does not migrate files from the previous workspace.
+`workspace reset` clears only the saved preference; it does not delete the
+workspace folder or any files under `classes/`, `scans_inbox/`,
+`local_outputs/`, or `.pds/`. An active `PDS_WORKSPACE_ROOT` environment
+variable still takes precedence over the saved preference.
 
 Generated classroom files preserve the existing layout under the workspace
 root:
@@ -263,11 +280,14 @@ ScoreForm
 
 1. Assignment Management
 2. Roster Management
-3. Help
-4. Exit
+3. Workspace Settings
+4. Help
+5. Exit
 ```
 
 Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, and validation.
+Workspace Settings can show, set, validate/create, or reset the shared PDS
+workspace root using the same `pds-core` operations as the direct CLI.
 
 ScoreForm supports two interaction layers:
 
@@ -276,7 +296,7 @@ ScoreForm supports two interaction layers:
 
 The layers intentionally do not have one-to-one command parity. Path-oriented setup operations such as `setup-assignment` remain available through `scoreform setup-assignment ...` and `python main.py setup-assignment ...`, but are not shown in the normal teacher-facing menu.
 
-Select **3. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
+Select **4. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
 
 ### Create a Roster from the Menu
@@ -566,6 +586,36 @@ start. Poppler must also be installed separately as described above.
 The command-line interface is still evolving. Current commands may change before the first stable release.
 
 Use `scoreform --help`, `scoreform -h`, or `scoreform help` to show available commands, examples, and scoring mode notes. Use `scoreform --version` or `scoreform version` to print the installed package version.
+
+### Workspace Commands
+
+Show the currently resolved root, shared config path, and default root:
+
+```powershell
+scoreform workspace show
+```
+
+Set a preferred workspace folder:
+
+```powershell
+scoreform workspace set "C:\Users\teacher\OneDrive - District Name\Paper Data Suite"
+```
+
+Validate the current root, creating it and its workspace metadata when needed:
+
+```powershell
+scoreform workspace validate
+```
+
+Clear the saved preference without deleting user data:
+
+```powershell
+scoreform workspace reset
+```
+
+Explicit input and output paths supplied to other ScoreForm commands remain
+honored. Changing the shared workspace affects ScoreForm-managed defaults and
+routed data only; it does not move existing files.
 
 ### Scan Workflow
 

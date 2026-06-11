@@ -148,7 +148,21 @@ ScoreForm resolves and ensures the shared Paper Data Suite workspace root
 through `pds-core`. The default root is `~/Paper Data Suite`, and shared PDS
 configuration or `PDS_WORKSPACE_ROOT` can select another location. The current
 working directory is no longer the implicit root for ScoreForm-managed data.
-Workspace-changing menu and CLI commands remain separate issue #35 work.
+
+ScoreForm exposes the shared workspace configuration through:
+
+```powershell
+scoreform workspace show
+scoreform workspace set "<path>"
+scoreform workspace validate
+scoreform workspace reset
+```
+
+The terminal main menu also includes **Workspace Settings** with show, set,
+validate/create, and reset actions. These interfaces delegate resolution,
+validation, persistence, and reset behavior to `pds-core`. Setting a new root
+does not migrate existing files, and resetting the saved preference does not
+delete workspace data.
 
 ```text
 <PDS workspace root>/

@@ -105,6 +105,10 @@ Usage:
   scoreform validate-assignment <assignment.json>
   scoreform validate-roster <roster.csv>
   scoreform setup-assignment <assignment.json> <roster.csv>
+  scoreform workspace show
+  scoreform workspace set <path>
+  scoreform workspace validate
+  scoreform workspace reset
   scoreform help
   scoreform --help
   scoreform version
@@ -118,6 +122,7 @@ Commands:
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
+  workspace             View or configure the shared PDS workspace root.
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
@@ -142,6 +147,10 @@ Examples:
   scoreform decode-qr classes\\english9_p2\\assignments\\rj_act1_quiz\\templates\\class_packet.pdf
   scoreform validate-assignment examples\\sample_assignment.json
   scoreform validate-roster examples\\sample_roster_english9_p2.csv
+  scoreform workspace show
+  scoreform workspace set "C:\\Users\\teacher\\Paper Data Suite"
+  scoreform workspace validate
+  scoreform workspace reset
 
 Notes:
   Running scoreform with no arguments launches the terminal menu.
@@ -167,6 +176,97 @@ def print_menu_help():
     print("Routed results are an audit log, not a finalized gradebook export.")
     print("Manually verify scores before using them for grades.")
     print()
+
+
+def print_workspace_help():
+    """Print help for the workspace command group."""
+    print(
+        """Usage:
+  scoreform workspace show
+  scoreform workspace set <path>
+  scoreform workspace validate
+  scoreform workspace reset
+
+Commands:
+  show       Show the resolved workspace root and configuration paths.
+  set        Validate/create and save a workspace root.
+  validate   Validate/create the currently resolved workspace root.
+  reset      Clear the saved preference without deleting workspace files.
+
+Setting a new workspace does not move existing ScoreForm files."""
+    )
+
+
+def run_workspace(args):
+    """Run shared Paper Data Suite workspace commands."""
+    if not args or args[0] in ("help", "--help", "-h"):
+        print_workspace_help()
+        return 0
+
+    command = args[0]
+    command_args = args[1:]
+
+    try:
+        if command == "show":
+            if command_args:
+                print("Usage: scoreform workspace show")
+                return 1
+
+            print("Current PDS workspace root:")
+            print(workspace.resolve_workspace_root())
+            print()
+            print("Config file:")
+            print(workspace.get_workspace_config_path())
+            print()
+            print("Default workspace root:")
+            print(workspace.get_default_workspace_root())
+            return 0
+
+        if command == "set":
+            if len(command_args) != 1:
+                print("Usage: scoreform workspace set <path>")
+                return 1
+
+            saved_root = workspace.set_scoreform_workspace_root(command_args[0])
+            print("Saved PDS workspace root:")
+            print(saved_root)
+            print()
+            print("This does not move existing ScoreForm files.")
+            return 0
+
+        if command == "validate":
+            if command_args:
+                print("Usage: scoreform workspace validate")
+                return 1
+
+            validated_root = workspace.validate_scoreform_workspace_root()
+            print("Workspace is valid:")
+            print(validated_root)
+            return 0
+
+        if command == "reset":
+            if command_args:
+                print("Usage: scoreform workspace reset")
+                return 1
+
+            cleared, resolved_root = workspace.reset_scoreform_workspace_root()
+            if cleared:
+                print("Cleared saved PDS workspace root preference.")
+            else:
+                print("No saved PDS workspace root preference was set.")
+            print()
+            print("No workspace files were deleted.")
+            print()
+            print("Current resolved workspace root:")
+            print(resolved_root)
+            return 0
+    except workspace.WorkspaceRootError as exc:
+        print(f"Error: {exc}")
+        return 1
+
+    print(f"Unknown workspace command: {command}")
+    print_workspace_help()
+    return 1
 
 
 def run_generate(args):
@@ -724,6 +824,69 @@ def prompt_scoring_mode(input_file):
         pause_for_user()
 
 
+def launch_workspace_menu():
+    """Workspace settings submenu for the shared PDS workspace root."""
+    try:
+        while True:
+            clear_screen()
+            print_menu_header("Workspace Settings")
+            print("1. Show current workspace")
+            print("2. Set workspace folder")
+            print("3. Validate/create current workspace")
+            print("4. Reset saved workspace preference")
+            print("5. Back")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                clear_screen()
+                print_menu_header("Current Workspace")
+                run_workspace(["show"])
+                print()
+                pause_for_user()
+
+            elif choice == "2":
+                clear_screen()
+                print_menu_header("Set Workspace Folder")
+                workspace_path = normalize_path_input(
+                    input("Workspace folder path (blank to cancel): ")
+                )
+                if not workspace_path:
+                    print("Cancelled: Workspace folder was not changed.")
+                else:
+                    run_workspace(["set", workspace_path])
+                print()
+                pause_for_user()
+
+            elif choice == "3":
+                clear_screen()
+                print_menu_header("Validate Current Workspace")
+                run_workspace(["validate"])
+                print()
+                pause_for_user()
+
+            elif choice == "4":
+                clear_screen()
+                print_menu_header("Reset Workspace Preference")
+                run_workspace(["reset"])
+                print()
+                pause_for_user()
+
+            elif choice == "5":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
+                print()
+                pause_for_user()
+
+    except KeyboardInterrupt:
+        print("\nExiting workspace settings.")
+        return 0
+
+
 def launch_menu():
     try:
         while True:
@@ -731,8 +894,9 @@ def launch_menu():
             print_menu_header("Main Menu")
             print("1. Assignment Management")
             print("2. Roster Management")
-            print("3. Help")
-            print("4. Exit")
+            print("3. Workspace Settings")
+            print("4. Help")
+            print("5. Exit")
 
             choice = input("Select an option: ").strip()
             print()
@@ -744,16 +908,19 @@ def launch_menu():
                 launch_roster_menu()
 
             elif choice == "3":
+                launch_workspace_menu()
+
+            elif choice == "4":
                 clear_screen()
                 print_menu_help()
                 pause_for_user()
 
-            elif choice == "4":
+            elif choice == "5":
                 print("Goodbye.")
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
                 print()
                 pause_for_user()
 
@@ -802,6 +969,8 @@ def main(argv=None, default_to_menu=True):
         return run_setup_assignment(args)
     elif cmd == "decode-qr":
         return run_decode_qr(args)
+    elif cmd == "workspace":
+        return run_workspace(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1
