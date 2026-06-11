@@ -587,6 +587,10 @@ The command-line interface is still evolving. Current commands may change before
 
 Use `scoreform --help`, `scoreform -h`, or `scoreform help` to show available commands, examples, and scoring mode notes. Use `scoreform --version` or `scoreform version` to print the installed package version.
 
+The current direct-CLI, menu, workspace, path, exit-code, packaging, and
+backward-compatibility expectations are defined in
+[`docs/cli_contract.md`](docs/cli_contract.md).
+
 ### Workspace Commands
 
 Show the currently resolved root, shared config path, and default root:
