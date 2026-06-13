@@ -17,7 +17,9 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
+from pds_core.classes import list_class_folders as list_core_class_folders
 from pds_core.routes import assignment_config_path as core_assignment_config_path
 from pds_core.routes import class_roster_path as core_class_roster_path
 from pds_core.routes import classes_dir as core_classes_dir
@@ -26,7 +28,7 @@ from pds_core.scan_routes import scans_inbox_dir
 from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.config import MAX_QUESTION_COUNT
-from scoreform.roster import load_roster
+from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
@@ -135,16 +137,41 @@ def discover_class_rosters(classes_dir=None):
     """Return valid class rosters discovered under classes/<class_id>/roster.csv."""
     if classes_dir is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-        classes_dir = os.fspath(core_classes_dir(workspace_root))
+    else:
+        classes_path = Path(classes_dir)
+        if classes_path.name == "classes":
+            workspace_root = classes_path.parent
+        else:
+            return _discover_class_rosters_in_legacy_directory(classes_path)
 
-    if not os.path.isdir(classes_dir):
+    discovered = []
+    for class_folder in list_core_class_folders(
+        workspace_root,
+        require_roster=True,
+        load_rosters=True,
+    ):
+        if class_folder.roster is None:
+            continue
+
+        roster_path = os.fspath(class_folder.roster_path)
+        discovered.append({
+            "class_id": class_folder.class_id,
+            "roster_path": roster_path,
+            "roster": _core_roster_to_legacy_dict(class_folder.roster),
+        })
+
+    return discovered
+
+
+def _discover_class_rosters_in_legacy_directory(classes_dir):
+    """Preserve explicit discovery for non-canonical class directories."""
+    if not classes_dir.is_dir():
         return []
 
     discovered = []
-    for entry in sorted(os.listdir(classes_dir)):
-        class_dir = os.path.join(classes_dir, entry)
-        roster_path = os.path.join(class_dir, "roster.csv")
-        if not os.path.isdir(class_dir) or not os.path.exists(roster_path):
+    for class_dir in sorted(classes_dir.iterdir(), key=lambda entry: entry.name):
+        roster_path = class_dir / "roster.csv"
+        if not class_dir.is_dir() or not roster_path.exists():
             continue
 
         roster = load_roster(roster_path)
@@ -153,16 +180,16 @@ def discover_class_rosters(classes_dir=None):
             continue
 
         class_id = roster.get("class_id")
-        if class_id != entry:
+        if class_id != class_dir.name:
             print(
                 f"Skipping roster with mismatched class_id: {roster_path} "
-                f"(folder '{entry}', roster '{class_id}')"
+                f"(folder '{class_dir.name}', roster '{class_id}')"
             )
             continue
 
         discovered.append({
             "class_id": class_id,
-            "roster_path": roster_path,
+            "roster_path": os.fspath(roster_path),
             "roster": roster,
         })
 
