@@ -1,3 +1,9 @@
+from pathlib import Path
+
+from pds_core.classes import ClassFolder
+from pds_core.rosters import Roster as CoreRoster
+from pds_core.rosters import StudentRecord
+
 from scoreform import assignment, roster, workflows
 
 
@@ -61,6 +67,104 @@ def test_discover_class_rosters_finds_valid_rosters_deterministically(tmp_path, 
     discovered = workflows.discover_class_rosters()
 
     assert [item["class_id"] for item in discovered] == ["a_class", "z_class"]
+
+
+def test_discover_class_rosters_uses_core_class_folder_discovery(
+    tmp_path,
+    monkeypatch,
+):
+    roster_path = tmp_path / "classes" / "english9_p2" / "roster.csv"
+    core_roster = CoreRoster(
+        class_id="english9_p2",
+        students=(
+            StudentRecord(
+                class_id="english9_p2",
+                student_id="0012",
+                last_name="Doe",
+                first_name="Jane",
+                period="2",
+                extra_fields={"preferred_name": "Janey", "email": ""},
+            ),
+        ),
+        columns=(
+            "class_id",
+            "student_id",
+            "last_name",
+            "first_name",
+            "period",
+            "preferred_name",
+            "email",
+        ),
+        source_path=roster_path,
+    )
+    core_folder = ClassFolder(
+        class_id="english9_p2",
+        class_dir=roster_path.parent,
+        roster_path=roster_path,
+        roster=core_roster,
+    )
+    calls = []
+
+    def fake_list_class_folders(
+        workspace_root,
+        *,
+        require_roster=False,
+        load_rosters=False,
+    ):
+        calls.append((workspace_root, require_roster, load_rosters))
+        return (core_folder,)
+
+    monkeypatch.setattr(
+        workflows,
+        "list_core_class_folders",
+        fake_list_class_folders,
+    )
+
+    discovered = workflows.discover_class_rosters()
+
+    assert calls == [(Path(tmp_path), True, True)]
+    assert discovered == [
+        {
+            "class_id": "english9_p2",
+            "roster_path": str(roster_path),
+            "roster": {
+                "class_id": "english9_p2",
+                "roster_path": str(roster_path),
+                "students": [
+                    {
+                        "class_id": "english9_p2",
+                        "student_id": "0012",
+                        "last_name": "Doe",
+                        "first_name": "Jane",
+                        "period": "2",
+                        "preferred_name": "Janey",
+                        "email": "",
+                    }
+                ],
+            },
+        }
+    ]
+
+
+def test_discover_class_rosters_preserves_explicit_classes_dir(tmp_path, monkeypatch):
+    classes_dir = tmp_path / "classes"
+    calls = []
+
+    monkeypatch.setattr(
+        workflows,
+        "list_core_class_folders",
+        lambda workspace_root, **kwargs: calls.append(
+            (workspace_root, kwargs)
+        ) or (),
+    )
+
+    assert workflows.discover_class_rosters(classes_dir) == []
+    assert calls == [
+        (
+            tmp_path,
+            {"require_roster": True, "load_rosters": True},
+        )
+    ]
 
 
 def test_discover_class_rosters_missing_classes_dir_returns_empty(tmp_path, monkeypatch):
