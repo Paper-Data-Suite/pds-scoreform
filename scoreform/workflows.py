@@ -12,7 +12,6 @@ Contains:
 These are designed to be imported by `scoreform.cli` without circular imports.
 """
 
-import csv
 import json
 import os
 import re
@@ -20,6 +19,9 @@ import sys
 from pathlib import Path
 
 from pds_core.classes import list_class_folders as list_core_class_folders
+from pds_core.rosters import RosterError
+from pds_core.rosters import create_roster as create_core_roster
+from pds_core.rosters import write_roster as write_core_roster
 from pds_core.routes import assignment_config_path as core_assignment_config_path
 from pds_core.routes import class_roster_path as core_class_roster_path
 from pds_core.routes import classes_dir as core_classes_dir
@@ -373,6 +375,17 @@ def write_roster_csv(path, class_id, period, students):
             if not validate_identifier("student_id", student.get("student_id"), context="roster"):
                 return False
 
+        rows = [
+            {
+                "student_id": student["student_id"],
+                "last_name": student["last_name"],
+                "first_name": student["first_name"],
+                "period": period,
+            }
+            for student in students
+        ]
+        roster = create_core_roster(class_id, rows)
+
         parent_dir = os.path.dirname(path)
         if parent_dir and not os.path.exists(parent_dir):
             try:
@@ -382,18 +395,11 @@ def write_roster_csv(path, class_id, period, students):
                 print(f"Error: Could not create parent directory '{parent_dir}': {e}")
                 return False
 
-        with open(path, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=['class_id', 'student_id', 'last_name', 'first_name', 'period'])
-            writer.writeheader()
-            for student in students:
-                writer.writerow({
-                    'class_id': class_id,
-                    'student_id': student['student_id'],
-                    'last_name': student['last_name'],
-                    'first_name': student['first_name'],
-                    'period': period,
-                })
+        write_core_roster(path, roster, overwrite=True)
         return True
+    except RosterError as e:
+        print(f"Error: Could not write roster CSV '{path}': {e}")
+        return False
     except Exception as e:
         print(f"Error: Could not write roster CSV '{path}': {e}")
         return False

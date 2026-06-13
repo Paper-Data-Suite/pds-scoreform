@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pds_core.classes import ClassFolder
 from pds_core.rosters import Roster as CoreRoster
-from pds_core.rosters import StudentRecord
+from pds_core.rosters import RosterWriteError, StudentRecord
 
 from scoreform import assignment, roster, workflows
 
@@ -387,6 +387,123 @@ def test_write_roster_csv_rejects_unsafe_student_id(tmp_path):
 
     assert not workflows.write_roster_csv(str(output_path), "english9_p2", "2", students)
     assert not output_path.exists()
+
+
+def test_write_roster_csv_uses_core_roster_writer(tmp_path, monkeypatch):
+    output_path = tmp_path / "classes" / "english9_p2" / "roster.csv"
+    students = [
+        {"student_id": "0012", "last_name": "Doe", "first_name": "Jane"},
+        {"student_id": "1002", "last_name": "Smith", "first_name": "Marcus"},
+    ]
+    core_roster = object()
+    calls = []
+
+    def fake_create_core_roster(class_id, rows):
+        calls.append(("create", class_id, rows))
+        return core_roster
+
+    def fake_write_core_roster(path, roster, *, overwrite=False):
+        calls.append(("write", path, roster, overwrite))
+
+    monkeypatch.setattr(workflows, "create_core_roster", fake_create_core_roster)
+    monkeypatch.setattr(workflows, "write_core_roster", fake_write_core_roster)
+
+    assert workflows.write_roster_csv(
+        str(output_path),
+        "english9_p2",
+        "2",
+        students,
+    )
+    assert output_path.parent.is_dir()
+    assert calls == [
+        (
+            "create",
+            "english9_p2",
+            [
+                {
+                    "student_id": "0012",
+                    "last_name": "Doe",
+                    "first_name": "Jane",
+                    "period": "2",
+                },
+                {
+                    "student_id": "1002",
+                    "last_name": "Smith",
+                    "first_name": "Marcus",
+                    "period": "2",
+                },
+            ],
+        ),
+        ("write", str(output_path), core_roster, True),
+    ]
+
+
+def test_write_roster_csv_writes_minimal_scoreform_roster_csv(tmp_path):
+    output_path = tmp_path / "roster.csv"
+
+    assert workflows.write_roster_csv(
+        str(output_path),
+        "english9_p2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    assert output_path.read_text(encoding="utf-8").splitlines() == [
+        "class_id,student_id,last_name,first_name,period",
+        "english9_p2,1001,Doe,Jane,2",
+    ]
+
+
+def test_write_roster_csv_creates_parent_directory(tmp_path):
+    output_path = tmp_path / "classes" / "english9_p2" / "roster.csv"
+
+    assert workflows.write_roster_csv(
+        str(output_path),
+        "english9_p2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    assert output_path.parent.is_dir()
+    assert output_path.is_file()
+
+
+def test_write_roster_csv_preserves_student_order_and_leading_zero_ids(tmp_path):
+    output_path = tmp_path / "roster.csv"
+    students = [
+        {"student_id": "0012", "last_name": "Doe", "first_name": "Jane"},
+        {"student_id": "1001", "last_name": "Smith", "first_name": "Marcus"},
+    ]
+
+    assert workflows.write_roster_csv(
+        str(output_path),
+        "english9_p2",
+        "2",
+        students,
+    )
+    loaded = roster.load_roster(str(output_path))
+    assert loaded is not None
+    assert [student["student_id"] for student in loaded["students"]] == [
+        "0012",
+        "1001",
+    ]
+
+
+def test_write_roster_csv_returns_false_on_core_write_error(
+    tmp_path,
+    monkeypatch,
+):
+    output_path = tmp_path / "roster.csv"
+
+    def fail_write(path, roster, *, overwrite=False):
+        raise RosterWriteError(path, "test write failure")
+
+    monkeypatch.setattr(workflows, "write_core_roster", fail_write)
+
+    assert not workflows.write_roster_csv(
+        str(output_path),
+        "english9_p2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
 
 
 def test_write_assignment_json_rejects_unsafe_assignment_id(tmp_path):
