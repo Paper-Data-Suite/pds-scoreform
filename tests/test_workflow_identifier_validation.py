@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pds_core.assignments import AssignmentFolder
 from pds_core.classes import ClassFolder
 from pds_core.rosters import Roster as CoreRoster
 from pds_core.rosters import RosterWriteError, StudentRecord
@@ -209,6 +210,121 @@ def test_discover_class_assignments_finds_valid_assignments_deterministically(tm
     assert [item["assignment_id"] for item in discovered] == ["a_assignment", "z_assignment"]
     assert discovered[0]["assignment_path"].endswith("classes\\class_a\\assignments\\a_assignment\\assignment.json") or discovered[0]["assignment_path"].endswith("classes/class_a/assignments/a_assignment/assignment.json")
     assert discovered[0]["assignment"]["title"] == "a_assignment"
+
+
+def test_discover_class_assignments_uses_core_assignment_folder_listing(
+    tmp_path,
+    monkeypatch,
+):
+    assignment_dir = (
+        tmp_path
+        / "classes"
+        / "english9_p2"
+        / "assignments"
+        / "unit_1_quiz"
+    )
+    assignment_dir.mkdir(parents=True)
+    assignment_path = assignment_dir / "assignment.json"
+    assignment_path.write_text("{}", encoding="utf-8")
+    core_folder = AssignmentFolder(
+        class_id="english9_p2",
+        assignment_id="unit_1_quiz",
+        class_dir=tmp_path / "classes" / "english9_p2",
+        assignments_dir=assignment_dir.parent,
+        assignment_dir=assignment_dir,
+    )
+    assignment_data = {
+        "assignment_id": "unit_1_quiz",
+        "title": "Unit 1 Quiz",
+        "question_count": 1,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {1: "A"},
+        "standards": {1: []},
+    }
+    calls = []
+
+    monkeypatch.setattr(
+        workflows,
+        "list_core_assignment_folders",
+        lambda workspace_root, class_id: calls.append(
+            (workspace_root, class_id)
+        ) or (core_folder,),
+    )
+    monkeypatch.setattr(
+        workflows,
+        "load_assignment",
+        lambda path: assignment_data if Path(path) == assignment_path else None,
+    )
+
+    discovered = workflows.discover_class_assignments("english9_p2")
+
+    assert calls == [(Path(tmp_path), "english9_p2")]
+    assert discovered == [
+        {
+            "assignment_id": "unit_1_quiz",
+            "assignment_path": str(assignment_path),
+            "assignment": assignment_data,
+        }
+    ]
+
+
+def test_discover_class_assignments_preserves_explicit_classes_dir(
+    tmp_path,
+    monkeypatch,
+):
+    classes_dir = tmp_path / "classes"
+    calls = []
+
+    monkeypatch.setattr(
+        workflows,
+        "list_core_assignment_folders",
+        lambda workspace_root, class_id: calls.append(
+            (workspace_root, class_id)
+        ) or (),
+    )
+
+    assert workflows.discover_class_assignments(
+        "class_a",
+        classes_dir,
+    ) == []
+    assert calls == [(tmp_path, "class_a")]
+
+
+def test_discover_class_assignments_preserves_noncanonical_classes_dir(
+    tmp_path,
+    monkeypatch,
+):
+    classes_dir = tmp_path / "custom_classes"
+    assignment_path = (
+        classes_dir
+        / "class_a"
+        / "assignments"
+        / "unit_1_quiz"
+        / "assignment.json"
+    )
+    workflows.write_assignment_json(
+        str(assignment_path),
+        {
+            "assignment_id": "unit_1_quiz",
+            "title": "Unit 1 Quiz",
+            "question_count": 1,
+            "choices": ["A", "B", "C", "D"],
+            "answer_key": {"1": "A"},
+            "standards": {"1": []},
+        },
+    )
+    monkeypatch.setattr(
+        workflows,
+        "list_core_assignment_folders",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("core listing should not receive a classes directory")
+        ),
+    )
+
+    discovered = workflows.discover_class_assignments("class_a", classes_dir)
+
+    assert [record["assignment_id"] for record in discovered] == ["unit_1_quiz"]
+    assert discovered[0]["assignment_path"] == str(assignment_path)
 
 
 def test_discover_class_assignments_missing_assignments_dir_returns_empty(tmp_path, monkeypatch):
@@ -669,6 +785,62 @@ def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, mon
     assert loaded["title"] == "Romeo and Juliet Act 1 Quiz"
     assert loaded["question_count"] == 2
     assert loaded["answer_key"] == {1: "A", 2: "B"}
+
+
+def test_prompt_create_assignment_uses_core_assignment_folder_helper(
+    tmp_path,
+    monkeypatch,
+):
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "class_a" / "roster.csv"),
+        "class_a",
+        "1",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    responses = iter([
+        "1",
+        "Unit 1 Quiz",
+        "",
+        "1",
+        "A",
+    ])
+    calls = []
+
+    def fake_ensure_assignment_folder(workspace_root, class_id, assignment_id):
+        assignment_dir = (
+            Path(workspace_root)
+            / "classes"
+            / class_id
+            / "assignments"
+            / assignment_id
+        )
+        assignment_dir.mkdir(parents=True, exist_ok=True)
+        calls.append((workspace_root, class_id, assignment_id))
+        return AssignmentFolder(
+            class_id=class_id,
+            assignment_id=assignment_id,
+            class_dir=assignment_dir.parents[1],
+            assignments_dir=assignment_dir.parent,
+            assignment_dir=assignment_dir,
+        )
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+    monkeypatch.setattr(
+        workflows,
+        "ensure_core_assignment_folder",
+        fake_ensure_assignment_folder,
+    )
+
+    assert workflows.prompt_create_assignment() == 0
+    assert calls == [(Path(tmp_path), "class_a", "unit_1_quiz")]
+    assert (
+        tmp_path
+        / "classes"
+        / "class_a"
+        / "assignments"
+        / "unit_1_quiz"
+        / "assignment.json"
+    ).exists()
 
 
 def test_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch):

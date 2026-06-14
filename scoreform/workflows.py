@@ -18,13 +18,17 @@ import re
 import sys
 from pathlib import Path
 
+from pds_core.assignments import (
+    ensure_assignment_folder as ensure_core_assignment_folder,
+)
+from pds_core.assignments import (
+    list_assignment_folders as list_core_assignment_folders,
+)
 from pds_core.classes import list_class_folders as list_core_class_folders
 from pds_core.rosters import RosterError
 from pds_core.rosters import create_roster as create_core_roster
 from pds_core.rosters import write_roster as write_core_roster
-from pds_core.routes import assignment_config_path as core_assignment_config_path
 from pds_core.routes import class_roster_path as core_class_roster_path
-from pds_core.routes import classes_dir as core_classes_dir
 from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
@@ -205,17 +209,26 @@ def discover_class_assignments(class_id, classes_dir=None):
 
     if classes_dir is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-        classes_dir = os.fspath(core_classes_dir(workspace_root))
+    else:
+        classes_path = Path(classes_dir)
+        if classes_path.name == "classes":
+            workspace_root = classes_path.parent
+        else:
+            return _discover_class_assignments_in_legacy_directory(
+                class_id,
+                classes_path,
+            )
 
-    assignments_dir = os.path.join(classes_dir, class_id, "assignments")
-    if not os.path.isdir(assignments_dir):
-        return []
+    assignment_folders = list_core_assignment_folders(workspace_root, class_id)
+    return _load_discovered_assignments(assignment_folders)
 
+
+def _load_discovered_assignments(assignment_folders):
+    """Load ScoreForm assignment records from routed assignment folders."""
     discovered = []
-    for entry in sorted(os.listdir(assignments_dir)):
-        assignment_dir = os.path.join(assignments_dir, entry)
-        assignment_path = os.path.join(assignment_dir, "assignment.json")
-        if not os.path.isdir(assignment_dir) or not os.path.exists(assignment_path):
+    for folder in assignment_folders:
+        assignment_path = folder.assignment_dir / "assignment.json"
+        if not assignment_path.exists():
             continue
 
         assignment = load_assignment(assignment_path)
@@ -224,20 +237,52 @@ def discover_class_assignments(class_id, classes_dir=None):
             continue
 
         assignment_id = assignment.get("assignment_id")
-        if assignment_id != entry:
+        if assignment_id != folder.assignment_id:
             print(
                 f"Skipping assignment with mismatched assignment_id: {assignment_path} "
-                f"(folder '{entry}', assignment '{assignment_id}')"
+                f"(folder '{folder.assignment_id}', assignment '{assignment_id}')"
             )
             continue
 
         discovered.append({
             "assignment_id": assignment_id,
-            "assignment_path": assignment_path,
+            "assignment_path": os.fspath(assignment_path),
             "assignment": assignment,
         })
 
     return discovered
+
+
+def _discover_class_assignments_in_legacy_directory(class_id, classes_dir):
+    """Preserve explicit discovery for non-canonical class directories."""
+    assignments_dir = classes_dir / class_id / "assignments"
+    if not assignments_dir.is_dir():
+        return []
+
+    assignment_folders = []
+    for assignment_dir in sorted(
+        assignments_dir.iterdir(),
+        key=lambda entry: entry.name,
+    ):
+        if not assignment_dir.is_dir():
+            continue
+
+        assignment_folders.append(
+            _LegacyAssignmentFolder(
+                assignment_id=assignment_dir.name,
+                assignment_dir=assignment_dir,
+            )
+        )
+
+    return _load_discovered_assignments(assignment_folders)
+
+
+class _LegacyAssignmentFolder:
+    """Minimal folder record for non-canonical explicit classes directories."""
+
+    def __init__(self, assignment_id, assignment_dir):
+        self.assignment_id = assignment_id
+        self.assignment_dir = assignment_dir
 
 
 def parse_single_selection(selection_text, available_items, item_label):
@@ -659,13 +704,12 @@ def prompt_create_assignment():
     for class_record in selected_classes:
         class_id = class_record["class_id"]
         workspace_root = workspace.get_scoreform_workspace_root()
-        output_path = os.fspath(
-            core_assignment_config_path(
-                workspace_root,
-                class_id,
-                assignment_id,
-            )
+        folder = ensure_core_assignment_folder(
+            workspace_root,
+            class_id,
+            assignment_id,
         )
+        output_path = os.fspath(folder.assignment_dir / "assignment.json")
 
         if not confirm_assignment_overwrite(output_path, class_id):
             print(f"Skipped: {output_path}")
