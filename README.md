@@ -593,7 +593,8 @@ backward-compatibility expectations are defined in
 
 ### Workspace Commands
 
-Show the currently resolved root, shared config path, and default root:
+Show the resolved root, resolution source, filesystem status, shared config
+path, and default root:
 
 ```powershell
 scoreform workspace show

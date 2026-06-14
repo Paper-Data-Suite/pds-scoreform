@@ -286,6 +286,9 @@ scoreform workspace show
 Displays:
 
 * the currently resolved workspace root;
+* the resolution source (`explicit`, `environment`, `saved_config`, or
+  `default`);
+* whether the root exists, is a directory, and is writable;
 * the shared Paper Data Suite config-file path;
 * the default workspace root.
 

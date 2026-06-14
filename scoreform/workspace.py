@@ -8,6 +8,7 @@ from pds_core.workspace import (
     ensure_workspace_root,
     get_default_workspace_root,
     get_workspace_config_path,
+    inspect_workspace_root,
     resolve_workspace_root,
     save_workspace_root,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "get_default_workspace_root",
     "get_scoreform_workspace_root",
     "get_workspace_config_path",
+    "inspect_workspace_root",
     "reset_scoreform_workspace_root",
     "resolve_workspace_root",
     "set_scoreform_workspace_root",
