@@ -1,7 +1,9 @@
+from types import SimpleNamespace
+
 import scoreform.cli
 
 
-def test_workspace_show_prints_resolved_and_supporting_paths(
+def test_workspace_show_uses_workspace_status(
     tmp_path,
     monkeypatch,
     capsys,
@@ -9,29 +11,62 @@ def test_workspace_show_prints_resolved_and_supporting_paths(
     resolved_root = tmp_path / "resolved"
     config_path = tmp_path / "config" / "config.json"
     default_root = tmp_path / "default"
+    calls = []
+
+    def fake_inspect_workspace_root():
+        calls.append(True)
+        return SimpleNamespace(
+            root=resolved_root,
+            source="saved_config",
+            exists=True,
+            is_dir=True,
+            is_writable=False,
+            config_path=config_path,
+            default_root=default_root,
+        )
 
     monkeypatch.setattr(
         scoreform.cli.workspace,
-        "resolve_workspace_root",
-        lambda: resolved_root,
-    )
-    monkeypatch.setattr(
-        scoreform.cli.workspace,
-        "get_workspace_config_path",
-        lambda: config_path,
-    )
-    monkeypatch.setattr(
-        scoreform.cli.workspace,
-        "get_default_workspace_root",
-        lambda: default_root,
+        "inspect_workspace_root",
+        fake_inspect_workspace_root,
     )
 
     assert scoreform.cli.main(["workspace", "show"]) == 0
 
     output = capsys.readouterr().out
+    assert calls == [True]
     assert f"Current PDS workspace root:\n{resolved_root}" in output
+    assert "Source:\nsaved_config" in output
+    assert "Exists:\nyes" in output
+    assert "Directory:\nyes" in output
+    assert "Writable:\nno" in output
     assert f"Config file:\n{config_path}" in output
     assert f"Default workspace root:\n{default_root}" in output
+
+
+def test_workspace_show_rejects_extra_arguments(monkeypatch, capsys):
+    monkeypatch.setattr(
+        scoreform.cli.workspace,
+        "inspect_workspace_root",
+        lambda: (_ for _ in ()).throw(AssertionError("must not inspect")),
+    )
+
+    assert scoreform.cli.run_workspace(["show", "extra"]) == 1
+    assert "Usage: scoreform workspace show" in capsys.readouterr().out
+
+
+def test_workspace_show_reports_workspace_error(monkeypatch, capsys):
+    def raise_workspace_error():
+        raise scoreform.cli.workspace.WorkspaceRootError("bad workspace")
+
+    monkeypatch.setattr(
+        scoreform.cli.workspace,
+        "inspect_workspace_root",
+        raise_workspace_error,
+    )
+
+    assert scoreform.cli.run_workspace(["show"]) == 1
+    assert "Error: bad workspace" in capsys.readouterr().out
 
 
 def test_workspace_set_reports_saved_root_without_migrating_files(

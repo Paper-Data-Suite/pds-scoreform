@@ -197,6 +197,10 @@ Setting a new workspace does not move existing ScoreForm files."""
     )
 
 
+def _format_bool(value: bool) -> str:
+    return "yes" if value else "no"
+
+
 def run_workspace(args):
     """Run shared Paper Data Suite workspace commands."""
     if not args or args[0] in ("help", "--help", "-h"):
@@ -212,14 +216,27 @@ def run_workspace(args):
                 print("Usage: scoreform workspace show")
                 return 1
 
+            status = workspace.inspect_workspace_root()
             print("Current PDS workspace root:")
-            print(workspace.resolve_workspace_root())
+            print(status.root)
+            print()
+            print("Source:")
+            print(status.source)
+            print()
+            print("Exists:")
+            print(_format_bool(status.exists))
+            print()
+            print("Directory:")
+            print(_format_bool(status.is_dir))
+            print()
+            print("Writable:")
+            print(_format_bool(status.is_writable))
             print()
             print("Config file:")
-            print(workspace.get_workspace_config_path())
+            print(status.config_path)
             print()
             print("Default workspace root:")
-            print(workspace.get_default_workspace_root())
+            print(status.default_root)
             return 0
 
         if command == "set":
