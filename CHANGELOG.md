@@ -14,6 +14,13 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
+### Added
+
+* Added a side-effect-free builder for creating shared `pds-core` standards
+  usage events from ScoreForm assignment-local standards alignment. The builder
+  does not automatically write to the shared standards usage ledger, change
+  scoring behavior, or add standards summaries or reports.
+
 ### Documentation
 
 * Post-public repository audit remains pending.
