@@ -20,6 +20,10 @@ GitHub milestones are project-management buckets. Package versions describe inst
   usage events from ScoreForm assignment-local standards alignment. The builder
   does not automatically write to the shared standards usage ledger, change
   scoring behavior, or add standards summaries or reports.
+* Added an explicit helper for recording ScoreForm assignment standards usage
+  to the shared `pds-core` standards usage ledger. Recording is not automatic,
+  no CLI or menu command has been added yet, scoring behavior is unchanged, and
+  no standards summaries or reports have been added.
 
 ### Documentation
 
