@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from datetime import datetime
+from pathlib import Path
 
-from pds_core.standards import StandardUsageEvent
+from pds_core.standards import (
+    StandardUsageEvent,
+    append_workspace_standard_usage_event,
+)
 
 
 def build_standard_usage_events_from_assignment_standards(
@@ -50,6 +54,39 @@ def build_standard_usage_events_from_assignment_standards(
         )
 
     return tuple(events)
+
+
+def record_standard_usage_for_assignment_standards(
+    *,
+    workspace_root: str | Path,
+    assignment_id: str,
+    standards_by_question: Mapping[int, Iterable[str]],
+    school_year: str,
+    class_id: str,
+    used_at: datetime,
+    event_id_prefix: str,
+    usage_type: str = "assessed",
+) -> tuple[StandardUsageEvent, ...]:
+    """Record ScoreForm assignment standards usage to the shared workspace ledger.
+
+    Events are built before any ledger write occurs. If a later append fails
+    after earlier appends succeeded, the underlying exception is allowed to
+    propagate and no rollback is attempted.
+    """
+    events = build_standard_usage_events_from_assignment_standards(
+        assignment_id=assignment_id,
+        standards_by_question=standards_by_question,
+        school_year=school_year,
+        class_id=class_id,
+        used_at=used_at,
+        event_id_prefix=event_id_prefix,
+        usage_type=usage_type,
+    )
+
+    for event in events:
+        append_workspace_standard_usage_event(workspace_root, event)
+
+    return events
 
 
 def _validate_question_number(question_number: object) -> None:
