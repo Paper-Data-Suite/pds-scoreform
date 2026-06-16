@@ -23,6 +23,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
   writes only the selected `assignment.json`, and does not regenerate answer
   sheets, rescore scans, rewrite historical results, alter rosters, write
   standards usage ledgers, or modify the shared standards library.
+* Changed assignment answer-key editing to prompt for one question at a time,
+  show the selected question's current answer, and stage each changed answer
+  independently instead of accepting comma-separated bulk edits.
 * Added a Roster Management menu workflow for editing existing class rosters.
   The workflow loads and writes canonical class rosters through shared
   `pds-core` roster APIs, stages add/edit/remove changes until explicit save,
