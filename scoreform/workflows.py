@@ -30,6 +30,16 @@ from pds_core.rosters import create_roster as create_core_roster
 from pds_core.rosters import write_roster as write_core_roster
 from pds_core.routes import class_roster_path as core_class_roster_path
 from pds_core.scan_routes import scans_inbox_dir
+from pds_core.standards import (
+    StandardDefinition,
+    StandardsValidationError,
+    filter_standard_definitions,
+    find_standard_definition,
+    load_workspace_standards_library,
+    upsert_standard_definition,
+    validate_standard_definition,
+    write_workspace_standards_library,
+)
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
@@ -332,6 +342,89 @@ def parse_class_selection(selection_text, available_classes):
     return selected
 
 
+def initialize_empty_standards_alignment(question_count):
+    """Return empty assignment-local standards alignment for each question."""
+    return {str(i): [] for i in range(1, question_count + 1)}
+
+
+def parse_question_selection(selection_text, question_count):
+    """Parse comma-separated question numbers for standards alignment."""
+    if not selection_text or not selection_text.strip():
+        raise ValueError("Select at least one question.")
+
+    selected = []
+    seen = set()
+    for raw_part in selection_text.split(","):
+        part = raw_part.strip()
+        if not part:
+            raise ValueError("Question selections cannot be empty.")
+        if not part.isdigit():
+            raise ValueError(f"Invalid question selection: {part}")
+
+        question_number = int(part)
+        if question_number < 1 or question_number > question_count:
+            raise ValueError(
+                f"Question selection out of range: {question_number}"
+            )
+        if question_number in seen:
+            continue
+
+        seen.add(question_number)
+        selected.append(question_number)
+
+    if not selected:
+        raise ValueError("Select at least one question.")
+
+    return tuple(selected)
+
+
+def attach_standard_to_questions(
+    standards_by_question,
+    *,
+    standard_id,
+    question_numbers,
+    question_count,
+):
+    """Return assignment-local standards alignment with standard_id attached."""
+    updated = initialize_empty_standards_alignment(question_count)
+    for question_key, standards in standards_by_question.items():
+        q_num = int(question_key)
+        if q_num < 1 or q_num > question_count:
+            raise ValueError(f"Question number out of range: {q_num}")
+        updated[str(q_num)] = [
+            standard.strip()
+            for standard in standards
+            if isinstance(standard, str) and standard.strip()
+        ]
+
+    normalized_standard_id = standard_id.strip()
+    if not normalized_standard_id:
+        raise ValueError("standard_id is required.")
+
+    for question_number in question_numbers:
+        if question_number < 1 or question_number > question_count:
+            raise ValueError(f"Question number out of range: {question_number}")
+        standards = updated[str(question_number)]
+        if normalized_standard_id not in standards:
+            standards.append(normalized_standard_id)
+
+    return updated
+
+
+def format_standard_for_selection(definition):
+    """Return compact teacher-readable text for a shared standard."""
+    pieces = [
+        definition.standard_id,
+        definition.code,
+        definition.short_name,
+    ]
+    if definition.subject:
+        pieces.append(definition.subject)
+    if definition.domain:
+        pieces.append(definition.domain)
+    return " | ".join(pieces)
+
+
 def format_roster_for_display(class_record):
     """Return readable terminal text for a discovered class roster."""
     roster = class_record["roster"]
@@ -612,6 +705,206 @@ def confirm_assignment_overwrite(path, class_id):
     return response in ['y', 'yes']
 
 
+def _standards_sort_key(definition):
+    return (
+        definition.source.lower(),
+        definition.code.lower(),
+        definition.standard_id.lower(),
+    )
+
+
+def _parse_optional_list_input(value):
+    if not value.strip():
+        return ()
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _prompt_required_text(prompt):
+    while True:
+        value = input(prompt).strip()
+        if value:
+            return value
+        print("Error: this field is required.")
+
+
+def _prompt_questions_for_standard(standards_by_question, standard_id, question_count):
+    while True:
+        selection_text = input("Attach to question(s), comma-separated: ").strip()
+        try:
+            question_numbers = parse_question_selection(
+                selection_text,
+                question_count,
+            )
+            return attach_standard_to_questions(
+                standards_by_question,
+                standard_id=standard_id,
+                question_numbers=question_numbers,
+                question_count=question_count,
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+
+
+def _prompt_attach_existing_standards(workspace_root, question_count):
+    try:
+        library = load_workspace_standards_library(workspace_root)
+    except Exception as e:
+        print(f"Error: Could not load shared standards library: {e}")
+        return None
+
+    definitions = sorted(
+        filter_standard_definitions(library, active=True),
+        key=_standards_sort_key,
+    )
+    if not definitions:
+        print("No shared standards exist yet.")
+        print("Return to the standards alignment menu to skip or add a new standard.")
+        return None
+
+    standards_by_question = initialize_empty_standards_alignment(question_count)
+
+    while True:
+        print()
+        print("Available shared standards:")
+        for index, definition in enumerate(definitions, start=1):
+            print(f"{index}. {format_standard_for_selection(definition)}")
+        print()
+        selection_text = input("Select standard to attach, or press Enter when done: ").strip()
+        if not selection_text:
+            return standards_by_question
+
+        try:
+            definition = parse_single_selection(
+                selection_text,
+                definitions,
+                "standard",
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            continue
+
+        standards_by_question = _prompt_questions_for_standard(
+            standards_by_question,
+            definition.standard_id,
+            question_count,
+        )
+
+
+def _prompt_new_standard_definition():
+    print()
+    print("New shared standard")
+    standard_id = _prompt_required_text("standard_id: ")
+    code = _prompt_required_text("code: ")
+    source = _prompt_required_text("source: ")
+    short_name = _prompt_required_text("short_name: ")
+    description = _prompt_required_text("description: ")
+
+    subject = input("subject (optional): ").strip() or None
+    course = input("course (optional): ").strip() or None
+    grade_band = input("grade_band (optional): ").strip() or None
+    domain = input("domain (optional): ").strip() or None
+    category_path = _parse_optional_list_input(
+        input("category_path, comma-separated (optional): ")
+    )
+    tags = _parse_optional_list_input(input("tags, comma-separated (optional): "))
+    available_modules = _parse_optional_list_input(
+        input("available_modules, comma-separated [pds-scoreform]: ")
+    )
+    if not available_modules:
+        available_modules = ("pds-scoreform",)
+    elif "pds-scoreform" not in available_modules:
+        available_modules = available_modules + ("pds-scoreform",)
+
+    definition = StandardDefinition(
+        standard_id=standard_id,
+        code=code,
+        source=source,
+        short_name=short_name,
+        description=description,
+        subject=subject,
+        course=course,
+        grade_band=grade_band,
+        domain=domain,
+        category_path=category_path,
+        tags=tags,
+        active=True,
+        available_modules=available_modules,
+    )
+    return validate_standard_definition(definition)
+
+
+def _prompt_create_and_attach_new_standard(workspace_root, question_count):
+    try:
+        definition = _prompt_new_standard_definition()
+        library = load_workspace_standards_library(workspace_root)
+        updated_library = upsert_standard_definition(library, definition)
+        write_workspace_standards_library(
+            workspace_root,
+            updated_library,
+            overwrite=True,
+        )
+    except StandardsValidationError as e:
+        print(f"Error: Invalid standard definition: {e}")
+        return None
+    except Exception as e:
+        print(f"Error: Could not save shared standards library: {e}")
+        return None
+
+    try:
+        saved_library = load_workspace_standards_library(workspace_root)
+        saved_definition = find_standard_definition(
+            saved_library,
+            definition.standard_id,
+        )
+    except Exception as e:
+        print(f"Error: Could not verify saved standard: {e}")
+        return None
+
+    if saved_definition is None:
+        print("Error: New standard was not found after saving.")
+        return None
+
+    standards_by_question = initialize_empty_standards_alignment(question_count)
+    return _prompt_questions_for_standard(
+        standards_by_question,
+        definition.standard_id,
+        question_count,
+    )
+
+
+def prompt_standards_alignment(workspace_root, question_count):
+    """Prompt for assignment-local standards alignment during assignment creation."""
+    while True:
+        print()
+        print("Standards alignment")
+        print("1. Skip standards for now")
+        print("2. Attach existing shared standards")
+        print("3. Enter a new shared standard, then attach it")
+        print()
+
+        choice = input("Select an option: ").strip()
+        if choice == "1":
+            return initialize_empty_standards_alignment(question_count)
+        if choice == "2":
+            standards_by_question = _prompt_attach_existing_standards(
+                workspace_root,
+                question_count,
+            )
+            if standards_by_question is not None:
+                return standards_by_question
+            continue
+        if choice == "3":
+            standards_by_question = _prompt_create_and_attach_new_standard(
+                workspace_root,
+                question_count,
+            )
+            if standards_by_question is not None:
+                return standards_by_question
+            continue
+
+        print("Invalid selection. Please enter 1, 2, or 3.")
+
+
 def prompt_create_assignment():
     """Interactive prompt to create assignment JSON files for selected classes.
 
@@ -690,20 +983,25 @@ def prompt_create_assignment():
                 break
             print("Error: Answer must be one of A, B, C, or D (case-insensitive). Please try again.")
 
+    workspace_root = workspace.get_scoreform_workspace_root()
+    standards_by_question = prompt_standards_alignment(
+        workspace_root,
+        question_count,
+    )
+
     assignment = {
         "assignment_id": assignment_id,
         "title": title,
         "question_count": question_count,
         "choices": choices,
         "answer_key": answer_key,
-        "standards": {str(i): [] for i in range(1, question_count + 1)},
+        "standards": standards_by_question,
     }
 
     written_paths = []
     skipped_paths = []
     for class_record in selected_classes:
         class_id = class_record["class_id"]
-        workspace_root = workspace.get_scoreform_workspace_root()
         folder = ensure_core_assignment_folder(
             workspace_root,
             class_id,

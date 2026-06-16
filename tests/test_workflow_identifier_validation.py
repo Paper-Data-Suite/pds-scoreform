@@ -773,6 +773,7 @@ def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, mon
         "2",
         "A",
         "B",
+        "1",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -803,6 +804,7 @@ def test_prompt_create_assignment_uses_core_assignment_folder_helper(
         "",
         "1",
         "A",
+        "1",
     ])
     calls = []
 
@@ -858,6 +860,7 @@ def test_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch)
         "unit_3_test",
         "1",
         "C",
+        "1",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -888,6 +891,7 @@ def test_prompt_create_assignment_skips_existing_without_confirmation(tmp_path, 
         "",
         "1",
         "A",
+        "1",
         "n",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))

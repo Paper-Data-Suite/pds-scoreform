@@ -28,6 +28,12 @@ GitHub milestones are project-management buckets. Package versions describe inst
   to the shared `pds-core` standards usage ledger. Recording is not automatic,
   no CLI or menu command has been added yet, scoring behavior is unchanged, and
   no standards summaries or reports have been added.
+* Added standards alignment during menu-driven assignment creation. Teachers can
+  skip standards, attach existing shared standards from the `pds-core` workspace
+  standards library, or create a new shared standard before attaching its ID to
+  selected questions. Assignment files store standard IDs only; empty standards
+  lists remain valid, usage recording is not automatic, and scoring/export
+  behavior is unchanged.
 
 ### Documentation
 

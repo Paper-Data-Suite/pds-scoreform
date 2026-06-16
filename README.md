@@ -76,7 +76,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Class/assignment folder setup through direct CLI workflows
 * Menu-driven roster creation without manual CSV editing
 * Menu-driven assignment creation without manual JSON editing
-* Optional question-level standards metadata in assignment JSON
+* Optional question-level standards alignment in assignment JSON
 * Optional roster columns preserved when roster CSV files are loaded
 
 ### CLI and Menu Workflows
@@ -228,9 +228,9 @@ updates the shared school-year state file. It does not delete, archive,
 migrate, summarize, move, or rewrite classes, assignments, rosters, scans,
 reports, results, or templates.
 
-The active school year will support future standards workflows. This release
-does not add standards entry during assignment creation and does not record
-standards usage from CLI or menu workflows.
+The active school year will support future standards usage workflows. Assignment
+creation can attach standards to questions, but creating or attaching standards
+during assignment creation does not record standards usage.
 
 Generated classroom files preserve the existing layout under the workspace
 root:
@@ -401,7 +401,9 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 
 7. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
 
-8. The tool saves the assignment JSON to:
+8. Choose whether to skip standards, attach existing shared standards from the workspace standards library, or enter a new shared standard and attach it to selected questions.
+
+9. The tool saves the assignment JSON to:
 
    ```text
    classes/<class_id>/assignments/<assignment_id>/assignment.json
@@ -412,9 +414,11 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 Notes:
 
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
-* New assignments include an empty `standards` list for each question. The menu does not prompt for standards yet.
+* Teachers may skip standards during assignment creation. Empty `standards` lists remain valid.
+* Assignment files store standard IDs only. Shared standard definitions live in the workspace standards library owned by `pds-core`.
+* Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
-* Assignment Management also validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata; assignment editing and standards editing remain future work.
+* Assignment Management also validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata; standards editing for existing assignments remains future work.
 
 ## Data Model
 
@@ -470,9 +474,9 @@ Optional roster fields are not automatically added to `results.csv` or routed re
 }
 ```
 
-The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty strings. Empty lists and missing question keys are allowed.
+The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty standard ID strings. Empty lists and missing question keys are allowed.
 
-Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. Menu-driven standards editing and standards performance reporting are future work.
+Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. Shared standard definitions are stored in the workspace standards library owned by `pds-core`; assignment files store only standard IDs. Creating or attaching standards during assignment creation does not record standards usage. Standards usage recording, standards editing for existing assignments, and standards performance reporting are future work.
 
 ### QR Payload Format
 
