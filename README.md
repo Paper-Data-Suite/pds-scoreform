@@ -204,6 +204,34 @@ workspace folder or any files under `classes/`, `scans_inbox/`,
 `local_outputs/`, or `.pds/`. An active `PDS_WORKSPACE_ROOT` environment
 variable still takes precedence over the saved preference.
 
+### Active School Year
+
+ScoreForm can show, open, and close the shared Paper Data Suite active school
+year stored by `pds-core` under the workspace:
+
+```text
+<PDS workspace root>/settings/school_year.json
+```
+
+Use these direct CLI commands:
+
+```powershell
+scoreform school-year show
+scoreform school-year open 2026-2027
+scoreform school-year open 2027-2028 --overwrite
+scoreform school-year close
+```
+
+The same workflows are available from **Workspace Settings** in the terminal
+menu under **School Year Settings**. Opening or closing a school year only
+updates the shared school-year state file. It does not delete, archive,
+migrate, summarize, move, or rewrite classes, assignments, rosters, scans,
+reports, results, or templates.
+
+The active school year will support future standards workflows. This release
+does not add standards entry during assignment creation and does not record
+standards usage from CLI or menu workflows.
+
 Generated classroom files preserve the existing layout under the workspace
 root:
 
@@ -287,7 +315,9 @@ ScoreForm
 
 Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
-workspace root using the same `pds-core` operations as the direct CLI.
+workspace root using the same `pds-core` operations as the direct CLI. It also
+contains School Year Settings for showing, opening, and closing the shared
+active school year.
 
 ScoreForm supports two interaction layers:
 

@@ -2,12 +2,20 @@
 
 import os
 import sys
+from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import cv2
 import numpy as np
 from pds_core.scan_routes import scans_inbox_dir
+from pds_core.school_years import (
+    SchoolYearStateError,
+    close_school_year,
+    load_school_year_state,
+    open_school_year,
+    school_year_state_path,
+)
 
 from scoreform import workspace
 from scoreform.assignment import load_answer_key, load_assignment
@@ -109,6 +117,9 @@ Usage:
   scoreform workspace set <path>
   scoreform workspace validate
   scoreform workspace reset
+  scoreform school-year show
+  scoreform school-year open <school_year> [--overwrite]
+  scoreform school-year close
   scoreform help
   scoreform --help
   scoreform version
@@ -123,6 +134,7 @@ Commands:
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
   workspace             View or configure the shared PDS workspace root.
+  school-year           View, open, or close the active PDS school year.
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
@@ -151,6 +163,9 @@ Examples:
   scoreform workspace set "C:\\Users\\teacher\\Paper Data Suite"
   scoreform workspace validate
   scoreform workspace reset
+  scoreform school-year show
+  scoreform school-year open 2026-2027
+  scoreform school-year close
 
 Notes:
   Running scoreform with no arguments launches the terminal menu.
@@ -197,8 +212,171 @@ Setting a new workspace does not move existing ScoreForm files."""
     )
 
 
+def print_school_year_help():
+    """Print help for the school-year command group."""
+    print(
+        """Usage:
+  scoreform school-year show
+  scoreform school-year open <school_year> [--overwrite]
+  scoreform school-year close
+
+Commands:
+  show       Show active school-year state for the current PDS workspace.
+  open       Open a school year for the current PDS workspace.
+  close      Close the active school year for the current PDS workspace.
+
+Opening or closing a school year does not delete, archive, summarize, or move data."""
+    )
+
+
 def _format_bool(value: bool) -> str:
     return "yes" if value else "no"
+
+
+def current_local_time():
+    """Return a timezone-aware local timestamp."""
+    return datetime.now().astimezone()
+
+
+def _format_school_year_timestamp(value):
+    return value.isoformat()
+
+
+def format_school_year_state(workspace_root):
+    """Return teacher-readable school-year state for a workspace."""
+    state_path = school_year_state_path(workspace_root)
+    state = load_school_year_state(workspace_root)
+
+    if state is None:
+        return "\n".join([
+            "No school year has been opened for this workspace.",
+            f"State file: {state_path}",
+        ])
+
+    if state.closed_at is None:
+        return "\n".join([
+            f"Active school year: {state.active_school_year}",
+            f"Opened at: {_format_school_year_timestamp(state.opened_at)}",
+            f"State file: {state_path}",
+        ])
+
+    return "\n".join([
+        "No active school year is open.",
+        f"Last school year: {state.active_school_year}",
+        f"Opened at: {_format_school_year_timestamp(state.opened_at)}",
+        f"Closed at: {_format_school_year_timestamp(state.closed_at)}",
+        f"State file: {state_path}",
+    ])
+
+
+def _print_school_year_open_success(
+    workspace_root,
+    school_year,
+    existing_state,
+    opened_state,
+    overwrite,
+):
+    state_path = school_year_state_path(workspace_root)
+    if (
+        existing_state is not None
+        and existing_state.closed_at is None
+        and existing_state.active_school_year == opened_state.active_school_year
+        and existing_state.opened_at == opened_state.opened_at
+        and not overwrite
+    ):
+        print(f"School year is already open: {opened_state.active_school_year}")
+        return
+
+    if (
+        overwrite
+        and existing_state is not None
+        and existing_state.closed_at is None
+        and existing_state.active_school_year != school_year
+    ):
+        print(f"Replaced active school year with: {opened_state.active_school_year}")
+    else:
+        print(f"Opened school year: {opened_state.active_school_year}")
+    print(f"Workspace: {workspace_root}")
+    print(f"State file: {state_path}")
+
+
+def run_school_year(args):
+    """Run shared active school-year workspace commands."""
+    if not args or args[0] in ("help", "--help", "-h"):
+        print_school_year_help()
+        return 0
+
+    command = args[0]
+    command_args = args[1:]
+
+    try:
+        if command == "show":
+            if command_args:
+                print("Usage: scoreform school-year show")
+                return 1
+
+            workspace_root = workspace.get_scoreform_workspace_root()
+            print(format_school_year_state(workspace_root))
+            return 0
+
+        if command == "open":
+            overwrite = False
+            positional_args = []
+            for argument in command_args:
+                if argument == "--overwrite":
+                    if overwrite:
+                        print("Usage: scoreform school-year open <school_year> [--overwrite]")
+                        return 1
+                    overwrite = True
+                elif argument.startswith("-"):
+                    print(f"Unknown option: {argument}")
+                    print("Usage: scoreform school-year open <school_year> [--overwrite]")
+                    return 1
+                else:
+                    positional_args.append(argument)
+
+            if len(positional_args) != 1:
+                print("Usage: scoreform school-year open <school_year> [--overwrite]")
+                return 1
+
+            workspace_root = workspace.get_scoreform_workspace_root()
+            existing_state = load_school_year_state(workspace_root)
+            opened_state = open_school_year(
+                workspace_root,
+                positional_args[0],
+                opened_at=current_local_time(),
+                overwrite=overwrite,
+            )
+            _print_school_year_open_success(
+                workspace_root,
+                positional_args[0],
+                existing_state,
+                opened_state,
+                overwrite,
+            )
+            return 0
+
+        if command == "close":
+            if command_args:
+                print("Usage: scoreform school-year close")
+                return 1
+
+            workspace_root = workspace.get_scoreform_workspace_root()
+            closed_state = close_school_year(
+                workspace_root,
+                closed_at=current_local_time(),
+            )
+            print(f"Closed school year: {closed_state.active_school_year}")
+            print(f"Closed at: {_format_school_year_timestamp(closed_state.closed_at)}")
+            print(f"State file: {school_year_state_path(workspace_root)}")
+            return 0
+    except (SchoolYearStateError, workspace.WorkspaceRootError) as exc:
+        print(f"Error: {exc}")
+        return 1
+
+    print(f"Unknown school-year command: {command}")
+    print_school_year_help()
+    return 1
 
 
 def run_workspace(args):
@@ -841,6 +1019,138 @@ def prompt_scoring_mode(input_file):
         pause_for_user()
 
 
+def launch_school_year_menu():
+    """School-year settings submenu for the shared PDS workspace state."""
+    try:
+        while True:
+            clear_screen()
+            print_menu_header("School Year Settings")
+            print("1. Show school year status")
+            print("2. Open school year")
+            print("3. Close school year")
+            print("4. Back")
+            print()
+
+            choice = input("Select an option: ").strip()
+            print()
+
+            if choice == "1":
+                clear_screen()
+                print_menu_header("School Year Status")
+                run_school_year(["show"])
+                print()
+                pause_for_user()
+
+            elif choice == "2":
+                clear_screen()
+                print_menu_header("Open School Year")
+                school_year = input("School year to open (YYYY-YYYY): ").strip()
+                if not school_year:
+                    print("Cancelled: School year was not opened.")
+                    print()
+                    pause_for_user()
+                    continue
+
+                try:
+                    workspace_root = workspace.get_scoreform_workspace_root()
+                    existing_state = load_school_year_state(workspace_root)
+                    overwrite = False
+                    if (
+                        existing_state is not None
+                        and existing_state.closed_at is None
+                        and existing_state.active_school_year != school_year
+                    ):
+                        print()
+                        print(
+                            "A different school year is already open: "
+                            f"{existing_state.active_school_year}"
+                        )
+                        print(
+                            f"Opening {school_year} will replace the active "
+                            "school-year state."
+                        )
+                        print("This will not delete or archive any data.")
+                        print()
+                        confirmation = input("Type OVERWRITE to confirm: ").strip()
+                        if confirmation != "OVERWRITE":
+                            print("Cancelled: School-year overwrite not confirmed.")
+                            print()
+                            pause_for_user()
+                            continue
+                        overwrite = True
+
+                    opened_state = open_school_year(
+                        workspace_root,
+                        school_year,
+                        opened_at=current_local_time(),
+                        overwrite=overwrite,
+                    )
+                    _print_school_year_open_success(
+                        workspace_root,
+                        school_year,
+                        existing_state,
+                        opened_state,
+                        overwrite,
+                    )
+                except (SchoolYearStateError, workspace.WorkspaceRootError) as exc:
+                    print(f"Error: {exc}")
+                print()
+                pause_for_user()
+
+            elif choice == "3":
+                clear_screen()
+                print_menu_header("Close School Year")
+                try:
+                    workspace_root = workspace.get_scoreform_workspace_root()
+                    existing_state = load_school_year_state(workspace_root)
+                    if existing_state is None or existing_state.closed_at is not None:
+                        print("No school year is currently open.")
+                        print()
+                        pause_for_user()
+                        continue
+
+                    print(f"Active school year: {existing_state.active_school_year}")
+                    print()
+                    print(
+                        "Closing the school year will make it inactive for future "
+                        "workflows."
+                    )
+                    print("This will not delete, archive, summarize, or move any data.")
+                    print()
+                    confirmation = input("Type CLOSE to confirm: ").strip()
+                    if confirmation != "CLOSE":
+                        print("Cancelled: School-year close not confirmed.")
+                        print()
+                        pause_for_user()
+                        continue
+
+                    closed_state = close_school_year(
+                        workspace_root,
+                        closed_at=current_local_time(),
+                    )
+                    print(f"Closed school year: {closed_state.active_school_year}")
+                    print(
+                        "Closed at: "
+                        f"{_format_school_year_timestamp(closed_state.closed_at)}"
+                    )
+                except (SchoolYearStateError, workspace.WorkspaceRootError) as exc:
+                    print(f"Error: {exc}")
+                print()
+                pause_for_user()
+
+            elif choice == "4":
+                return 0
+
+            else:
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
+                print()
+                pause_for_user()
+
+    except KeyboardInterrupt:
+        print("\nExiting school year settings.")
+        return 0
+
+
 def launch_workspace_menu():
     """Workspace settings submenu for the shared PDS workspace root."""
     try:
@@ -850,8 +1160,9 @@ def launch_workspace_menu():
             print("1. Show current workspace")
             print("2. Set workspace folder")
             print("3. Validate/create current workspace")
-            print("4. Reset saved workspace preference")
-            print("5. Back")
+            print("4. School year settings")
+            print("5. Reset saved workspace preference")
+            print("6. Back")
             print()
 
             choice = input("Select an option: ").strip()
@@ -885,17 +1196,20 @@ def launch_workspace_menu():
                 pause_for_user()
 
             elif choice == "4":
+                launch_school_year_menu()
+
+            elif choice == "5":
                 clear_screen()
                 print_menu_header("Reset Workspace Preference")
                 run_workspace(["reset"])
                 print()
                 pause_for_user()
 
-            elif choice == "5":
+            elif choice == "6":
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
                 print()
                 pause_for_user()
 
@@ -988,6 +1302,8 @@ def main(argv=None, default_to_menu=True):
         return run_decode_qr(args)
     elif cmd == "workspace":
         return run_workspace(args)
+    elif cmd == "school-year":
+        return run_school_year(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

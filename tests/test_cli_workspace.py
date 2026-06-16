@@ -190,7 +190,7 @@ def test_workspace_error_is_user_facing(monkeypatch, capsys):
 
 
 def test_workspace_menu_opens_and_returns(monkeypatch, capsys):
-    responses = iter(["3", "5", "5"])
+    responses = iter(["3", "6", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert scoreform.cli.launch_menu() == 0
@@ -200,13 +200,14 @@ def test_workspace_menu_opens_and_returns(monkeypatch, capsys):
     assert "1. Show current workspace" in output
     assert "2. Set workspace folder" in output
     assert "3. Validate/create current workspace" in output
-    assert "4. Reset saved workspace preference" in output
-    assert "5. Back" in output
+    assert "4. School year settings" in output
+    assert "5. Reset saved workspace preference" in output
+    assert "6. Back" in output
     assert "Goodbye." in output
 
 
 def test_workspace_menu_blank_set_path_cancels(monkeypatch, capsys):
-    responses = iter(["2", "", "", "5"])
+    responses = iter(["2", "", "", "6"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert scoreform.cli.launch_workspace_menu() == 0
