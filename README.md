@@ -313,7 +313,7 @@ ScoreForm
 5. Exit
 ```
 
-Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, and validation.
+Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
 workspace root using the same `pds-core` operations as the direct CLI. It also
 contains School Year Settings for showing, opening, and closing the shared
@@ -376,8 +376,22 @@ Features:
 
 * **Overwrite protection**: If the class roster already exists, you must explicitly confirm before overwriting.
 * **Read-only viewing**: The roster management menu can display an existing roster without editing it.
+* **Staged editing**: The roster management menu can add students, edit existing non-identity fields, and remove students from the active roster. Changes are staged in memory until you explicitly save them.
 * **Validation after save**: The roster is validated using built-in validation logic before reporting success.
 * **Exit/cancel support**: Press Ctrl+C to cancel, or leave `student_id` blank after entering at least one student to finish the roster.
+
+### Edit a Roster from the Menu
+
+Select **2. Roster Management**, then **3. Edit class roster** to choose an existing class roster. ScoreForm loads the canonical `classes/<class_id>/roster.csv` through shared `pds-core` roster contracts, displays the current roster, and opens an edit menu for adding a student, editing a student, removing a student from the active roster, viewing staged changes, saving, or canceling.
+
+Roster edits are safe by default:
+
+* Changes are staged in memory until you type `SAVE`.
+* Canceling without changes returns directly.
+* Canceling with unsaved changes requires typing `DISCARD`; discarded changes are not written.
+* Editing does not allow changing `student_id`.
+* Removing a student means removing that student from the active roster CSV only. It does not delete generated PDFs, class packets, assignment folders, historical result rows, assignment JSON, scans, or scan evidence.
+* Existing optional roster columns are preserved. Add/edit prompts support optional columns already present in the selected roster and do not introduce new optional columns.
 
 ### Create an Assignment from the Menu
 
@@ -440,7 +454,7 @@ Required columns:
 * `first_name`
 * `period`
 
-Roster CSV files may include additional optional columns, such as `preferred_name`, `email`, or local workflow fields. Optional columns are preserved in each loaded student dictionary, and empty optional values are allowed. The roster creation menu currently writes only the required columns.
+Roster CSV files may include additional optional columns, such as `preferred_name`, `email`, or local workflow fields. Optional columns are preserved in each loaded student dictionary, and empty optional values are allowed. The roster creation menu currently writes only the required columns. The roster editing menu preserves existing optional columns and lets teachers update only optional columns already present in the selected roster.
 
 Optional roster fields are not automatically added to `results.csv` or routed result CSVs. Routed results continue to include only roster fields needed for scoring context: `last_name`, `first_name`, and `period`. Avoid storing sensitive or private student information in optional columns unless it is necessary and appropriate under local school or district policy.
 

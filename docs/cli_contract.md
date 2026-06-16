@@ -259,8 +259,22 @@ The teacher-facing main menu currently provides:
 
 Assignment Management includes assignment creation and validation,
 answer-sheet generation, scan scoring, and QR decoding. Roster Management
-includes roster creation, viewing, and validation. Workspace Settings includes
-show, set, validate/create, reset actions, and School Year Settings.
+includes roster creation, viewing, editing, and validation. Workspace Settings
+includes show, set, validate/create, reset actions, and School Year Settings.
+
+The Roster Management edit workflow is menu-only. It discovers existing class
+rosters, loads the selected canonical class roster through `pds-core`, stages
+add/edit/remove changes in memory, and writes only after explicit save
+confirmation. Canceling without saving does not write. If staged changes exist,
+discard requires typing `DISCARD`.
+
+Roster editing uses shared `pds-core` roster contracts and mutation semantics.
+It can add a student, edit `last_name`, `first_name`, `period`, and existing
+optional fields, and remove a student from the active roster. It does not allow
+changing `student_id`. Removing a student means removing that student from the
+active roster CSV only; generated PDFs, class packets, assignment folders,
+assignment JSON, historical results, scans, and scan evidence are not deleted or
+rewritten.
 
 During assignment creation, the standards alignment prompt allows teachers to
 skip standards, attach existing shared standards from the workspace standards

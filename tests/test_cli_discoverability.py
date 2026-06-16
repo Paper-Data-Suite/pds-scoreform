@@ -186,7 +186,7 @@ def test_assignment_management_menu_contains_teacher_workflows():
 
 
 def test_roster_management_menu_still_contains_teacher_workflows():
-    result = run_main_command("menu", input_text="2\n4\n5\n")
+    result = run_main_command("menu", input_text="2\n5\n5\n")
 
     assert result.returncode == 0
     output = combined_output(result)
@@ -194,8 +194,9 @@ def test_roster_management_menu_still_contains_teacher_workflows():
     assert "ScoreForm\nRoster Management" in output
     assert "1. Create a class roster" in output
     assert "2. View a class roster" in output
-    assert "3. Validate a roster file" in output
-    assert "4. Return to main menu" in output
+    assert "3. Edit class roster" in output
+    assert "4. Validate a roster file" in output
+    assert "5. Return to main menu" in output
 
 
 def test_menu_selection_does_not_strip_quotes():
@@ -226,7 +227,7 @@ def test_assignment_submenu_validate_assignment_accepts_quoted_path():
 def test_roster_submenu_validate_roster_accepts_quoted_path():
     result = run_main_command(
         "menu",
-        input_text='2\n3\n"examples/sample_roster_english9_p2.csv"\n\n4\n5\n',
+        input_text='2\n4\n"examples/sample_roster_english9_p2.csv"\n\n5\n5\n',
     )
 
     assert result.returncode == 0
