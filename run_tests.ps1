@@ -435,6 +435,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "test_assignment_v5",       # Override suggested assignment_id
     "10",                       # question_count
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
+    "1",                        # Standards alignment -> Skip standards for now
     "",                         # pause after assignment creation output
     "6",                        # Return to main menu
     "5"                         # Exit

@@ -248,6 +248,7 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
         "A",
         "B",
         "C",
+        "1",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -276,6 +277,7 @@ def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypat
             "max_assignment",
             str(MAX_QUESTION_COUNT),
             *["A" for _ in range(MAX_QUESTION_COUNT)],
+            "1",
         ]
     )
     prompts = []
@@ -311,6 +313,7 @@ def test_prompt_create_assignment_rejects_question_count_above_max(tmp_path, mon
             str(MAX_QUESTION_COUNT + 1),
             str(MAX_QUESTION_COUNT),
             *["B" for _ in range(MAX_QUESTION_COUNT)],
+            "1",
         ]
     )
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))

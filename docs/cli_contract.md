@@ -175,8 +175,9 @@ year. `school-year close` closes the active school year with a timezone-aware
 local timestamp.
 
 Opening or closing a school year does not delete, archive, migrate, summarize,
-move, or rewrite classroom data. This command family does not add standards
-entry during assignment creation and does not record standards usage.
+move, or rewrite classroom data. Assignment creation can attach standards to
+questions, but creating or attaching standards during assignment creation does
+not record standards usage.
 
 ### Generate
 
@@ -260,6 +261,14 @@ Assignment Management includes assignment creation and validation,
 answer-sheet generation, scan scoring, and QR decoding. Roster Management
 includes roster creation, viewing, and validation. Workspace Settings includes
 show, set, validate/create, reset actions, and School Year Settings.
+
+During assignment creation, the standards alignment prompt allows teachers to
+skip standards, attach existing shared standards from the workspace standards
+library, or enter a new shared standard and attach it to selected questions.
+Assignments store standard IDs only in their existing question-level
+`standards` lists. Shared definitions live in the `pds-core` workspace
+standards library. Empty standards lists remain valid, and this workflow does
+not record standards usage or add standards reporting.
 
 School Year Settings includes:
 
