@@ -84,6 +84,8 @@ forms with backward-compatible aliases.
 The following are intended current interfaces, but details may be refined:
 
 * the `scoreform workspace` family, which is a recent shared-PDS integration;
+* the `scoreform school-year` family, which exposes shared active school-year
+  state owned by `pds-core`;
 * `generate` argument structure, including the required `--rosters` marker;
 * `score` mode inference from filename extension and positional argument count;
 * exact human-readable output and headings;
@@ -143,6 +145,38 @@ scoreform workspace reset
 ```
 
 The first four forms print workspace help and return success.
+
+### School year
+
+```powershell
+scoreform school-year
+scoreform school-year help
+scoreform school-year --help
+scoreform school-year -h
+scoreform school-year show
+scoreform school-year open 2026-2027
+scoreform school-year open 2027-2028 --overwrite
+scoreform school-year close
+```
+
+The first four forms print school-year help and return success.
+
+ScoreForm delegates active school-year state to `pds-core`. The state file is:
+
+```text
+<PDS workspace root>/settings/school_year.json
+```
+
+`school-year show` distinguishes a workspace that has never opened a school
+year, a currently active school year, and a closed/no-active-year state.
+`school-year open` opens a `YYYY-YYYY` school year with a timezone-aware local
+timestamp. `--overwrite` is required to replace a different already-open school
+year. `school-year close` closes the active school year with a timezone-aware
+local timestamp.
+
+Opening or closing a school year does not delete, archive, migrate, summarize,
+move, or rewrite classroom data. This command family does not add standards
+entry during assignment creation and does not record standards usage.
 
 ### Generate
 
@@ -225,7 +259,20 @@ The teacher-facing main menu currently provides:
 Assignment Management includes assignment creation and validation,
 answer-sheet generation, scan scoring, and QR decoding. Roster Management
 includes roster creation, viewing, and validation. Workspace Settings includes
-show, set, validate/create, and reset actions.
+show, set, validate/create, reset actions, and School Year Settings.
+
+School Year Settings includes:
+
+```text
+1. Show school year status
+2. Open school year
+3. Close school year
+4. Back
+```
+
+Replacing a different active school year requires typing `OVERWRITE` exactly.
+Closing an active school year requires typing `CLOSE` exactly. Neither action
+deletes, archives, summarizes, or moves data.
 
 The menu may:
 

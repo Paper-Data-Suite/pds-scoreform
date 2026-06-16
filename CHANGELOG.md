@@ -16,6 +16,10 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added ScoreForm CLI and Workspace Settings menu workflows for showing,
+  opening, and closing the shared `pds-core` active school-year state.
+  Opening and closing a school year does not delete, archive, migrate,
+  summarize, or move classroom data.
 * Added a side-effect-free builder for creating shared `pds-core` standards
   usage events from ScoreForm assignment-local standards alignment. The builder
   does not automatically write to the shared standards usage ledger, change
