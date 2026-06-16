@@ -102,7 +102,76 @@ function Assert-CsvValueCount {
     Write-Host "FOUND CSV COUNT: $Column=$Value appears $ExpectedCount time(s)" -ForegroundColor Green
 }
 
-$RepoRoot = (Get-Location).Path
+$RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+if (Test-Path -LiteralPath $VenvPython) {
+    $Python = $VenvPython
+}
+else {
+    $Python = "python"
+}
+
+try {
+    & $Python --version
+    if ($LASTEXITCODE -ne 0) {
+        throw "Python command exited with code $LASTEXITCODE"
+    }
+}
+catch {
+    Write-Host "FAILED: Python was not found. Create .venv or install Python on PATH." -ForegroundColor Red
+    exit 1
+}
+
+if ($Python -eq "python") {
+    $PythonCommand = "python"
+}
+else {
+    $PythonCommand = "& `"$Python`""
+}
+
+Write-Host "Using Python: $Python" -ForegroundColor DarkGray
+
+function Clear-PytestTemp {
+    $pytestTempDir = Join-Path $RepoRoot ".pytest_tmp"
+
+    if (-not (Test-Path -LiteralPath $pytestTempDir)) {
+        return
+    }
+
+    $resolvedTemp = [System.IO.Path]::GetFullPath($pytestTempDir)
+    $resolvedRepo = [System.IO.Path]::GetFullPath($RepoRoot)
+    $repoPrefix = $resolvedRepo.TrimEnd([char[]]@(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )) + [System.IO.Path]::DirectorySeparatorChar
+
+    if (
+        (Split-Path -Leaf $resolvedTemp) -ne ".pytest_tmp" -or
+        -not $resolvedTemp.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)
+    ) {
+        Write-Warning "Refusing to remove unexpected pytest temp path: $resolvedTemp"
+        return
+    }
+
+    $tempItem = Get-Item -LiteralPath $resolvedTemp -Force
+    if (-not $tempItem.PSIsContainer) {
+        Write-Warning "Refusing to remove pytest temp path because it is not a directory: $resolvedTemp"
+        return
+    }
+
+    if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        Write-Warning "Refusing to remove pytest temp path because it is a reparse point: $resolvedTemp"
+        return
+    }
+
+    try {
+        Remove-Item -LiteralPath $resolvedTemp -Recurse -Force -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "Could not remove pytest temp directory '$resolvedTemp': $($_.Exception.Message)"
+    }
+}
+
 $TestWorkspaceRoot = Join-Path $RepoRoot "local_outputs\regression_workspace"
 $resolvedWorkspaceRoot = [System.IO.Path]::GetFullPath($TestWorkspaceRoot)
 $resolvedRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
@@ -169,9 +238,9 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
-Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "python -m pip install -r requirements-dev.txt --quiet"
+Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "$PythonCommand -m pip install -r requirements-dev.txt --quiet"
 
-$pythonScriptsDir = python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+$pythonScriptsDir = & $Python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
 if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
     $env:Path = "$pythonScriptsDir;$env:Path"
     Write-Host "Added Python Scripts directory to PATH for this test run: $pythonScriptsDir" -ForegroundColor DarkGray
@@ -179,7 +248,13 @@ if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
 
 Write-Host ""
 Write-Host "Running pytest suite..." -ForegroundColor Yellow
-Invoke-Test "Run pytest suite" "python -m pytest"
+Clear-PytestTemp
+Invoke-Test "Run pytest suite" "$PythonCommand -m pytest --basetemp .\.pytest_tmp"
+Clear-PytestTemp
+
+Write-Host ""
+Write-Host "Running Ruff..." -ForegroundColor Yellow
+Invoke-Test "Run Ruff" "$PythonCommand -m ruff check ."
 
 Write-Host ""
 Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
@@ -192,24 +267,22 @@ Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '5
 Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '5' | scoreform menu"
 Invoke-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
 Invoke-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
-$qrValidationCmd = @'
-python -c "from scoreform.scoring import validate_qr_metadata; assert validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'../secret','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'classes/foo','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj.act1.quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':r'C:\Users\Teacher'});"
-'@
+$qrValidationCmd = "$PythonCommand -c `"from scoreform.scoring import validate_qr_metadata; assert validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'../secret','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'classes/foo','assignment_id':'rj_act1_quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj.act1.quiz','student_id':'1001'}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':r'C:\Users\Teacher'});`""
 Invoke-Test "Validate QR payload identifier helper" $qrValidationCmd
 
 Write-Host ""
-Write-Host "Testing direct python main.py compatibility..." -ForegroundColor Yellow
-Invoke-Test "Validate assignment with python main.py" "python main.py validate-assignment examples\sample_assignment.json"
-Invoke-Test "Validate roster" "python main.py validate-roster examples\sample_roster_english9_p2.csv"
+Write-Host "Testing direct Python main.py compatibility..." -ForegroundColor Yellow
+Invoke-Test "Validate assignment with Python main.py" "$PythonCommand main.py validate-assignment examples\sample_assignment.json"
+Invoke-Test "Validate roster" "$PythonCommand main.py validate-roster examples\sample_roster_english9_p2.csv"
 
-Invoke-Test "Generate generic template" "python main.py generate"
+Invoke-Test "Generate generic template" "$PythonCommand main.py generate"
 
 Write-Host ""
 Write-Host "Checking generic template files..." -ForegroundColor Yellow
 Assert-Exists $TemplatePdf
 Assert-Exists $TemplatePng
 
-Invoke-Test "Generate class assignment materials" "python main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
+Invoke-Test "Generate class assignment materials" "$PythonCommand main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
 
 Write-Host ""
 Write-Host "Checking generated class/assignment files..." -ForegroundColor Yellow
@@ -227,11 +300,11 @@ Assert-Exists $ScansInboxDir
 
 $SampleStudentPdf = Join-Path $SampleIndividualDir "1001_doe_jane.pdf"
 $SampleClassPacketPdf = Join-Path $SampleTemplatesDir "class_packet.pdf"
-Invoke-Test "Decode QR from generated individual PDF" "python main.py decode-qr `"$SampleStudentPdf`""
+Invoke-Test "Decode QR from generated individual PDF" "$PythonCommand main.py decode-qr `"$SampleStudentPdf`""
 
-Invoke-Test "Setup assignment folder" "python main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
+Invoke-Test "Setup assignment folder" "$PythonCommand main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
 
-Invoke-Test "Launch menu help and exit" "Write-Output '4', '', '5' | python main.py menu"
+Invoke-Test "Launch menu help and exit" "Write-Output '4', '', '5' | $PythonCommand main.py menu"
 
 Write-Host ""
 Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
@@ -247,7 +320,7 @@ Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding U
     "",                     # pause after scoring
     "6",                    # Return to main menu
     "5"                     # Exit
-) | python main.py menu
+) | & $Python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAILED: Scan inbox picker through menu" -ForegroundColor Red
@@ -287,10 +360,10 @@ $conflictingAssignment = @{
 } | ConvertTo-Json -Depth 5
 [System.IO.File]::WriteAllText($ConflictingAssignmentJson, $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
 
-Invoke-Test "Validate conflicting assignment fixture" "python main.py validate-assignment $ConflictingAssignmentJson"
+Invoke-Test "Validate conflicting assignment fixture" "$PythonCommand main.py validate-assignment $ConflictingAssignmentJson"
 
 # Attempt setup with conflicting assignment - should fail
-Invoke-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "python main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
+Invoke-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "$PythonCommand main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
 
 # Verify original assignment.json was NOT overwritten
 Assert-FileContains $SampleAssignmentJson "Romeo and Juliet Act 1 Quiz"
@@ -300,7 +373,7 @@ Write-Host "CONFIRMED: Original assignment.json was protected and not overwritte
 # Clean up test artifact
 Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
 
-Invoke-Test "Score generated template PDF with manual defaults" "python main.py score $TemplatePdf examples\answer_key.json"
+Invoke-Test "Score generated template PDF with manual defaults" "$PythonCommand main.py score $TemplatePdf examples\answer_key.json"
 
 Write-Host ""
 Write-Host "Checking scoring output files..." -ForegroundColor Yellow
@@ -311,7 +384,7 @@ Assert-Exists "$LocalDebugDir\debug_warped_page_1.png"
 Write-Host ""
 Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score with QR-aware metadata extraction" "python main.py score `"$SampleStudentPdf`" `"$QrMetadataResultsCsv`""
+Invoke-Test "Score with QR-aware metadata extraction" "$PythonCommand main.py score `"$SampleStudentPdf`" `"$QrMetadataResultsCsv`""
 
 Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
@@ -322,7 +395,7 @@ Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane.pdf"
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
 Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with QR-aware mixed-scan mode" "python main.py score `"$SampleClassPacketPdf`" `"$MixedScanResultsCsv`""
+Invoke-Test "Score class packet with QR-aware mixed-scan mode" "$PythonCommand main.py score `"$SampleClassPacketPdf`" `"$MixedScanResultsCsv`""
 
 Write-Host ""
 Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
@@ -336,7 +409,7 @@ Assert-FileContains $MixedScanResultsCsv "rj_act1_quiz"
 Write-Host ""
 Write-Host "Testing result routing..." -ForegroundColor Yellow
 Remove-Item $SampleResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with result routing" "python main.py score `"$SampleClassPacketPdf`""
+Invoke-Test "Score class packet with result routing" "$PythonCommand main.py score `"$SampleClassPacketPdf`""
 
 Write-Host ""
 Write-Host "Checking routed results output..." -ForegroundColor Yellow
@@ -359,7 +432,7 @@ Assert-FileContains $SampleResultsCsv "scan_timestamp"
 
 Write-Host ""
 Write-Host "Testing duplicate/attempt handling for routed results..." -ForegroundColor Yellow
-Invoke-Test "Score class packet with result routing again for attempt tracking" "python main.py score `"$SampleClassPacketPdf`""
+Invoke-Test "Score class packet with result routing again for attempt tracking" "$PythonCommand main.py score `"$SampleClassPacketPdf`""
 Assert-Exists $SampleResultsCsv
 Assert-CsvValueCount $SampleResultsCsv "attempt_number" "1" 3
 Assert-CsvValueCount $SampleResultsCsv "attempt_number" "2" 3
@@ -399,7 +472,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "",                     # pause after roster creation output
     "4",                    # Return to main menu
     "5"                     # Exit
-) | python main.py menu
+) | & $Python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAILED: Roster creation through menu" -ForegroundColor Red
@@ -418,7 +491,7 @@ Assert-FileContains $MenuRosterCsv "5002"
 Assert-FileContains $MenuRosterCsv "Alice"
 Assert-FileContains $MenuRosterCsv "Bob"
 
-Invoke-Test "Validate created roster" "python main.py validate-roster $MenuRosterCsv"
+Invoke-Test "Validate created roster" "$PythonCommand main.py validate-roster $MenuRosterCsv"
 
 Write-Host ""
 Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
@@ -439,7 +512,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "",                         # pause after assignment creation output
     "6",                        # Return to main menu
     "5"                         # Exit
-) | python main.py menu
+) | & $Python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAILED: Assignment creation through menu" -ForegroundColor Red
@@ -459,7 +532,7 @@ Assert-FileContains $TempAssignmentJson "choices"
 Assert-FileContains $TempAssignmentJson "answer_key"
 Assert-FileContains $TempAssignmentJson "standards"
 
-Invoke-Test "Validate created assignment" "python main.py validate-assignment $TempAssignmentJson"
+Invoke-Test "Validate created assignment" "$PythonCommand main.py validate-assignment $TempAssignmentJson"
 
 Write-Host ""
 Write-Host "Testing answer sheet generation through menu class/assignment selection..." -ForegroundColor Yellow
@@ -474,7 +547,7 @@ Write-Host "Testing answer sheet generation through menu class/assignment select
     "",                         # pause after generation output
     "6",                        # Return to main menu
     "5"                         # Exit
-) | python main.py menu
+) | & $Python main.py menu
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAILED: Answer sheet generation through menu" -ForegroundColor Red
