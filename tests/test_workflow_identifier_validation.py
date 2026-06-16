@@ -703,7 +703,7 @@ def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
         "Marcus",
         "n",
         "",
-        "4",
+        "5",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -724,14 +724,15 @@ def test_roster_menu_view_class_roster_flow(tmp_path, monkeypatch, capsys):
         "2",
         [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
     )
-    responses = iter(["2", "1", "", "4"])
+    responses = iter(["2", "1", "", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert workflows.launch_roster_menu() == 0
 
     output = capsys.readouterr().out
     assert "2. View a class roster" in output
-    assert "3. Validate a roster file" in output
+    assert "3. Edit class roster" in output
+    assert "4. Validate a roster file" in output
     assert "Class: english_9_period_2" in output
     assert "Students: 1" in output
     assert "1001" in output
@@ -746,7 +747,7 @@ def test_roster_menu_clears_for_submenu_and_pauses_after_view(tmp_path, monkeypa
         [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
     )
     calls = []
-    responses = iter(["2", "1", "4"])
+    responses = iter(["2", "1", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
     monkeypatch.setattr(workflows, "clear_screen", lambda: calls.append("clear"))

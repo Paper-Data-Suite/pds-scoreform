@@ -24,10 +24,27 @@ from pds_core.assignments import (
 from pds_core.assignments import (
     list_assignment_folders as list_core_assignment_folders,
 )
-from pds_core.classes import list_class_folders as list_core_class_folders
-from pds_core.rosters import RosterError
-from pds_core.rosters import create_roster as create_core_roster
-from pds_core.rosters import write_roster as write_core_roster
+from pds_core.classes import (
+    list_class_folders as list_core_class_folders,
+)
+from pds_core.classes import (
+    load_class_roster,
+    write_class_roster,
+)
+from pds_core.rosters import (
+    RosterError,
+    RosterValidationError,
+    StudentRecord,
+    add_student_record,
+    remove_student_record,
+    replace_student_record,
+)
+from pds_core.rosters import (
+    create_roster as create_core_roster,
+)
+from pds_core.rosters import (
+    write_roster as write_core_roster,
+)
 from pds_core.routes import class_roster_path as core_class_roster_path
 from pds_core.scan_routes import scans_inbox_dir
 from pds_core.standards import (
@@ -462,6 +479,285 @@ def format_roster_for_display(class_record):
         )
 
     return "\n".join(lines)
+
+
+def _class_record_from_core_roster(roster, roster_path):
+    return {
+        "class_id": roster.class_id,
+        "roster_path": os.fspath(roster_path),
+        "roster": _core_roster_to_legacy_dict(roster),
+    }
+
+
+def _optional_roster_columns(roster):
+    return tuple(
+        column
+        for column in roster.columns
+        if column not in ("class_id", "student_id", "last_name", "first_name", "period")
+    )
+
+
+def _print_roster_validation_error(error):
+    print(f"Error: {error}")
+    if isinstance(error, RosterValidationError):
+        for issue in error.issues:
+            location = []
+            if issue.row_number is not None:
+                location.append(f"row {issue.row_number}")
+            if issue.column:
+                location.append(issue.column)
+            prefix = f"  {' / '.join(location)}: " if location else "  "
+            print(f"{prefix}{issue.message}")
+
+
+def _prompt_nonblank_roster_value(field_name):
+    while True:
+        value = input(f"  {field_name}: ").strip()
+        if value:
+            return value
+        print(f"  Error: {field_name} is required.")
+
+
+def _prompt_student_selection(roster, prompt):
+    selection = input(prompt).strip()
+    if not selection:
+        raise ValueError("Select one student.")
+
+    if selection.isdigit():
+        index = int(selection)
+        if 1 <= index <= len(roster.students):
+            return roster.students[index - 1]
+
+    for student in roster.students:
+        if student.student_id == selection:
+            return student
+
+    raise ValueError(f"Student not found: {selection}")
+
+
+def _student_record_from_values(roster, student_id, values):
+    extra_fields = {
+        column: values.get(column, "")
+        for column in _optional_roster_columns(roster)
+    }
+    return StudentRecord(
+        class_id=roster.class_id,
+        student_id=student_id,
+        last_name=values["last_name"],
+        first_name=values["first_name"],
+        period=values["period"],
+        extra_fields=extra_fields,
+    )
+
+
+def _print_student_choices(roster):
+    for index, student in enumerate(roster.students, start=1):
+        print(
+            f"{index}. {student.student_id} - "
+            f"{student.last_name}, {student.first_name} (period {student.period})"
+        )
+
+
+def _prompt_add_student_to_roster(roster):
+    print()
+    print("Add student")
+    student_id = _prompt_nonblank_roster_value("student_id")
+    last_name = _prompt_nonblank_roster_value("last_name")
+    first_name = _prompt_nonblank_roster_value("first_name")
+    period = _prompt_nonblank_roster_value("period")
+
+    values = {
+        "last_name": last_name,
+        "first_name": first_name,
+        "period": period,
+    }
+    for column in _optional_roster_columns(roster):
+        values[column] = input(f"  {column} (optional): ").strip()
+
+    return add_student_record(
+        roster,
+        _student_record_from_values(roster, student_id, values),
+    )
+
+
+def _prompt_edit_student_in_roster(roster):
+    print()
+    print("Edit student")
+    _print_student_choices(roster)
+    print()
+    student = _prompt_student_selection(
+        roster,
+        "Select student by number or student_id: ",
+    )
+
+    print()
+    print(f"student_id: {student.student_id}")
+    print("Press Enter to keep the current value.")
+
+    values = {
+        "last_name": input(f"  last_name [{student.last_name}]: ").strip()
+        or student.last_name,
+        "first_name": input(f"  first_name [{student.first_name}]: ").strip()
+        or student.first_name,
+        "period": input(f"  period [{student.period}]: ").strip()
+        or student.period,
+    }
+    for column in _optional_roster_columns(roster):
+        current = student.extra_fields.get(column, "")
+        values[column] = input(f"  {column} [{current}]: ").strip() or current
+
+    return replace_student_record(
+        roster,
+        _student_record_from_values(roster, student.student_id, values),
+    )
+
+
+def _prompt_remove_student_from_roster(roster):
+    print()
+    print("Remove student from active roster")
+    _print_student_choices(roster)
+    print()
+    student = _prompt_student_selection(
+        roster,
+        "Select student by number or student_id: ",
+    )
+
+    print()
+    print(
+        f"Selected: {student.student_id} - "
+        f"{student.last_name}, {student.first_name} (period {student.period})"
+    )
+    print("Generated materials, scans, and historical results will not be deleted.")
+    confirmation = input("Type REMOVE to remove from active roster: ").strip()
+    if confirmation != "REMOVE":
+        print("Cancelled: removal not confirmed.")
+        return roster
+
+    return remove_student_record(roster, student.student_id)
+
+
+def prompt_edit_class_roster():
+    """Interactive workflow for staging and saving edits to a class roster."""
+    print_menu_header("Edit Class Roster")
+
+    available_classes = discover_class_rosters()
+    if not available_classes:
+        print("No class rosters found.")
+        print("Create a class roster first, then return to this option.")
+        return 1
+
+    print("Available classes:")
+    for index, class_record in enumerate(available_classes, start=1):
+        print(f"{index}. {class_record['class_id']}")
+    print()
+
+    try:
+        class_record = parse_single_selection(
+            input("Select class: "),
+            available_classes,
+            "class",
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    workspace_root = workspace.get_scoreform_workspace_root()
+    class_id = class_record["class_id"]
+    try:
+        staged_roster = load_class_roster(workspace_root, class_id)
+    except RosterError as e:
+        print(f"Error: Could not load class roster '{class_id}': {e}")
+        return 1
+
+    dirty = False
+    saved_path = class_record["roster_path"]
+    print()
+    print(format_roster_for_display(_class_record_from_core_roster(staged_roster, saved_path)))
+
+    while True:
+        print()
+        print("Edit menu")
+        print("1. Add student")
+        print("2. Edit student")
+        print("3. Remove student from active roster")
+        print("4. View current roster")
+        print("5. Save changes")
+        print("6. Cancel without saving")
+        print()
+
+        choice = input("Select an option: ").strip()
+        print()
+
+        if choice == "1":
+            try:
+                staged_roster = _prompt_add_student_to_roster(staged_roster)
+            except (RosterError, ValueError) as e:
+                _print_roster_validation_error(e)
+                continue
+            dirty = True
+            print("Staged: student added.")
+
+        elif choice == "2":
+            try:
+                staged_roster = _prompt_edit_student_in_roster(staged_roster)
+            except (RosterError, ValueError) as e:
+                _print_roster_validation_error(e)
+                continue
+            dirty = True
+            print("Staged: student updated.")
+
+        elif choice == "3":
+            try:
+                updated_roster = _prompt_remove_student_from_roster(staged_roster)
+            except (RosterError, ValueError) as e:
+                _print_roster_validation_error(e)
+                continue
+            if updated_roster is not staged_roster:
+                staged_roster = updated_roster
+                dirty = True
+                print("Staged: student removed from active roster.")
+
+        elif choice == "4":
+            print(format_roster_for_display(_class_record_from_core_roster(staged_roster, saved_path)))
+            if dirty:
+                print()
+                print("Unsaved staged changes are shown above.")
+
+        elif choice == "5":
+            if not dirty:
+                print("No changes to save.")
+                return 0
+            confirmation = input("Type SAVE to write staged changes: ").strip()
+            if confirmation != "SAVE":
+                print("Cancelled: save not confirmed.")
+                continue
+            try:
+                saved_path = os.fspath(
+                    write_class_roster(
+                        workspace_root,
+                        staged_roster,
+                        overwrite=True,
+                    )
+                )
+            except RosterError as e:
+                print(f"Error: Could not save roster: {e}")
+                continue
+            print(f"Saved roster: {saved_path}")
+            return 0
+
+        elif choice == "6":
+            if dirty:
+                confirmation = input(
+                    "Type DISCARD to discard staged changes: "
+                ).strip()
+                if confirmation != "DISCARD":
+                    print("Cancelled: staged changes were not discarded.")
+                    continue
+            print("Cancelled: no roster changes were saved.")
+            return 0
+
+        else:
+            print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
 
 
 def prompt_view_roster():
@@ -1056,8 +1352,9 @@ def launch_roster_menu():
             print_menu_header("Roster Management")
             print("1. Create a class roster")
             print("2. View a class roster")
-            print("3. Validate a roster file")
-            print("4. Return to main menu")
+            print("3. Edit class roster")
+            print("4. Validate a roster file")
+            print("5. Return to main menu")
             print()
 
             choice = input("Select an option: ").strip()
@@ -1076,6 +1373,12 @@ def launch_roster_menu():
                 pause_for_user()
 
             elif choice == "3":
+                clear_screen()
+                prompt_edit_class_roster()
+                print()
+                pause_for_user()
+
+            elif choice == "4":
                 clear_screen()
                 print_menu_header("Validate a Roster File")
                 roster_path = normalize_path_input(input("Roster CSV path: "))
@@ -1101,11 +1404,11 @@ def launch_roster_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "4":
+            elif choice == "5":
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
                 print()
                 pause_for_user()
 

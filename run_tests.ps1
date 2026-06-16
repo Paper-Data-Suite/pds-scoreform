@@ -470,7 +470,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "Bob",                  # student 2 first_name
     "n",                    # add another? no
     "",                     # pause after roster creation output
-    "4",                    # Return to main menu
+    "5",                    # Return to main menu
     "5"                     # Exit
 ) | & $Python main.py menu
 

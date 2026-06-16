@@ -16,6 +16,12 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added a Roster Management menu workflow for editing existing class rosters.
+  The workflow loads and writes canonical class rosters through shared
+  `pds-core` roster APIs, stages add/edit/remove changes until explicit save,
+  preserves existing optional roster columns, disallows `student_id` changes,
+  and treats removal as removal from the active roster only without deleting
+  generated materials, assignments, results, scans, or scan evidence.
 * Added ScoreForm CLI and Workspace Settings menu workflows for showing,
   opening, and closing the shared `pds-core` active school-year state.
   Opening and closing a school year does not delete, archive, migrate,
