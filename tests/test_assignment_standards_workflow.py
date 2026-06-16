@@ -172,7 +172,7 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
     assert load_workspace_standard_usage_events(tmp_path, "2025-2026", "test_class") == ()
 
     loaded = assignment.load_assignment(str(assignment_path(tmp_path)))
-    assert loaded["standards"][1] == [
+    assert loaded["standards"]["1"] == [
         "local-writing:evidence_explanation",
         "njsls-ela:RL.CR.11-12.1",
     ]

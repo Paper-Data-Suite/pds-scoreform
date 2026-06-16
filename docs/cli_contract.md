@@ -257,10 +257,26 @@ The teacher-facing main menu currently provides:
 5. Exit
 ```
 
-Assignment Management includes assignment creation and validation,
+Assignment Management includes assignment creation, editing, and validation,
 answer-sheet generation, scan scoring, and QR decoding. Roster Management
 includes roster creation, viewing, editing, and validation. Workspace Settings
 includes show, set, validate/create, reset actions, and School Year Settings.
+
+The Assignment Management edit workflow is menu-only. It discovers existing
+classes and assignments, loads the selected canonical
+`classes/<class_id>/assignments/<assignment_id>/assignment.json`, stages edits
+in memory, validates the staged assignment, and writes only after explicit
+`SAVE` confirmation. Canceling without saving does not write. If staged changes
+exist, discard requires typing `DISCARD`.
+
+Assignment editing can change `title`, existing answer-key entries, and
+assignment-local standards alignment. It does not allow changing
+`assignment_id`, `question_count`, or `choices`. Standards editing can attach,
+remove, or clear existing shared standard IDs only; it does not create shared
+standards, write standards usage events or ledgers, or modify the shared
+standards library. Assignment editing does not regenerate answer sheets,
+rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs or
+scan evidence, alter rosters, or change unrelated assignments.
 
 The Roster Management edit workflow is menu-only. It discovers existing class
 rosters, loads the selected canonical class roster through `pds-core`, stages

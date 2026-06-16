@@ -37,7 +37,7 @@ def test_load_assignment_accepts_valid(tmp_path):
     assert loaded["question_count"] == 10
     assert isinstance(loaded["answer_key"], dict)
     assert set(loaded["answer_key"].keys()) == set(range(1, 11))
-    assert loaded["standards"] == {}
+    assert loaded["standards"] == {str(i): [] for i in range(1, 11)}
 
 
 def test_load_assignment_rejects_invalid_assignment_id(tmp_path):
@@ -149,7 +149,7 @@ def test_load_assignment_accepts_empty_standards_object(tmp_path):
     path = make_assignment(tmp_path, standards={})
     loaded = assignment.load_assignment(path)
     assert loaded is not None
-    assert loaded["standards"] == {}
+    assert loaded["standards"] == {str(i): [] for i in range(1, 11)}
 
 
 def test_load_assignment_accepts_valid_standards(tmp_path):
@@ -162,9 +162,11 @@ def test_load_assignment_accepts_valid_standards(tmp_path):
     loaded = assignment.load_assignment(path)
     assert loaded is not None
     assert loaded["standards"] == {
-        1: ["RL.CI.11-12.2"],
-        3: ["RL.IT.11-12.3", "L.VI.11-12.4"],
-        5: ["RL.CR.11-12.1"],
+        "1": ["RL.CI.11-12.2"],
+        "2": [],
+        "3": ["RL.IT.11-12.3", "L.VI.11-12.4"],
+        "4": [],
+        "5": ["RL.CR.11-12.1"],
     }
 
 
@@ -173,7 +175,7 @@ def test_load_assignment_accepts_empty_per_question_standards(tmp_path):
     path = make_assignment(tmp_path, question_count=3, standards=standards)
     loaded = assignment.load_assignment(path)
     assert loaded is not None
-    assert loaded["standards"] == {1: [], 2: [], 3: []}
+    assert loaded["standards"] == {"1": [], "2": [], "3": []}
 
 
 def test_load_assignment_accepts_missing_standards_keys(tmp_path):
@@ -184,7 +186,84 @@ def test_load_assignment_accepts_missing_standards_keys(tmp_path):
     )
     loaded = assignment.load_assignment(path)
     assert loaded is not None
-    assert loaded["standards"] == {2: ["RL.CI.11-12.2"]}
+    assert loaded["standards"] == {
+        "1": [],
+        "2": ["RL.CI.11-12.2"],
+        "3": [],
+        "4": [],
+    }
+
+
+def test_validate_assignment_data_returns_string_keyed_full_standards_mapping():
+    loaded = assignment.validate_assignment_data({
+        "assignment_id": "unit_1",
+        "title": "Unit 1 Quiz",
+        "question_count": 3,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {"1": "A", "2": "B", "3": "C"},
+        "standards": {
+            "1": ["local:evidence"],
+            "3": ["local:theme"],
+        },
+    })
+
+    assert loaded is not None
+    assert loaded["answer_key"] == {1: "A", 2: "B", 3: "C"}
+    assert loaded["standards"] == {
+        "1": ["local:evidence"],
+        "2": [],
+        "3": ["local:theme"],
+    }
+    assert set(loaded["standards"]) == {"1", "2", "3"}
+
+
+def test_validate_assignment_data_missing_standards_returns_full_empty_mapping():
+    data = {
+        "assignment_id": "unit_1",
+        "title": "Unit 1 Quiz",
+        "question_count": 3,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {"1": "A", "2": "B", "3": "C"},
+    }
+
+    loaded = assignment.validate_assignment_data(data)
+    assert loaded is not None
+    assert loaded["standards"] == {"1": [], "2": [], "3": []}
+
+    loaded = assignment.validate_assignment_data({**data, "standards": None})
+    assert loaded is not None
+    assert loaded["standards"] == {"1": [], "2": [], "3": []}
+
+
+def test_validate_assignment_data_integer_standards_keys_normalize_to_strings():
+    loaded = assignment.validate_assignment_data({
+        "assignment_id": "unit_1",
+        "title": "Unit 1 Quiz",
+        "question_count": 3,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {"1": "A", "2": "B", "3": "C"},
+        "standards": {1: ["local:evidence"]},
+    })
+
+    assert loaded is not None
+    assert loaded["standards"] == {
+        "1": ["local:evidence"],
+        "2": [],
+        "3": [],
+    }
+
+
+def test_validate_assignment_data_rejects_duplicate_normalized_standards_keys():
+    loaded = assignment.validate_assignment_data({
+        "assignment_id": "unit_1",
+        "title": "Unit 1 Quiz",
+        "question_count": 3,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {"1": "A", "2": "B", "3": "C"},
+        "standards": {"1": ["local:a"], 1: ["local:b"]},
+    })
+
+    assert loaded is None
 
 
 def test_load_assignment_rejects_standards_key_beyond_question_count(tmp_path):
@@ -259,7 +338,7 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
 
     loaded = assignment.load_assignment(str(output_path))
     assert loaded is not None
-    assert loaded["standards"] == {1: [], 2: [], 3: []}
+    assert loaded["standards"] == {"1": [], "2": [], "3": []}
 
 
 def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypatch):

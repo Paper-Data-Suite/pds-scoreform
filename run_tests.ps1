@@ -313,12 +313,12 @@ Copy-Item $SampleClassPacketPdf $MenuInboxScanPdf -Force
 Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding UTF8
 @(
     "1",                    # Main menu -> Assignment Management
-    "4",                    # Assignment Management -> Score scanned responses
+    "5",                    # Assignment Management -> Score scanned responses
     "1",                    # Scoring input menu -> Choose from scans_inbox
     "1",                    # Select generated menu picker scan
     "1",                    # Scoring mode -> QR-aware routed scoring (recommended)
     "",                     # pause after scoring
-    "6",                    # Return to main menu
+    "7",                    # Return to main menu
     "5"                     # Exit
 ) | & $Python main.py menu
 
@@ -510,7 +510,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "1",                        # Standards alignment -> Skip standards for now
     "",                         # pause after assignment creation output
-    "6",                        # Return to main menu
+    "7",                        # Return to main menu
     "5"                         # Exit
 ) | & $Python main.py menu
 
@@ -539,13 +539,13 @@ Write-Host "Testing answer sheet generation through menu class/assignment select
 
 @(
     "1",                        # Main menu -> Assignment Management
-    "3",                        # Assignment Management -> Generate answer sheets
+    "4",                        # Assignment Management -> Generate answer sheets
     "1",                        # Generate menu -> Existing class assignment
     "1",                        # Select first available class (000_test_class_v5)
     "1",                        # Select first available assignment (test_assignment_v5)
     "y",                        # Confirm generation
     "",                         # pause after generation output
-    "6",                        # Return to main menu
+    "7",                        # Return to main menu
     "5"                         # Exit
 ) | & $Python main.py menu
 
