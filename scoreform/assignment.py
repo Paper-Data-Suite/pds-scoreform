@@ -108,18 +108,29 @@ def _normalize_answer_key(
 
 
 def _normalize_standards(standards, question_count):
+    normalized_standards = {
+        str(question_number): []
+        for question_number in range(1, question_count + 1)
+    }
+
     if standards is None:
-        return {}
+        return normalized_standards
 
     if not isinstance(standards, dict):
         print("Error: 'standards' must be a JSON object when present.")
         return None
 
-    normalized_standards = {}
+    seen_questions = set()
     for key, values in standards.items():
         q_num = _normalize_question_number(key, question_count, "standards")
         if q_num is None:
             return None
+        question_key = str(q_num)
+
+        if question_key in seen_questions:
+            print(f"Error: Duplicate question number '{q_num}' in standards.")
+            return None
+        seen_questions.add(question_key)
 
         if not isinstance(values, list):
             print(f"Error: Standards for question {q_num} must be a list.")
@@ -135,7 +146,7 @@ def _normalize_standards(standards, question_count):
                 return None
             normalized_values.append(value.strip())
 
-        normalized_standards[q_num] = normalized_values
+        normalized_standards[question_key] = normalized_values
 
     return normalized_standards
 
@@ -183,6 +194,11 @@ def load_assignment(assignment_path):
         print(f"Error: Assignment file '{assignment_path}' must contain a JSON object.")
         return None
 
+    return validate_assignment_data(data)
+
+
+def validate_assignment_data(data):
+    """Validate assignment data already loaded in memory."""
     if not isinstance(data.get("assignment_id"), str) or not data["assignment_id"].strip():
         print("Error: 'assignment_id' must be a non-empty string.")
         return None

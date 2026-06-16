@@ -16,6 +16,13 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added an Assignment Management menu workflow for editing existing
+  assignments. The workflow stages title, answer-key, and existing-standard-ID
+  alignment edits until explicit `SAVE`, requires `DISCARD` for unsaved
+  cancellation, keeps `assignment_id`, `question_count`, and `choices` locked,
+  writes only the selected `assignment.json`, and does not regenerate answer
+  sheets, rescore scans, rewrite historical results, alter rosters, write
+  standards usage ledgers, or modify the shared standards library.
 * Added a Roster Management menu workflow for editing existing class rosters.
   The workflow loads and writes canonical class rosters through shared
   `pds-core` roster APIs, stages add/edit/remove changes until explicit save,

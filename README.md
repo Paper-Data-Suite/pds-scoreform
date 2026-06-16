@@ -313,7 +313,7 @@ ScoreForm
 5. Exit
 ```
 
-Assignment Management contains assignment creation and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
+Assignment Management contains assignment creation, editing, and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
 workspace root using the same `pds-core` operations as the direct CLI. It also
 contains School Year Settings for showing, opening, and closing the shared
@@ -432,7 +432,23 @@ Notes:
 * Assignment files store standard IDs only. Shared standard definitions live in the workspace standards library owned by `pds-core`.
 * Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
-* Assignment Management also validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata; standards editing for existing assignments remains future work.
+* Assignment Management also edits and validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata.
+
+### Edit an Assignment from the Menu
+
+Select **1. Assignment Management**, then **2. Edit an assignment** to choose an existing class and assignment. ScoreForm loads the selected canonical `classes/<class_id>/assignments/<assignment_id>/assignment.json`, displays a compact summary, and opens an edit menu.
+
+Assignment edits are safe by default:
+
+* Changes are staged in memory until you type `SAVE`.
+* Canceling without changes returns directly.
+* Canceling with unsaved changes requires typing `DISCARD`; discarded changes are not written.
+* Editable fields are `title`, existing answer-key entries, and assignment-local standards alignment.
+* Locked fields are `assignment_id`, `question_count`, and `choices`.
+* Answer-key editing changes existing questions only; it does not add or remove questions.
+* Standards editing can attach, remove, or clear existing shared standard IDs on selected questions. It does not create shared standards, record standards usage events, write standards usage ledgers, or modify the shared standards library.
+* Saving writes only the selected `assignment.json` after validation.
+* Editing an assignment does not regenerate answer sheets, rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs, delete scans, alter rosters, or change unrelated assignments.
 
 ## Data Model
 
