@@ -57,6 +57,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Automatic assignment lookup from QR payloads
 * Mixed-scan QR-aware scoring for multi-page class packets
 * Result routing into class/assignment folders
+* Same-assignment QR-aware scan filing into assignment `scans/` folders
 
 ### Results and Auditability
 
@@ -66,6 +67,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Per-result `source_file` tracking
 * Per-result `attempt_number` and `scan_timestamp` metadata
 * Safe routed-results writes that preserve existing rows
+* Filed scan copies for successful same-assignment QR-aware routed scoring
 * Workspace-level `scans_inbox/` creation to support scan workflow
 
 ### Rosters, Assignments, and Validation
@@ -110,7 +112,7 @@ Current limitations include:
 * ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
   scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
   small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
-* Result routing works for QR-aware scoring. Duplicate/attempt handling is now implemented; scan storage behavior is still being developed.
+* Result routing works for QR-aware scoring. Duplicate/attempt handling and same-assignment scan filing are implemented; broader scan lifecycle workflows are still being developed.
 * Question count support is currently limited to 1-15 questions on a single page.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
@@ -257,6 +259,7 @@ root:
 ```
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
+When QR-aware routed scoring succeeds for exactly one class and assignment, ScoreForm files a copy of the source scan under that assignment's `scans/` folder while preserving the original source scan.
 
 Generic/manual development outputs are organized under `<PDS workspace root>/local_outputs/` when ScoreForm chooses the default path:
 
@@ -696,9 +699,9 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`, and, when all successfully scored pages resolve to that same class and assignment, files a copy of the source scan under `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/scans/`. The original source scan remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
 
-The picker only selects the input file. It does not move, copy, rename, delete, archive, or route scan files. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
+The picker only selects the input file. It does not move, rename, or delete scan files. Scan filing happens only after successful QR-aware routed result export for one resolved assignment target. Mixed-assignment scans, scans with no successfully scored pages, explicit-output CSV scoring, and manual scoring do not file a scan copy. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
 
 Results include the source path or filename in the `source_file` column for audit and verification purposes.
 
@@ -822,6 +825,7 @@ scoreform score path\to\scan.pdf
 
 QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`.
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
+After routed result export succeeds, ScoreForm files a timestamped `_scored` copy of the original source scan into the assignment's `scans/` folder when the successfully scored pages resolve to exactly one `(class_id, assignment_id)` target. The original source file is preserved. If the successfully scored pages span multiple assignments, or if the source scan is unavailable, ScoreForm skips scan filing without treating the result export as failed.
 
 Routed `results.csv` is an audit log, not a finalized gradebook export. If a student sheet is scanned more than once, ScoreForm preserves each successful scan as a separate row instead of overwriting earlier results. The `attempt_number` column increments for repeated scans of the same student and assignment, while `scan_timestamp` and `source_file` identify when the row was created and which scan, PDF, or image produced it. Makeup or separate scans append to the existing class-assignment results file when the QR metadata matches. ScoreForm does not yet decide which attempt is the official grade, so teachers should manually verify which row to use until gradebook export rules are implemented.
 
@@ -874,7 +878,7 @@ v0.6.0  Flexible form configuration and standards metadata
 v0.7.0  Test robustness, CLI reliability, cleanup, and public-readiness work
 v0.8.0  Completed menu workflow polish, scan inbox picker, QR-aware routed menu scoring, and release documentation
 v0.8.1  Manual run-through fixes, teacher-centered menu refinement, persistent menu headers, and stricter version-update assertions
-v0.9.0  Project organization, project-root planning, scan archiving, and data-lifecycle design
+v0.9.0  Project organization, project-root planning, scan filing, and data-lifecycle design
 v1.0.0  Stable classroom-ready release
 ```
 
@@ -929,7 +933,7 @@ Future test improvements may include:
 * Multi-page forms are not implemented yet; assignments are currently limited to 1-15 questions on a single page.
 * Legacy/manual scoring writes default debug images to `local_outputs/debug/`, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
-* Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit overwrite/archive workflow has not been implemented yet.
+* Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit replacement workflow has not been implemented yet.
 * QR preprocessing improves many real-world phone scans, but severe blur, glare,
   cropping, or rotation can still prevent detection.
 
