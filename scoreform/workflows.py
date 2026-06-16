@@ -535,34 +535,47 @@ def _prompt_edit_assignment_title(assignment):
 
 
 def _prompt_edit_assignment_answer_key(assignment):
-    _print_assignment_answer_key(assignment)
-    print()
-    try:
-        question_numbers = parse_question_selection(
-            input("Question(s) to edit, comma-separated: "),
-            assignment["question_count"],
-        )
-    except ValueError as e:
-        print(f"Error: {e}")
-        return assignment, False
-
-    new_answer = input("New answer: ").strip().upper()
-    if new_answer not in assignment["choices"]:
-        print(
-            "Error: Answer must be one of "
-            f"{', '.join(assignment['choices'])}."
-        )
-        return assignment, False
-
     updated = dict(assignment)
     updated["answer_key"] = dict(assignment["answer_key"])
     changed = False
-    for question_number in question_numbers:
-        question_key = str(question_number)
-        if updated["answer_key"][question_key] != new_answer:
-            updated["answer_key"][question_key] = new_answer
-            changed = True
-    return updated, changed
+
+    while True:
+        _print_assignment_answer_key(updated)
+        print()
+        selection_text = input("Question to edit: ").strip()
+        if not selection_text:
+            print("Error: Select one question.")
+        elif not selection_text.isdigit():
+            print(f"Error: Invalid question selection: {selection_text}")
+        else:
+            question_number = int(selection_text)
+            if question_number < 1 or question_number > assignment["question_count"]:
+                print(f"Error: Question selection out of range: {question_number}")
+            else:
+                question_key = str(question_number)
+                current_answer = updated["answer_key"][question_key]
+                print(f"Current answer for Q{question_number}: {current_answer}")
+
+                new_answer = input("New answer: ").strip().upper()
+                if new_answer not in assignment["choices"]:
+                    print(
+                        "Error: Answer must be one of "
+                        f"{', '.join(assignment['choices'])}."
+                    )
+                elif current_answer == new_answer:
+                    print(f"No change staged for Q{question_number}.")
+                else:
+                    updated["answer_key"][question_key] = new_answer
+                    changed = True
+                    print(
+                        f"Staged: Q{question_number} changed from "
+                        f"{current_answer} to {new_answer}."
+                    )
+
+        continue_editing = input("Edit another answer? (y/yes): ").strip().lower()
+        if continue_editing not in {"y", "yes"}:
+            return updated, changed
+        print()
 
 
 def _load_active_standard_definitions(workspace_root):

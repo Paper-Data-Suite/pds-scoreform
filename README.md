@@ -445,7 +445,7 @@ Assignment edits are safe by default:
 * Canceling with unsaved changes requires typing `DISCARD`; discarded changes are not written.
 * Editable fields are `title`, existing answer-key entries, and assignment-local standards alignment.
 * Locked fields are `assignment_id`, `question_count`, and `choices`.
-* Answer-key editing changes existing questions only; it does not add or remove questions.
+* Answer-key editing changes one existing question at a time; it does not add or remove questions.
 * Standards editing can attach, remove, or clear existing shared standard IDs on selected questions. It does not create shared standards, record standards usage events, write standards usage ledgers, or modify the shared standards library.
 * Saving writes only the selected `assignment.json` after validation.
 * Editing an assignment does not regenerate answer sheets, rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs, delete scans, alter rosters, or change unrelated assignments.

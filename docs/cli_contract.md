@@ -269,7 +269,7 @@ in memory, validates the staged assignment, and writes only after explicit
 `SAVE` confirmation. Canceling without saving does not write. If staged changes
 exist, discard requires typing `DISCARD`.
 
-Assignment editing can change `title`, existing answer-key entries, and
+Assignment editing can change `title`, one existing answer-key entry at a time, and
 assignment-local standards alignment. It does not allow changing
 `assignment_id`, `question_count`, or `choices`. Standards editing can attach,
 remove, or clear existing shared standard IDs only; it does not create shared

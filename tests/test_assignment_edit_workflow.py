@@ -162,26 +162,57 @@ def test_blank_title_is_rejected_and_discard_writes_nothing(
 def test_answer_key_change_preserves_locked_fields_and_saves_only_selected_assignment(
     tmp_path,
     monkeypatch,
+    capsys,
 ):
     monkeypatch.chdir(tmp_path)
     _write_roster(tmp_path)
     path = _write_assignment(tmp_path)
     other_path = _write_assignment(tmp_path, assignment_id="unit_2", title="Unit 2")
     other_before = other_path.read_text(encoding="utf-8")
-    responses = iter(["1", "1", "2", "2,3", "D", "5", "SAVE"])
+    responses = iter(["1", "1", "2", "2", "D", "", "5", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert workflows.prompt_edit_assignment() == 0
 
     saved = _load_json(path)
-    assert saved["answer_key"] == {"1": "A", "2": "D", "3": "D"}
+    assert saved["answer_key"] == {"1": "A", "2": "D", "3": "C"}
     assert saved["question_count"] == 3
     assert saved["choices"] == ["A", "B", "C", "D"]
     assert saved["assignment_id"] == "unit_1"
     assert other_path.read_text(encoding="utf-8") == other_before
+    output = capsys.readouterr().out
+    assert "Current answer for Q2: B" in output
 
 
-def test_invalid_answer_key_edits_are_rejected_without_saving(
+def test_answer_key_editor_can_stage_multiple_different_answers_in_one_session(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    _write_roster(tmp_path)
+    path = _write_assignment(tmp_path)
+    responses = iter([
+        "1",
+        "1",
+        "2",
+        "2",
+        "A",
+        "y",
+        "3",
+        "D",
+        "",
+        "5",
+        "SAVE",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert workflows.prompt_edit_assignment() == 0
+
+    saved = _load_json(path)
+    assert saved["answer_key"] == {"1": "A", "2": "A", "3": "D"}
+
+
+def test_answer_key_editor_rejects_comma_separated_bulk_selection(
     tmp_path,
     monkeypatch,
     capsys,
@@ -190,15 +221,103 @@ def test_invalid_answer_key_edits_are_rejected_without_saving(
     _write_roster(tmp_path)
     path = _write_assignment(tmp_path)
     before = path.read_text(encoding="utf-8")
-    responses = iter(["1", "1", "2", "4", "2", "2", "Z", "6"])
+    writes = []
+
+    def fail_write(write_path, assignment):
+        writes.append((write_path, assignment))
+        raise AssertionError("comma-separated answer-key edit should not be saved")
+
+    monkeypatch.setattr(workflows, "write_assignment_json", fail_write)
+    responses = iter(["1", "1", "2", "2,3", "", "5"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert workflows.prompt_edit_assignment() == 0
+
+    assert path.read_text(encoding="utf-8") == before
+    assert writes == []
+    output = capsys.readouterr().out
+    assert "Invalid question selection: 2,3" in output
+
+
+def test_invalid_answer_key_question_selections_are_rejected_without_saving(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.chdir(tmp_path)
+    _write_roster(tmp_path)
+    path = _write_assignment(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    responses = iter([
+        "1",
+        "1",
+        "2",
+        "",
+        "y",
+        "abc",
+        "yes",
+        "4",
+        "",
+        "5",
+    ])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     output = capsys.readouterr().out
+    assert "Error: Select one question." in output
+    assert "Invalid question selection: abc" in output
     assert "Question selection out of range: 4" in output
+
+
+def test_invalid_answer_key_answer_choice_is_rejected_without_saving(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.chdir(tmp_path)
+    _write_roster(tmp_path)
+    path = _write_assignment(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    responses = iter(["1", "1", "2", "2", "Z", "", "5"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert workflows.prompt_edit_assignment() == 0
+
+    assert path.read_text(encoding="utf-8") == before
+    output = capsys.readouterr().out
+    assert "Current answer for Q2: B" in output
     assert "Answer must be one of A, B, C, D." in output
+
+
+def test_no_op_answer_key_edit_does_not_make_assignment_dirty(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.chdir(tmp_path)
+    _write_roster(tmp_path)
+    path = _write_assignment(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    writes = []
+
+    def fail_write(write_path, assignment):
+        writes.append((write_path, assignment))
+        raise AssertionError("no-op answer-key edit should not be saved")
+
+    monkeypatch.setattr(workflows, "write_assignment_json", fail_write)
+    responses = iter(["1", "1", "2", "2", "b", "", "5"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert workflows.prompt_edit_assignment() == 0
+
+    assert path.read_text(encoding="utf-8") == before
+    assert writes == []
+    output = capsys.readouterr().out
+    assert "No change staged for Q2." in output
+    assert "No answer-key change staged." in output
+    assert "No changes to save." in output
 
 
 def test_cancel_with_unsaved_changes_requires_discard_confirmation(
@@ -210,6 +329,22 @@ def test_cancel_with_unsaved_changes_requires_discard_confirmation(
     path = _write_assignment(tmp_path)
     before = path.read_text(encoding="utf-8")
     responses = iter(["1", "1", "1", "Draft Title", "6", "no", "6", "DISCARD"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert workflows.prompt_edit_assignment() == 0
+
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_staged_answer_key_edits_are_discarded_without_writing(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    _write_roster(tmp_path)
+    path = _write_assignment(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    responses = iter(["1", "1", "2", "2", "D", "", "6", "DISCARD"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert workflows.prompt_edit_assignment() == 0
@@ -318,7 +453,7 @@ def test_assignment_edit_does_not_touch_generated_results_scans_or_roster(
         generated_path.parent.mkdir(parents=True, exist_ok=True)
         generated_path.write_text(text, encoding="utf-8")
 
-    responses = iter(["1", "1", "2", "1", "B", "5", "SAVE"])
+    responses = iter(["1", "1", "2", "1", "B", "", "5", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert workflows.prompt_edit_assignment() == 0
