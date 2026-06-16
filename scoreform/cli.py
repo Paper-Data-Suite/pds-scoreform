@@ -23,6 +23,7 @@ from scoreform.config import LOCAL_RESULTS_CSV
 from scoreform.folders import setup_assignment_folder
 from scoreform.results import export_routed_results, export_to_csv
 from scoreform.roster import load_roster
+from scoreform.scan_filing import file_original_scan_copy, print_scan_filing_result
 from scoreform.scoring import (
     decode_qr_from_image,
     get_qr_batch_summary,
@@ -613,6 +614,10 @@ def run_score(args):
             save_qr_batch_summary(summary, input_file)
         print("Error: Failed to export results.")
         return 1
+
+    if use_qr_aware and not explicit_output_csv:
+        filing_result = file_original_scan_copy(results_data, input_file)
+        print_scan_filing_result(filing_result)
 
     if use_qr_aware:
         update_qr_batch_result_write_status(

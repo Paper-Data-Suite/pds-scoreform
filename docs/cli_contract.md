@@ -223,6 +223,19 @@ key. The proposed form
 implementation and must not be documented as working unless code support is
 added in a separate compatibility-conscious change.
 
+When `scoreform score <scan.pdf-or-image>` uses QR-aware routed scoring without
+an explicit output CSV, successful routed result export may also file a copy of
+the source scan into the resolved assignment's `scans/` folder. This scan
+filing applies only when at least one page scores successfully and all
+successfully scored pages resolve to exactly one `(class_id, assignment_id)`
+target. The filed copy uses a readable timestamped `_scored` filename and never
+overwrites an existing scan. The original source scan remains in place.
+
+Automatic scan filing does not apply to QR-aware scoring with an explicit
+output CSV or to manual scoring with an answer key. If a successful QR-aware
+routed batch contains multiple assignment targets, ScoreForm skips scan filing
+instead of guessing a destination.
+
 Mode inference and extra positional-argument validation are provisional. Scripts
 should use only the documented forms.
 
@@ -620,10 +633,10 @@ Possible forms include:
 scoreform generate assignment.json --rosters roster.csv --dry-run
 scoreform setup-assignment assignment.json roster.csv --dry-run
 scoreform workspace set "<path>" --dry-run
-scoreform archive-scans --dry-run
+scoreform file-scans --dry-run
 ```
 
-Dry-run behavior matters most for commands that write, copy, move, archive, or
+Dry-run behavior matters most for commands that write, copy, move, file, or
 overwrite files.
 
 ### One-time workspace override
@@ -687,7 +700,7 @@ scoreform workspace validate --verbose
 
 This contract intersects with desktop packaging, structured logging, Paper Data
 Suite interoperability, parser cleanup, schema and version contracts, scan
-archiving, reporting and export workflows, machine-readable output,
+filing, reporting and export workflows, machine-readable output,
 `scoreform doctor`, and workspace override flags.
 
 Those areas are not automatically part of CLI contract maintenance. This
@@ -699,7 +712,7 @@ document does not implement:
 * `scoreform doctor`;
 * one-time workspace flags;
 * desktop or GUI packaging;
-* scan archiving;
+* scan filing command design;
 * gradebook export;
 * reporting commands;
 * command renaming;

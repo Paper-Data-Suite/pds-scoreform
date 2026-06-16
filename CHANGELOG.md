@@ -50,6 +50,11 @@ GitHub milestones are project-management buckets. Package versions describe inst
   selected questions. Assignment files store standard IDs only; empty standards
   lists remain valid, usage recording is not automatic, and scoring/export
   behavior is unchanged.
+* Added same-assignment scan filing after successful QR-aware routed scoring.
+  When routed result export succeeds and all successfully scored pages resolve
+  to one class and assignment, ScoreForm copies the original source scan into
+  the assignment `scans/` folder with a timestamped `_scored` filename while
+  preserving the original source scan.
 
 ### Documentation
 
