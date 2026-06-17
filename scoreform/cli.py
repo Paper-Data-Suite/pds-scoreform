@@ -16,6 +16,7 @@ from pds_core.school_years import (
 from scoreform import menu_scoring as _menu_scoring
 from scoreform import workspace
 from scoreform.assignment import load_assignment
+from scoreform.assignment_workflows import launch_assignment_menu
 from scoreform.cli_help import (
     get_version,  # noqa: F401 - compatibility re-export
     print_help,
@@ -51,7 +52,6 @@ from scoreform.workflows import (
     discover_class_assignments,
     discover_class_rosters,
     discover_scans_in_inbox,
-    launch_assignment_menu,
     normalize_path_input,
     parse_single_selection,
     print_menu_header,
