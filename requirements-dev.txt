@@ -1,3 +1,4 @@
 -r requirements.txt
+# Required sibling editable checkout for current Paper Data Suite development.
 -e ../pds-core
 -e .[dev]
