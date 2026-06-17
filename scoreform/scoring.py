@@ -854,10 +854,12 @@ def _sanitize_output_stem(file_path):
     return sanitized or "scan"
 
 
-def _dated_local_output_dir(category, now=None):
+def _dated_local_output_dir(category, now=None, workspace_root=None):
     timestamp = now or datetime.datetime.now()
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
     output_dir = os.fspath(
-        workspace.get_scoreform_workspace_root().joinpath(
+        workspace_root.joinpath(
             LOCAL_OUTPUTS_DIR,
             category,
             timestamp.strftime("%Y-%m-%d"),
@@ -875,13 +877,23 @@ def _write_diagnostic_image(path, image):
     return None
 
 
-def save_qr_failure_diagnostics(img, file_path, page_num, now=None):
+def save_qr_failure_diagnostics(
+    img,
+    file_path,
+    page_num,
+    now=None,
+    workspace_root=None,
+):
     """Save a bounded set of useful QR failure images and return their paths."""
     if img is None:
         return []
 
     try:
-        output_dir = _dated_local_output_dir("qr_failures", now=now)
+        output_dir = _dated_local_output_dir(
+            "qr_failures",
+            now=now,
+            workspace_root=workspace_root,
+        )
     except OSError as error:
         print(f"Warning: Could not create QR failure diagnostic folder: {error}")
         return []
@@ -932,7 +944,12 @@ def save_qr_failure_diagnostics(img, file_path, page_num, now=None):
     return saved_paths
 
 
-def _decode_qr_from_image_with_status(img, file_path=None, page_num=1):
+def _decode_qr_from_image_with_status(
+    img,
+    file_path=None,
+    page_num=1,
+    workspace_root=None,
+):
     """Decode QR metadata and return structured failure status when it fails."""
     if img is None:
         print("Error: Provided image is None")
@@ -967,6 +984,7 @@ def _decode_qr_from_image_with_status(img, file_path=None, page_num=1):
             img,
             file_path,
             page_num,
+            workspace_root=workspace_root,
         )
         return QRDecodeResult(
             None,
@@ -1038,12 +1056,17 @@ def _record_qr_result_write_failed(summary, output_paths=None):
         summary.record_result_write_failed(output_paths)
 
 
-def _qr_output_paths_for_results(all_results, explicit_output_file=None):
+def _qr_output_paths_for_results(
+    all_results,
+    explicit_output_file=None,
+    workspace_root=None,
+):
     if explicit_output_file:
         return [explicit_output_file]
 
     paths = []
-    workspace_root = workspace.get_scoreform_workspace_root()
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
     for res in all_results:
         class_id = res.get("class_id")
         assignment_id = res.get("assignment_id")
@@ -1067,14 +1090,18 @@ def print_qr_batch_summary(summary):
         summary.print()
 
 
-def save_qr_batch_summary(summary, source_file, now=None):
+def save_qr_batch_summary(summary, source_file, now=None, workspace_root=None):
     """Save the QR-aware terminal summary to a dated local text file."""
     if summary is None:
         return None
 
     timestamp = now or datetime.datetime.now()
     try:
-        output_dir = _dated_local_output_dir("qr_batch_summaries", now=timestamp)
+        output_dir = _dated_local_output_dir(
+            "qr_batch_summaries",
+            now=timestamp,
+            workspace_root=workspace_root,
+        )
         filename = (
             f"{_sanitize_output_stem(source_file)}_"
             f"{timestamp.strftime('%Y-%m-%d_%H%M')}_summary.txt"
@@ -1095,9 +1122,14 @@ def update_qr_batch_result_write_status(
     all_results,
     export_success,
     explicit_output_file=None,
+    workspace_root=None,
 ):
     summary = getattr(all_results, "summary", None)
-    output_paths = _qr_output_paths_for_results(all_results, explicit_output_file)
+    output_paths = _qr_output_paths_for_results(
+        all_results,
+        explicit_output_file,
+        workspace_root=workspace_root,
+    )
     if export_success:
         _record_qr_results_written(summary, output_paths)
     else:
@@ -1108,8 +1140,20 @@ def get_qr_batch_summary(all_results):
     return getattr(all_results, "summary", None)
 
 
-def _score_page_qr_aware_with_summary(img, page_num=1, file_path=None, summary=None):
-    result = _score_page_qr_aware(img, page_num, file_path, summary=summary)
+def _score_page_qr_aware_with_summary(
+    img,
+    page_num=1,
+    file_path=None,
+    summary=None,
+    workspace_root=None,
+):
+    result = _score_page_qr_aware(
+        img,
+        page_num,
+        file_path,
+        summary=summary,
+        workspace_root=workspace_root,
+    )
     if result is not None:
         _record_qr_success(summary)
     return result
@@ -1120,11 +1164,13 @@ def _score_page_qr_aware_decode_metadata(
     page_num,
     summary,
     file_path=None,
+    workspace_root=None,
 ):
     decoded = _decode_qr_from_image_with_status(
         img,
         file_path=file_path,
         page_num=page_num,
+        workspace_root=workspace_root,
     )
     if decoded.metadata is None:
         _record_qr_failure(
@@ -1138,8 +1184,13 @@ def _score_page_qr_aware_decode_metadata(
     return decoded.metadata
 
 
-def _score_page_qr_aware_assignment_path(class_id, assignment_id):
-    workspace_root = workspace.get_scoreform_workspace_root()
+def _score_page_qr_aware_assignment_path(
+    class_id,
+    assignment_id,
+    workspace_root=None,
+):
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
     return os.fspath(
         core_assignment_config_path(
             workspace_root,
@@ -1217,7 +1268,7 @@ def _image_extensions():
     return [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]
 
 
-def _process_qr_pdf(file_path, all_results, summary):
+def _process_qr_pdf(file_path, all_results, summary, workspace_root=None):
     try:
         from pdf2image import convert_from_path
         from pdf2image.exceptions import PDFInfoNotInstalledError
@@ -1253,6 +1304,7 @@ def _process_qr_pdf(file_path, all_results, summary):
                 page_num,
                 file_path,
                 summary,
+                workspace_root=workspace_root,
             )
             if res:
                 all_results.append(res)
@@ -1268,7 +1320,7 @@ def _process_qr_pdf(file_path, all_results, summary):
         print(f"Error while processing PDF: {e}")
 
 
-def _process_qr_image(file_path, all_results, summary):
+def _process_qr_image(file_path, all_results, summary, workspace_root=None):
     img = cv2.imread(file_path)
 
     _record_qr_processed(summary)
@@ -1288,12 +1340,13 @@ def _process_qr_image(file_path, all_results, summary):
         page_num=1,
         file_path=file_path,
         summary=summary,
+        workspace_root=workspace_root,
     )
     if res:
         all_results.append(res)
 
 
-def process_file_qr_aware(file_path):
+def process_file_qr_aware(file_path, workspace_root=None):
     """Process a file with QR-aware scoring.
     
     Decodes QR metadata from each page, loads the corresponding assignment.json,
@@ -1310,12 +1363,19 @@ def process_file_qr_aware(file_path):
         return all_results
 
     ext = os.path.splitext(file_path)[1].lower()
+    if workspace_root is None and (ext == ".pdf" or ext in _image_extensions()):
+        workspace_root = workspace.get_scoreform_workspace_root()
 
     if ext == ".pdf":
-        _process_qr_pdf(file_path, all_results, summary)
+        _process_qr_pdf(file_path, all_results, summary, workspace_root=workspace_root)
 
     elif ext in _image_extensions():
-        _process_qr_image(file_path, all_results, summary)
+        _process_qr_image(
+            file_path,
+            all_results,
+            summary,
+            workspace_root=workspace_root,
+        )
 
     else:
         print(
@@ -1326,7 +1386,13 @@ def process_file_qr_aware(file_path):
     return all_results
 
 
-def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
+def _score_page_qr_aware(
+    img,
+    page_num=1,
+    file_path=None,
+    summary=None,
+    workspace_root=None,
+):
     """Score a single page with QR-aware metadata extraction.
     
     1. Decode QR metadata from the image.
@@ -1342,6 +1408,7 @@ def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
         page_num,
         summary,
         file_path=file_path,
+        workspace_root=workspace_root,
     )
     if qr_metadata is None:
         print(f"Error: Could not decode QR metadata from page {page_num}.")
@@ -1367,7 +1434,11 @@ def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
         return None
 
     # Step 2: Locate and load assignment.json
-    assignment_path = _score_page_qr_aware_assignment_path(class_id, assignment_id)
+    assignment_path = _score_page_qr_aware_assignment_path(
+        class_id,
+        assignment_id,
+        workspace_root=workspace_root,
+    )
     assignment_data = _load_qr_aware_assignment(assignment_path, page_num, summary)
     if assignment_data is None:
         return None
@@ -1386,7 +1457,8 @@ def _score_page_qr_aware(img, page_num=1, file_path=None, summary=None):
 
     question_count = _question_count_for_assignment(assignment_data, answer_key)
 
-    workspace_root = workspace.get_scoreform_workspace_root()
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
     debug_dir = os.fspath(
         core_assignment_debug_dir(
             workspace_root,

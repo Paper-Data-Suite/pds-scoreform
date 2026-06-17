@@ -71,7 +71,13 @@ def build_filed_scan_path(scans_dir, source_path, now=None):
     return _non_overwriting_path(os.path.join(os.fspath(scans_dir), filename))
 
 
-def file_original_scan_copy(results, source_path, now=None, copy_func=shutil.copy2):
+def file_original_scan_copy(
+    results,
+    source_path,
+    now=None,
+    copy_func=shutil.copy2,
+    workspace_root=None,
+):
     """Copy a successfully scored source scan into one assignment scan folder."""
     if not results:
         return ScanFilingResult(skipped_reason="no pages scored successfully")
@@ -98,7 +104,8 @@ def file_original_scan_copy(results, source_path, now=None, copy_func=shutil.cop
 
     class_id, assignment_id = target
     try:
-        workspace_root = workspace.get_scoreform_workspace_root()
+        if workspace_root is None:
+            workspace_root = workspace.get_scoreform_workspace_root()
         scans_dir = core_assignment_scans_dir(workspace_root, class_id, assignment_id)
         os.makedirs(scans_dir, exist_ok=True)
         filed_path = build_filed_scan_path(scans_dir, source_path, now=now)

@@ -83,6 +83,11 @@ GitHub milestones are project-management buckets. Package versions describe inst
 * Extracted standards alignment helper code into a focused
   `scoreform.standards_workflows` module while preserving Assignment Management
   standards behavior and compatibility exports from `scoreform.workflows`.
+* Moved Generate Answer Sheets and QR decode action ownership into focused
+  workflow modules, and updated Assignment Management to call scoring,
+  generation, and QR menu actions without importing them back from
+  `scoreform.cli`, while preserving legacy `scoreform.cli` compatibility
+  wrappers.
 
 ### Documentation
 
