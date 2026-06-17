@@ -64,6 +64,8 @@ GitHub milestones are project-management buckets. Package versions describe inst
 * Extracted top-level CLI help, version, and terminal menu help presentation
   into a focused module while preserving the existing `scoreform.cli` entry
   point and command dispatch.
+* Extracted scoring command orchestration into a focused module while
+  preserving the existing `scoreform.cli` entry point and command dispatch.
 
 ### Documentation
 
