@@ -44,6 +44,18 @@ from pds_core.standards import write_workspace_standards_library
 from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
+from scoreform.standards_workflows import (
+    attach_standard_to_questions as attach_standard_to_questions,
+)
+from scoreform.standards_workflows import (
+    format_standard_for_selection as format_standard_for_selection,
+)
+from scoreform.standards_workflows import (
+    initialize_empty_standards_alignment as initialize_empty_standards_alignment,
+)
+from scoreform.standards_workflows import (
+    parse_question_selection as parse_question_selection,
+)
 from scoreform.validation import is_safe_identifier, validate_identifier
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
@@ -341,75 +353,6 @@ def parse_class_selection(selection_text, available_classes):
     return selected
 
 
-def initialize_empty_standards_alignment(question_count):
-    """Return empty assignment-local standards alignment for each question."""
-    return {str(i): [] for i in range(1, question_count + 1)}
-
-
-def parse_question_selection(selection_text, question_count):
-    """Parse comma-separated question numbers for standards alignment."""
-    if not selection_text or not selection_text.strip():
-        raise ValueError("Select at least one question.")
-
-    selected = []
-    seen = set()
-    for raw_part in selection_text.split(","):
-        part = raw_part.strip()
-        if not part:
-            raise ValueError("Question selections cannot be empty.")
-        if not part.isdigit():
-            raise ValueError(f"Invalid question selection: {part}")
-
-        question_number = int(part)
-        if question_number < 1 or question_number > question_count:
-            raise ValueError(
-                f"Question selection out of range: {question_number}"
-            )
-        if question_number in seen:
-            continue
-
-        seen.add(question_number)
-        selected.append(question_number)
-
-    if not selected:
-        raise ValueError("Select at least one question.")
-
-    return tuple(selected)
-
-
-def attach_standard_to_questions(
-    standards_by_question,
-    *,
-    standard_id,
-    question_numbers,
-    question_count,
-):
-    """Return assignment-local standards alignment with standard_id attached."""
-    updated = initialize_empty_standards_alignment(question_count)
-    for question_key, standards in standards_by_question.items():
-        q_num = int(question_key)
-        if q_num < 1 or q_num > question_count:
-            raise ValueError(f"Question number out of range: {q_num}")
-        updated[str(q_num)] = [
-            standard.strip()
-            for standard in standards
-            if isinstance(standard, str) and standard.strip()
-        ]
-
-    normalized_standard_id = standard_id.strip()
-    if not normalized_standard_id:
-        raise ValueError("standard_id is required.")
-
-    for question_number in question_numbers:
-        if question_number < 1 or question_number > question_count:
-            raise ValueError(f"Question number out of range: {question_number}")
-        standards = updated[str(question_number)]
-        if normalized_standard_id not in standards:
-            standards.append(normalized_standard_id)
-
-    return updated
-
-
 def _roster_workflows_module():
     from scoreform import roster_workflows
 
@@ -429,19 +372,14 @@ def _roster_workflows_module():
 def _assignment_workflows_module():
     from scoreform import assignment_workflows
 
-    assignment_workflows.attach_standard_to_questions = attach_standard_to_questions
     assignment_workflows.clear_screen = clear_screen
     assignment_workflows.discover_class_assignments = discover_class_assignments
     assignment_workflows.discover_class_rosters = discover_class_rosters
     assignment_workflows.ensure_core_assignment_folder = (
         ensure_core_assignment_folder
     )
-    assignment_workflows.initialize_empty_standards_alignment = (
-        initialize_empty_standards_alignment
-    )
     assignment_workflows.normalize_path_input = normalize_path_input
     assignment_workflows.parse_class_selection = parse_class_selection
-    assignment_workflows.parse_question_selection = parse_question_selection
     assignment_workflows.parse_single_selection = parse_single_selection
     assignment_workflows.pause_for_user = pause_for_user
     assignment_workflows.print_menu_header = print_menu_header

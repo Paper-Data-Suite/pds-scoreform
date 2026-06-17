@@ -80,6 +80,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
   module while preserving the existing menu behavior, direct assignment
   commands, scan/menu scoring handoff, results viewing, and compatibility entry
   points in `scoreform.workflows`.
+* Extracted standards alignment helper code into a focused
+  `scoreform.standards_workflows` module while preserving Assignment Management
+  standards behavior and compatibility exports from `scoreform.workflows`.
 
 ### Documentation
 
