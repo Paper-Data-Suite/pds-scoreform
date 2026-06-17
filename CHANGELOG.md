@@ -70,6 +70,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
   point and command dispatch.
 * Extracted scoring command orchestration into a focused module while
   preserving the existing `scoreform.cli` entry point and command dispatch.
+* Extracted interactive scan/menu scoring workflow code into a focused module
+  while preserving the existing Assignment Management scoring behavior and CLI
+  compatibility entry points.
 
 ### Documentation
 
