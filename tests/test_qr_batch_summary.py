@@ -1,3 +1,4 @@
+import builtins
 import datetime
 import sys
 import types
@@ -40,6 +41,7 @@ def test_qr_batch_summary_formats_success_with_result_path():
     assert "Pages processed: 1" in text
     assert "Pages scored: 1" in text
     assert "Pages skipped/failed: 0" in text
+    assert "File/batch failures: 0" in text
     assert "classes/english9_p2/assignments/rj_act1_quiz/results.csv" in text
     assert "Skipped pages:" not in text
 
@@ -61,7 +63,23 @@ def test_qr_batch_summary_groups_failures_and_lists_pages():
     assert "- Unsafe QR payload: 1" in text
     assert "- Page 2: missing QR code" in text
     assert "- Page 3: unsafe QR payload" in text
-    assert "Review skipped pages before treating results as final." in text
+    assert "Review failures before treating results as final." in text
+
+
+def test_qr_batch_summary_formats_file_level_failure_reason():
+    summary = scoring.QRBatchSummary()
+    summary.record_file_failure(
+        "unsupported_input_type",
+        "Unsupported input type: .txt",
+    )
+
+    text = summary.format()
+
+    assert "Pages skipped/failed: 0" in text
+    assert "File/batch failures: 1" in text
+    assert "- Unsupported input type: 1" in text
+    assert "File/batch failure details:" in text
+    assert "- Unsupported input type: .txt" in text
 
 
 def test_qr_batch_summary_records_result_write_failure():
@@ -78,6 +96,18 @@ def test_qr_batch_summary_records_result_write_failure():
     assert "No - result writing failed." in text
     assert "out.csv" in text
     assert results.summary.pages_skipped_failed == 0
+
+
+def test_qr_batch_summary_result_write_failure_flag_keeps_review_warning():
+    summary = scoring.QRBatchSummary()
+    summary.record_result_write_failed()
+    summary.failures.clear()
+
+    text = summary.format()
+
+    assert summary.failures == []
+    assert "No - result writing failed." in text
+    assert "Review failures before treating results as final." in text
 
 
 def test_process_file_qr_aware_records_missing_qr_failure(tmp_path, monkeypatch):
@@ -106,6 +136,125 @@ def test_process_file_qr_aware_records_missing_qr_failure(tmp_path, monkeypatch)
     assert results.summary.pages_scored == 0
     assert results.summary.pages_skipped_failed == 1
     assert results.summary.failure_counts()["missing_qr"] == 1
+    assert results.summary.failures[0].page_num == 1
+    assert results.summary.failures[0].reason == "missing QR code"
+
+
+def test_process_file_qr_aware_records_missing_input_file(tmp_path):
+    missing_path = tmp_path / "missing.pdf"
+
+    results = scoring.process_file_qr_aware(str(missing_path))
+
+    assert results == []
+    assert results.summary.pages_processed == 0
+    assert results.summary.pages_skipped_failed == 0
+    assert results.summary.failure_counts() == {"input_file_missing": 1}
+    assert results.summary.file_failures[0].reason == (
+        f"Input file not found: {missing_path}"
+    )
+
+
+def test_process_file_qr_aware_records_unsupported_input_type(tmp_path):
+    scan_path = tmp_path / "scan.txt"
+    scan_path.write_text("not a supported scan", encoding="utf-8")
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.pages_processed == 0
+    assert results.summary.failure_counts() == {"unsupported_input_type": 1}
+    assert results.summary.file_failures[0].reason == "Unsupported input type: .txt"
+
+
+def test_process_file_qr_aware_records_missing_pdf2image(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.pdf"
+    scan_path.write_bytes(b"synthetic")
+    real_import = builtins.__import__
+
+    def import_without_pdf2image(name, *args, **kwargs):
+        if name == "pdf2image":
+            raise ImportError("pdf2image unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_pdf2image)
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.failure_counts() == {"pdf2image_missing": 1}
+    assert results.summary.file_failures[0].reason == "pdf2image is not installed"
+
+
+def test_process_file_qr_aware_records_missing_poppler(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.pdf"
+    scan_path.write_bytes(b"synthetic")
+
+    class MissingPopplerError(Exception):
+        pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image",
+        types.SimpleNamespace(
+            convert_from_path=lambda _path: (_ for _ in ()).throw(
+                MissingPopplerError("Unable to get page count")
+            )
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image.exceptions",
+        types.SimpleNamespace(PDFInfoNotInstalledError=MissingPopplerError),
+    )
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.failure_counts() == {"poppler_missing": 1}
+    assert "Poppler / pdftoppm" in results.summary.file_failures[0].reason
+
+
+def test_process_file_qr_aware_records_pdf_conversion_failure(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.pdf"
+    scan_path.write_bytes(b"synthetic")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image",
+        types.SimpleNamespace(
+            convert_from_path=lambda _path: (_ for _ in ()).throw(
+                RuntimeError("damaged PDF")
+            )
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image.exceptions",
+        types.SimpleNamespace(PDFInfoNotInstalledError=LookupError),
+    )
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.failure_counts() == {"pdf_conversion_failed": 1}
+    assert results.summary.file_failures[0].reason == (
+        "PDF conversion/processing failed: damaged PDF"
+    )
+
+
+def test_process_file_qr_aware_records_image_read_failure(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.png"
+    scan_path.write_bytes(b"unreadable")
+    monkeypatch.setattr(scoring.cv2, "imread", lambda _path: None)
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.pages_processed == 1
+    assert results.summary.pages_skipped_failed == 1
+    assert results.summary.failure_counts() == {"image_processing_failed": 1}
+    assert results.summary.failures[0].page_num == 1
+    assert results.summary.failures[0].reason == "image could not be loaded"
 
 
 def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monkeypatch):

@@ -42,6 +42,11 @@ POSSIBLE_SECONDARY_FILL_RATIO = 0.15
 POSSIBLE_SECONDARY_RELATIVE_RATIO = 0.20
 
 QR_FAILURE_LABELS = {
+    "input_file_missing": "Input file missing",
+    "unsupported_input_type": "Unsupported input type",
+    "pdf2image_missing": "pdf2image missing",
+    "poppler_missing": "Poppler unavailable",
+    "pdf_conversion_failed": "PDF conversion/processing failure",
     "missing_qr": "Missing QR code",
     "malformed_qr": "Malformed QR payload",
     "unsafe_qr": "Unsafe QR payload",
@@ -74,6 +79,10 @@ class QRBatchSummary:
     def pages_skipped_failed(self):
         return len([failure for failure in self.failures if failure.page_num is not None])
 
+    @property
+    def file_failures(self):
+        return [failure for failure in self.failures if failure.page_num is None]
+
     def record_processed_page(self):
         self.pages_processed += 1
 
@@ -82,6 +91,9 @@ class QRBatchSummary:
 
     def record_failure(self, page_num, category, reason):
         self.failures.append(QRBatchFailure(page_num, category, reason))
+
+    def record_file_failure(self, category, reason):
+        self.record_failure(None, category, reason)
 
     def record_results_written(self, output_paths):
         self.results_written = True
@@ -114,6 +126,7 @@ class QRBatchSummary:
             f"Pages processed: {self.pages_processed}",
             f"Pages scored: {self.pages_scored}",
             f"Pages skipped/failed: {self.pages_skipped_failed}",
+            f"File/batch failures: {len(self.file_failures)}",
         ]
 
         counts = self.failure_counts()
@@ -129,6 +142,11 @@ class QRBatchSummary:
             lines.extend(["", "Skipped pages:"])
             for failure in page_failures:
                 lines.append(f"- Page {failure.page_num}: {failure.reason}")
+
+        if self.file_failures:
+            lines.extend(["", "File/batch failure details:"])
+            for failure in self.file_failures:
+                lines.append(f"- {failure.reason}")
 
         if self.diagnostic_paths:
             lines.extend(["", "QR failure diagnostics:"])
@@ -148,8 +166,8 @@ class QRBatchSummary:
         else:
             lines.append("No results were written.")
 
-        if self.pages_skipped_failed or self.result_write_failed:
-            lines.extend(["", "Review skipped pages before treating results as final."])
+        if self.failures or self.result_write_failed:
+            lines.extend(["", "Review failures before treating results as final."])
 
         return "\n".join(lines)
 
@@ -1036,6 +1054,11 @@ def _record_qr_failure(summary, page_num, category, reason=None):
         )
 
 
+def _record_qr_file_failure(summary, category, reason):
+    if summary is not None:
+        summary.record_file_failure(category, reason)
+
+
 def _record_qr_success(summary):
     if summary is not None:
         summary.record_scored_page()
@@ -1275,6 +1298,11 @@ def _process_qr_pdf(file_path, all_results, summary, workspace_root=None):
     except ImportError:
         print("Error: The 'pdf2image' module is not installed.")
         print("Please run: pip install pdf2image")
+        _record_qr_file_failure(
+            summary,
+            "pdf2image_missing",
+            "pdf2image is not installed",
+        )
         return
 
     print("PDF detected. Converting pages to images...")
@@ -1315,9 +1343,19 @@ def _process_qr_pdf(file_path, all_results, summary, workspace_root=None):
             "Please install Poppler and add its 'bin' folder to your system PATH."
         )
         print("Then test with: pdftoppm -h")
+        _record_qr_file_failure(
+            summary,
+            "poppler_missing",
+            "Poppler / pdftoppm is not installed or not available in PATH",
+        )
 
     except Exception as e:
         print(f"Error while processing PDF: {e}")
+        _record_qr_file_failure(
+            summary,
+            "pdf_conversion_failed",
+            f"PDF conversion/processing failed: {e}",
+        )
 
 
 def _process_qr_image(file_path, all_results, summary, workspace_root=None):
@@ -1360,6 +1398,11 @@ def process_file_qr_aware(file_path, workspace_root=None):
 
     if not os.path.exists(file_path):
         print(f"Error: File {file_path} does not exist.")
+        _record_qr_file_failure(
+            summary,
+            "input_file_missing",
+            f"Input file not found: {file_path}",
+        )
         return all_results
 
     ext = os.path.splitext(file_path)[1].lower()
@@ -1381,6 +1424,11 @@ def process_file_qr_aware(file_path, workspace_root=None):
         print(
             f"Error: Unsupported file extension '{ext}'. "
             "Please provide a PDF or an image."
+        )
+        _record_qr_file_failure(
+            summary,
+            "unsupported_input_type",
+            f"Unsupported input type: {ext or '(no extension)'}",
         )
 
     return all_results
