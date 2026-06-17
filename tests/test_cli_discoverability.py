@@ -637,7 +637,7 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
     monkeypatch.setattr(
         scoreform.cli_score,
         "process_file_qr_aware",
-        lambda _input_file: [],
+        lambda _input_file, workspace_root=None: [],
     )
 
     assert scoreform.cli.main(["score", "scan.pdf"]) == 1

@@ -18,13 +18,19 @@ def test_qr_routed_scoring_files_scan_after_routed_export(tmp_path, monkeypatch)
     scan.write_bytes(b"scan")
     calls = []
 
-    monkeypatch.setattr(cli_score, "process_file_qr_aware", lambda input_file: [_result()])
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: [_result()],
+    )
 
-    def export_routed(results):
+    def export_routed(results, workspace_root=None):
+        assert workspace_root == tmp_path
         calls.append("export")
         return True
 
-    def file_scan(results, source_path):
+    def file_scan(results, source_path, workspace_root=None):
+        assert workspace_root == tmp_path
         calls.append("file")
         assert source_path == str(scan)
         return None
@@ -33,7 +39,11 @@ def test_qr_routed_scoring_files_scan_after_routed_export(tmp_path, monkeypatch)
     monkeypatch.setattr(cli_score, "file_original_scan_copy", file_scan)
     monkeypatch.setattr(cli_score, "print_scan_filing_result", lambda result: None)
     monkeypatch.setattr(cli_score, "print_qr_batch_summary", lambda summary: None)
-    monkeypatch.setattr(cli_score, "save_qr_batch_summary", lambda summary, source: None)
+    monkeypatch.setattr(
+        cli_score,
+        "save_qr_batch_summary",
+        lambda summary, source, workspace_root=None: None,
+    )
 
     assert cli.run_score([str(scan)]) == 0
     assert calls == ["export", "file"]
@@ -45,15 +55,23 @@ def test_explicit_output_csv_skips_scan_filing(tmp_path, monkeypatch):
     scan.write_bytes(b"scan")
     filed = []
 
-    monkeypatch.setattr(cli_score, "process_file_qr_aware", lambda input_file: [_result()])
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: [_result()],
+    )
     monkeypatch.setattr(cli_score, "export_to_csv", lambda results, output_file: True)
     monkeypatch.setattr(
         cli_score,
         "file_original_scan_copy",
-        lambda results, source_path: filed.append(source_path),
+        lambda results, source_path, workspace_root=None: filed.append(source_path),
     )
     monkeypatch.setattr(cli_score, "print_qr_batch_summary", lambda summary: None)
-    monkeypatch.setattr(cli_score, "save_qr_batch_summary", lambda summary, source: None)
+    monkeypatch.setattr(
+        cli_score,
+        "save_qr_batch_summary",
+        lambda summary, source, workspace_root=None: None,
+    )
 
     assert cli.run_score([str(scan), str(output)]) == 0
     assert filed == []
