@@ -1,6 +1,5 @@
 """Scoring command orchestration for the ScoreForm CLI."""
 
-import inspect
 import os
 
 from scoreform import workspace
@@ -16,22 +15,6 @@ from scoreform.scoring import (
     save_qr_batch_summary,
     update_qr_batch_result_write_status,
 )
-
-
-def _call_with_workspace_root(func, *args, workspace_root):
-    """Call func with workspace_root when its signature supports it."""
-    try:
-        signature = inspect.signature(func)
-    except (TypeError, ValueError):
-        return func(*args, workspace_root=workspace_root)
-
-    if any(
-        parameter.kind == inspect.Parameter.VAR_KEYWORD
-        or parameter.name == "workspace_root"
-        for parameter in signature.parameters.values()
-    ):
-        return func(*args, workspace_root=workspace_root)
-    return func(*args)
 
 
 def run_score(args):
@@ -74,8 +57,7 @@ def run_score(args):
 
     if use_qr_aware:
         print("Using QR-aware scoring mode...")
-        results_data = _call_with_workspace_root(
-            process_file_qr_aware,
+        results_data = process_file_qr_aware(
             input_file,
             workspace_root=workspace_root,
         )
@@ -90,8 +72,7 @@ def run_score(args):
         if use_qr_aware:
             summary = get_qr_batch_summary(results_data)
             print_qr_batch_summary(summary)
-            _call_with_workspace_root(
-                save_qr_batch_summary,
+            save_qr_batch_summary(
                 summary,
                 input_file,
                 workspace_root=workspace_root,
@@ -100,8 +81,7 @@ def run_score(args):
         return 1
 
     if use_qr_aware and not explicit_output_csv:
-        export_success = _call_with_workspace_root(
-            export_routed_results,
+        export_success = export_routed_results(
             results_data,
             workspace_root=workspace_root,
         )
@@ -110,8 +90,7 @@ def run_score(args):
 
     if not export_success:
         if use_qr_aware:
-            _call_with_workspace_root(
-                update_qr_batch_result_write_status,
+            update_qr_batch_result_write_status(
                 results_data,
                 export_success,
                 output_file if explicit_output_csv else None,
@@ -119,8 +98,7 @@ def run_score(args):
             )
             summary = get_qr_batch_summary(results_data)
             print_qr_batch_summary(summary)
-            _call_with_workspace_root(
-                save_qr_batch_summary,
+            save_qr_batch_summary(
                 summary,
                 input_file,
                 workspace_root=workspace_root,
@@ -129,8 +107,7 @@ def run_score(args):
         return 1
 
     if use_qr_aware and not explicit_output_csv:
-        filing_result = _call_with_workspace_root(
-            file_original_scan_copy,
+        filing_result = file_original_scan_copy(
             results_data,
             input_file,
             workspace_root=workspace_root,
@@ -138,8 +115,7 @@ def run_score(args):
         print_scan_filing_result(filing_result)
 
     if use_qr_aware:
-        _call_with_workspace_root(
-            update_qr_batch_result_write_status,
+        update_qr_batch_result_write_status(
             results_data,
             export_success,
             output_file if explicit_output_csv else None,
@@ -147,8 +123,7 @@ def run_score(args):
         )
         summary = get_qr_batch_summary(results_data)
         print_qr_batch_summary(summary)
-        _call_with_workspace_root(
-            save_qr_batch_summary,
+        save_qr_batch_summary(
             summary,
             input_file,
             workspace_root=workspace_root,
