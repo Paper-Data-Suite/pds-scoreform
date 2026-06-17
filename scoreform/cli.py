@@ -3,8 +3,6 @@
 import os
 import sys
 
-import cv2
-import numpy as np
 from pds_core.scan_routes import scans_inbox_dir
 from pds_core.school_years import (
     SchoolYearStateError,
@@ -13,7 +11,9 @@ from pds_core.school_years import (
     open_school_year,
 )
 
+from scoreform import generate_workflows as _generate_workflows
 from scoreform import menu_scoring as _menu_scoring
+from scoreform import qr_workflows as _qr_workflows
 from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.assignment_workflows import launch_assignment_menu
@@ -40,20 +40,19 @@ from scoreform.folders import setup_assignment_folder
 from scoreform.roster import load_roster
 from scoreform.roster_workflows import launch_roster_menu
 from scoreform.scoring import (
-    decode_qr_from_image,
+    decode_qr_from_image,  # noqa: F401 - compatibility re-export
 )
 from scoreform.templates import (
-    generate_class_packet_pdf,
-    generate_student_pdf,
-    generate_template,
-    student_pdf_filename,
+    generate_class_packet_pdf,  # noqa: F401 - compatibility re-export
+    generate_student_pdf,  # noqa: F401 - compatibility re-export
+    generate_template,  # noqa: F401 - compatibility re-export
 )
 from scoreform.workflows import (
-    discover_class_assignments,
-    discover_class_rosters,
+    discover_class_assignments,  # noqa: F401 - compatibility re-export
+    discover_class_rosters,  # noqa: F401 - compatibility re-export
     discover_scans_in_inbox,
     normalize_path_input,
-    parse_single_selection,
+    parse_single_selection,  # noqa: F401 - compatibility re-export
     print_menu_header,
 )
 
@@ -111,79 +110,13 @@ def prompt_scoring_mode(input_file):
     return _menu_scoring.prompt_scoring_mode(input_file)
 
 
+_ORIGINAL_PROMPT_SCORING_INPUT_FILE = prompt_scoring_input_file
+_ORIGINAL_PROMPT_SCORING_MODE = prompt_scoring_mode
+
+
 def run_generate(args):
-    if not args:
-        generate_template()
-        return 0
-
-    assignment_file = args[0]
-    if "--rosters" not in args[1:]:
-        print("Error: Missing --rosters.\nUsage: scoreform generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
-        return 1
-
-    rosters_index = args.index("--rosters")
-    roster_files = args[rosters_index + 1 :]
-
-    if not roster_files:
-        print("Error: --rosters provided but no roster files specified.")
-        print("Usage: scoreform generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
-        return 1
-
-    assignment = load_assignment(assignment_file)
-    if assignment is None:
-        return 1
-
-    for roster_path in roster_files:
-        roster = load_roster(roster_path)
-        if roster is None:
-            print(f"Error: Failed to load/validate roster: {roster_path}")
-            return 1
-
-        setup_paths = setup_assignment_folder(roster, assignment, roster_path, assignment_file)
-        if setup_paths is None:
-            print(f"Error: Failed to setup assignment folder for roster: {roster_path}")
-            return 1
-
-        print("--- Setup Summary ---")
-        print(f"Class: {roster.get('class_id')}")
-        print(f"  Class dir: {setup_paths['class_dir']}")
-        print(f"  Assignment dir: {setup_paths['assignment_dir']}")
-        print(f"  Roster copy: {setup_paths['roster_copy']}")
-        print(f"  Assignment copy: {setup_paths['assignment_copy']}")
-
-        individual_dir = setup_paths.get('individual_templates_dir')
-        if not individual_dir:
-            print("Error: Individual templates directory is missing in setup paths.")
-            return 1
-
-        students = roster.get('students', [])
-        generated_count = 0
-        for student in students:
-            out_name = student_pdf_filename(student)
-            out_path = os.path.join(individual_dir, out_name)
-            ok = generate_student_pdf(out_path, assignment, student)
-            if not ok:
-                print(f"Error: Failed to generate student PDF for {student.get('student_id')}")
-                return 1
-            generated_count += 1
-
-        print(f"Generated {generated_count} individual student PDFs in:")
-        print(individual_dir)
-
-        templates_dir = setup_paths.get('templates_dir')
-        if not templates_dir:
-            print("Error: Templates directory is missing in setup paths.")
-            return 1
-
-        packet_path = os.path.join(templates_dir, 'class_packet.pdf')
-        ok_packet = generate_class_packet_pdf(packet_path, assignment, roster)
-        if not ok_packet:
-            print(f"Error: Failed to generate class packet PDF: {packet_path}")
-            return 1
-        print("Generated class packet PDF:")
-        print(packet_path)
-
-    return 0
+    """Compatibility wrapper for direct generate command dispatch."""
+    return _generate_workflows.run_generate(args)
 
 
 def run_validate_assignment(args):
@@ -252,180 +185,19 @@ def run_setup_assignment(args):
 
 
 def run_decode_qr(args):
-    if len(args) != 1:
-        print("Usage: scoreform decode-qr <input_file>")
-        return 1
+    """Compatibility wrapper for direct QR decode command dispatch."""
+    return _qr_workflows.run_decode_qr(args)
 
-    input_file = args[0]
 
-    if not os.path.exists(input_file):
-        print(f"Error: File {input_file} does not exist.")
-        return 1
-
-    ext = os.path.splitext(input_file)[1].lower()
-    found_any = False
-    bad_found = False
-
-    if ext == ".pdf":
-        try:
-            from pdf2image import convert_from_path
-        except ImportError:
-            print("Error: The 'pdf2image' module is not installed.\nPlease run: pip install pdf2image")
-            return 1
-
-        try:
-            pages = convert_from_path(input_file)
-        except Exception as e:
-            print(f"Error while converting PDF: {e}")
-            return 1
-
-        for page_num, page in enumerate(pages, start=1):
-            open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-            print(f"Page {page_num} QR:")
-            parsed = decode_qr_from_image(open_cv_image)
-            if parsed:
-                found_any = True
-                print(f"  class_id: {parsed.get('class_id')}")
-                print(f"  assignment_id: {parsed.get('assignment_id')}")
-                print(f"  student_id: {parsed.get('student_id')}")
-            else:
-                bad_found = True
-                print(f"  No valid QR decoded on page {page_num}.")
-
-    elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
-        img = cv2.imread(input_file)
-        if img is None:
-            print(f"Error: Could not read image {input_file}")
-            return 1
-
-        parsed = decode_qr_from_image(img)
-        if parsed:
-            found_any = True
-            print("Decoded QR:")
-            print(f"  class_id: {parsed.get('class_id')}")
-            print(f"  assignment_id: {parsed.get('assignment_id')}")
-            print(f"  student_id: {parsed.get('student_id')}")
-        else:
-            print("No valid QR decoded from image.")
-            return 1
-
-    else:
-        print(f"Error: Unsupported file extension '{ext}'. Please provide a PDF or an image.")
-        return 1
-
-    if not found_any:
-        print("Error: No QR code could be decoded from any page or image.")
-        return 1
-
-    if bad_found:
-        print("Error: At least one page contained an unreadable or malformed QR payload.")
-        return 1
-
-    return 0
+_ORIGINAL_RUN_DECODE_QR = run_decode_qr
 
 
 def launch_generate_menu():
     """Teacher-centered generate submenu for interactive menu use."""
-    try:
-        while True:
-            clear_screen()
-            print_menu_header("Generate Answer Sheets")
-            print("1. Generate answer sheets for an existing class assignment")
-            print("2. Generate a generic blank template")
-            print("3. Return to Assignment Management")
-            print()
+    return _generate_workflows.launch_generate_menu()
 
-            choice = input("Select an option: ").strip()
-            print()
 
-            if choice == "1":
-                clear_screen()
-                print_menu_header("Generate Answer Sheets")
-                available_classes = discover_class_rosters()
-                if not available_classes:
-                    print("No class rosters found. Create a class roster first from the Roster Management menu.")
-                    pause_for_user()
-                    return 1
-
-                print("Available classes:")
-                for index, class_record in enumerate(available_classes, start=1):
-                    print(f"{index}. {class_record['class_id']}")
-                print()
-
-                try:
-                    class_record = parse_single_selection(
-                        input("Select class: "),
-                        available_classes,
-                        "class",
-                    )
-                except ValueError as e:
-                    print(f"Error: {e}")
-                    pause_for_user()
-                    return 1
-
-                class_id = class_record["class_id"]
-                available_assignments = discover_class_assignments(class_id)
-                if not available_assignments:
-                    print(f"No assignments found for class '{class_id}'. Create an assignment first from the Assignment Management menu.")
-                    pause_for_user()
-                    return 1
-
-                print()
-                print(f"Available assignments for {class_id}:")
-                for index, assignment_record in enumerate(available_assignments, start=1):
-                    print(f"{index}. {assignment_record['assignment_id']}")
-                print()
-
-                try:
-                    assignment_record = parse_single_selection(
-                        input("Select assignment: "),
-                        available_assignments,
-                        "assignment",
-                    )
-                except ValueError as e:
-                    print(f"Error: {e}")
-                    pause_for_user()
-                    return 1
-
-                assignment_id = assignment_record["assignment_id"]
-                print()
-                print("Generate answer sheets for:")
-                print(f"Class: {class_id}")
-                print(f"Assignment: {assignment_id}")
-                print()
-
-                response = input("Generate answer sheets now? (Y/n): ").strip().lower()
-                if response in ("n", "no"):
-                    print("Cancelled: Answer sheet generation not confirmed.")
-                    pause_for_user()
-                    return 1
-
-                result = run_generate([
-                    assignment_record["assignment_path"],
-                    "--rosters",
-                    class_record["roster_path"],
-                ])
-                pause_for_user()
-                return result
-
-            elif choice == "2":
-                clear_screen()
-                print_menu_header("Generate a Generic Blank Template")
-                result = run_generate([])
-                pause_for_user()
-                return result
-
-            elif choice == "3":
-                return 0
-
-            else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
-                print()
-                pause_for_user()
-
-    except KeyboardInterrupt:
-        print("\nExiting generate menu.")
-        return 0
+_ORIGINAL_LAUNCH_GENERATE_MENU = launch_generate_menu
 
 
 def launch_school_year_menu():

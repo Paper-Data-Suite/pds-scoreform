@@ -1,5 +1,6 @@
 """Scoring command orchestration for the ScoreForm CLI."""
 
+import inspect
 import os
 
 from scoreform import workspace
@@ -17,6 +18,22 @@ from scoreform.scoring import (
 )
 
 
+def _call_with_workspace_root(func, *args, workspace_root):
+    """Call func with workspace_root when its signature supports it."""
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):
+        return func(*args, workspace_root=workspace_root)
+
+    if any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD
+        or parameter.name == "workspace_root"
+        for parameter in signature.parameters.values()
+    ):
+        return func(*args, workspace_root=workspace_root)
+    return func(*args)
+
+
 def run_score(args):
     if len(args) < 1:
         print("Usage:")
@@ -31,9 +48,8 @@ def run_score(args):
         print("      Legacy/manual scoring with explicit output CSV.")
         return 1
 
-    default_results_csv = os.fspath(
-        workspace.get_scoreform_workspace_root() / LOCAL_RESULTS_CSV
-    )
+    workspace_root = workspace.get_scoreform_workspace_root()
+    default_results_csv = os.fspath(workspace_root / LOCAL_RESULTS_CSV)
     input_file = args[0]
     use_qr_aware = False
     output_file = default_results_csv
@@ -58,7 +74,11 @@ def run_score(args):
 
     if use_qr_aware:
         print("Using QR-aware scoring mode...")
-        results_data = process_file_qr_aware(input_file)
+        results_data = _call_with_workspace_root(
+            process_file_qr_aware,
+            input_file,
+            workspace_root=workspace_root,
+        )
     else:
         print("Using legacy/manual scoring mode...")
         key = load_answer_key(answer_key_file)
@@ -70,40 +90,68 @@ def run_score(args):
         if use_qr_aware:
             summary = get_qr_batch_summary(results_data)
             print_qr_batch_summary(summary)
-            save_qr_batch_summary(summary, input_file)
+            _call_with_workspace_root(
+                save_qr_batch_summary,
+                summary,
+                input_file,
+                workspace_root=workspace_root,
+            )
         print("Error: No pages were scored successfully.")
         return 1
 
     if use_qr_aware and not explicit_output_csv:
-        export_success = export_routed_results(results_data)
+        export_success = _call_with_workspace_root(
+            export_routed_results,
+            results_data,
+            workspace_root=workspace_root,
+        )
     else:
         export_success = export_to_csv(results_data, output_file)
 
     if not export_success:
         if use_qr_aware:
-            update_qr_batch_result_write_status(
+            _call_with_workspace_root(
+                update_qr_batch_result_write_status,
                 results_data,
                 export_success,
                 output_file if explicit_output_csv else None,
+                workspace_root=workspace_root,
             )
             summary = get_qr_batch_summary(results_data)
             print_qr_batch_summary(summary)
-            save_qr_batch_summary(summary, input_file)
+            _call_with_workspace_root(
+                save_qr_batch_summary,
+                summary,
+                input_file,
+                workspace_root=workspace_root,
+            )
         print("Error: Failed to export results.")
         return 1
 
     if use_qr_aware and not explicit_output_csv:
-        filing_result = file_original_scan_copy(results_data, input_file)
+        filing_result = _call_with_workspace_root(
+            file_original_scan_copy,
+            results_data,
+            input_file,
+            workspace_root=workspace_root,
+        )
         print_scan_filing_result(filing_result)
 
     if use_qr_aware:
-        update_qr_batch_result_write_status(
+        _call_with_workspace_root(
+            update_qr_batch_result_write_status,
             results_data,
             export_success,
             output_file if explicit_output_csv else None,
+            workspace_root=workspace_root,
         )
         summary = get_qr_batch_summary(results_data)
         print_qr_batch_summary(summary)
-        save_qr_batch_summary(summary, input_file)
+        _call_with_workspace_root(
+            save_qr_batch_summary,
+            summary,
+            input_file,
+            workspace_root=workspace_root,
+        )
 
     return 0

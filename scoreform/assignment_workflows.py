@@ -1,6 +1,7 @@
 """Interactive assignment workflow helpers."""
 
 import os
+import sys
 from pathlib import Path
 
 from pds_core.assignments import (
@@ -17,7 +18,7 @@ from pds_core.standards import (
     write_workspace_standards_library,
 )
 
-from scoreform import workspace
+from scoreform import generate_workflows, menu_scoring, qr_workflows, workspace
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.results_viewer import (
@@ -66,6 +67,36 @@ def _sync_shared_helpers_from_workflows():
     globals()["write_workspace_standards_library"] = (
         workflows.write_workspace_standards_library
     )
+
+
+def _patched_cli_function(name, original_marker):
+    """Return a monkeypatched scoreform.cli function, if one is loaded."""
+    cli_module = sys.modules.get("scoreform.cli")
+    if cli_module is None:
+        return None
+
+    candidate = getattr(cli_module, name, None)
+    original = getattr(cli_module, original_marker, None)
+    if candidate is None or original is None or candidate is original:
+        return None
+    return candidate
+
+
+def _sync_menu_scoring_compat_from_cli_if_loaded():
+    """Keep legacy scoreform.cli monkeypatch targets effective for menu scoring."""
+    cli_module = sys.modules.get("scoreform.cli")
+    if cli_module is None:
+        return
+
+    for name in (
+        "clear_screen",
+        "pause_for_user",
+        "run_score",
+        "discover_scans_in_inbox",
+        "scans_inbox_dir",
+    ):
+        if hasattr(cli_module, name):
+            setattr(menu_scoring, name, getattr(cli_module, name))
 
 
 def _assignment_answer_key_for_edit(assignment):
@@ -1078,12 +1109,25 @@ def launch_assignment_menu():
                 pause_for_user()
 
             elif choice == "4":
-                from scoreform.cli import launch_generate_menu
-
-                launch_generate_menu()
+                patched_launch_generate_menu = _patched_cli_function(
+                    "launch_generate_menu",
+                    "_ORIGINAL_LAUNCH_GENERATE_MENU",
+                )
+                if patched_launch_generate_menu is not None:
+                    patched_launch_generate_menu()
+                else:
+                    generate_workflows.launch_generate_menu()
 
             elif choice == "5":
-                from scoreform.cli import prompt_scoring_input_file, prompt_scoring_mode
+                _sync_menu_scoring_compat_from_cli_if_loaded()
+                prompt_scoring_input_file = _patched_cli_function(
+                    "prompt_scoring_input_file",
+                    "_ORIGINAL_PROMPT_SCORING_INPUT_FILE",
+                ) or menu_scoring.prompt_scoring_input_file
+                prompt_scoring_mode = _patched_cli_function(
+                    "prompt_scoring_mode",
+                    "_ORIGINAL_PROMPT_SCORING_MODE",
+                ) or menu_scoring.prompt_scoring_mode
 
                 input_file = prompt_scoring_input_file()
                 if input_file:
@@ -1096,8 +1140,6 @@ def launch_assignment_menu():
                 pause_for_user()
 
             elif choice == "7":
-                from scoreform.cli import run_decode_qr
-
                 clear_screen()
                 print_menu_header("Decode QR from a File")
                 input_file = normalize_path_input(input("File path: "))
@@ -1107,6 +1149,10 @@ def launch_assignment_menu():
                     pause_for_user()
                     continue
 
+                run_decode_qr = _patched_cli_function(
+                    "run_decode_qr",
+                    "_ORIGINAL_RUN_DECODE_QR",
+                ) or qr_workflows.run_decode_qr
                 run_decode_qr([input_file])
                 print()
                 pause_for_user()

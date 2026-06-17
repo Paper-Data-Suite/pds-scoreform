@@ -213,7 +213,7 @@ def export_to_csv(all_results, output_file):
         return False
 
 
-def _enrich_results_with_roster(all_results):
+def _enrich_results_with_roster(all_results, workspace_root=None):
     """Attach roster-derived fields to results in place.
 
     Adds `last_name`, `first_name`, and `period` to each result dict when possible.
@@ -236,7 +236,8 @@ def _enrich_results_with_roster(all_results):
         by_class.setdefault(class_id, []).append(res)
 
     any_loaded = False
-    workspace_root = workspace.get_scoreform_workspace_root()
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
 
     for class_id, results in by_class.items():
         roster_path = os.fspath(core_class_roster_path(workspace_root, class_id))
@@ -291,7 +292,7 @@ def _enrich_results_with_roster(all_results):
     return any_loaded
 
 
-def export_routed_results(all_results):
+def export_routed_results(all_results, workspace_root=None):
     """Route and export QR-aware scoring results to their assignment folders.
     
     Groups results by (class_id, assignment_id) and writes each group to:
@@ -342,14 +343,18 @@ def export_routed_results(all_results):
         groups[key].append(res)
 
     # Enrich results with roster metadata (last_name, first_name, period)
-    enriched_ok = _enrich_results_with_roster(all_results)
+    enriched_ok = _enrich_results_with_roster(
+        all_results,
+        workspace_root=workspace_root,
+    )
     if not enriched_ok:
         # Continue exporting even if some roster lookups failed; warnings printed by helper
         pass
 
     # Write each group to its assignment folder
     all_success = True
-    workspace_root = workspace.get_scoreform_workspace_root()
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
     for (class_id, assignment_id), results in groups.items():
         output_dir = os.fspath(
             core_assignment_dir(workspace_root, class_id, assignment_id)

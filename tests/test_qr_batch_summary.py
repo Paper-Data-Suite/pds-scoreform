@@ -1,4 +1,6 @@
 import datetime
+import sys
+import types
 from pathlib import Path
 
 import cv2
@@ -7,12 +9,17 @@ import numpy as np
 from scoreform import scoring
 
 
-def _scored_result(page_num=1, class_id="english9_p2", assignment_id="rj_act1_quiz"):
+def _scored_result(
+    page_num=1,
+    class_id="english9_p2",
+    assignment_id="rj_act1_quiz",
+    student_id="1001",
+):
     return {
         "page_num": page_num,
         "class_id": class_id,
         "assignment_id": assignment_id,
-        "student_id": "1001",
+        "student_id": student_id,
         "score": 1,
         "total_points": 1,
         "answers": [{"Q": 1, "Answer": "A", "Correct": True}],
@@ -178,6 +185,83 @@ def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monke
             / "debug"
         )
     ]
+
+
+def test_process_file_qr_aware_resolves_workspace_once_for_multi_page_pdf(
+    tmp_path,
+    monkeypatch,
+):
+    scan_path = tmp_path / "class_packet.pdf"
+    scan_path.write_bytes(b"synthetic")
+    workspace_calls = []
+    metadata_by_page = {
+        1: "1001",
+        2: "1002",
+        3: "1003",
+    }
+
+    def get_workspace_once():
+        workspace_calls.append("call")
+        if len(workspace_calls) > 1:
+            raise AssertionError("workspace root should be resolved once")
+        return tmp_path
+
+    monkeypatch.setattr(
+        scoring.workspace,
+        "get_scoreform_workspace_root",
+        get_workspace_once,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image",
+        types.SimpleNamespace(
+            convert_from_path=lambda _path: [
+                np.ones((20, 20, 3), dtype=np.uint8),
+                np.ones((20, 20, 3), dtype=np.uint8),
+                np.ones((20, 20, 3), dtype=np.uint8),
+            ],
+        ),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image.exceptions",
+        types.SimpleNamespace(PDFInfoNotInstalledError=RuntimeError),
+    )
+    monkeypatch.setattr(
+        scoring,
+        "_decode_qr_from_image_with_status",
+        lambda _img, page_num, **_kwargs: scoring.QRDecodeResult(
+            {
+                "class_id": "english9_p2",
+                "assignment_id": "rj_act1_quiz",
+                "student_id": metadata_by_page[page_num],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        scoring,
+        "_load_qr_aware_assignment",
+        lambda _assignment_path, _page_num, _summary: {
+            "answer_key": {1: "A"},
+            "question_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        scoring,
+        "score_image",
+        lambda _img, _answer_key, page_num, **_kwargs: _scored_result(
+            page_num=page_num,
+            student_id=metadata_by_page[page_num],
+        ),
+    )
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert workspace_calls == ["call"]
+    assert [result["student_id"] for result in results] == ["1001", "1002", "1003"]
+    assert results.summary.pages_processed == 3
+    assert results.summary.pages_scored == 3
+    assert results.summary.pages_skipped_failed == 0
 
 
 def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(

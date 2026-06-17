@@ -1,3 +1,4 @@
+import ast
 import re
 import subprocess
 import sys
@@ -23,6 +24,31 @@ def run_main_command(*args, input_text=None):
 
 def combined_output(result):
     return result.stdout + result.stderr
+
+
+def test_assignment_workflows_do_not_import_menu_actions_from_cli():
+    source = (PROJECT_ROOT / "scoreform" / "assignment_workflows.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(source)
+
+    assert all(
+        not (
+            isinstance(node, ast.ImportFrom)
+            and node.module == "scoreform.cli"
+            and any(
+                alias.name
+                in {
+                    "launch_generate_menu",
+                    "prompt_scoring_input_file",
+                    "prompt_scoring_mode",
+                    "run_decode_qr",
+                }
+                for alias in node.names
+            )
+        )
+        for node in ast.walk(tree)
+    )
 
 
 def assert_help_output(result):
