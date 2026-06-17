@@ -1,0 +1,109 @@
+"""Scoring command orchestration for the ScoreForm CLI."""
+
+import os
+
+from scoreform import workspace
+from scoreform.assignment import load_answer_key
+from scoreform.config import LOCAL_RESULTS_CSV
+from scoreform.results import export_routed_results, export_to_csv
+from scoreform.scan_filing import file_original_scan_copy, print_scan_filing_result
+from scoreform.scoring import (
+    get_qr_batch_summary,
+    print_qr_batch_summary,
+    process_file,
+    process_file_qr_aware,
+    save_qr_batch_summary,
+    update_qr_batch_result_write_status,
+)
+
+
+def run_score(args):
+    if len(args) < 1:
+        print("Usage:")
+        print("  scoreform score <input_file>")
+        print("      QR-aware scoring with routed results.")
+        print("  scoreform score <input_file> <output_csv>")
+        print("      QR-aware scoring with explicit output CSV.")
+        print("  scoreform score <input_file> <answer_key_json>")
+        print("      Legacy/manual scoring with default output:")
+        print("      <PDS workspace root>/local_outputs/results/results.csv")
+        print("  scoreform score <input_file> <output_csv> <answer_key_json>")
+        print("      Legacy/manual scoring with explicit output CSV.")
+        return 1
+
+    default_results_csv = os.fspath(
+        workspace.get_scoreform_workspace_root() / LOCAL_RESULTS_CSV
+    )
+    input_file = args[0]
+    use_qr_aware = False
+    output_file = default_results_csv
+    answer_key_file = "answer_key.json"
+    explicit_output_csv = False
+
+    if len(args) == 1:
+        use_qr_aware = True
+    elif len(args) == 2:
+        arg2 = args[1]
+        if arg2.lower().endswith(".json"):
+            answer_key_file = arg2
+            use_qr_aware = False
+        else:
+            output_file = arg2
+            explicit_output_csv = True
+            use_qr_aware = True
+    else:
+        output_file = args[1]
+        answer_key_file = args[2]
+        use_qr_aware = False
+
+    if use_qr_aware:
+        print("Using QR-aware scoring mode...")
+        results_data = process_file_qr_aware(input_file)
+    else:
+        print("Using legacy/manual scoring mode...")
+        key = load_answer_key(answer_key_file)
+        if key is None:
+            return 1
+        results_data = process_file(input_file, key)
+
+    if not results_data:
+        if use_qr_aware:
+            summary = get_qr_batch_summary(results_data)
+            print_qr_batch_summary(summary)
+            save_qr_batch_summary(summary, input_file)
+        print("Error: No pages were scored successfully.")
+        return 1
+
+    if use_qr_aware and not explicit_output_csv:
+        export_success = export_routed_results(results_data)
+    else:
+        export_success = export_to_csv(results_data, output_file)
+
+    if not export_success:
+        if use_qr_aware:
+            update_qr_batch_result_write_status(
+                results_data,
+                export_success,
+                output_file if explicit_output_csv else None,
+            )
+            summary = get_qr_batch_summary(results_data)
+            print_qr_batch_summary(summary)
+            save_qr_batch_summary(summary, input_file)
+        print("Error: Failed to export results.")
+        return 1
+
+    if use_qr_aware and not explicit_output_csv:
+        filing_result = file_original_scan_copy(results_data, input_file)
+        print_scan_filing_result(filing_result)
+
+    if use_qr_aware:
+        update_qr_batch_result_write_status(
+            results_data,
+            export_success,
+            output_file if explicit_output_csv else None,
+        )
+        summary = get_qr_batch_summary(results_data)
+        print_qr_batch_summary(summary)
+        save_qr_batch_summary(summary, input_file)
+
+    return 0

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import scoreform.cli
 import scoreform.cli_help
+import scoreform.cli_score
 from scoreform import workflows
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -478,7 +479,7 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
         lambda _input_file: (_ for _ in ()).throw(AssertionError("scoring mode menu should not be called")),
     )
     monkeypatch.setattr(
-        scoreform.cli,
+        scoreform.cli_score,
         "process_file_qr_aware",
         lambda _input_file: [],
     )
@@ -488,7 +489,7 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
 
 def test_invalid_score_usage_does_not_resolve_workspace(monkeypatch, capsys):
     monkeypatch.setattr(
-        scoreform.cli.workspace,
+        scoreform.cli_score.workspace,
         "get_scoreform_workspace_root",
         lambda: (_ for _ in ()).throw(
             AssertionError("workspace should not be resolved for usage text")
@@ -510,17 +511,17 @@ def test_manual_score_defaults_to_workspace_and_preserves_explicit_inputs(
     answer_key_path = r"C:\Somewhere\answer_key.json"
 
     monkeypatch.setattr(
-        scoreform.cli,
+        scoreform.cli_score,
         "load_answer_key",
         lambda path: calls.setdefault("answer_key", path) or {1: "A"},
     )
     monkeypatch.setattr(
-        scoreform.cli,
+        scoreform.cli_score,
         "process_file",
         lambda path, key: calls.setdefault("input_file", path) or [{"page_num": 1}],
     )
     monkeypatch.setattr(
-        scoreform.cli,
+        scoreform.cli_score,
         "export_to_csv",
         lambda results, path: calls.setdefault("output_file", path) or True,
     )
