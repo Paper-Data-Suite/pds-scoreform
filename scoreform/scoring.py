@@ -57,6 +57,18 @@ QR_FAILURE_LABELS = {
     "unknown_failed": "Unknown failure",
 }
 
+QR_BATCH_OUTCOME_LABELS = {
+    "full_success": "FULL SUCCESS",
+    "partial_success": "PARTIAL SUCCESS",
+    "zero_success": "ZERO SUCCESS",
+    "export_failure": "EXPORT FAILURE",
+}
+
+QR_PARTIAL_SUCCESS_WARNING = (
+    "WARNING: Some pages failed or were skipped. "
+    "Review failures before treating results as final."
+)
+
 
 @dataclass
 class QRBatchFailure:
@@ -118,16 +130,47 @@ class QRBatchSummary:
             counts[failure.category] = counts.get(failure.category, 0) + 1
         return counts
 
+    def outcome(self):
+        if self.result_write_failed:
+            return "export_failure"
+        if self.pages_scored == 0:
+            return "zero_success"
+        if not self.results_written:
+            return "export_failure"
+        if self.failures:
+            return "partial_success"
+        return "full_success"
+
+    def exit_code(self):
+        if self.outcome() in {"full_success", "partial_success"}:
+            return 0
+        return 1
+
     def format(self):
+        outcome = self.outcome()
         lines = [
             "",
             "QR-Aware Batch Summary",
             "",
-            f"Pages processed: {self.pages_processed}",
-            f"Pages scored: {self.pages_scored}",
-            f"Pages skipped/failed: {self.pages_skipped_failed}",
-            f"File/batch failures: {len(self.file_failures)}",
+            f"Batch status: {QR_BATCH_OUTCOME_LABELS[outcome]}",
         ]
+
+        if outcome == "partial_success":
+            lines.extend(["", QR_PARTIAL_SUCCESS_WARNING])
+        elif outcome == "zero_success":
+            lines.extend(["", "Error: No pages were scored successfully."])
+        elif outcome == "export_failure":
+            lines.extend(["", "Error: Failed to export results."])
+
+        lines.extend(
+            [
+                "",
+                f"Pages processed: {self.pages_processed}",
+                f"Pages scored: {self.pages_scored}",
+                f"Pages skipped/failed: {self.pages_skipped_failed}",
+                f"File/batch failures: {len(self.file_failures)}",
+            ]
+        )
 
         counts = self.failure_counts()
         if counts:
@@ -166,7 +209,7 @@ class QRBatchSummary:
         else:
             lines.append("No results were written.")
 
-        if self.failures or self.result_write_failed:
+        if (self.failures or self.result_write_failed) and outcome != "partial_success":
             lines.extend(["", "Review failures before treating results as final."])
 
         return "\n".join(lines)

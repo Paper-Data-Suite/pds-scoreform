@@ -887,6 +887,19 @@ QR-aware scoring without an output CSV routes results to `<PDS workspace root>/c
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
 After routed result export succeeds, ScoreForm files a timestamped `_scored` copy of the original source scan into the assignment's `scans/` folder when the successfully scored pages resolve to exactly one `(class_id, assignment_id)` target. The original source file is preserved. If the successfully scored pages span multiple assignments, or if the source scan is unavailable, ScoreForm skips scan filing without treating the result export as failed.
 
+QR-aware scoring uses these batch outcomes and exit codes:
+
+* **Full success** exits `0`.
+* **Partial success** exits `0` when at least one page scored and results were
+  written, but the terminal and saved QR batch summary show `PARTIAL SUCCESS`
+  and list the failures.
+* **Zero success** exits `1`.
+* **Export failure** exits `1`.
+
+For QR-aware batches, exit code `0` means usable results were produced and
+written; it does not guarantee that every page succeeded. The saved QR batch
+summary is the source of truth for completeness.
+
 Routed `results.csv` is an audit log, not a finalized gradebook export. If a student sheet is scanned more than once, ScoreForm preserves each successful scan as a separate row instead of overwriting earlier results. The `attempt_number` column increments for repeated scans of the same student and assignment, while `scan_timestamp` and `source_file` identify when the row was created and which scan, PDF, or image produced it. Makeup or separate scans append to the existing class-assignment results file when the QR metadata matches. ScoreForm does not yet decide which attempt is the official grade, so teachers should manually verify which row to use until gradebook export rules are implemented.
 
 QR-aware scoring with an explicit output CSV writes the QR-aware results to that file instead of routing:

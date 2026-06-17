@@ -37,7 +37,10 @@ def test_qr_batch_summary_formats_success_with_result_path():
 
     text = summary.format()
 
+    assert summary.outcome() == "full_success"
+    assert summary.exit_code() == 0
     assert "QR-Aware Batch Summary" in text
+    assert "Batch status: FULL SUCCESS" in text
     assert "Pages processed: 1" in text
     assert "Pages scored: 1" in text
     assert "Pages skipped/failed: 0" in text
@@ -53,9 +56,14 @@ def test_qr_batch_summary_groups_failures_and_lists_pages():
     summary.record_scored_page()
     summary.record_failure(2, "missing_qr", "missing QR code")
     summary.record_failure(3, "unsafe_qr", "unsafe QR payload")
+    summary.record_results_written(["results.csv"])
 
     text = summary.format()
 
+    assert summary.outcome() == "partial_success"
+    assert summary.exit_code() == 0
+    assert "Batch status: PARTIAL SUCCESS" in text
+    assert scoring.QR_PARTIAL_SUCCESS_WARNING in text
     assert "Pages processed: 3" in text
     assert "Pages scored: 1" in text
     assert "Pages skipped/failed: 2" in text
@@ -64,6 +72,21 @@ def test_qr_batch_summary_groups_failures_and_lists_pages():
     assert "- Page 2: missing QR code" in text
     assert "- Page 3: unsafe QR payload" in text
     assert "Review failures before treating results as final." in text
+
+
+def test_qr_batch_summary_scored_pages_without_written_results_is_not_success():
+    summary = scoring.QRBatchSummary()
+    summary.record_processed_page()
+    summary.record_scored_page()
+    summary.record_failure(2, "missing_qr", "missing QR code")
+
+    assert summary.results_written is False
+    assert summary.result_write_failed is False
+    assert summary.outcome() == "export_failure"
+    assert summary.exit_code() == 1
+
+    text = summary.format()
+    assert "Batch status: EXPORT FAILURE" in text
 
 
 def test_qr_batch_summary_formats_file_level_failure_reason():
@@ -75,6 +98,10 @@ def test_qr_batch_summary_formats_file_level_failure_reason():
 
     text = summary.format()
 
+    assert summary.outcome() == "zero_success"
+    assert summary.exit_code() == 1
+    assert "Batch status: ZERO SUCCESS" in text
+    assert "Error: No pages were scored successfully." in text
     assert "Pages skipped/failed: 0" in text
     assert "File/batch failures: 1" in text
     assert "- Unsupported input type: 1" in text
@@ -84,6 +111,7 @@ def test_qr_batch_summary_formats_file_level_failure_reason():
 
 def test_qr_batch_summary_records_result_write_failure():
     results = scoring.QRBatchResults([_scored_result()])
+    results.summary.record_scored_page()
     scoring.update_qr_batch_result_write_status(
         results,
         export_success=False,
@@ -92,6 +120,10 @@ def test_qr_batch_summary_records_result_write_failure():
 
     text = results.summary.format()
 
+    assert results.summary.outcome() == "export_failure"
+    assert results.summary.exit_code() == 1
+    assert "Batch status: EXPORT FAILURE" in text
+    assert "Error: Failed to export results." in text
     assert "- Result writing failure: 1" in text
     assert "No - result writing failed." in text
     assert "out.csv" in text
@@ -470,6 +502,7 @@ def test_save_qr_batch_summary_includes_failures_and_result_paths(
     now = datetime.datetime(2026, 6, 10, 14, 32)
     summary = scoring.QRBatchSummary()
     summary.record_processed_page()
+    summary.record_scored_page()
     summary.record_failure(2, "missing_qr", "missing QR code")
     summary.record_diagnostics(
         ["local_outputs/qr_failures/2026-06-10/scan_page_2.png"]
@@ -496,5 +529,7 @@ def test_save_qr_batch_summary_includes_failures_and_result_paths(
         / "English_12_Trial_Responses_2026-06-10_1432_summary.txt"
     )
     assert "- Page 2: missing QR code" in text
+    assert "Batch status: PARTIAL SUCCESS" in text
+    assert scoring.QR_PARTIAL_SUCCESS_WARNING in text
     assert "local_outputs/qr_failures/2026-06-10/scan_page_2.png" in text
     assert "classes/english_12_trial/assignments/final_exam_trial/results.csv" in text

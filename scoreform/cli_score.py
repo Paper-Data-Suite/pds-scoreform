@@ -77,6 +77,7 @@ def run_score(args):
                 input_file,
                 workspace_root=workspace_root,
             )
+            return summary.exit_code() if summary is not None else 1
         print("Error: No pages were scored successfully.")
         return 1
 
@@ -103,6 +104,7 @@ def run_score(args):
                 input_file,
                 workspace_root=workspace_root,
             )
+            return summary.exit_code() if summary is not None else 1
         print("Error: Failed to export results.")
         return 1
 
@@ -128,5 +130,6 @@ def run_score(args):
             input_file,
             workspace_root=workspace_root,
         )
+        return summary.exit_code() if summary is not None else 0
 
     return 0
