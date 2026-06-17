@@ -10,7 +10,7 @@ from pds_core.standards import (
     write_workspace_standards_library,
 )
 
-from scoreform import assignment, workflows
+from scoreform import assignment, standards_workflows, workflows
 
 
 def make_standard(
@@ -53,7 +53,7 @@ def assignment_path(tmp_path, assignment_id="standards_assignment"):
 
 
 def test_initialize_empty_standards_alignment():
-    assert workflows.initialize_empty_standards_alignment(3) == {
+    assert standards_workflows.initialize_empty_standards_alignment(3) == {
         "1": [],
         "2": [],
         "3": [],
@@ -63,21 +63,21 @@ def test_initialize_empty_standards_alignment():
 @pytest.mark.parametrize("selection", ["", " ", "1,", "x", "1-2", "0", "4"])
 def test_parse_question_selection_rejects_invalid_values(selection):
     with pytest.raises(ValueError):
-        workflows.parse_question_selection(selection, 3)
+        standards_workflows.parse_question_selection(selection, 3)
 
 
 def test_parse_question_selection_accepts_commas_and_deduplicates():
-    assert workflows.parse_question_selection(" 2,1,2 ", 3) == (2, 1)
+    assert standards_workflows.parse_question_selection(" 2,1,2 ", 3) == (2, 1)
 
 
 def test_attach_standard_to_questions_prevents_duplicates_and_allows_multiple():
-    aligned = workflows.attach_standard_to_questions(
+    aligned = standards_workflows.attach_standard_to_questions(
         {"1": ["local:evidence"], "2": []},
         standard_id="local:evidence",
         question_numbers=(1, 2),
         question_count=3,
     )
-    aligned = workflows.attach_standard_to_questions(
+    aligned = standards_workflows.attach_standard_to_questions(
         aligned,
         standard_id="njsls-ela:RL.CR.11-12.1",
         question_numbers=(1,),
@@ -89,6 +89,22 @@ def test_attach_standard_to_questions_prevents_duplicates_and_allows_multiple():
         "2": ["local:evidence"],
         "3": [],
     }
+
+
+def test_workflows_keeps_standards_helper_compatibility_exports():
+    assert (
+        workflows.initialize_empty_standards_alignment
+        is standards_workflows.initialize_empty_standards_alignment
+    )
+    assert workflows.parse_question_selection is standards_workflows.parse_question_selection
+    assert (
+        workflows.attach_standard_to_questions
+        is standards_workflows.attach_standard_to_questions
+    )
+    assert (
+        workflows.format_standard_for_selection
+        is standards_workflows.format_standard_for_selection
+    )
 
 
 def test_prompt_create_assignment_skip_standards_writes_empty_alignment_without_library_write(

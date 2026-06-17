@@ -26,16 +26,20 @@ from scoreform.results_viewer import (
     load_assignment_results,
     summarize_assignment_results,
 )
+from scoreform.standards_workflows import (
+    attach_standard_to_questions,
+    format_standard_for_selection,
+    initialize_empty_standards_alignment,
+    parse_question_selection,
+    standards_sort_key,
+)
 from scoreform.validation import is_safe_identifier, validate_identifier
 from scoreform.workflows import (
-    attach_standard_to_questions,
     clear_screen,
     discover_class_assignments,
     discover_class_rosters,
-    initialize_empty_standards_alignment,
     normalize_path_input,
     parse_class_selection,
-    parse_question_selection,
     parse_single_selection,
     pause_for_user,
     print_menu_header,
@@ -48,17 +52,12 @@ def _sync_shared_helpers_from_workflows():
     """Keep legacy scoreform.workflows monkeypatch targets effective."""
     from scoreform import workflows
 
-    globals()["attach_standard_to_questions"] = workflows.attach_standard_to_questions
     globals()["clear_screen"] = workflows.clear_screen
     globals()["discover_class_assignments"] = workflows.discover_class_assignments
     globals()["discover_class_rosters"] = workflows.discover_class_rosters
     globals()["ensure_core_assignment_folder"] = workflows.ensure_core_assignment_folder
-    globals()["initialize_empty_standards_alignment"] = (
-        workflows.initialize_empty_standards_alignment
-    )
     globals()["normalize_path_input"] = workflows.normalize_path_input
     globals()["parse_class_selection"] = workflows.parse_class_selection
-    globals()["parse_question_selection"] = workflows.parse_question_selection
     globals()["parse_single_selection"] = workflows.parse_single_selection
     globals()["pause_for_user"] = workflows.pause_for_user
     globals()["print_menu_header"] = workflows.print_menu_header
@@ -220,33 +219,11 @@ def _prompt_edit_assignment_answer_key(assignment):
         print()
 
 
-def _standards_sort_key(definition):
-    return (
-        definition.source.lower(),
-        definition.code.lower(),
-        definition.standard_id.lower(),
-    )
-
-
-def format_standard_for_selection(definition):
-    """Return compact teacher-readable text for a shared standard."""
-    pieces = [
-        definition.standard_id,
-        definition.code,
-        definition.short_name,
-    ]
-    if definition.subject:
-        pieces.append(definition.subject)
-    if definition.domain:
-        pieces.append(definition.domain)
-    return " | ".join(pieces)
-
-
 def _load_active_standard_definitions(workspace_root):
     library = load_workspace_standards_library(workspace_root)
     return sorted(
         filter_standard_definitions(library, active=True),
-        key=_standards_sort_key,
+        key=standards_sort_key,
     )
 
 
@@ -756,7 +733,7 @@ def _prompt_attach_existing_standards(workspace_root, question_count):
 
     definitions = sorted(
         filter_standard_definitions(library, active=True),
-        key=_standards_sort_key,
+        key=standards_sort_key,
     )
     if not definitions:
         print("No shared standards exist yet.")
