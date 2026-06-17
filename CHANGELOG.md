@@ -73,6 +73,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
 * Extracted interactive scan/menu scoring workflow code into a focused module
   while preserving the existing Assignment Management scoring behavior and CLI
   compatibility entry points.
+* Extracted Roster Management interactive workflow code into a focused module
+  while preserving the existing menu behavior, direct roster validation command,
+  and compatibility entry points in `scoreform.workflows`.
 
 ### Documentation
 

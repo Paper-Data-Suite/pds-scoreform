@@ -37,6 +37,7 @@ from scoreform.cli_workspace import (
 )
 from scoreform.folders import setup_assignment_folder
 from scoreform.roster import load_roster
+from scoreform.roster_workflows import launch_roster_menu
 from scoreform.scoring import (
     decode_qr_from_image,
 )
@@ -51,7 +52,6 @@ from scoreform.workflows import (
     discover_class_rosters,
     discover_scans_in_inbox,
     launch_assignment_menu,
-    launch_roster_menu,
     normalize_path_input,
     parse_single_selection,
     print_menu_header,
