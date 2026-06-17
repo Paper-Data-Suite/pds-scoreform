@@ -56,6 +56,12 @@ GitHub milestones are project-management buckets. Package versions describe inst
   the assignment `scans/` folder with a timestamped `_scored` filename while
   preserving the original source scan.
 
+### Changed
+
+* Extracted the workspace and school-year CLI command-group implementations
+  into focused modules while preserving the existing `scoreform.cli` entry
+  point and command dispatch.
+
 ### Documentation
 
 * Post-public repository audit remains pending.

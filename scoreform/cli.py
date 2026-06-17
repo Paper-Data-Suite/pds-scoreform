@@ -2,7 +2,6 @@
 
 import os
 import sys
-from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -14,11 +13,22 @@ from pds_core.school_years import (
     close_school_year,
     load_school_year_state,
     open_school_year,
-    school_year_state_path,
 )
 
 from scoreform import workspace
 from scoreform.assignment import load_answer_key, load_assignment
+from scoreform.cli_school_year import (
+    _format_school_year_timestamp,
+    _print_school_year_open_success,
+    current_local_time,
+    format_school_year_state,  # noqa: F401 - compatibility re-export
+    print_school_year_help,  # noqa: F401 - compatibility re-export
+    run_school_year,
+)
+from scoreform.cli_workspace import (
+    print_workspace_help,  # noqa: F401 - compatibility re-export
+    run_workspace,
+)
 from scoreform.config import LOCAL_RESULTS_CSV
 from scoreform.folders import setup_assignment_folder
 from scoreform.results import export_routed_results, export_to_csv
@@ -192,277 +202,6 @@ def print_menu_help():
     print("Routed results are an audit log, not a finalized gradebook export.")
     print("Manually verify scores before using them for grades.")
     print()
-
-
-def print_workspace_help():
-    """Print help for the workspace command group."""
-    print(
-        """Usage:
-  scoreform workspace show
-  scoreform workspace set <path>
-  scoreform workspace validate
-  scoreform workspace reset
-
-Commands:
-  show       Show the resolved workspace root and configuration paths.
-  set        Validate/create and save a workspace root.
-  validate   Validate/create the currently resolved workspace root.
-  reset      Clear the saved preference without deleting workspace files.
-
-Setting a new workspace does not move existing ScoreForm files."""
-    )
-
-
-def print_school_year_help():
-    """Print help for the school-year command group."""
-    print(
-        """Usage:
-  scoreform school-year show
-  scoreform school-year open <school_year> [--overwrite]
-  scoreform school-year close
-
-Commands:
-  show       Show active school-year state for the current PDS workspace.
-  open       Open a school year for the current PDS workspace.
-  close      Close the active school year for the current PDS workspace.
-
-Opening or closing a school year does not delete, archive, summarize, or move data."""
-    )
-
-
-def _format_bool(value: bool) -> str:
-    return "yes" if value else "no"
-
-
-def current_local_time():
-    """Return a timezone-aware local timestamp."""
-    return datetime.now().astimezone()
-
-
-def _format_school_year_timestamp(value):
-    return value.isoformat()
-
-
-def format_school_year_state(workspace_root):
-    """Return teacher-readable school-year state for a workspace."""
-    state_path = school_year_state_path(workspace_root)
-    state = load_school_year_state(workspace_root)
-
-    if state is None:
-        return "\n".join([
-            "No school year has been opened for this workspace.",
-            f"State file: {state_path}",
-        ])
-
-    if state.closed_at is None:
-        return "\n".join([
-            f"Active school year: {state.active_school_year}",
-            f"Opened at: {_format_school_year_timestamp(state.opened_at)}",
-            f"State file: {state_path}",
-        ])
-
-    return "\n".join([
-        "No active school year is open.",
-        f"Last school year: {state.active_school_year}",
-        f"Opened at: {_format_school_year_timestamp(state.opened_at)}",
-        f"Closed at: {_format_school_year_timestamp(state.closed_at)}",
-        f"State file: {state_path}",
-    ])
-
-
-def _print_school_year_open_success(
-    workspace_root,
-    school_year,
-    existing_state,
-    opened_state,
-    overwrite,
-):
-    state_path = school_year_state_path(workspace_root)
-    if (
-        existing_state is not None
-        and existing_state.closed_at is None
-        and existing_state.active_school_year == opened_state.active_school_year
-        and existing_state.opened_at == opened_state.opened_at
-        and not overwrite
-    ):
-        print(f"School year is already open: {opened_state.active_school_year}")
-        return
-
-    if (
-        overwrite
-        and existing_state is not None
-        and existing_state.closed_at is None
-        and existing_state.active_school_year != school_year
-    ):
-        print(f"Replaced active school year with: {opened_state.active_school_year}")
-    else:
-        print(f"Opened school year: {opened_state.active_school_year}")
-    print(f"Workspace: {workspace_root}")
-    print(f"State file: {state_path}")
-
-
-def run_school_year(args):
-    """Run shared active school-year workspace commands."""
-    if not args or args[0] in ("help", "--help", "-h"):
-        print_school_year_help()
-        return 0
-
-    command = args[0]
-    command_args = args[1:]
-
-    try:
-        if command == "show":
-            if command_args:
-                print("Usage: scoreform school-year show")
-                return 1
-
-            workspace_root = workspace.get_scoreform_workspace_root()
-            print(format_school_year_state(workspace_root))
-            return 0
-
-        if command == "open":
-            overwrite = False
-            positional_args = []
-            for argument in command_args:
-                if argument == "--overwrite":
-                    if overwrite:
-                        print("Usage: scoreform school-year open <school_year> [--overwrite]")
-                        return 1
-                    overwrite = True
-                elif argument.startswith("-"):
-                    print(f"Unknown option: {argument}")
-                    print("Usage: scoreform school-year open <school_year> [--overwrite]")
-                    return 1
-                else:
-                    positional_args.append(argument)
-
-            if len(positional_args) != 1:
-                print("Usage: scoreform school-year open <school_year> [--overwrite]")
-                return 1
-
-            workspace_root = workspace.get_scoreform_workspace_root()
-            existing_state = load_school_year_state(workspace_root)
-            opened_state = open_school_year(
-                workspace_root,
-                positional_args[0],
-                opened_at=current_local_time(),
-                overwrite=overwrite,
-            )
-            _print_school_year_open_success(
-                workspace_root,
-                positional_args[0],
-                existing_state,
-                opened_state,
-                overwrite,
-            )
-            return 0
-
-        if command == "close":
-            if command_args:
-                print("Usage: scoreform school-year close")
-                return 1
-
-            workspace_root = workspace.get_scoreform_workspace_root()
-            closed_state = close_school_year(
-                workspace_root,
-                closed_at=current_local_time(),
-            )
-            print(f"Closed school year: {closed_state.active_school_year}")
-            print(f"Closed at: {_format_school_year_timestamp(closed_state.closed_at)}")
-            print(f"State file: {school_year_state_path(workspace_root)}")
-            return 0
-    except (SchoolYearStateError, workspace.WorkspaceRootError) as exc:
-        print(f"Error: {exc}")
-        return 1
-
-    print(f"Unknown school-year command: {command}")
-    print_school_year_help()
-    return 1
-
-
-def run_workspace(args):
-    """Run shared Paper Data Suite workspace commands."""
-    if not args or args[0] in ("help", "--help", "-h"):
-        print_workspace_help()
-        return 0
-
-    command = args[0]
-    command_args = args[1:]
-
-    try:
-        if command == "show":
-            if command_args:
-                print("Usage: scoreform workspace show")
-                return 1
-
-            status = workspace.inspect_workspace_root()
-            print("Current PDS workspace root:")
-            print(status.root)
-            print()
-            print("Source:")
-            print(status.source)
-            print()
-            print("Exists:")
-            print(_format_bool(status.exists))
-            print()
-            print("Directory:")
-            print(_format_bool(status.is_dir))
-            print()
-            print("Writable:")
-            print(_format_bool(status.is_writable))
-            print()
-            print("Config file:")
-            print(status.config_path)
-            print()
-            print("Default workspace root:")
-            print(status.default_root)
-            return 0
-
-        if command == "set":
-            if len(command_args) != 1:
-                print("Usage: scoreform workspace set <path>")
-                return 1
-
-            saved_root = workspace.set_scoreform_workspace_root(command_args[0])
-            print("Saved PDS workspace root:")
-            print(saved_root)
-            print()
-            print("This does not move existing ScoreForm files.")
-            return 0
-
-        if command == "validate":
-            if command_args:
-                print("Usage: scoreform workspace validate")
-                return 1
-
-            validated_root = workspace.validate_scoreform_workspace_root()
-            print("Workspace is valid:")
-            print(validated_root)
-            return 0
-
-        if command == "reset":
-            if command_args:
-                print("Usage: scoreform workspace reset")
-                return 1
-
-            cleared, resolved_root = workspace.reset_scoreform_workspace_root()
-            if cleared:
-                print("Cleared saved PDS workspace root preference.")
-            else:
-                print("No saved PDS workspace root preference was set.")
-            print()
-            print("No workspace files were deleted.")
-            print()
-            print("Current resolved workspace root:")
-            print(resolved_root)
-            return 0
-    except workspace.WorkspaceRootError as exc:
-        print(f"Error: {exc}")
-        return 1
-
-    print(f"Unknown workspace command: {command}")
-    print_workspace_help()
-    return 1
 
 
 def run_generate(args):
