@@ -61,6 +61,12 @@ from pds_core.standards import (
 from scoreform import workspace
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import MAX_QUESTION_COUNT
+from scoreform.results_viewer import (
+    ResultsViewError,
+    format_assignment_results_table,
+    load_assignment_results,
+    summarize_assignment_results,
+)
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 
@@ -1293,6 +1299,81 @@ def prompt_edit_class_roster():
             print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
 
 
+def launch_view_assignment_results_menu():
+    """Interactive read-only workflow for viewing assignment-local results."""
+    print_menu_header("View Assignment Results")
+
+    available_classes = discover_class_rosters()
+    if not available_classes:
+        print("No class rosters found.")
+        print("Create a class roster first, then return to this option.")
+        return 1
+
+    print("Available classes:")
+    for index, class_record in enumerate(available_classes, start=1):
+        print(f"{index}. {class_record['class_id']}")
+    print()
+
+    try:
+        class_record = parse_single_selection(
+            input("Select class: "),
+            available_classes,
+            "class",
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    class_id = class_record["class_id"]
+    available_assignments = discover_class_assignments(class_id)
+    if not available_assignments:
+        print(f"No assignments found for class '{class_id}'.")
+        print("Create an assignment first, then return to this option.")
+        return 1
+
+    print()
+    print(f"Available assignments for {class_id}:")
+    for index, assignment_record in enumerate(available_assignments, start=1):
+        title = assignment_record["assignment"].get("title", "")
+        print(f"{index}. {assignment_record['assignment_id']} - {title}")
+    print()
+
+    try:
+        assignment_record = parse_single_selection(
+            input("Select assignment: "),
+            available_assignments,
+            "assignment",
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+
+    assignment_id = assignment_record["assignment_id"]
+    results_csv_path = Path(assignment_record["assignment_path"]).parent / "results.csv"
+
+    print()
+    print(f"Results for: {class_id} / {assignment_id}")
+    print(f"Source: {results_csv_path}")
+    print()
+
+    try:
+        rows = load_assignment_results(results_csv_path)
+    except FileNotFoundError:
+        print("No results have been recorded for this assignment yet.")
+        return 0
+    except ResultsViewError as e:
+        print(f"Error: Could not read assignment results: {e}")
+        return 1
+
+    if not rows:
+        print("No results have been recorded for this assignment yet.")
+        return 0
+
+    summary_rows = summarize_assignment_results(rows)
+    print(format_assignment_results_table(summary_rows))
+    return 0
+
+
 def prompt_view_roster():
     """Interactive read-only workflow for viewing an existing class roster."""
     print_menu_header("View a Class Roster")
@@ -1961,8 +2042,9 @@ def launch_assignment_menu():
             print("3. Validate an assignment file")
             print("4. Generate answer sheets")
             print("5. Score scanned responses")
-            print("6. Decode QR from a file")
-            print("7. Return to main menu")
+            print("6. View assignment results")
+            print("7. Decode QR from a file")
+            print("8. Return to main menu")
             print()
 
             choice = input("Select an option: ").strip()
@@ -2014,6 +2096,12 @@ def launch_assignment_menu():
                     prompt_scoring_mode(input_file)
 
             elif choice == "6":
+                clear_screen()
+                launch_view_assignment_results_menu()
+                print()
+                pause_for_user()
+
+            elif choice == "7":
                 from scoreform.cli import run_decode_qr
 
                 clear_screen()
@@ -2029,11 +2117,11 @@ def launch_assignment_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "7":
+            elif choice == "8":
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 7.")
+                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
                 print()
                 pause_for_user()
 

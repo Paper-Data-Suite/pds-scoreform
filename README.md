@@ -316,7 +316,7 @@ ScoreForm
 5. Exit
 ```
 
-Assignment Management contains assignment creation, editing, and validation, answer-sheet generation, scoring, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
+Assignment Management contains assignment creation, editing, and validation, answer-sheet generation, scoring, read-only routed-results viewing, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
 workspace root using the same `pds-core` operations as the direct CLI. It also
 contains School Year Settings for showing, opening, and closing the shared
@@ -435,7 +435,7 @@ Notes:
 * Assignment files store standard IDs only. Shared standard definitions live in the workspace standards library owned by `pds-core`.
 * Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
-* Assignment Management also edits and validates assignment JSON files, generates answer sheets, scores scanned responses, and decodes QR metadata.
+* Assignment Management also edits and validates assignment JSON files, generates answer sheets, scores scanned responses, displays read-only assignment results, and decodes QR metadata.
 
 ### Edit an Assignment from the Menu
 
@@ -452,6 +452,12 @@ Assignment edits are safe by default:
 * Standards editing can attach, remove, or clear existing shared standard IDs on selected questions. It does not create shared standards, record standards usage events, write standards usage ledgers, or modify the shared standards library.
 * Saving writes only the selected `assignment.json` after validation.
 * Editing an assignment does not regenerate answer sheets, rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs, delete scans, alter rosters, or change unrelated assignments.
+
+### View Assignment Results from the Menu
+
+Select **1. Assignment Management**, then **6. View assignment results** to choose a class and assignment and display that assignment's local `results.csv`.
+
+The viewer is read-only. It shows one summary row per student with `Student ID`, `Name`, `Recent`, `Total`, and `Attempts`. If a student has more than one scored row, `Recent` shows the most recent scored attempt by `scan_timestamp` when available, otherwise the last row for that student in `results.csv`; `Attempts` shows how many scored rows exist. ScoreForm does not decide which attempt counts as the grade.
 
 ## Data Model
 

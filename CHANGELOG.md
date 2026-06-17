@@ -16,6 +16,10 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added a read-only Assignment Management workflow for viewing assignment-local
+  `results.csv` files. The viewer discovers classes and assignments, displays
+  one summary row per student with recent score, total, and attempt count, and
+  does not mutate historical result rows or decide grading policy.
 * Added an Assignment Management menu workflow for editing existing
   assignments. The workflow stages title, answer-key, and existing-standard-ID
   alignment edits until explicit `SAVE`, requires `DISCARD` for unsaved

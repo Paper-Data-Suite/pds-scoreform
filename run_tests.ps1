@@ -318,7 +318,7 @@ Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding U
     "1",                    # Select generated menu picker scan
     "1",                    # Scoring mode -> QR-aware routed scoring (recommended)
     "",                     # pause after scoring
-    "7",                    # Return to main menu
+    "8",                    # Return to main menu
     "5"                     # Exit
 ) | & $Python main.py menu
 
@@ -510,7 +510,7 @@ Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
     "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
     "1",                        # Standards alignment -> Skip standards for now
     "",                         # pause after assignment creation output
-    "7",                        # Return to main menu
+    "8",                        # Return to main menu
     "5"                         # Exit
 ) | & $Python main.py menu
 
@@ -545,7 +545,7 @@ Write-Host "Testing answer sheet generation through menu class/assignment select
     "1",                        # Select first available assignment (test_assignment_v5)
     "y",                        # Confirm generation
     "",                         # pause after generation output
-    "7",                        # Return to main menu
+    "8",                        # Return to main menu
     "5"                         # Exit
 ) | & $Python main.py menu
 

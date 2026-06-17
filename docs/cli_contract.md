@@ -271,8 +271,9 @@ The teacher-facing main menu currently provides:
 ```
 
 Assignment Management includes assignment creation, editing, and validation,
-answer-sheet generation, scan scoring, and QR decoding. Roster Management
-includes roster creation, viewing, editing, and validation. Workspace Settings
+answer-sheet generation, scan scoring, read-only assignment results viewing,
+and QR decoding. Roster Management includes roster creation, viewing, editing,
+and validation. Workspace Settings
 includes show, set, validate/create, reset actions, and School Year Settings.
 
 The Assignment Management edit workflow is menu-only. It discovers existing
@@ -290,6 +291,12 @@ standards, write standards usage events or ledgers, or modify the shared
 standards library. Assignment editing does not regenerate answer sheets,
 rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs or
 scan evidence, alter rosters, or change unrelated assignments.
+
+The Assignment Management results viewer is menu-only and read-only. It
+discovers classes and assignments, opens the selected assignment-local
+`results.csv`, and displays a compact `Student ID`, `Name`, `Recent`, `Total`,
+and `Attempts` table. Duplicate scored rows are summarized per student for
+display only; ScoreForm does not choose an official grade attempt.
 
 The Roster Management edit workflow is menu-only. It discovers existing class
 rosters, loads the selected canonical class roster through `pds-core`, stages
