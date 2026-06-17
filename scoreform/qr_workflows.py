@@ -1,7 +1,6 @@
 """QR decode command and menu workflow actions."""
 
 import os
-import sys
 
 import cv2
 import numpy as np
@@ -9,19 +8,8 @@ import numpy as np
 from scoreform.scoring import decode_qr_from_image
 
 
-def _sync_compat_from_cli_if_loaded():
-    """Keep legacy scoreform.cli monkeypatch targets effective when present."""
-    cli_module = sys.modules.get("scoreform.cli")
-    if cli_module is None:
-        return
-
-    if hasattr(cli_module, "decode_qr_from_image"):
-        globals()["decode_qr_from_image"] = cli_module.decode_qr_from_image
-
-
 def run_decode_qr(args):
     """Decode QR metadata from a PDF or image."""
-    _sync_compat_from_cli_if_loaded()
     if len(args) != 1:
         print("Usage: scoreform decode-qr <input_file>")
         return 1

@@ -1,6 +1,6 @@
 import json
 
-from scoreform import assignment, workflows
+from scoreform import assignment, assignment_workflows, workflows
 from scoreform.config import MAX_QUESTION_COUNT
 
 
@@ -331,7 +331,7 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
     output_path = tmp_path / "classes" / "test_class" / "assignments" / "test_assignment_v6" / "assignment.json"
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert saved["standards"] == {"1": [], "2": [], "3": []}
@@ -367,7 +367,7 @@ def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypat
 
     monkeypatch.setattr("builtins.input", fake_input)
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
     assert f"Question count (1-{MAX_QUESTION_COUNT}): " in prompts
 
     output_path = tmp_path / "classes" / "test_class" / "assignments" / "max_assignment" / "assignment.json"
@@ -397,7 +397,7 @@ def test_prompt_create_assignment_rejects_question_count_above_max(tmp_path, mon
     )
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     captured = capsys.readouterr()
     assert f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}." in captured.out
@@ -422,7 +422,7 @@ def test_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeyp
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 1
+    assert assignment_workflows.prompt_create_assignment() == 1
     assert not (tmp_path / "classes" / "test_class" / "assignments").exists()
 
 

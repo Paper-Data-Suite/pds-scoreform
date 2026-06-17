@@ -1,7 +1,6 @@
 """Interactive assignment workflow helpers."""
 
 import os
-import sys
 from pathlib import Path
 
 from pds_core.assignments import (
@@ -49,56 +48,6 @@ from scoreform.workflows import (
 )
 
 
-def _sync_shared_helpers_from_workflows():
-    """Keep legacy scoreform.workflows monkeypatch targets effective."""
-    from scoreform import workflows
-
-    globals()["clear_screen"] = workflows.clear_screen
-    globals()["discover_class_assignments"] = workflows.discover_class_assignments
-    globals()["discover_class_rosters"] = workflows.discover_class_rosters
-    globals()["ensure_core_assignment_folder"] = workflows.ensure_core_assignment_folder
-    globals()["normalize_path_input"] = workflows.normalize_path_input
-    globals()["parse_class_selection"] = workflows.parse_class_selection
-    globals()["parse_single_selection"] = workflows.parse_single_selection
-    globals()["pause_for_user"] = workflows.pause_for_user
-    globals()["print_menu_header"] = workflows.print_menu_header
-    globals()["suggest_assignment_id"] = workflows.suggest_assignment_id
-    globals()["write_assignment_json"] = workflows.write_assignment_json
-    globals()["write_workspace_standards_library"] = (
-        workflows.write_workspace_standards_library
-    )
-
-
-def _patched_cli_function(name, original_marker):
-    """Return a monkeypatched scoreform.cli function, if one is loaded."""
-    cli_module = sys.modules.get("scoreform.cli")
-    if cli_module is None:
-        return None
-
-    candidate = getattr(cli_module, name, None)
-    original = getattr(cli_module, original_marker, None)
-    if candidate is None or original is None or candidate is original:
-        return None
-    return candidate
-
-
-def _sync_menu_scoring_compat_from_cli_if_loaded():
-    """Keep legacy scoreform.cli monkeypatch targets effective for menu scoring."""
-    cli_module = sys.modules.get("scoreform.cli")
-    if cli_module is None:
-        return
-
-    for name in (
-        "clear_screen",
-        "pause_for_user",
-        "run_score",
-        "discover_scans_in_inbox",
-        "scans_inbox_dir",
-    ):
-        if hasattr(cli_module, name):
-            setattr(menu_scoring, name, getattr(cli_module, name))
-
-
 def _assignment_answer_key_for_edit(assignment):
     return {
         str(question_number): assignment["answer_key"][question_number]
@@ -128,7 +77,6 @@ def _assignment_for_edit(assignment):
 
 def format_assignment_for_display(assignment_record):
     """Return a compact terminal summary for an assignment record."""
-    _sync_shared_helpers_from_workflows()
     assignment = assignment_record["assignment"]
     question_count = assignment["question_count"]
     answer_key = assignment["answer_key"]
@@ -459,7 +407,6 @@ def _validate_staged_assignment(assignment):
 
 def prompt_edit_assignment():
     """Interactive workflow for staging and saving edits to an assignment."""
-    _sync_shared_helpers_from_workflows()
     print_menu_header("Edit an Assignment")
 
     available_classes = discover_class_rosters()
@@ -636,7 +583,6 @@ def prompt_edit_assignment():
 
 def launch_view_assignment_results_menu():
     """Interactive read-only workflow for viewing assignment-local results."""
-    _sync_shared_helpers_from_workflows()
     print_menu_header("View Assignment Results")
 
     available_classes = discover_class_rosters()
@@ -712,7 +658,6 @@ def launch_view_assignment_results_menu():
 
 def confirm_assignment_overwrite(path, class_id):
     """Prompt for confirmation to overwrite an existing class assignment."""
-    _sync_shared_helpers_from_workflows()
     if not os.path.exists(path):
         return True
 
@@ -884,7 +829,6 @@ def _prompt_create_and_attach_new_standard(workspace_root, question_count):
 
 def prompt_standards_alignment(workspace_root, question_count):
     """Prompt for assignment-local standards alignment during assignment creation."""
-    _sync_shared_helpers_from_workflows()
     while True:
         print()
         print("Standards alignment")
@@ -921,7 +865,6 @@ def prompt_create_assignment():
 
     Returns 0 on success, 1 on cancellation or error.
     """
-    _sync_shared_helpers_from_workflows()
     print_menu_header("Create an Assignment for Class(es)")
 
     available_classes = discover_class_rosters()
@@ -1058,7 +1001,6 @@ def prompt_create_assignment():
 
 def launch_assignment_menu():
     """Assignment management submenu."""
-    _sync_shared_helpers_from_workflows()
     try:
         while True:
             clear_screen()
@@ -1109,29 +1051,12 @@ def launch_assignment_menu():
                 pause_for_user()
 
             elif choice == "4":
-                patched_launch_generate_menu = _patched_cli_function(
-                    "launch_generate_menu",
-                    "_ORIGINAL_LAUNCH_GENERATE_MENU",
-                )
-                if patched_launch_generate_menu is not None:
-                    patched_launch_generate_menu()
-                else:
-                    generate_workflows.launch_generate_menu()
+                generate_workflows.launch_generate_menu()
 
             elif choice == "5":
-                _sync_menu_scoring_compat_from_cli_if_loaded()
-                prompt_scoring_input_file = _patched_cli_function(
-                    "prompt_scoring_input_file",
-                    "_ORIGINAL_PROMPT_SCORING_INPUT_FILE",
-                ) or menu_scoring.prompt_scoring_input_file
-                prompt_scoring_mode = _patched_cli_function(
-                    "prompt_scoring_mode",
-                    "_ORIGINAL_PROMPT_SCORING_MODE",
-                ) or menu_scoring.prompt_scoring_mode
-
-                input_file = prompt_scoring_input_file()
+                input_file = menu_scoring.prompt_scoring_input_file()
                 if input_file:
-                    prompt_scoring_mode(input_file)
+                    menu_scoring.prompt_scoring_mode(input_file)
 
             elif choice == "6":
                 clear_screen()
@@ -1149,11 +1074,7 @@ def launch_assignment_menu():
                     pause_for_user()
                     continue
 
-                run_decode_qr = _patched_cli_function(
-                    "run_decode_qr",
-                    "_ORIGINAL_RUN_DECODE_QR",
-                ) or qr_workflows.run_decode_qr
-                run_decode_qr([input_file])
+                qr_workflows.run_decode_qr([input_file])
                 print()
                 pause_for_user()
 
