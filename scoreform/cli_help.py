@@ -88,6 +88,9 @@ Scoring modes:
   scoreform score scanned_file.pdf output.csv
       QR-aware scoring with an explicit output CSV instead of routed results.
 
+  QR-aware full and partial success exit 0; zero success and export failure exit 1.
+  The saved QR batch summary is the source of truth for completeness.
+
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
 
