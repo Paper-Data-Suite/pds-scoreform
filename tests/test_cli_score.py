@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scoreform import cli, cli_score
+from scoreform import cli, cli_score, scoring
 
 
 class Results(list):
@@ -64,6 +64,40 @@ def test_qr_aware_no_scored_pages_prints_and_saves_summary(
         ("save_summary", "summary", "scan.pdf", tmp_path),
     ]
     assert "Error: No pages were scored successfully." in capsys.readouterr().out
+
+
+def test_qr_aware_no_scored_pages_prints_and_saves_file_failure_reason(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    results = scoring.QRBatchResults()
+    results.summary.record_file_failure(
+        "unsupported_input_type",
+        "Unsupported input type: .txt",
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: results,
+    )
+
+    assert cli_score.run_score(["scan.txt"]) == 1
+
+    output = capsys.readouterr().out
+    assert "File/batch failures: 1" in output
+    assert "- Unsupported input type: .txt" in output
+    assert "Error: No pages were scored successfully." in output
+
+    summaries = list(
+        (tmp_path / "local_outputs" / "qr_batch_summaries").rglob(
+            "scan_*_summary.txt"
+        )
+    )
+    assert len(summaries) == 1
+    saved_text = summaries[0].read_text(encoding="utf-8")
+    assert "File/batch failures: 1" in saved_text
+    assert "- Unsupported input type: .txt" in saved_text
 
 
 def test_qr_aware_export_failure_updates_summary_and_skips_filing(
