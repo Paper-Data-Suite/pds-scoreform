@@ -16,6 +16,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added `check_dependencies.ps1` to document and verify the current sibling
+  editable `pds-core` development dependency, repo-local virtual environment,
+  third-party imports, and Poppler `pdftoppm` availability.
 * Added a read-only Assignment Management workflow for viewing assignment-local
   `results.csv` files. The viewer discovers classes and assignments, displays
   one summary row per student with recent score, total, and attempt count, and

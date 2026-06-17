@@ -240,6 +240,10 @@ Write-Host ""
 Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
 Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "$PythonCommand -m pip install -r requirements-dev.txt --quiet"
 
+Write-Host ""
+Write-Host "Checking dependency contract..." -ForegroundColor Yellow
+Invoke-Test "Check dependencies" "powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1"
+
 $pythonScriptsDir = & $Python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
 if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
     $env:Path = "$pythonScriptsDir;$env:Path"

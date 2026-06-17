@@ -565,7 +565,8 @@ qrcode[pil]
 
 Installing this file alone does not produce a working local ScoreForm
 installation. ScoreForm also requires `pds-core`, which is currently installed
-from a sibling repository checkout for Paper Data Suite development.
+from a sibling editable repository checkout for Paper Data Suite development.
+Standalone package installation is not supported yet.
 
 To install only the third-party packages, run:
 
@@ -616,11 +617,11 @@ Paper-Data-Suite/
 The parent directory name and location may vary. Do not replace the relative
 sibling setup with a machine-specific absolute path.
 
-From inside `pds-scoreform`, with the intended virtual environment activated,
-run:
+From inside `pds-scoreform`, create or activate the repo-local virtual
+environment, then run:
 
 ```powershell
-python -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
 This is the correct install command for local Paper Data Suite development. It
@@ -639,6 +640,18 @@ If installation reports that `../pds-core` does not exist, check that both
 repositories are present as siblings in the layout above, then rerun the
 command from inside `pds-scoreform`.
 
+Verify the setup with:
+
+```powershell
+.\check_dependencies.ps1
+```
+
+If PowerShell blocks script execution, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1
+```
+
 ### Classroom-Trial Machine Setup
 
 Every classroom-trial machine must have both `pds-core` and `pds-scoreform`
@@ -647,12 +660,53 @@ environment and run the same complete install command from inside
 `pds-scoreform`:
 
 ```powershell
-python -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
 Do not prepare a classroom-trial machine with `requirements.txt` alone; that
 leaves the required local `pds-core` package uninstalled and ScoreForm will not
 start. Poppler must also be installed separately as described above.
+
+### Troubleshooting Setup
+
+Run `.\check_dependencies.ps1` from the repository root to confirm the current
+runtime/install contract. The script is diagnostic only: it does not install
+packages, create virtual environments, clone repositories, or repair files.
+
+If `..\pds-core` is missing, clone `pds-core` beside `pds-scoreform` so the
+workspace looks like:
+
+```text
+Paper-Data-Suite/
+  pds-core/
+  pds-scoreform/
+```
+
+Then rerun:
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
+If `pds-core` exists but `pds_core` is not importable, the virtual environment
+has not been installed with the development requirements. Rerun the same
+`requirements-dev.txt` install command using `.venv\Scripts\python.exe`.
+
+If ScoreForm starts with the wrong Python interpreter, confirm that commands
+are using `.venv\Scripts\python.exe` or the `scoreform` command installed into
+that virtual environment. The dependency check intentionally uses the repo-local
+virtual environment directly.
+
+If Poppler or `pdftoppm` is missing, PDF scoring and conversion will fail.
+Install Poppler separately and make sure its `bin` directory is on `PATH`.
+
+If a third-party import such as `cv2`, `numpy`, `reportlab`, `PIL`, or
+`pdf2image` is missing, rerun the development install command above. If
+PowerShell blocks scripts, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1
+```
 
 ## Basic Usage
 
