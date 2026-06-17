@@ -61,6 +61,9 @@ GitHub milestones are project-management buckets. Package versions describe inst
 * Extracted the workspace and school-year CLI command-group implementations
   into focused modules while preserving the existing `scoreform.cli` entry
   point and command dispatch.
+* Extracted top-level CLI help, version, and terminal menu help presentation
+  into a focused module while preserving the existing `scoreform.cli` entry
+  point and command dispatch.
 
 ### Documentation
 

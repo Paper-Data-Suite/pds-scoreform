@@ -2,8 +2,6 @@
 
 import os
 import sys
-from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -17,6 +15,12 @@ from pds_core.school_years import (
 
 from scoreform import workspace
 from scoreform.assignment import load_answer_key, load_assignment
+from scoreform.cli_help import (
+    get_version,  # noqa: F401 - compatibility re-export
+    print_help,
+    print_menu_help,
+    print_version,
+)
 from scoreform.cli_school_year import (
     _format_school_year_timestamp,
     _print_school_year_open_success,
@@ -73,135 +77,6 @@ def pause_for_user():
         input("Press Enter to continue...")
     except KeyboardInterrupt:
         print()
-
-
-def get_version():
-    """Return the local source version, with installed package metadata fallback."""
-    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    try:
-        in_project_section = False
-        for line in pyproject_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if stripped == "[project]":
-                in_project_section = True
-                continue
-            if in_project_section and stripped.startswith("["):
-                break
-            if in_project_section and stripped.startswith("version"):
-                key, separator, value = stripped.partition("=")
-                value = value.strip()
-                if key.strip() == "version" and separator and len(value) >= 2:
-                    if value[0] == value[-1] and value[0] in ("'", '"'):
-                        return value[1:-1]
-    except OSError:
-        pass
-
-    try:
-        return version("scoreform")
-    except PackageNotFoundError:
-        return "unknown"
-
-
-def print_version():
-    print(f"ScoreForm {get_version()}")
-
-
-def print_help():
-    print(
-        """ScoreForm
-A local-first classroom OMR tool for generating printable answer sheets and scoring scanned responses.
-
-Usage:
-  scoreform
-  scoreform menu
-  scoreform generate
-  scoreform generate <assignment.json> --rosters <roster.csv> [more rosters...]
-  scoreform score <scan.pdf>
-  scoreform score <scan.pdf> <output.csv>
-  scoreform score <scan.pdf> <answer_key.json>
-  scoreform score <scan.pdf> <output.csv> <answer_key.json>
-  scoreform decode-qr <file.pdf-or-image>
-  scoreform validate-assignment <assignment.json>
-  scoreform validate-roster <roster.csv>
-  scoreform setup-assignment <assignment.json> <roster.csv>
-  scoreform workspace show
-  scoreform workspace set <path>
-  scoreform workspace validate
-  scoreform workspace reset
-  scoreform school-year show
-  scoreform school-year open <school_year> [--overwrite]
-  scoreform school-year close
-  scoreform help
-  scoreform --help
-  scoreform version
-  scoreform --version
-
-Commands:
-  menu                  Launch the terminal menu.
-  generate              Generate a generic template or assignment-based answer sheets.
-  score                 Score scanned responses.
-  decode-qr             Decode QR metadata from a PDF or image.
-  validate-assignment   Validate an assignment JSON file.
-  validate-roster       Validate a roster CSV file.
-  setup-assignment      Create class and assignment folders.
-  workspace             View or configure the shared PDS workspace root.
-  school-year           View, open, or close the active PDS school year.
-  help                  Show this help text.
-  version               Show the installed ScoreForm version.
-
-Scoring modes:
-  scoreform score scanned_file.pdf
-      QR-aware scoring. Uses QR metadata to locate the assignment and routes results to
-      classes/<class_id>/assignments/<assignment_id>/results.csv.
-
-  scoreform score scanned_file.pdf output.csv
-      QR-aware scoring with an explicit output CSV instead of routed results.
-
-  scoreform score scanned_file.pdf answer_key.json
-      Legacy/manual scoring with an explicit answer key and default local results path.
-
-  scoreform score scanned_file.pdf output.csv answer_key.json
-      Legacy/manual scoring with an explicit answer key and explicit output CSV.
-
-Examples:
-  scoreform
-  scoreform generate examples\\sample_assignment.json --rosters examples\\sample_roster_english9_p2.csv
-  scoreform score scans_inbox\\class_packet.pdf
-  scoreform decode-qr classes\\english9_p2\\assignments\\rj_act1_quiz\\templates\\class_packet.pdf
-  scoreform validate-assignment examples\\sample_assignment.json
-  scoreform validate-roster examples\\sample_roster_english9_p2.csv
-  scoreform workspace show
-  scoreform workspace set "C:\\Users\\teacher\\Paper Data Suite"
-  scoreform workspace validate
-  scoreform workspace reset
-  scoreform school-year show
-  scoreform school-year open 2026-2027
-  scoreform school-year close
-
-Notes:
-  Running scoreform with no arguments launches the terminal menu.
-  python main.py remains supported for backward compatibility."""
-    )
-
-
-def print_menu_help():
-    print_menu_header("Help")
-    print("ScoreForm generates printable answer sheets and scores scanned responses.")
-    print()
-    print("Typical workflow:")
-    print("  1. Create or validate a roster CSV.")
-    print("  2. Create or validate an assignment JSON file.")
-    print("  3. Generate answer sheets.")
-    print("  4. Scan completed sheets.")
-    print("  5. Score scanned responses.")
-    print("  6. Inspect routed results.")
-    print()
-    print("QR-aware routed scoring writes to:")
-    print("  classes/<class_id>/assignments/<assignment_id>/results.csv")
-    print()
-    print("Routed results are an audit log, not a finalized gradebook export.")
-    print("Manually verify scores before using them for grades.")
-    print()
 
 
 def run_generate(args):

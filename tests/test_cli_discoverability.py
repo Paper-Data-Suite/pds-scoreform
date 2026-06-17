@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import scoreform.cli
+import scoreform.cli_help
 from scoreform import workflows
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -64,9 +65,18 @@ def test_version_command_prints_package_version():
 
 
 def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch):
-    monkeypatch.setattr(scoreform.cli, "version", lambda package_name: "0.4.0")
+    monkeypatch.setattr(scoreform.cli_help, "version", lambda package_name: "0.4.0")
 
     assert scoreform.cli.get_version() == "0.8.1"
+
+
+def test_main_without_args_can_print_help_without_launching_menu(capsys):
+    assert scoreform.cli.main([], default_to_menu=False) == 1
+
+    output = capsys.readouterr().out
+    assert "ScoreForm" in output
+    assert "Commands:" in output
+    assert "Running scoreform with no arguments launches the terminal menu." in output
 
 
 def test_menu_help_can_return_to_menu_and_exit():
