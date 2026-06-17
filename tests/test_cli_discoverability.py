@@ -7,7 +7,13 @@ from pathlib import Path
 import scoreform.cli
 import scoreform.cli_help
 import scoreform.cli_score
-from scoreform import workflows
+from scoreform import (
+    assignment_workflows,
+    generate_workflows,
+    menu_scoring,
+    qr_workflows,
+    workflows,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,6 +55,30 @@ def test_assignment_workflows_do_not_import_menu_actions_from_cli():
         )
         for node in ast.walk(tree)
     )
+
+
+def test_production_code_does_not_use_transitional_sync_bridges():
+    forbidden_patterns = {
+        'sys.modules.get("scoreform.cli")',
+        'sys.modules["scoreform.cli"]',
+        'sys.modules.get("scoreform.workflows")',
+        'sys.modules["scoreform.workflows"]',
+        "_sync_compat_from_cli_if_loaded",
+        "_sync_menu_scoring_compat",
+        "_sync_shared_helpers_from_workflows",
+        "_patched_cli_function",
+        "globals()[",
+    }
+    production_files = sorted((PROJECT_ROOT / "scoreform").glob("*.py"))
+    offenders = []
+
+    for path in production_files:
+        source = path.read_text(encoding="utf-8")
+        for pattern in forbidden_patterns:
+            if pattern in source:
+                offenders.append(f"{path.relative_to(PROJECT_ROOT)}: {pattern}")
+
+    assert offenders == []
 
 
 def assert_help_output(result):
@@ -147,8 +177,12 @@ def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_pa
         Path(output_path).write_text("class packet", encoding="utf-8")
         return True
 
-    monkeypatch.setattr(scoreform.cli, "generate_student_pdf", fake_student_pdf)
-    monkeypatch.setattr(scoreform.cli, "generate_class_packet_pdf", fake_class_packet)
+    monkeypatch.setattr(generate_workflows, "generate_student_pdf", fake_student_pdf)
+    monkeypatch.setattr(
+        generate_workflows,
+        "generate_class_packet_pdf",
+        fake_class_packet,
+    )
     responses = iter(["1", "4", "1", "1", "1", "y", "", "8", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
@@ -173,7 +207,7 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
     def fake_generate_template():
         generated.append(True)
 
-    monkeypatch.setattr(scoreform.cli, "generate_template", fake_generate_template)
+    monkeypatch.setattr(generate_workflows, "generate_template", fake_generate_template)
     responses = iter(["1", "4", "2", "", "8", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
@@ -227,7 +261,7 @@ def test_menu_view_assignment_results_displays_selected_assignment_results(
 
     responses = iter(["1", "6", "1", "1", "8", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(workflows, "pause_for_user", lambda: None)
+    monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -271,7 +305,7 @@ def test_menu_view_assignment_results_reports_missing_results_csv(
 
     responses = iter(["1", "6", "1", "1", "8", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(workflows, "pause_for_user", lambda: None)
+    monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -418,8 +452,8 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     responses = iter(["1", "5", "1", "2", "1", "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -446,8 +480,8 @@ def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_pa
     responses = iter(["1", "5", "1", "99", "2", "custom_scan.pdf", "1", "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -473,8 +507,8 @@ def test_menu_score_manual_scoring_with_explicit_output_preserves_quoted_path_no
     ])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -486,8 +520,8 @@ def test_menu_score_manual_scoring_with_answer_key_only(monkeypatch):
     responses = iter(["1", "5", "2", "scan.pdf", "2", "answer_key.json", "", "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -500,8 +534,8 @@ def test_menu_score_manual_scoring_rejects_blank_answer_key(monkeypatch, capsys)
     responses = iter(["1", "5", "2", "scan.pdf", "2", "", "3", "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -518,8 +552,8 @@ def test_menu_score_invalid_scoring_mode_returns_to_mode_selection(monkeypatch, 
     responses = iter(["1", "5", "2", "scan.pdf", "9", "3", "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
-    monkeypatch.setattr(scoreform.cli, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -535,8 +569,8 @@ def test_menu_decode_qr_runs_from_assignment_management(monkeypatch):
     responses = iter(["1", "7", '"scan with qr.pdf"', "8", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(workflows, "pause_for_user", lambda: None)
-    monkeypatch.setattr(scoreform.cli, "run_decode_qr", lambda args: decode_calls.append(args) or 0)
+    monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
+    monkeypatch.setattr(qr_workflows, "run_decode_qr", lambda args: decode_calls.append(args) or 0)
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -546,7 +580,7 @@ def test_menu_decode_qr_runs_from_assignment_management(monkeypatch):
 def test_prompt_select_scan_from_inbox_handles_missing_and_empty_inbox(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     pauses = []
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: pauses.append("pause"))
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
 
     assert scoreform.cli.prompt_select_scan_from_inbox() is None
 
@@ -573,16 +607,16 @@ def test_prompt_select_scan_from_inbox_uses_core_route_by_default(
     discovery_calls = []
 
     monkeypatch.setattr(
-        scoreform.cli,
+        menu_scoring,
         "scans_inbox_dir",
         lambda root: route_calls.append(root) or Path(root) / "scans_inbox",
     )
     monkeypatch.setattr(
-        scoreform.cli,
+        menu_scoring,
         "discover_scans_in_inbox",
         lambda scans_dir: discovery_calls.append(scans_dir) or [],
     )
-    monkeypatch.setattr(scoreform.cli, "pause_for_user", lambda: None)
+    monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
 
     assert scoreform.cli.prompt_select_scan_from_inbox() is None
     assert route_calls == [tmp_path]

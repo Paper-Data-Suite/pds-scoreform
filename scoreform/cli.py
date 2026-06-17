@@ -3,7 +3,7 @@
 import os
 import sys
 
-from pds_core.scan_routes import scans_inbox_dir
+from pds_core.scan_routes import scans_inbox_dir  # noqa: F401 - compatibility re-export
 from pds_core.school_years import (
     SchoolYearStateError,
     close_school_year,
@@ -50,7 +50,7 @@ from scoreform.templates import (
 from scoreform.workflows import (
     discover_class_assignments,  # noqa: F401 - compatibility re-export
     discover_class_rosters,  # noqa: F401 - compatibility re-export
-    discover_scans_in_inbox,
+    discover_scans_in_inbox,  # noqa: F401 - compatibility re-export
     normalize_path_input,
     parse_single_selection,  # noqa: F401 - compatibility re-export
     print_menu_header,
@@ -71,47 +71,29 @@ def pause_for_user():
         print()
 
 
-def _sync_menu_scoring_compat():
-    """Keep legacy scoreform.cli monkeypatch targets effective for menu scoring."""
-    _menu_scoring.clear_screen = clear_screen
-    _menu_scoring.pause_for_user = pause_for_user
-    _menu_scoring.run_score = run_score
-    _menu_scoring.discover_scans_in_inbox = discover_scans_in_inbox
-    _menu_scoring.scans_inbox_dir = scans_inbox_dir
-
-
 def prompt_select_scan_from_inbox(scans_dir=None):
     """Compatibility wrapper for interactive scan inbox selection."""
-    _sync_menu_scoring_compat()
     return _menu_scoring.prompt_select_scan_from_inbox(scans_dir)
 
 
 def prompt_scoring_input_file():
     """Compatibility wrapper for interactive scan path selection."""
-    _sync_menu_scoring_compat()
     return _menu_scoring.prompt_scoring_input_file()
 
 
 def run_menu_qr_aware_routed_scoring(input_file):
     """Compatibility wrapper for QR-aware menu scoring."""
-    _sync_menu_scoring_compat()
     return _menu_scoring.run_menu_qr_aware_routed_scoring(input_file)
 
 
 def run_menu_manual_scoring(input_file):
     """Compatibility wrapper for manual menu scoring."""
-    _sync_menu_scoring_compat()
     return _menu_scoring.run_menu_manual_scoring(input_file)
 
 
 def prompt_scoring_mode(input_file):
     """Compatibility wrapper for selecting the interactive scoring mode."""
-    _sync_menu_scoring_compat()
     return _menu_scoring.prompt_scoring_mode(input_file)
-
-
-_ORIGINAL_PROMPT_SCORING_INPUT_FILE = prompt_scoring_input_file
-_ORIGINAL_PROMPT_SCORING_MODE = prompt_scoring_mode
 
 
 def run_generate(args):
@@ -189,15 +171,9 @@ def run_decode_qr(args):
     return _qr_workflows.run_decode_qr(args)
 
 
-_ORIGINAL_RUN_DECODE_QR = run_decode_qr
-
-
 def launch_generate_menu():
     """Teacher-centered generate submenu for interactive menu use."""
     return _generate_workflows.launch_generate_menu()
-
-
-_ORIGINAL_LAUNCH_GENERATE_MENU = launch_generate_menu
 
 
 def launch_school_year_menu():

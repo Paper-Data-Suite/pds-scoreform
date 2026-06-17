@@ -5,7 +5,7 @@ from pds_core.classes import ClassFolder
 from pds_core.rosters import Roster as CoreRoster
 from pds_core.rosters import RosterWriteError, StudentRecord
 
-from scoreform import assignment, roster, workflows
+from scoreform import assignment, assignment_workflows, roster, workflows
 
 
 def test_print_menu_header_uses_plain_text_for_captured_output(capsys):
@@ -778,7 +778,7 @@ def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, mon
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     output_path = tmp_path / "classes" / "english_9_period_2" / "assignments" / "romeo_and_juliet_act_1_quiz" / "assignment.json"
     loaded = assignment.load_assignment(str(output_path))
@@ -829,12 +829,12 @@ def test_prompt_create_assignment_uses_core_assignment_folder_helper(
 
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
     monkeypatch.setattr(
-        workflows,
+        assignment_workflows,
         "ensure_core_assignment_folder",
         fake_ensure_assignment_folder,
     )
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
     assert calls == [(Path(tmp_path), "class_a", "unit_1_quiz")]
     assert (
         tmp_path
@@ -865,7 +865,7 @@ def test_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch)
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     for class_id in ["class_a", "class_b"]:
         output_path = tmp_path / "classes" / class_id / "assignments" / "unit_3_test" / "assignment.json"
@@ -897,7 +897,7 @@ def test_prompt_create_assignment_skips_existing_without_confirmation(tmp_path, 
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 1
+    assert assignment_workflows.prompt_create_assignment() == 1
     assert output_path.read_text(encoding="utf-8") == original_content
 
 

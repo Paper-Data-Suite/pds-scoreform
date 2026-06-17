@@ -10,7 +10,7 @@ from pds_core.standards import (
     write_workspace_standards_library,
 )
 
-from scoreform import workflows
+from scoreform import assignment_workflows, workflows
 
 
 def _write_roster(tmp_path, class_id="test_class"):
@@ -64,7 +64,7 @@ def _standard(standard_id, code):
 def test_edit_assignment_handles_no_available_classes(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
 
-    assert workflows.prompt_edit_assignment() == 1
+    assert assignment_workflows.prompt_edit_assignment() == 1
 
     output = capsys.readouterr().out
     assert "No class rosters found." in output
@@ -80,7 +80,7 @@ def test_edit_assignment_handles_class_with_no_assignments(
     responses = iter(["1"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 1
+    assert assignment_workflows.prompt_edit_assignment() == 1
 
     output = capsys.readouterr().out
     assert "No assignments found for class 'test_class'." in output
@@ -97,7 +97,7 @@ def test_edit_assignment_reports_invalid_load_cleanly(
     path.parent.mkdir(parents=True)
     path.write_text("{bad json", encoding="utf-8")
     monkeypatch.setattr(
-        workflows,
+        assignment_workflows,
         "discover_class_assignments",
         lambda _class_id: [{
             "assignment_id": "unit_1",
@@ -111,7 +111,7 @@ def test_edit_assignment_reports_invalid_load_cleanly(
     responses = iter(["1", "1"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 1
+    assert assignment_workflows.prompt_edit_assignment() == 1
 
     output = capsys.readouterr().out
     assert "Could not load assignment" in output
@@ -124,18 +124,18 @@ def test_title_change_is_staged_until_save(tmp_path, monkeypatch):
     path = _write_assignment(tmp_path)
     before = path.read_text(encoding="utf-8")
     writes = []
-    real_write = workflows.write_assignment_json
+    real_write = assignment_workflows.write_assignment_json
 
     def spy_write(write_path, assignment):
         assert path.read_text(encoding="utf-8") == before
         writes.append((Path(write_path), assignment["title"]))
         return real_write(write_path, assignment)
 
-    monkeypatch.setattr(workflows, "write_assignment_json", spy_write)
+    monkeypatch.setattr(assignment_workflows, "write_assignment_json", spy_write)
     responses = iter(["1", "1", "1", "Corrected Title", "5", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     saved = _load_json(path)
     assert saved["title"] == "Corrected Title"
@@ -154,7 +154,7 @@ def test_blank_title_is_rejected_and_discard_writes_nothing(
     responses = iter(["1", "1", "1", "", "6"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
 
@@ -172,7 +172,7 @@ def test_answer_key_change_preserves_locked_fields_and_saves_only_selected_assig
     responses = iter(["1", "1", "2", "2", "D", "", "5", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     saved = _load_json(path)
     assert saved["answer_key"] == {"1": "A", "2": "D", "3": "C"}
@@ -206,7 +206,7 @@ def test_answer_key_editor_can_stage_multiple_different_answers_in_one_session(
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     saved = _load_json(path)
     assert saved["answer_key"] == {"1": "A", "2": "A", "3": "D"}
@@ -227,11 +227,11 @@ def test_answer_key_editor_rejects_comma_separated_bulk_selection(
         writes.append((write_path, assignment))
         raise AssertionError("comma-separated answer-key edit should not be saved")
 
-    monkeypatch.setattr(workflows, "write_assignment_json", fail_write)
+    monkeypatch.setattr(assignment_workflows, "write_assignment_json", fail_write)
     responses = iter(["1", "1", "2", "2,3", "", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     assert writes == []
@@ -262,7 +262,7 @@ def test_invalid_answer_key_question_selections_are_rejected_without_saving(
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     output = capsys.readouterr().out
@@ -283,7 +283,7 @@ def test_invalid_answer_key_answer_choice_is_rejected_without_saving(
     responses = iter(["1", "1", "2", "2", "Z", "", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     output = capsys.readouterr().out
@@ -306,11 +306,11 @@ def test_no_op_answer_key_edit_does_not_make_assignment_dirty(
         writes.append((write_path, assignment))
         raise AssertionError("no-op answer-key edit should not be saved")
 
-    monkeypatch.setattr(workflows, "write_assignment_json", fail_write)
+    monkeypatch.setattr(assignment_workflows, "write_assignment_json", fail_write)
     responses = iter(["1", "1", "2", "2", "b", "", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     assert writes == []
@@ -331,7 +331,7 @@ def test_cancel_with_unsaved_changes_requires_discard_confirmation(
     responses = iter(["1", "1", "1", "Draft Title", "6", "no", "6", "DISCARD"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
 
@@ -347,7 +347,7 @@ def test_staged_answer_key_edits_are_discarded_without_writing(
     responses = iter(["1", "1", "2", "2", "D", "", "6", "DISCARD"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
 
@@ -371,7 +371,11 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
     def fail_library_write(*_args, **_kwargs):
         raise AssertionError("standards library should not be written")
 
-    monkeypatch.setattr(workflows, "write_workspace_standards_library", fail_library_write)
+    monkeypatch.setattr(
+        assignment_workflows,
+        "write_workspace_standards_library",
+        fail_library_write,
+    )
     responses = iter([
         "1",
         "1",
@@ -391,7 +395,7 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     saved = _load_json(path)
     assert saved["standards"] == {
@@ -412,7 +416,7 @@ def test_save_failure_does_not_claim_success(tmp_path, monkeypatch, capsys):
     def fail_write(_path, _assignment):
         return False
 
-    monkeypatch.setattr(workflows, "write_assignment_json", fail_write)
+    monkeypatch.setattr(assignment_workflows, "write_assignment_json", fail_write)
     responses = iter([
         "1",
         "1",
@@ -425,7 +429,7 @@ def test_save_failure_does_not_claim_success(tmp_path, monkeypatch, capsys):
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert path.read_text(encoding="utf-8") == before
     output = capsys.readouterr().out
@@ -456,7 +460,7 @@ def test_assignment_edit_does_not_touch_generated_results_scans_or_roster(
     responses = iter(["1", "1", "2", "1", "B", "", "5", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
-    assert workflows.prompt_edit_assignment() == 0
+    assert assignment_workflows.prompt_edit_assignment() == 0
 
     assert roster_path.read_text(encoding="utf-8") == roster_before
     for generated_path, text in generated_files.items():

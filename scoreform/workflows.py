@@ -17,9 +17,6 @@ import sys
 from pathlib import Path
 
 from pds_core.assignments import (
-    ensure_assignment_folder as ensure_core_assignment_folder,
-)
-from pds_core.assignments import (
     list_assignment_folders as list_core_assignment_folders,
 )
 from pds_core.classes import (
@@ -39,7 +36,6 @@ from pds_core.rosters import (
     write_roster as write_core_roster,
 )
 from pds_core.scan_routes import scans_inbox_dir
-from pds_core.standards import write_workspace_standards_library
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
@@ -372,22 +368,6 @@ def _roster_workflows_module():
 def _assignment_workflows_module():
     from scoreform import assignment_workflows
 
-    assignment_workflows.clear_screen = clear_screen
-    assignment_workflows.discover_class_assignments = discover_class_assignments
-    assignment_workflows.discover_class_rosters = discover_class_rosters
-    assignment_workflows.ensure_core_assignment_folder = (
-        ensure_core_assignment_folder
-    )
-    assignment_workflows.normalize_path_input = normalize_path_input
-    assignment_workflows.parse_class_selection = parse_class_selection
-    assignment_workflows.parse_single_selection = parse_single_selection
-    assignment_workflows.pause_for_user = pause_for_user
-    assignment_workflows.print_menu_header = print_menu_header
-    assignment_workflows.suggest_assignment_id = suggest_assignment_id
-    assignment_workflows.write_assignment_json = write_assignment_json
-    assignment_workflows.write_workspace_standards_library = (
-        write_workspace_standards_library
-    )
     return assignment_workflows
 
 

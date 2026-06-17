@@ -10,7 +10,7 @@ from pds_core.standards import (
     write_workspace_standards_library,
 )
 
-from scoreform import assignment, standards_workflows, workflows
+from scoreform import assignment, assignment_workflows, standards_workflows, workflows
 
 
 def make_standard(
@@ -117,7 +117,11 @@ def test_prompt_create_assignment_skip_standards_writes_empty_alignment_without_
     def fail_write(*_args, **_kwargs):
         raise AssertionError("standards library should not be written")
 
-    monkeypatch.setattr(workflows, "write_workspace_standards_library", fail_write)
+    monkeypatch.setattr(
+        assignment_workflows,
+        "write_workspace_standards_library",
+        fail_write,
+    )
     responses = iter([
         "1",
         "Standards Assignment",
@@ -129,7 +133,7 @@ def test_prompt_create_assignment_skip_standards_writes_empty_alignment_without_
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
     assert saved["standards"] == {"1": [], "2": []}
@@ -173,7 +177,7 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
     assert saved["standards"] == {
@@ -224,7 +228,7 @@ def test_prompt_create_assignment_creates_shared_standard_then_attaches_id_only(
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
     assert saved["standards"] == {
@@ -259,7 +263,7 @@ def test_attach_existing_empty_library_returns_to_menu_and_can_skip(
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
-    assert workflows.prompt_create_assignment() == 0
+    assert assignment_workflows.prompt_create_assignment() == 0
 
     output = capsys.readouterr().out
     assert "No shared standards exist yet." in output

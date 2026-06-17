@@ -1,7 +1,6 @@
 """Generate answer-sheet command and menu workflows."""
 
 import os
-import sys
 
 from scoreform.assignment import load_assignment
 from scoreform.folders import setup_assignment_folder
@@ -22,30 +21,8 @@ from scoreform.workflows import (
 )
 
 
-def _sync_compat_from_cli_if_loaded():
-    """Keep legacy scoreform.cli monkeypatch targets effective when present."""
-    cli_module = sys.modules.get("scoreform.cli")
-    if cli_module is None:
-        return
-
-    for name in (
-        "clear_screen",
-        "pause_for_user",
-        "print_menu_header",
-        "discover_class_rosters",
-        "discover_class_assignments",
-        "parse_single_selection",
-        "generate_template",
-        "generate_student_pdf",
-        "generate_class_packet_pdf",
-    ):
-        if hasattr(cli_module, name):
-            globals()[name] = getattr(cli_module, name)
-
-
 def run_generate(args):
     """Generate blank templates or assignment-specific answer sheets."""
-    _sync_compat_from_cli_if_loaded()
     if not args:
         generate_template()
         return 0
@@ -122,7 +99,6 @@ def run_generate(args):
 
 def launch_generate_menu():
     """Teacher-centered generate submenu for interactive menu use."""
-    _sync_compat_from_cli_if_loaded()
     try:
         while True:
             clear_screen()
