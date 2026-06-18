@@ -12,6 +12,7 @@ from scoreform.scan_filing import (
     skipped_scan_filing_for_batch_outcome,
 )
 from scoreform.scoring import (
+    ManualScoringSummary,
     get_qr_batch_summary,
     print_qr_batch_summary,
     process_file,
@@ -19,6 +20,22 @@ from scoreform.scoring import (
     save_qr_batch_summary,
     update_qr_batch_result_write_status,
 )
+
+
+def _get_manual_scoring_summary(results_data):
+    summary = getattr(results_data, "summary", None)
+    if isinstance(summary, ManualScoringSummary):
+        return summary
+
+    scored = len(results_data) if results_data else 0
+    return ManualScoringSummary(
+        pages_processed=scored,
+        pages_scored=scored,
+    )
+
+
+def _print_manual_scoring_summary(summary):
+    print(summary.format())
 
 
 def run_score(args):
@@ -82,7 +99,7 @@ def run_score(args):
                 workspace_root=workspace_root,
             )
             return summary.exit_code() if summary is not None else 1
-        print("Error: No pages were scored successfully.")
+        _print_manual_scoring_summary(_get_manual_scoring_summary(results_data))
         return 1
 
     if use_qr_aware and not explicit_output_csv:
@@ -114,6 +131,7 @@ def run_score(args):
             )
             return summary.exit_code() if summary is not None else 1
         print("Error: Failed to export results.")
+        _print_manual_scoring_summary(_get_manual_scoring_summary(results_data))
         return 1
 
     if use_qr_aware:
@@ -142,5 +160,9 @@ def run_score(args):
             workspace_root=workspace_root,
         )
         return summary.exit_code() if summary is not None else 0
+
+    manual_summary = _get_manual_scoring_summary(results_data)
+    if manual_summary.failures or manual_summary.pages_processed > 1:
+        _print_manual_scoring_summary(manual_summary)
 
     return 0
