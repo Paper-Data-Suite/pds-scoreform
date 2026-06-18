@@ -885,7 +885,7 @@ scoreform score path\to\scan.pdf
 
 QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`.
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
-After routed result export succeeds, ScoreForm files a timestamped `_scored` copy of the original source scan into the assignment's `scans/` folder when the successfully scored pages resolve to exactly one `(class_id, assignment_id)` target. The original source file is preserved. If the successfully scored pages span multiple assignments, or if the source scan is unavailable, ScoreForm skips scan filing without treating the result export as failed.
+ScoreForm automatically files a timestamped `_scored` copy of the original source scan only when a QR-aware batch has full success and resolves to exactly one `(class_id, assignment_id)` target. The original source file is preserved. Partial-success, zero-success, export-failure, multi-target, and unavailable-source batches are not filed automatically. For those cases, review the saved QR batch summary and handle the source scan manually; skipping scan filing does not make a successful result export fail.
 
 QR-aware scoring uses these batch outcomes and exit codes:
 
