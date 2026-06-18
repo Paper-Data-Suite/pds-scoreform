@@ -91,7 +91,11 @@ def run_score(args):
             workspace_root=workspace_root,
         )
     else:
-        export_success = export_to_csv(results_data, output_file)
+        export_success = export_to_csv(
+            results_data,
+            output_file,
+            workspace_root=workspace_root,
+        )
 
     if not export_success:
         if use_qr_aware:

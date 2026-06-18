@@ -445,7 +445,7 @@ def test_process_file_qr_aware_resolves_workspace_once_for_multi_page_pdf(
     assert results.summary.pages_skipped_failed == 0
 
 
-def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(
+def test_save_qr_failure_diagnostics_defaults_to_qr_region_images(
     tmp_path,
     monkeypatch,
 ):
@@ -460,13 +460,34 @@ def test_save_qr_failure_diagnostics_uses_date_folder_and_bounded_images(
     )
 
     expected_dir = tmp_path / "local_outputs" / "qr_failures" / "2026-06-10"
-    assert len(paths) == 6
+    assert len(paths) == 5
     assert all(Path(path).parent == expected_dir for path in paths)
     assert all(Path(path).exists() for path in paths)
-    assert any(path.endswith("page_2.png") for path in paths)
-    assert any(path.endswith("qr_crop_tight.png") for path in paths)
+    assert any(path.endswith("page_2_qr_region.png") for path in paths)
+    assert any(path.endswith("qr_region_tight.png") for path in paths)
     assert any(path.endswith("qr_crop_tight_threshold_padded_5x.png") for path in paths)
-    assert cv2.imread(paths[-1]) is not None
+    assert all(cv2.imread(path).shape[:2] != image.shape[:2] for path in paths)
+    assert not any("full_page" in Path(path).name for path in paths)
+
+
+def test_save_qr_failure_diagnostics_full_page_requires_debug_opt_in(
+    tmp_path,
+    monkeypatch,
+):
+    image = np.ones((400, 300, 3), dtype=np.uint8) * 255
+    monkeypatch.setenv("PDS_SCOREFORM_FULL_PAGE_DIAGNOSTICS", "1")
+
+    paths = scoring.save_qr_failure_diagnostics(
+        image,
+        "scan.pdf",
+        page_num=3,
+    )
+
+    full_page_paths = [
+        path for path in paths if Path(path).name.endswith("_full_page_debug.png")
+    ]
+    assert len(full_page_paths) == 1
+    assert cv2.imread(full_page_paths[0]).shape[:2] == image.shape[:2]
 
 
 def test_missing_qr_decode_saves_failure_diagnostics(tmp_path, monkeypatch):
@@ -489,9 +510,10 @@ def test_missing_qr_decode_saves_failure_diagnostics(tmp_path, monkeypatch):
     )
 
     assert result.failure_category == "missing_qr"
-    assert len(result.diagnostic_paths) == 6
+    assert len(result.diagnostic_paths) == 5
     assert all(Path(path).exists() for path in result.diagnostic_paths)
     assert all("qr_failures" in Path(path).parts for path in result.diagnostic_paths)
+    assert any("qr_region" in Path(path).name for path in result.diagnostic_paths)
 
 
 def test_save_qr_batch_summary_includes_failures_and_result_paths(
