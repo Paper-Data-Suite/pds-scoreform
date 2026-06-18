@@ -23,6 +23,34 @@ class ScanFilingResult:
         return self.filed_path is not None
 
 
+def skipped_scan_filing_for_batch_outcome(outcome):
+    """Return the conservative filing decision for a non-successful QR batch."""
+    if outcome == "partial_success":
+        return ScanFilingResult(
+            warning=(
+                "Scan filing skipped: QR batch was PARTIAL SUCCESS.\n"
+                "The source scan was not filed automatically because one or more "
+                "pages failed or were skipped.\n"
+                "Review the saved QR batch summary before filing the original scan "
+                "manually."
+            )
+        )
+    if outcome in {"zero_success", "export_failure"}:
+        return ScanFilingResult(
+            warning=(
+                "Scan filing skipped: QR batch did not complete successfully.\n"
+                "The source scan was not filed automatically. Review the QR batch "
+                "summary before filing it manually."
+            )
+        )
+    return ScanFilingResult(
+        warning=(
+            "Scan filing skipped: QR batch status was unavailable.\n"
+            "The source scan was not filed automatically."
+        )
+    )
+
+
 def _single_assignment_target(results):
     if any(
         not result.get("class_id") or not result.get("assignment_id")
@@ -87,7 +115,10 @@ def file_original_scan_copy(
         return ScanFilingResult(skipped_reason="no assignment target was detected")
     if target == "multiple":
         return ScanFilingResult(
-            skipped_reason="multiple assignment targets were detected",
+            skipped_reason=(
+                "source scan was not filed because scored pages resolved to "
+                "multiple assignment targets"
+            ),
         )
 
     source_path = os.fspath(source_path)

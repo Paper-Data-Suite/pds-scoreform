@@ -117,7 +117,9 @@ def test_mixed_target_results_skip_filing(tmp_path):
     )
 
     assert not result.filed
-    assert result.skipped_reason == "multiple assignment targets were detected"
+    assert "scored pages resolved to multiple assignment targets" in (
+        result.skipped_reason
+    )
     assert not (tmp_path / "classes").exists()
 
 
@@ -172,3 +174,24 @@ def test_scan_filing_output_uses_filing_vocabulary(capsys):
     assert "filed scan copy" in output
     assert "original scan preserved" in output
     assert "archive" not in output
+
+
+def test_partial_success_skip_prints_clear_warning(capsys):
+    result = scan_filing.skipped_scan_filing_for_batch_outcome("partial_success")
+
+    scan_filing.print_scan_filing_result(result)
+
+    output = capsys.readouterr().out
+    assert "Scan filing skipped: QR batch was PARTIAL SUCCESS." in output
+    assert "one or more pages failed or were skipped" in output
+    assert "Review the saved QR batch summary" in output
+    assert "source scan was not filed automatically" in output
+
+
+def test_failure_outcomes_skip_scan_filing():
+    for outcome in ("zero_success", "export_failure"):
+        result = scan_filing.skipped_scan_filing_for_batch_outcome(outcome)
+
+        assert not result.filed
+        assert "did not complete successfully" in result.warning
+        assert "not filed automatically" in result.warning

@@ -6,7 +6,11 @@ from scoreform import workspace
 from scoreform.assignment import load_answer_key
 from scoreform.config import LOCAL_RESULTS_CSV
 from scoreform.results import export_routed_results, export_to_csv
-from scoreform.scan_filing import file_original_scan_copy, print_scan_filing_result
+from scoreform.scan_filing import (
+    file_original_scan_copy,
+    print_scan_filing_result,
+    skipped_scan_filing_for_batch_outcome,
+)
 from scoreform.scoring import (
     get_qr_batch_summary,
     print_qr_batch_summary,
@@ -108,14 +112,6 @@ def run_score(args):
         print("Error: Failed to export results.")
         return 1
 
-    if use_qr_aware and not explicit_output_csv:
-        filing_result = file_original_scan_copy(
-            results_data,
-            input_file,
-            workspace_root=workspace_root,
-        )
-        print_scan_filing_result(filing_result)
-
     if use_qr_aware:
         update_qr_batch_result_write_status(
             results_data,
@@ -124,6 +120,17 @@ def run_score(args):
             workspace_root=workspace_root,
         )
         summary = get_qr_batch_summary(results_data)
+        if not explicit_output_csv:
+            if summary is not None and summary.outcome() == "full_success":
+                filing_result = file_original_scan_copy(
+                    results_data,
+                    input_file,
+                    workspace_root=workspace_root,
+                )
+            else:
+                outcome = summary.outcome() if summary is not None else None
+                filing_result = skipped_scan_filing_for_batch_outcome(outcome)
+            print_scan_filing_result(filing_result)
         print_qr_batch_summary(summary)
         save_qr_batch_summary(
             summary,

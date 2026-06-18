@@ -1,4 +1,4 @@
-from scoreform import cli, cli_score
+from scoreform import cli, cli_score, scoring
 
 
 def _result():
@@ -18,10 +18,13 @@ def test_qr_routed_scoring_files_scan_after_routed_export(tmp_path, monkeypatch)
     scan.write_bytes(b"scan")
     calls = []
 
+    results = scoring.QRBatchResults([_result()])
+    results.summary.record_processed_page()
+    results.summary.record_scored_page()
     monkeypatch.setattr(
         cli_score,
         "process_file_qr_aware",
-        lambda input_file, workspace_root=None: [_result()],
+        lambda input_file, workspace_root=None: results,
     )
 
     def export_routed(results, workspace_root=None):
@@ -47,6 +50,85 @@ def test_qr_routed_scoring_files_scan_after_routed_export(tmp_path, monkeypatch)
 
     assert cli.run_score([str(scan)]) == 0
     assert calls == ["export", "file"]
+
+
+def test_partial_success_skips_scan_filing_and_exits_zero(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"scan")
+    results = scoring.QRBatchResults([_result()])
+    results.summary.record_processed_page()
+    results.summary.record_processed_page()
+    results.summary.record_scored_page()
+    results.summary.record_failure(2, "missing_qr", "missing QR code")
+    filed = []
+
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: results,
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "export_routed_results",
+        lambda all_results, workspace_root=None: True,
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "file_original_scan_copy",
+        lambda *args, **kwargs: filed.append(args),
+    )
+
+    assert cli.run_score([str(scan)]) == 0
+
+    output = capsys.readouterr().out
+    assert filed == []
+    assert "Scan filing skipped: QR batch was PARTIAL SUCCESS." in output
+    assert "source scan was not filed automatically" in output
+    assert "Batch status: PARTIAL SUCCESS" in output
+
+
+def test_full_success_mixed_targets_skips_scan_filing_with_clear_message(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"scan")
+    results = scoring.QRBatchResults(
+        [
+            _result(),
+            {
+                **_result(),
+                "page_num": 2,
+                "assignment_id": "another_quiz",
+                "student_id": "1002",
+            },
+        ]
+    )
+    for _ in results:
+        results.summary.record_processed_page()
+        results.summary.record_scored_page()
+
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: results,
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "export_routed_results",
+        lambda all_results, workspace_root=None: True,
+    )
+
+    assert cli.run_score([str(scan)]) == 0
+
+    output = capsys.readouterr().out
+    assert "scored pages resolved to multiple assignment targets" in output
+    assert not (tmp_path / "classes").exists()
 
 
 def test_explicit_output_csv_skips_scan_filing(tmp_path, monkeypatch):
