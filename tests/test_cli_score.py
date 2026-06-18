@@ -1,4 +1,8 @@
+import sys
+import types
 from pathlib import Path
+
+import numpy as np
 
 from scoreform import cli, cli_score, scoring
 
@@ -238,6 +242,107 @@ def test_qr_aware_partial_success_exits_zero_and_warns_in_saved_summary(
     assert "Batch status: PARTIAL SUCCESS" in saved_text
     assert scoring.QR_PARTIAL_SUCCESS_WARNING in saved_text
     assert "- Page 2: missing QR code" in saved_text
+
+
+def test_manual_pdf_tracks_partial_success_and_registration_failure(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    scan_path = tmp_path / "scan.pdf"
+    scan_path.write_bytes(b"synthetic")
+    pages = [
+        np.ones((20, 20, 3), dtype=np.uint8),
+        np.ones((20, 20, 3), dtype=np.uint8),
+        np.ones((20, 20, 3), dtype=np.uint8),
+    ]
+    score_results = [_result(), None, _result()]
+    score_results[0]["page_num"] = 1
+    score_results[2]["page_num"] = 3
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image",
+        types.SimpleNamespace(convert_from_path=lambda _path: pages),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "pdf2image.exceptions",
+        types.SimpleNamespace(PDFInfoNotInstalledError=RuntimeError),
+    )
+    monkeypatch.setattr(
+        scoring,
+        "score_image",
+        lambda *_args, **_kwargs: score_results.pop(0),
+    )
+
+    results = scoring.process_file(str(scan_path), {1: "A"})
+
+    assert [result["page_num"] for result in results] == [1, 3]
+    assert results.summary.pages_processed == 3
+    assert results.summary.pages_scored == 2
+    assert results.summary.pages_failed_skipped == 1
+    assert results.summary.failures[0].page_num == 2
+    assert "registration/corner detection failed" in capsys.readouterr().out
+
+
+def test_manual_partial_success_exports_and_prints_incomplete_warning(
+    monkeypatch,
+    capsys,
+):
+    results = scoring.ManualScoringResults([_result(), _result()])
+    results[1]["page_num"] = 3
+    results.summary.pages_processed = 3
+    results.summary.pages_scored = 2
+    results.summary.record_failure(2, "registration/corner detection failed.")
+    exported = []
+
+    monkeypatch.setattr(cli_score, "load_answer_key", lambda _path: {1: "A"})
+    monkeypatch.setattr(cli_score, "process_file", lambda _path, _key: results)
+    monkeypatch.setattr(
+        cli_score,
+        "export_to_csv",
+        lambda rows, output, workspace_root=None: exported.append((rows, output)) or True,
+    )
+
+    assert cli_score.run_score(["scan.pdf", "answers.json"]) == 0
+
+    output = capsys.readouterr().out
+    assert exported and exported[0][0] is results
+    assert "Manual scoring summary" in output
+    assert "Pages processed: 3" in output
+    assert "Pages scored: 2" in output
+    assert "Pages failed/skipped: 1" in output
+    assert "Page 2" in output
+    assert "registration" in output
+    assert "results may be incomplete" in output
+    assert "Review failed pages before treating results as final." in output
+
+
+def test_manual_zero_success_fails_with_visible_counts(monkeypatch, capsys):
+    results = scoring.ManualScoringResults()
+    results.summary.pages_processed = 2
+    results.summary.record_failure(1, "registration/corner detection failed.")
+    results.summary.record_failure(2, "image could not be read or loaded.")
+
+    monkeypatch.setattr(cli_score, "load_answer_key", lambda _path: {1: "A"})
+    monkeypatch.setattr(cli_score, "process_file", lambda _path, _key: results)
+    monkeypatch.setattr(
+        cli_score,
+        "export_to_csv",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("zero-success batches must not export")
+        ),
+    )
+
+    assert cli_score.run_score(["scan.pdf", "answers.json"]) == 1
+
+    output = capsys.readouterr().out
+    assert "Manual scoring summary" in output
+    assert "Pages processed: 2" in output
+    assert "Pages scored: 0" in output
+    assert "Pages failed/skipped: 2" in output
+    assert "No pages were scored." in output
 
 
 def test_main_score_dispatch_still_routes_to_cli_run_score(monkeypatch):

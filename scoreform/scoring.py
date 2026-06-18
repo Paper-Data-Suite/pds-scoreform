@@ -72,6 +72,79 @@ QR_PARTIAL_SUCCESS_WARNING = (
 
 
 @dataclass
+class ManualScoringFailure:
+    page_num: int | None
+    reason: str
+
+
+@dataclass
+class ManualScoringSummary:
+    pages_processed: int = 0
+    pages_scored: int = 0
+    failures: list[ManualScoringFailure] = field(default_factory=list)
+
+    @property
+    def pages_failed_skipped(self):
+        return len(
+            [failure for failure in self.failures if failure.page_num is not None]
+        )
+
+    def record_processed_page(self):
+        self.pages_processed += 1
+
+    def record_scored_page(self):
+        self.pages_scored += 1
+
+    def record_failure(self, page_num, reason):
+        self.failures.append(ManualScoringFailure(page_num, reason))
+
+    def format(self):
+        lines = [
+            "",
+            "Manual scoring summary:",
+            f"- Pages processed: {self.pages_processed}",
+            f"- Pages scored: {self.pages_scored}",
+            f"- Pages failed/skipped: {self.pages_failed_skipped}",
+        ]
+
+        if self.failures:
+            lines.extend(["", "Failures:"])
+            for failure in self.failures:
+                if failure.page_num is None:
+                    lines.append(f"- {failure.reason}")
+                else:
+                    lines.append(f"- Page {failure.page_num}: {failure.reason}")
+
+        if self.pages_scored == 0:
+            lines.extend(["", "No pages were scored."])
+
+        if self.pages_failed_skipped:
+            lines.extend(
+                [
+                    "",
+                    "WARNING: Some pages were not scored; results may be incomplete.",
+                    "Review failed pages before treating results as final.",
+                ]
+            )
+        elif self.failures:
+            lines.extend(
+                [
+                    "",
+                    "WARNING: Manual scoring did not complete successfully.",
+                    "Review the failure details before retrying.",
+                ]
+            )
+
+        return "\n".join(lines)
+
+
+class ManualScoringResults(list):
+    def __init__(self, *args, summary=None):
+        super().__init__(*args)
+        self.summary = summary or ManualScoringSummary()
+
+
+@dataclass
 class QRBatchFailure:
     page_num: int | None
     category: str
@@ -562,14 +635,16 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
 
 def process_file(file_path, answer_key):
     """Processes a file, checking if it is a PDF or an image, and scores it.
-    Returns a list of structured results for each successfully scored page."""
+    Returns list-compatible results with manual scoring failure accounting."""
 
+    all_results = ManualScoringResults()
+    summary = all_results.summary
     if not os.path.exists(file_path):
         print(f"Error: File {file_path} does not exist.")
-        return []
+        summary.record_failure(None, f"Input file does not exist: {file_path}")
+        return all_results
 
     ext = os.path.splitext(file_path)[1].lower()
-    all_results = []
 
     if ext == ".pdf":
         try:
@@ -578,7 +653,8 @@ def process_file(file_path, answer_key):
         except ImportError:
             print("Error: The 'pdf2image' module is not installed.")
             print("Please run: pip install pdf2image")
-            return []
+            summary.record_failure(None, "PDF processing support is not installed.")
+            return all_results
 
         print("PDF detected. Converting pages to images...")
 
@@ -586,20 +662,31 @@ def process_file(file_path, answer_key):
             pages = convert_from_path(file_path)
 
             for page_num, page in enumerate(pages, start=1):
+                summary.record_processed_page()
                 print(f"Scoring Page {page_num}...")
 
-                # Convert PIL image to OpenCV format (RGB to BGR)
-                open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-                res = score_image(
-                    open_cv_image,
-                    answer_key,
-                    page_num,
-                    question_count=_infer_question_count(answer_key, default=10),
-                )
-                if res:
-                    # Attach source file information to each page result
-                    res["source_file"] = file_path
-                    all_results.append(res)
+                try:
+                    # Convert PIL image to OpenCV format (RGB to BGR)
+                    open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
+                    res = score_image(
+                        open_cv_image,
+                        answer_key,
+                        page_num,
+                        question_count=_infer_question_count(answer_key, default=10),
+                    )
+                    if res:
+                        # Attach source file information to each page result
+                        res["source_file"] = file_path
+                        all_results.append(res)
+                        summary.record_scored_page()
+                    else:
+                        reason = "registration/corner detection failed."
+                        print(f"Page {page_num}: {reason}")
+                        summary.record_failure(page_num, reason)
+                except Exception as e:
+                    reason = f"page processing failed: {e}"
+                    print(f"Page {page_num}: {reason}")
+                    summary.record_failure(page_num, reason)
 
         except PDFInfoNotInstalledError:
             print("Error: Poppler is not installed or not in PATH.")
@@ -607,33 +694,54 @@ def process_file(file_path, answer_key):
                 "Please install Poppler and add its 'bin' folder to your system PATH."
             )
             print("Then test with: pdftoppm -h")
+            summary.record_failure(None, "PDF conversion failed because Poppler is unavailable.")
 
         except Exception as e:
             print(f"Error while processing PDF: {e}")
+            summary.record_failure(None, f"PDF conversion/processing failed: {e}")
 
     elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
-        img = cv2.imread(file_path)
+        summary.record_processed_page()
+        try:
+            img = cv2.imread(file_path)
+        except Exception as e:
+            reason = f"image could not be read or loaded: {e}"
+            print(f"Page 1: {reason}")
+            summary.record_failure(1, reason)
+            return all_results
 
         if img is None:
             print(f"Error: Could not read image {file_path}")
-            return []
+            summary.record_failure(1, "image could not be read or loaded.")
+            return all_results
 
         print("Scoring Image...")
-        res = score_image(
-            img,
-            answer_key,
-            page_num=1,
-            question_count=_infer_question_count(answer_key, default=10),
-        )
-        if res:
-            res["source_file"] = file_path
-            all_results.append(res)
+        try:
+            res = score_image(
+                img,
+                answer_key,
+                page_num=1,
+                question_count=_infer_question_count(answer_key, default=10),
+            )
+            if res:
+                res["source_file"] = file_path
+                all_results.append(res)
+                summary.record_scored_page()
+            else:
+                reason = "registration/corner detection failed."
+                print(f"Page 1: {reason}")
+                summary.record_failure(1, reason)
+        except Exception as e:
+            reason = f"page processing failed: {e}"
+            print(f"Page 1: {reason}")
+            summary.record_failure(1, reason)
 
     else:
         print(
             f"Error: Unsupported file extension '{ext}'. "
             "Please provide a PDF or an image."
         )
+        summary.record_failure(None, f"Unsupported input type: {ext or '(none)'}")
 
     return all_results
 
