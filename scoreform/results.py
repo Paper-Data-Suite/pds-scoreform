@@ -68,6 +68,19 @@ def _routed_header_question_count(fieldnames):
     return question_count
 
 
+def _print_routed_results_permission_error(output_file, operation, error):
+    print(f"Error: Could not {operation} routed results at:")
+    print(output_file)
+    print()
+    print(
+        "The file may be open or locked by Excel, OneDrive, a preview pane, "
+        "or another process."
+    )
+    print("Close the file, wait for sync to finish, and try again.")
+    print()
+    print(f"Technical detail: {error}")
+
+
 def _read_existing_routed_results(output_file):
     """Read and validate an existing routed results CSV."""
     try:
@@ -91,6 +104,9 @@ def _read_existing_routed_results(output_file):
                     return None, None
                 rows.append(row)
             return rows, question_count
+    except PermissionError as e:
+        _print_routed_results_permission_error(output_file, "read", e)
+        return None, None
     except csv.Error as e:
         print(f"Error: Existing routed results file is not valid CSV {output_file}: {e}")
         return None, None
@@ -124,18 +140,21 @@ def _write_routed_results_safely(output_file, headers, rows):
         os.replace(temp_path, output_file)
         temp_path = None
         return True
+    except PermissionError as e:
+        _print_routed_results_permission_error(output_file, "write", e)
     except Exception as e:
         print(f"Error writing routed results to {output_file}: {e}")
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception as cleanup_error:
-                print(
-                    f"Warning: Could not remove temporary routed results file "
-                    f"{temp_path}: {cleanup_error}"
-                )
-                print(f"Temporary routed results file remains at: {temp_path}")
-        return False
+
+    if temp_path and os.path.exists(temp_path):
+        try:
+            os.remove(temp_path)
+        except Exception as cleanup_error:
+            print(
+                f"Warning: Could not remove temporary routed results file "
+                f"{temp_path}: {cleanup_error}"
+            )
+            print(f"Temporary routed results file remains at: {temp_path}")
+    return False
 
 
 def export_to_csv(all_results, output_file):
@@ -292,6 +311,152 @@ def _enrich_results_with_roster(all_results, workspace_root=None):
     return any_loaded
 
 
+def _build_routed_result_target_plan(
+    class_id,
+    assignment_id,
+    results,
+    workspace_root,
+):
+    output_dir = os.fspath(
+        core_assignment_dir(workspace_root, class_id, assignment_id)
+    )
+    output_file = os.path.join(output_dir, "results.csv")
+
+    if not os.path.isdir(output_dir):
+        print(
+            f"Error: Could not prepare routed results target for class "
+            f"'{class_id}', assignment '{assignment_id}':"
+        )
+        print(output_file)
+        print(f"Assignment directory does not exist: {output_dir}")
+        return None
+
+    question_count = max(1, _get_max_question_count(results))
+    existing_rows_raw = []
+
+    if os.path.exists(output_file):
+        if not os.path.isfile(output_file):
+            print(
+                f"Error: Routed results destination is not a file for class "
+                f"'{class_id}', assignment '{assignment_id}': {output_file}"
+            )
+            return None
+
+        existing_rows_raw, existing_question_count = _read_existing_routed_results(
+            output_file
+        )
+        if existing_rows_raw is None:
+            print(
+                f"Preflight failed for assignment {assignment_id} in class "
+                f"{class_id}: {output_file}"
+            )
+            return None
+        question_count = max(question_count, existing_question_count)
+
+    headers = _routed_headers(question_count)
+    existing_rows = []
+    attempt_counts = {}
+
+    for row in existing_rows_raw:
+        preserved = {header: row.get(header, "") for header in headers}
+
+        raw_attempt = row.get("attempt_number", "")
+        if raw_attempt and raw_attempt.isdigit():
+            preserved_attempt = int(raw_attempt)
+        else:
+            preserved_attempt = 1
+            preserved["attempt_number"] = "1"
+
+        preserved["scan_timestamp"] = row.get("scan_timestamp", "")
+        existing_rows.append(preserved)
+
+        attempt_key = (
+            preserved.get("class_id", ""),
+            preserved.get("assignment_id", ""),
+            preserved.get("student_id", ""),
+        )
+        if all(attempt_key):
+            attempt_counts[attempt_key] = max(
+                attempt_counts.get(attempt_key, 0),
+                preserved_attempt,
+            )
+
+    batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    rows_to_write = list(existing_rows)
+
+    for res in results:
+        attempt_key = (
+            res.get("class_id", ""),
+            res.get("assignment_id", ""),
+            res.get("student_id", ""),
+        )
+        next_attempt = attempt_counts.get(attempt_key, 0) + 1
+        attempt_counts[attempt_key] = next_attempt
+
+        row = {
+            "Page": res["page_num"],
+            "class_id": res.get("class_id", ""),
+            "assignment_id": res.get("assignment_id", ""),
+            "student_id": res.get("student_id", ""),
+            "last_name": res.get("last_name", ""),
+            "first_name": res.get("first_name", ""),
+            "period": res.get("period", ""),
+            "source_file": res.get("source_file", ""),
+            "attempt_number": str(next_attempt),
+            "scan_timestamp": batch_timestamp,
+            "Score": res["score"],
+            "Total": res["total_points"],
+        }
+
+        for ans in res["answers"]:
+            q_num = ans["Q"]
+            row[f"Q{q_num}"] = ans["Answer"]
+            row[f"Q{q_num}_Correct"] = ans["Correct"]
+
+        rows_to_write.append(row)
+
+    return {
+        "class_id": class_id,
+        "assignment_id": assignment_id,
+        "output_file": output_file,
+        "headers": headers,
+        "rows": rows_to_write,
+    }
+
+
+def _build_routed_result_write_plan(groups, workspace_root):
+    write_plan = []
+    for (class_id, assignment_id), target_results in groups.items():
+        try:
+            target_plan = _build_routed_result_target_plan(
+                class_id,
+                assignment_id,
+                target_results,
+                workspace_root,
+            )
+        except (OSError, KeyError, TypeError, ValueError) as error:
+            output_file = os.fspath(
+                core_assignment_dir(
+                    workspace_root,
+                    class_id,
+                    assignment_id,
+                )
+                / "results.csv"
+            )
+            print(
+                f"Error: Could not preflight routed results for class "
+                f"'{class_id}', assignment '{assignment_id}': {output_file}"
+            )
+            print(f"Technical detail: {error}")
+            return None
+
+        if target_plan is None:
+            return None
+        write_plan.append(target_plan)
+
+    return write_plan
+
+
 def export_routed_results(all_results, workspace_root=None):
     """Route and export QR-aware scoring results to their assignment folders.
     
@@ -351,100 +516,23 @@ def export_routed_results(all_results, workspace_root=None):
         # Continue exporting even if some roster lookups failed; warnings printed by helper
         pass
 
-    # Write each group to its assignment folder
-    all_success = True
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-    for (class_id, assignment_id), results in groups.items():
-        output_dir = os.fspath(
-            core_assignment_dir(workspace_root, class_id, assignment_id)
-        )
-        
-        if not os.path.exists(output_dir):
-            print(f"Error: Assignment directory does not exist: {output_dir}")
-            all_success = False
-            continue
-        
-        output_file = os.path.join(output_dir, "results.csv")
 
-        question_count = max(1, _get_max_question_count(results))
-        existing_rows_raw = []
+    # Preflight every target before modifying any routed results file.
+    write_plan = _build_routed_result_write_plan(groups, workspace_root)
+    if write_plan is None:
+        print("Routed results export aborted before writing any target.")
+        return False
 
-        if os.path.exists(output_file):
-            existing_rows_raw, existing_question_count = _read_existing_routed_results(output_file)
-            if existing_rows_raw is None:
-                all_success = False
-                print(
-                    f"Skipping export for assignment {assignment_id} in class "
-                    f"{class_id} due to unsafe existing results."
-                )
-                continue
-            question_count = max(question_count, existing_question_count)
+    for target in write_plan:
+        output_file = target["output_file"]
+        if not _write_routed_results_safely(
+            output_file,
+            target["headers"],
+            target["rows"],
+        ):
+            return False
+        print(f"Results routed to {output_file}")
 
-        headers = _routed_headers(question_count)
-        existing_rows = []
-        attempt_counts = {}
-
-        for row in existing_rows_raw:
-            preserved = {header: row.get(header, "") for header in headers}
-
-            raw_attempt = row.get("attempt_number", "")
-            if raw_attempt and raw_attempt.isdigit():
-                preserved_attempt = int(raw_attempt)
-            else:
-                preserved_attempt = 1
-                preserved["attempt_number"] = "1"
-
-            preserved["scan_timestamp"] = row.get("scan_timestamp", "")
-            existing_rows.append(preserved)
-
-            key = (
-                preserved.get("class_id", ""),
-                preserved.get("assignment_id", ""),
-                preserved.get("student_id", ""),
-            )
-            if key[0] and key[1] and key[2]:
-                attempt_counts[key] = max(attempt_counts.get(key, 0), preserved_attempt)
-
-        batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        rows_to_write = list(existing_rows)
-        for res in results:
-            key = (
-                res.get("class_id", ""),
-                res.get("assignment_id", ""),
-                res.get("student_id", ""),
-            )
-
-            next_attempt = attempt_counts.get(key, 0) + 1
-            attempt_counts[key] = next_attempt
-
-            row = {
-                "Page": res["page_num"],
-                "class_id": res.get("class_id", ""),
-                "assignment_id": res.get("assignment_id", ""),
-                "student_id": res.get("student_id", ""),
-                "last_name": res.get("last_name", ""),
-                "first_name": res.get("first_name", ""),
-                "period": res.get("period", ""),
-                "source_file": res.get("source_file", ""),
-                "attempt_number": str(next_attempt),
-                "scan_timestamp": batch_timestamp,
-                "Score": res["score"],
-                "Total": res["total_points"],
-            }
-
-            # Add answer details
-            for ans in res["answers"]:
-                q_num = ans["Q"]
-                row[f"Q{q_num}"] = ans["Answer"]
-                row[f"Q{q_num}_Correct"] = ans["Correct"]
-
-            rows_to_write.append(row)
-
-        if _write_routed_results_safely(output_file, headers, rows_to_write):
-            print(f"Results routed to {output_file}")
-        else:
-            all_success = False
-
-    return all_success
+    return True
