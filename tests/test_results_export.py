@@ -3,11 +3,18 @@ import csv
 from scoreform import results
 
 
-def _routed_result(student_id, answer="A", page_num=1, source_file=None):
+def _routed_result(
+    student_id,
+    answer="A",
+    page_num=1,
+    source_file=None,
+    class_id="english9_p2",
+    assignment_id="rj_act1_quiz",
+):
     return {
         "page_num": page_num,
-        "class_id": "english9_p2",
-        "assignment_id": "rj_act1_quiz",
+        "class_id": class_id,
+        "assignment_id": assignment_id,
         "student_id": student_id,
         "source_file": source_file or f"{student_id}.pdf",
         "score": 1,
@@ -161,7 +168,11 @@ def test_routed_results_include_dynamic_question_columns_through_q15(tmp_path, m
     assert header[-1] == "Q15_Correct"
 
 
-def test_routed_results_replace_failure_leaves_original_intact(tmp_path, monkeypatch):
+def test_routed_results_replace_failure_is_actionable_and_cleans_temp_file(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
     assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
     results_path = assignment_dir / "results.csv"
 
@@ -174,8 +185,15 @@ def test_routed_results_replace_failure_leaves_original_intact(tmp_path, monkeyp
     monkeypatch.setattr(results.os, "replace", fail_replace)
 
     assert not results.export_routed_results([_routed_result("0002", source_file="second.pdf")])
+    output = capsys.readouterr().out
+
     assert results_path.read_text(encoding="utf-8") == original_text
     assert not list(assignment_dir.glob(".results.*.tmp"))
+    assert str(results_path) in output
+    assert "open or locked" in output
+    assert "Excel" in output
+    assert "OneDrive" in output
+    assert "locked file" in output
 
 
 def test_routed_results_header_mismatch_fails_safely(tmp_path, monkeypatch):
@@ -186,3 +204,42 @@ def test_routed_results_header_mismatch_fails_safely(tmp_path, monkeypatch):
 
     assert not results.export_routed_results([_routed_result("0002", source_file="new.pdf")])
     assert results_path.read_text(encoding="utf-8") == original_text
+
+
+def test_multi_target_preflight_failure_modifies_no_results_file(
+    tmp_path,
+    monkeypatch,
+):
+    first_assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
+    first_results_path = first_assignment_dir / "results.csv"
+    assert results.export_routed_results([_routed_result("0001")])
+    first_original_text = first_results_path.read_text(encoding="utf-8")
+
+    second_assignment_dir = (
+        tmp_path
+        / "classes"
+        / "math7_p1"
+        / "assignments"
+        / "fractions_quiz"
+    )
+    second_assignment_dir.mkdir(parents=True)
+    second_results_path = second_assignment_dir / "results.csv"
+    second_original_text = (
+        "Page,student_id,Score,Total,Q1,Q1_Correct\n"
+        "1,1001,1,1,A,True\n"
+    )
+    second_results_path.write_text(second_original_text, encoding="utf-8")
+
+    batch = [
+        _routed_result("0002", source_file="batch.pdf"),
+        _routed_result(
+            "1002",
+            source_file="batch.pdf",
+            class_id="math7_p1",
+            assignment_id="fractions_quiz",
+        ),
+    ]
+
+    assert not results.export_routed_results(batch)
+    assert first_results_path.read_text(encoding="utf-8") == first_original_text
+    assert second_results_path.read_text(encoding="utf-8") == second_original_text
