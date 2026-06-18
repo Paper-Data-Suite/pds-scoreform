@@ -19,6 +19,7 @@ from scoreform.config import (
     BOX_STEP_X,
     CORNER_SIZE,
     DST_PTS,
+    FULL_PAGE_DIAGNOSTICS_ENV,
     IMG_HEIGHT,
     IMG_WIDTH,
     LOCAL_DEBUG_DIR,
@@ -938,6 +939,11 @@ def _write_diagnostic_image(path, image):
     return None
 
 
+def _full_page_diagnostics_enabled():
+    value = os.environ.get(FULL_PAGE_DIAGNOSTICS_ENV, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def save_qr_failure_diagnostics(
     img,
     file_path,
@@ -945,7 +951,7 @@ def save_qr_failure_diagnostics(
     now=None,
     workspace_root=None,
 ):
-    """Save a bounded set of useful QR failure images and return their paths."""
+    """Save privacy-minimized QR failure images and return their paths."""
     if img is None:
         return []
 
@@ -959,13 +965,14 @@ def save_qr_failure_diagnostics(
         print(f"Warning: Could not create QR failure diagnostic folder: {error}")
         return []
     stem = f"{_sanitize_output_stem(file_path)}_page_{page_num}"
-    images = [(f"{stem}.png", img)]
+    images = []
     crops = dict(_expected_qr_crop_candidates(img))
 
     for crop_label in ("broad_1", "broad_3", "tight"):
         crop = crops.get(crop_label)
         if crop is not None:
-            images.append((f"{stem}_qr_crop_{crop_label}.png", crop))
+            suffix = "qr_region" if crop_label == "broad_1" else f"qr_region_{crop_label}"
+            images.append((f"{stem}_{suffix}.png", crop))
 
     tight_crop = crops.get("tight")
     if tight_crop is not None:
@@ -990,6 +997,9 @@ def save_qr_failure_diagnostics(
                 (f"{stem}_qr_crop_tight_threshold_padded_5x.png", padded_5x),
             ]
         )
+
+    if _full_page_diagnostics_enabled():
+        images.append((f"{stem}_full_page_debug.png", img))
 
     saved_paths = []
     for filename, image in images:

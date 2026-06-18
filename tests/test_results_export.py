@@ -72,6 +72,78 @@ def test_export_to_csv_variable_question_count(tmp_path):
     assert header[-1] == "Q5_Correct"
 
 
+def test_export_to_csv_privacy_minimizes_source_file(tmp_path):
+    workspace_root = tmp_path / "workspace"
+    inside_source = workspace_root / "scans_inbox" / "class_packet.pdf"
+    outside_source = tmp_path / "private" / "teacher" / "makeup.pdf"
+    output_file = workspace_root / "local_outputs" / "results" / "results.csv"
+    all_results = [
+        _routed_result("0001", source_file=str(inside_source)),
+        _routed_result("0002", source_file=str(outside_source)),
+    ]
+
+    assert results.export_to_csv(
+        all_results,
+        str(output_file),
+        workspace_root=workspace_root,
+    )
+
+    with output_file.open(newline="", encoding="utf-8") as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    assert "source_file" in rows[0]
+    assert rows[0]["source_file"] == "scans_inbox/class_packet.pdf"
+    assert rows[1]["source_file"] == "makeup.pdf"
+    assert str(tmp_path) not in output_file.read_text(encoding="utf-8")
+
+
+def test_privacy_safe_source_file_handles_empty_values(tmp_path):
+    assert results.privacy_safe_source_file(None, tmp_path) == ""
+    assert results.privacy_safe_source_file("", tmp_path) == ""
+
+
+def test_privacy_safe_source_file_windows_absolute_without_workspace():
+    safe = results.privacy_safe_source_file(
+        r"C:\Users\Teacher\OneDrive\School\English12_Final_Exam.pdf",
+        workspace_root=None,
+    )
+
+    assert safe == "English12_Final_Exam.pdf"
+    assert r"C:\Users" not in safe
+    assert "OneDrive" not in safe
+
+
+def test_privacy_safe_source_file_windows_absolute_with_temp_workspace(tmp_path):
+    safe = results.privacy_safe_source_file(
+        r"C:\Users\Teacher\OneDrive\School\English12_Final_Exam.pdf",
+        workspace_root=tmp_path,
+    )
+
+    assert safe == "English12_Final_Exam.pdf"
+    assert r"C:\Users" not in safe
+    assert "OneDrive" not in safe
+
+
+def test_privacy_safe_source_file_preserves_safe_relative_path(tmp_path):
+    assert (
+        results.privacy_safe_source_file(
+            "scans_inbox/class_packet.pdf",
+            workspace_root=tmp_path,
+        )
+        == "scans_inbox/class_packet.pdf"
+    )
+
+
+def test_privacy_safe_source_file_rejects_parent_traversal(tmp_path):
+    assert (
+        results.privacy_safe_source_file(
+            "../private/scan.pdf",
+            workspace_root=tmp_path,
+        )
+        == "scan.pdf"
+    )
+
+
 def test_routed_results_do_not_export_optional_roster_columns(tmp_path, monkeypatch):
     class_dir = tmp_path / "classes" / "english9_p2"
     assignment_dir = class_dir / "assignments" / "rj_act1_quiz"
@@ -131,6 +203,29 @@ def test_routed_results_preserve_existing_rows_and_append(tmp_path, monkeypatch)
 
     header = original_text.splitlines()[0]
     assert results_path.read_text(encoding="utf-8").splitlines()[0] == header
+
+
+def test_routed_results_privacy_minimize_inside_and_outside_sources(
+    tmp_path,
+    monkeypatch,
+):
+    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
+    inside_source = tmp_path / "scans_inbox" / "class_packet.pdf"
+    outside_source = tmp_path.parent / "private" / "makeup.pdf"
+
+    assert results.export_routed_results(
+        [
+            _routed_result("0001", source_file=str(inside_source)),
+            _routed_result("0002", source_file=str(outside_source)),
+        ],
+        workspace_root=tmp_path,
+    )
+
+    rows = _read_routed_csv(assignment_dir / "results.csv")
+    assert [row["source_file"] for row in rows] == [
+        "scans_inbox/class_packet.pdf",
+        "makeup.pdf",
+    ]
 
 
 def test_routed_results_attempt_number_increments_from_existing_rows(tmp_path, monkeypatch):

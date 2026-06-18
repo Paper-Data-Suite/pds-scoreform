@@ -1,7 +1,9 @@
 import csv
 import datetime
+import ntpath
 import os
 import tempfile
+from pathlib import Path
 
 from pds_core.routes import (
     assignment_dir as core_assignment_dir,
@@ -13,6 +15,50 @@ from pds_core.routes import (
 from scoreform import workspace
 from scoreform.folders import ensure_parent_dir
 from scoreform.scoring import validate_qr_identifier
+
+
+def privacy_safe_source_file(source_file, workspace_root=None):
+    """Return a workspace-relative source path or a basename-only fallback."""
+    if source_file is None:
+        return ""
+
+    try:
+        raw_path = os.fspath(source_file)
+    except TypeError:
+        return ""
+    if isinstance(raw_path, bytes):
+        raw_path = os.fsdecode(raw_path)
+    raw_path = raw_path.strip()
+    if not raw_path:
+        return ""
+
+    basename = ntpath.basename(raw_path.rstrip("/\\"))
+    if not basename:
+        return ""
+    if workspace_root is None:
+        return basename
+
+    source_path = None
+    try:
+        source_path = Path(raw_path).expanduser()
+        if source_path.is_absolute():
+            root_path = Path(workspace_root).expanduser()
+            if not root_path.is_absolute():
+                root_path = Path.cwd() / root_path
+            relative_path = source_path.resolve(strict=False).relative_to(
+                root_path.resolve(strict=False)
+            )
+            return relative_path.as_posix()
+    except (OSError, RuntimeError, TypeError, ValueError):
+        pass
+
+    if ntpath.isabs(raw_path):
+        return basename
+    if source_path is None:
+        return basename
+    if ".." in source_path.parts:
+        return basename
+    return source_path.as_posix()
 
 
 def _get_max_question_count(results):
@@ -157,7 +203,7 @@ def _write_routed_results_safely(output_file, headers, rows):
     return False
 
 
-def export_to_csv(all_results, output_file):
+def export_to_csv(all_results, output_file, workspace_root=None):
     """Exports structured scoring data to a CSV file.
     
     Includes metadata columns (class_id, assignment_id, student_id) when present
@@ -168,6 +214,8 @@ def export_to_csv(all_results, output_file):
     if not all_results:
         print("No results to export.")
         return False
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
 
     # Define the CSV headers - start with Page
     headers = ["Page"]
@@ -215,7 +263,10 @@ def export_to_csv(all_results, output_file):
                     row["student_id"] = res.get("student_id", "")
                 # Add source file if present
                 if has_source:
-                    row["source_file"] = res.get("source_file", "")
+                    row["source_file"] = privacy_safe_source_file(
+                        res.get("source_file", ""),
+                        workspace_root=workspace_root,
+                    )
                 
                 # Add answer details
                 for ans in res["answers"]:
@@ -359,6 +410,10 @@ def _build_routed_result_target_plan(
 
     for row in existing_rows_raw:
         preserved = {header: row.get(header, "") for header in headers}
+        preserved["source_file"] = privacy_safe_source_file(
+            row.get("source_file", ""),
+            workspace_root=workspace_root,
+        )
 
         raw_attempt = row.get("attempt_number", "")
         if raw_attempt and raw_attempt.isdigit():
@@ -401,7 +456,10 @@ def _build_routed_result_target_plan(
             "last_name": res.get("last_name", ""),
             "first_name": res.get("first_name", ""),
             "period": res.get("period", ""),
-            "source_file": res.get("source_file", ""),
+            "source_file": privacy_safe_source_file(
+                res.get("source_file", ""),
+                workspace_root=workspace_root,
+            ),
             "attempt_number": str(next_attempt),
             "scan_timestamp": batch_timestamp,
             "Score": res["score"],

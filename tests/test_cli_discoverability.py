@@ -679,7 +679,9 @@ def test_manual_score_defaults_to_workspace_and_preserves_explicit_inputs(
     monkeypatch.setattr(
         scoreform.cli_score,
         "export_to_csv",
-        lambda results, path: calls.setdefault("output_file", path) or True,
+        lambda results, path, workspace_root=None: (
+            calls.setdefault("output_file", path) or True
+        ),
     )
 
     assert scoreform.cli.run_score([scan_path, answer_key_path]) == 0

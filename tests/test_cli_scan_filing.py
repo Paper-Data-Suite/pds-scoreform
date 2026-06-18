@@ -142,7 +142,11 @@ def test_explicit_output_csv_skips_scan_filing(tmp_path, monkeypatch):
         "process_file_qr_aware",
         lambda input_file, workspace_root=None: [_result()],
     )
-    monkeypatch.setattr(cli_score, "export_to_csv", lambda results, output_file: True)
+    monkeypatch.setattr(
+        cli_score,
+        "export_to_csv",
+        lambda results, output_file, workspace_root=None: True,
+    )
     monkeypatch.setattr(
         cli_score,
         "file_original_scan_copy",
@@ -168,7 +172,11 @@ def test_manual_scoring_skips_scan_filing(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cli_score, "load_answer_key", lambda path: {1: "A"})
     monkeypatch.setattr(cli_score, "process_file", lambda input_file, key: [_result()])
-    monkeypatch.setattr(cli_score, "export_to_csv", lambda results, output_file: True)
+    monkeypatch.setattr(
+        cli_score,
+        "export_to_csv",
+        lambda results, output_file, workspace_root=None: True,
+    )
     monkeypatch.setattr(
         cli_score,
         "file_original_scan_copy",

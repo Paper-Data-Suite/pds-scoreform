@@ -46,3 +46,6 @@ LOCAL_TEMP_DIR = os.path.join(LOCAL_OUTPUTS_DIR, "temp")
 LOCAL_TEMPLATE_PDF = os.path.join(LOCAL_TEMPLATES_DIR, "template.pdf")
 LOCAL_TEMPLATE_PNG = os.path.join(LOCAL_TEMPLATES_DIR, "template.png")
 LOCAL_RESULTS_CSV = os.path.join(LOCAL_RESULTS_DIR, "results.csv")
+
+# Developer-only opt-in for retaining full-page QR failure diagnostics.
+FULL_PAGE_DIAGNOSTICS_ENV = "PDS_SCOREFORM_FULL_PAGE_DIAGNOSTICS"

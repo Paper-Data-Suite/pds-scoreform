@@ -763,7 +763,10 @@ The program creates this folder under the resolved PDS workspace root. From the 
 
 The picker only selects the input file. It does not move, rename, or delete scan files. Scan filing happens only after successful QR-aware routed result export for one resolved assignment target. Mixed-assignment scans, scans with no successfully scored pages, explicit-output CSV scoring, and manual scoring do not file a scan copy. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
 
-Results include the source path or filename in the `source_file` column for audit and verification purposes.
+Results include a privacy-minimized source reference in the `source_file` column
+for audit and verification. Sources inside the workspace are stored as
+workspace-relative paths; sources outside it are stored as basenames. Full
+absolute local paths are not written by default.
 
 Legacy/manual default results and debug images are written under the workspace
 `local_outputs/results/` and `local_outputs/debug/` folders. QR-aware routed
@@ -829,6 +832,16 @@ If scoring fails or results look suspicious, try:
 * manually verifying results before recording grades
 
 ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
+
+ScoreForm is local-first, but generated scans, outputs, summaries, diagnostics,
+and results may still contain student records and should not be shared
+publicly. QR failure diagnostics default to cropped QR-region images rather
+than full-page scans. Developers can explicitly enable a full-page failure
+image for troubleshooting by setting
+`PDS_SCOREFORM_FULL_PAGE_DIAGNOSTICS=1`; this debug option is not intended for
+normal classroom use. Result CSV `source_file` values are privacy-minimized as
+described above, but teachers should still treat all generated artifacts as
+student records.
 
 ScoreForm is still under active development. Because scan quality directly affects grading reliability, manually verify results before using them for actual grades.
 
