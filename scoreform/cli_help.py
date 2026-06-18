@@ -90,12 +90,17 @@ Scoring modes:
 
   QR-aware full and partial success exit 0; zero success and export failure exit 1.
   The saved QR batch summary is the source of truth for completeness.
+  Automatic scan filing occurs only for full-success, single-target routed batches.
+  Partial, failed, multi-target, explicit-output, and manual batches are not filed.
 
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
 
   scoreform score scanned_file.pdf output.csv answer_key.json
       Legacy/manual scoring with an explicit answer key and explicit output CSV.
+
+  Manual/legacy multi-page or failed batches report processed, scored, and
+  failed/skipped page counts. Partial exports warn; zero-success batches fail.
 
 Examples:
   scoreform

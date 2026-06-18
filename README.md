@@ -97,7 +97,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 
 * Modular `scoreform/` package structure
 * Fast PowerShell development checks through `run_fast_tests.ps1`
-* Portable PowerShell regression script through `run_tests.ps1`
+* Local release-readiness gate through `run_tests.ps1`
 * Pytest coverage for validation, scoring, QR behavior, routed results, CLI behavior, and workflow helpers
 * Synthetic example data for public testing and demonstration
 * Git protections for generated classroom files, scans, debug images, local outputs, and private working notes
@@ -112,7 +112,10 @@ Current limitations include:
 * ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
   scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
   small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
-* Result routing works for QR-aware scoring. Duplicate/attempt handling and same-assignment scan filing are implemented; broader scan lifecycle workflows are still being developed.
+* Result routing works for QR-aware scoring. Duplicate/attempt handling is
+  implemented, and automatic scan filing is limited to full-success,
+  single-target routed batches. Broader scan lifecycle workflows are still
+  being developed.
 * Question count support is currently limited to 1-15 questions on a single page.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
@@ -135,7 +138,13 @@ Do not commit:
 * private school documents
 * production result CSV files
 
-ScoreForm is intended to run locally. Teachers using this project are responsible for following their school, district, state, and federal student-data privacy requirements.
+ScoreForm is intended to run locally, but local-first does not mean that its
+artifacts are non-sensitive. Scans, diagnostic images, result CSVs and their
+`source_file` values, QR batch summaries, routed results, `local_outputs/`,
+and class assignment output folders may contain student or assessment records.
+Treat those locations as sensitive and do not share generated artifacts
+publicly. Teachers using this project are responsible for following their
+school, district, state, and federal student-data privacy requirements.
 
 ## Repository Structure
 
@@ -259,7 +268,9 @@ root:
 ```
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
-When QR-aware routed scoring succeeds for exactly one class and assignment, ScoreForm files a copy of the source scan under that assignment's `scans/` folder while preserving the original source scan.
+Only a full-success QR-aware routed batch that resolves to exactly one class
+and assignment is filed automatically. ScoreForm copies the source scan under
+that assignment's `scans/` folder while preserving the original source scan.
 
 Generic/manual development outputs are organized under `<PDS workspace root>/local_outputs/` when ScoreForm chooses the default path:
 
@@ -275,8 +286,9 @@ local_outputs/
     debug_warped_page_1.png
   qr_failures/
     YYYY-MM-DD/
-      scan_packet_page_2.png
-      scan_packet_page_2_qr_crop_tight.png
+      scan_packet_page_2_qr_region.png
+      scan_packet_page_2_qr_region_tight.png
+      scan_packet_page_2_qr_crop_tight_threshold_padded_5x.png
   qr_batch_summaries/
     YYYY-MM-DD/
       scan_packet_YYYY-MM-DD_HHMM_summary.txt
@@ -286,11 +298,12 @@ local_outputs/
 Explicit input and output paths supplied by the user are still honored as
 written. Workspace routing applies to ScoreForm-managed paths and defaults.
 
-When QR-aware scoring cannot decode a page, ScoreForm saves the failed page and
-a bounded set of attempted QR-region images under
-`local_outputs/qr_failures/<date>/`. Each QR-aware scoring run also saves the
-terminal batch summary under `local_outputs/qr_batch_summaries/<date>/` after
-result-writing status is known.
+When QR-aware scoring cannot decode a page, ScoreForm saves privacy-minimized
+QR-region diagnostic crops under `local_outputs/qr_failures/<date>/` by
+default. Full-page QR failure diagnostics are saved only when explicitly
+enabled with `PDS_SCOREFORM_FULL_PAGE_DIAGNOSTICS=1`. Each QR-aware scoring run
+also saves the terminal batch summary under
+`local_outputs/qr_batch_summaries/<date>/` after result-writing status is known.
 
 Generated files, scans, debug images, results, and local-only test files should generally not be committed to Git.
 
@@ -605,6 +618,12 @@ Package names vary by distribution.
 identifier validation, route and scan-inbox helpers, legacy OMR1 parsing, and
 PDS1 QR payload generation and parsing.
 
+ScoreForm currently depends on a sibling editable `pds-core` checkout during
+development. `requirements-dev.txt` installs it from `../pds-core`;
+`requirements.txt` does not install `pds-core` by itself. Standalone package
+installation is not yet supported unless and until `pds-core` is published or
+otherwise resolvable.
+
 For the current local Paper Data Suite workflow, clone `pds-core` and
 `pds-scoreform` as sibling repositories under any parent directory:
 
@@ -617,10 +636,13 @@ Paper-Data-Suite/
 The parent directory name and location may vary. Do not replace the relative
 sibling setup with a machine-specific absolute path.
 
-From inside `pds-scoreform`, create or activate the repo-local virtual
-environment, then run:
+On Windows, open PowerShell from the `pds-scoreform` repository root. Create
+and activate the repo-local virtual environment, then install development
+dependencies:
 
 ```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
@@ -635,6 +657,13 @@ installs:
 `requirements.txt` remains useful as the list of ordinary third-party
 dependencies, but it does not install the local `pds-core` checkout and is not
 the complete setup command for the current application.
+
+Install Poppler separately using the Windows method appropriate for the
+machine, then confirm `pdftoppm` is available:
+
+```powershell
+pdftoppm -h
+```
 
 If installation reports that `../pds-core` does not exist, check that both
 repositories are present as siblings in the layout above, then rerun the
@@ -651,6 +680,22 @@ If PowerShell blocks script execution, run:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1
 ```
+
+`check_dependencies.ps1` is the local dependency and environment verification
+script. It checks the repo-local `.venv`, sibling `pds-core` availability and
+importability, ScoreForm importability, core Python dependencies, and
+Poppler/`pdftoppm`. It reports problems but does not install or repair
+dependencies.
+
+Before treating changes as release-ready, run:
+
+```powershell
+.\run_tests.ps1
+```
+
+`run_tests.ps1` is the local release-readiness gate. It should pass before a
+branch is treated as ready for merge or release-track work. A failing
+`run_tests.ps1` means the branch is not release-ready.
 
 ### Classroom-Trial Machine Setup
 
@@ -759,9 +804,17 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`, and, when all successfully scored pages resolve to that same class and assignment, files a copy of the source scan under `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/scans/`. The original source scan remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`. Only a full-success batch that resolves to exactly one class and assignment files a copy of the source scan under `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/scans/`; the original remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
 
-The picker only selects the input file. It does not move, rename, or delete scan files. Scan filing happens only after successful QR-aware routed result export for one resolved assignment target. Mixed-assignment scans, scans with no successfully scored pages, explicit-output CSV scoring, and manual scoring do not file a scan copy. Manual scoring with an answer key remains available from the menu for non-QR sheets or exceptional workflows. You can still enter a custom path from Downloads, Desktop, or another scanner export folder, and direct CLI scoring continues to accept explicit paths such as `scoreform score path\to\scan.pdf`.
+The picker only selects the input file. It does not move, rename, or delete scan
+files. Partial-success, zero-success, export-failure, and multi-target batches
+are not filed automatically. Explicit-output CSV scoring and manual scoring
+also do not file scan copies. Review the saved QR batch summary and handle the
+source scan manually whenever automatic filing is skipped. Manual scoring with
+an answer key remains available from the menu for non-QR sheets or exceptional
+workflows. You can still enter a custom path from Downloads, Desktop, or
+another scanner export folder, and direct CLI scoring continues to accept
+explicit paths such as `scoreform score path\to\scan.pdf`.
 
 Results include a privacy-minimized source reference in the `source_file` column
 for audit and verification. Sources inside the workspace are stored as
@@ -833,15 +886,16 @@ If scoring fails or results look suspicious, try:
 
 ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
 
-ScoreForm is local-first, but generated scans, outputs, summaries, diagnostics,
-and results may still contain student records and should not be shared
+ScoreForm is local-first, but scans, diagnostic images, result CSVs, QR batch
+summaries, routed results, files under `local_outputs/`, and class assignment
+output folders may still contain student records and should not be shared
 publicly. QR failure diagnostics default to cropped QR-region images rather
 than full-page scans. Developers can explicitly enable a full-page failure
 image for troubleshooting by setting
 `PDS_SCOREFORM_FULL_PAGE_DIAGNOSTICS=1`; this debug option is not intended for
 normal classroom use. Result CSV `source_file` values are privacy-minimized as
-described above, but teachers should still treat all generated artifacts as
-student records.
+described above, but result files still contain student and assessment data.
+Treat all generated artifacts and output folders as sensitive.
 
 ScoreForm is still under active development. Because scan quality directly affects grading reliability, manually verify results before using them for actual grades.
 
@@ -902,12 +956,14 @@ ScoreForm automatically files a timestamped `_scored` copy of the original sourc
 
 QR-aware scoring uses these batch outcomes and exit codes:
 
-* **Full success** exits `0`.
+* **Full success** means all pages scored and results were written; it exits
+  `0`.
 * **Partial success** exits `0` when at least one page scored and results were
   written, but the terminal and saved QR batch summary show `PARTIAL SUCCESS`
   and list the failures.
-* **Zero success** exits `1`.
-* **Export failure** exits `1`.
+* **Zero success** means no pages scored; it exits `1`.
+* **Export failure** means pages may have scored, but results were not written
+  successfully; it exits `1`.
 
 For QR-aware batches, exit code `0` means usable results were produced and
 written; it does not guarantee that every page succeeded. The saved QR batch
@@ -932,6 +988,12 @@ Explicit output paths are honored:
 ```powershell
 scoreform score scanned_file.pdf results.csv examples\answer_key.json
 ```
+
+Manual/legacy scoring reports pages processed, pages scored, and pages
+failed/skipped when failures occur or a multi-page batch is processed. A
+partial manual batch may export successful rows, but ScoreForm warns that the
+results may be incomplete. A zero-success manual batch fails clearly. Manual
+scoring never files a scan copy automatically.
 
 ## Development Roadmap
 
@@ -992,13 +1054,18 @@ python -m ruff check .
 
 ### Full Regression Checks
 
-Use this before opening a PR, merging, releasing, or making broad workflow changes:
+`run_tests.ps1` is the local release-readiness gate. Run it before opening a
+PR, merging, releasing, or treating release-track work as ready:
 
 ```powershell
 .\run_tests.ps1
 ```
 
-This installs ScoreForm in editable mode with development extras, runs the pytest suite, and verifies the full packaging, CLI, generation, validation, QR-aware scoring, routed results, duplicate/attempt handling, and menu workflow behavior.
+This installs ScoreForm in editable mode with development extras, runs the
+pytest suite, and verifies the full packaging, CLI, generation, validation,
+QR-aware scoring, routed results, duplicate/attempt handling, and menu workflow
+behavior. A failing run means the branch is not release-ready. The current
+passing test count is reported by pytest rather than hardcoded here.
 
 The test scripts are intended to verify core development behaviors without relying on private or local-only scan files.
 

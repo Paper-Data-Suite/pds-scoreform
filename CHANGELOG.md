@@ -58,13 +58,30 @@ GitHub milestones are project-management buckets. Package versions describe inst
   lists remain valid, usage recording is not automatic, and scoring/export
   behavior is unchanged.
 * Added same-assignment scan filing after successful QR-aware routed scoring.
-  When routed result export succeeds and all successfully scored pages resolve
-  to one class and assignment, ScoreForm copies the original source scan into
-  the assignment `scans/` folder with a timestamped `_scored` filename while
-  preserving the original source scan.
+  When a full-success routed batch resolves to one class and assignment,
+  ScoreForm copies the original source scan into the assignment `scans/`
+  folder with a timestamped `_scored` filename while preserving the original
+  source scan.
 
 ### Changed
 
+* Removed transitional compatibility monkeypatch and synchronization bridges
+  after the CLI/workflow extraction, and kept command ownership in the focused
+  modules.
+* Replaced signature-inspection-based QR scoring dispatch with explicit call
+  paths.
+* Hardened QR-aware failure accounting and established full-success,
+  partial-success, zero-success, and export-failure outcomes with saved batch
+  summaries as the completeness record.
+* Hardened routed result writes with destination preflight checks and
+  failure-aware export reporting.
+* Limited automatic scan filing to full-success, single-target QR-aware routed
+  batches; partial, failed, and mixed-target batches remain for manual review.
+* Privacy-minimized QR failure diagnostics and result CSV `source_file` values
+  by default while keeping generated artifacts classified as sensitive.
+* Added manual/legacy scoring failure accounting so processed, scored, and
+  failed/skipped pages are reported instead of failed pages being silently
+  omitted.
 * Extracted the workspace and school-year CLI command-group implementations
   into focused modules while preserving the existing `scoreform.cli` entry
   point and command dispatch.
@@ -94,10 +111,11 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Documentation
 
-* Post-public repository audit remains pending.
-* Senior-developer review pass remains pending.
-* Project-manager / release-readiness review pass remains pending.
-* Future README and documentation organization improvements may continue as the project stabilizes.
+* Documented the sibling editable `pds-core` development/runtime contract and
+  the diagnostic-only `check_dependencies.ps1` workflow.
+* Established `run_tests.ps1` as the local release-readiness gate.
+* Updated Windows, PowerShell, Poppler, setup, testing, QR outcome, scan filing,
+  privacy, and local-output guidance to match current behavior.
 
 ## [v0.8.1] - 2026-06-06
 
