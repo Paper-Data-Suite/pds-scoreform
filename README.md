@@ -445,7 +445,8 @@ Notes:
 
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * Teachers may skip standards during assignment creation. Empty `standards` lists remain valid.
-* Assignment files store standard IDs only. Shared standard definitions live in the workspace standards library owned by `pds-core`.
+* Assignment files store shared `standard_id`s only. Shared standard definitions and optional standards profiles live in the workspace standards library owned by `pds-core`.
+* When `standards_profile_id` is present, shared-library validation checks that the profile exists and that question-level standard IDs belong to that profile.
 * Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
 * Assignment Management also edits and validates assignment JSON files, generates answer sheets, scores scanned responses, displays read-only assignment results, and decodes QR metadata.
@@ -516,19 +517,25 @@ Optional roster fields are not automatically added to `results.csv` or routed re
     "9": "D",
     "10": "B"
   },
+  "standards_profile_id": "english12_2023_njsls",
   "standards": {
     "1": [],
-    "2": ["RL.CI.11-12.2"],
-    "3": ["RL.IT.11-12.3", "L.VI.11-12.4"],
+    "2": ["nj_ela_2023_rl_cr_11_12_1"],
+    "3": [
+      "nj_ela_2023_rl_cr_11_12_1",
+      "nj_ela_2023_l_vi_11_12_4"
+    ],
     "4": [],
-    "5": ["RL.CR.11-12.1"]
+    "5": ["nj_ela_2023_w_aw_11_12_1"]
   }
 }
 ```
 
-The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty standard ID strings. Empty lists and missing question keys are allowed.
+The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty shared `standard_id` strings. Empty lists and missing question keys are allowed.
 
-Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. Shared standard definitions are stored in the workspace standards library owned by `pds-core`; assignment files store only standard IDs. Creating or attaching standards during assignment creation does not record standards usage. Standards usage recording, standards editing for existing assignments, and standards performance reporting are future work.
+Structural assignment validation checks the assignment shape without loading a standards library. When shared-library validation is requested, `standards_profile_id` must refer to a profile in the `pds-core` workspace standards library, and question-level standard IDs must exist in that library and belong to the selected profile. ScoreForm does not maintain an independent standards universe.
+
+Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. ScoreForm-specific assessment, scoring, reporting, and export behavior remains ScoreForm-owned. Creating or attaching standards during assignment creation does not record standards usage. Usage-event emission and Codex-assisted standards ingestion are future work in the broader Paper Data Suite standards pipeline.
 
 ### QR Payload Format
 
