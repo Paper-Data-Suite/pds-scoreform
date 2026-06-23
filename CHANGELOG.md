@@ -16,6 +16,8 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ### Added
 
+* Added ScoreForm assignment/question standards-alignment validation against
+  the shared `pds-core` standards library contract.
 * Added `check_dependencies.ps1` to document and verify the current sibling
   editable `pds-core` development dependency, repo-local virtual environment,
   third-party imports, and Poppler `pdftoppm` availability.

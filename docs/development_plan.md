@@ -240,15 +240,19 @@ Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and
     "9": "D",
     "10": "B"
   },
+  "standards_profile_id": "english12_2023_njsls",
   "standards": {
     "1": [],
-    "2": ["RL.CI.11-12.2"],
-    "3": ["RL.IT.11-12.3", "L.VI.11-12.4"]
+    "2": ["nj_ela_2023_rl_cr_11_12_1"],
+    "3": [
+      "nj_ela_2023_rl_cr_11_12_1",
+      "nj_ela_2023_l_vi_11_12_4"
+    ]
   }
 }
 ```
 
-The `standards` object is optional assignment metadata. When present, its keys are question numbers validated against `question_count`, and values are lists of non-empty standard-code strings. Missing question keys and empty lists are valid. Standards metadata is not included in `results.csv` and does not affect scoring, QR payloads, result routing, or roster CSVs.
+The `standards` object is optional assignment metadata. When present, its keys are question numbers validated against `question_count`, and values are lists of non-empty shared `standard_id` strings. Missing question keys and empty lists are valid. Structural assignment validation does not require a standards library. When shared-library validation is requested, `standards_profile_id` must refer to a profile in the `pds-core` workspace standards library, and question-level standard IDs must exist in that library and belong to the selected profile. ScoreForm does not maintain an independent standards universe. Standards metadata is not included in `results.csv` and does not affect scoring, QR payloads, result routing, or roster CSVs.
 
 ### Current QR Payload Format
 

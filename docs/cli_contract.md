@@ -317,8 +317,11 @@ skip standards, attach existing shared standards from the workspace standards
 library, or enter a new shared standard and attach it to selected questions.
 Assignments store standard IDs only in their existing question-level
 `standards` lists. Shared definitions live in the `pds-core` workspace
-standards library. Empty standards lists remain valid, and this workflow does
-not record standards usage or add standards reporting.
+standards library; when `standards_profile_id` is present, profile-scoped
+validation checks that selected question standards belong to that shared
+profile. Empty standards lists remain valid, and this workflow does not record
+standards usage or add standards reporting. ScoreForm-specific assessment,
+scoring, reporting, and export behavior remains module-owned.
 
 School Year Settings includes:
 

@@ -1,10 +1,21 @@
 import json
 import os
+from collections.abc import Iterable, Mapping
+
+from pds_core.standards import (
+    StandardsLibrary,
+    StandardsValidationError,
+    validate_profile_standard_selection,
+)
 
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.validation import validate_identifier
 
 VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}
+
+
+class AssignmentStandardsAlignmentError(ValueError):
+    """Raised when question standards do not match the shared standards library."""
 
 
 def _normalize_question_number(key, question_count, field_name):
@@ -151,6 +162,141 @@ def _normalize_standards(standards, question_count):
     return normalized_standards
 
 
+def validate_question_standard_alignments(
+    *,
+    question_count: int,
+    standards_profile_id: str,
+    question_standards: Mapping[int | str, Iterable[str]],
+    standards_library: StandardsLibrary,
+) -> dict[int, tuple[str, ...]]:
+    """Validate question-level shared standard IDs against a pds-core library."""
+    if (
+        isinstance(question_count, bool)
+        or not isinstance(question_count, int)
+        or question_count < 1
+        or question_count > MAX_QUESTION_COUNT
+    ):
+        raise AssignmentStandardsAlignmentError(
+            f"question_count must be an integer between 1 and {MAX_QUESTION_COUNT}."
+        )
+
+    if not isinstance(question_standards, Mapping):
+        raise AssignmentStandardsAlignmentError(
+            "question_standards must be a mapping of question numbers to standards."
+        )
+
+    normalized = {question_number: () for question_number in range(1, question_count + 1)}
+    seen_questions: set[int] = set()
+    for key, standards in question_standards.items():
+        q_num = _alignment_question_number(key, question_count)
+        if q_num in seen_questions:
+            raise AssignmentStandardsAlignmentError(
+                f"Duplicate question number {q_num} in standards alignment."
+            )
+        seen_questions.add(q_num)
+
+        if isinstance(standards, (str, bytes)) or standards is None:
+            raise AssignmentStandardsAlignmentError(
+                f"Standards for question {q_num} must be an iterable of standard IDs."
+            )
+
+        try:
+            selected_standard_ids = tuple(standards)
+        except TypeError as error:
+            raise AssignmentStandardsAlignmentError(
+                f"Standards for question {q_num} must be an iterable of standard IDs."
+            ) from error
+
+        try:
+            normalized[q_num] = validate_profile_standard_selection(
+                standards_library,
+                profile_id=standards_profile_id,
+                selected_standard_ids=selected_standard_ids,
+            )
+        except StandardsValidationError as error:
+            raise AssignmentStandardsAlignmentError(
+                "Invalid standards alignment for "
+                f"question {q_num} and profile {standards_profile_id!r}: {error}"
+            ) from error
+
+    for q_num, selected_standard_ids in normalized.items():
+        if q_num not in seen_questions:
+            try:
+                normalized[q_num] = validate_profile_standard_selection(
+                    standards_library,
+                    profile_id=standards_profile_id,
+                    selected_standard_ids=selected_standard_ids,
+                )
+            except StandardsValidationError as error:
+                raise AssignmentStandardsAlignmentError(
+                    "Invalid standards alignment for "
+                    f"question {q_num} and profile {standards_profile_id!r}: {error}"
+                ) from error
+
+    return normalized
+
+
+def validate_assignment_standard_alignments(
+    assignment: Mapping[str, object],
+    standards_library: StandardsLibrary,
+) -> dict[int, tuple[str, ...]]:
+    """Validate an assignment's question standards against a shared library."""
+    if not isinstance(assignment, Mapping):
+        raise AssignmentStandardsAlignmentError("assignment must be a mapping.")
+
+    question_count = assignment.get("question_count")
+    if (
+        isinstance(question_count, bool)
+        or not isinstance(question_count, int)
+        or question_count < 1
+        or question_count > MAX_QUESTION_COUNT
+    ):
+        raise AssignmentStandardsAlignmentError(
+            f"assignment question_count must be an integer between 1 and {MAX_QUESTION_COUNT}."
+        )
+
+    standards_profile_id = assignment.get("standards_profile_id")
+    if not isinstance(standards_profile_id, str) or not standards_profile_id.strip():
+        raise AssignmentStandardsAlignmentError(
+            "assignment standards_profile_id is required for shared standards validation."
+        )
+
+    standards = assignment.get("standards", {})
+    if standards is None:
+        standards = {}
+    if not isinstance(standards, Mapping):
+        raise AssignmentStandardsAlignmentError(
+            "assignment standards must be a mapping of question numbers to standards."
+        )
+
+    return validate_question_standard_alignments(
+        question_count=question_count,
+        standards_profile_id=standards_profile_id,
+        question_standards=standards,
+        standards_library=standards_library,
+    )
+
+
+def _alignment_question_number(key: int | str, question_count: int) -> int:
+    if isinstance(key, str) and key.isdigit():
+        q_num = int(key)
+    elif isinstance(key, int) and not isinstance(key, bool):
+        q_num = key
+    else:
+        raise AssignmentStandardsAlignmentError(
+            f"Invalid question number in standards alignment: {key!r}. "
+            f"Question numbers must be 1 through {question_count}."
+        )
+
+    if q_num < 1 or q_num > question_count:
+        raise AssignmentStandardsAlignmentError(
+            f"Invalid question number {q_num} in standards alignment. "
+            f"Question numbers must be 1 through {question_count}."
+        )
+
+    return q_num
+
+
 def load_answer_key(key_path):
     """Loads and validates the JSON answer key file."""
     if not os.path.exists(key_path):
@@ -233,7 +379,7 @@ def validate_assignment_data(data):
     if normalized_standards is None:
         return None
 
-    return {
+    normalized_assignment = {
         "assignment_id": assignment_id,
         "title": data["title"].strip(),
         "question_count": question_count,
@@ -241,3 +387,15 @@ def validate_assignment_data(data):
         "answer_key": normalized_answer_key,
         "standards": normalized_standards,
     }
+
+    if "standards_profile_id" in data and data["standards_profile_id"] is not None:
+        if not isinstance(data["standards_profile_id"], str) or not data[
+            "standards_profile_id"
+        ].strip():
+            print("Error: 'standards_profile_id' must be a non-empty string when present.")
+            return None
+        normalized_assignment["standards_profile_id"] = data[
+            "standards_profile_id"
+        ].strip()
+
+    return normalized_assignment
