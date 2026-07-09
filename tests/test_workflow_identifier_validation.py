@@ -1,9 +1,16 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pds_core.assignments import AssignmentFolder
+from pds_core.class_metadata import (
+    create_class_metadata,
+    load_class_metadata_for_class,
+    write_class_metadata_for_class,
+)
 from pds_core.classes import ClassFolder
 from pds_core.rosters import Roster as CoreRoster
 from pds_core.rosters import RosterWriteError, StudentRecord
+from pds_core.school_years import open_school_year
 
 from scoreform import assignment, assignment_workflows, roster, workflows
 
@@ -70,6 +77,53 @@ def test_discover_class_rosters_finds_valid_rosters_deterministically(tmp_path, 
     assert [item["class_id"] for item in discovered] == ["a_class", "z_class"]
 
 
+def test_discover_class_rosters_includes_optional_class_metadata(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english9_p2" / "roster.csv"),
+        "english9_p2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    write_class_metadata_for_class(
+        tmp_path,
+        create_class_metadata(
+            "english9_p2",
+            "2026-2027",
+            created_at=datetime.now(timezone.utc),
+        ),
+    )
+
+    [record] = workflows.discover_class_rosters()
+
+    assert record["metadata_path"] == str(
+        tmp_path / "classes" / "english9_p2" / "class.json"
+    )
+    assert record["school_year"] == "2026-2027"
+    assert record["metadata_error"] is None
+
+
+def test_discover_class_rosters_reports_invalid_metadata_without_hiding_roster(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    workflows.write_roster_csv(
+        str(tmp_path / "classes" / "english9_p2" / "roster.csv"),
+        "english9_p2",
+        "2",
+        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
+    )
+    metadata_path = tmp_path / "classes" / "english9_p2" / "class.json"
+    metadata_path.write_text('{"school_year": "2026-2028"}\n', encoding="utf-8")
+
+    [record] = workflows.discover_class_rosters()
+
+    assert record["class_id"] == "english9_p2"
+    assert record["school_year"] is None
+    assert record["metadata_error"]
+
+
 def test_discover_class_rosters_uses_core_class_folder_discovery(
     tmp_path,
     monkeypatch,
@@ -102,6 +156,7 @@ def test_discover_class_rosters_uses_core_class_folder_discovery(
         class_id="english9_p2",
         class_dir=roster_path.parent,
         roster_path=roster_path,
+        metadata_path=roster_path.parent / "class.json",
         roster=core_roster,
     )
     calls = []
@@ -128,6 +183,9 @@ def test_discover_class_rosters_uses_core_class_folder_discovery(
         {
             "class_id": "english9_p2",
             "roster_path": str(roster_path),
+            "metadata_path": str(roster_path.parent / "class.json"),
+            "school_year": None,
+            "metadata_error": None,
             "roster": {
                 "class_id": "english9_p2",
                 "roster_path": str(roster_path),
@@ -419,7 +477,9 @@ def test_format_roster_for_display_includes_summary_rows_and_optional_columns():
     output = workflows.format_roster_for_display(class_record)
 
     assert "Class: english_9_period_2" in output
+    assert "School year: not set" in output
     assert "Roster: classes/english_9_period_2/roster.csv" in output
+    assert "Class metadata: not set" in output
     assert "Students: 2" in output
     assert "student_id" in output
     assert "last_name" in output
@@ -429,6 +489,38 @@ def test_format_roster_for_display_includes_summary_rows_and_optional_columns():
     assert "1001" in output
     assert "Doe" in output
     assert "Jane" in output
+
+
+def test_format_roster_for_display_includes_class_metadata():
+    class_record = {
+        "class_id": "english_9_period_2",
+        "roster_path": "classes/english_9_period_2/roster.csv",
+        "metadata_path": "classes/english_9_period_2/class.json",
+        "school_year": "2026-2027",
+        "metadata_error": None,
+        "roster": {"students": []},
+    }
+
+    output = workflows.format_roster_for_display(class_record)
+
+    assert "School year: 2026-2027" in output
+    assert "Class metadata: classes/english_9_period_2/class.json" in output
+
+
+def test_format_roster_for_display_reports_metadata_error():
+    class_record = {
+        "class_id": "english_9_period_2",
+        "roster_path": "classes/english_9_period_2/roster.csv",
+        "metadata_path": "classes/english_9_period_2/class.json",
+        "school_year": None,
+        "metadata_error": "bad metadata",
+        "roster": {"students": []},
+    }
+
+    output = workflows.format_roster_for_display(class_record)
+
+    assert "School year: metadata error" in output
+    assert "Metadata error: bad metadata" in output
 
 
 def test_prompt_view_roster_handles_no_available_rosters(tmp_path, monkeypatch, capsys):
@@ -654,6 +746,7 @@ def test_prompt_create_roster_rejects_unsafe_student_id(tmp_path, monkeypatch):
     responses = iter([
         "English 9 Period 2",
         "",
+        "2026-2027",
         "2",
         "../secret",
     ])
@@ -668,6 +761,7 @@ def test_prompt_create_roster_writes_class_centered_roster(tmp_path, monkeypatch
     responses = iter([
         "English 9 Period 2",
         "",
+        "2026-2027",
         "2",
         "1001",
         "Doe",
@@ -679,16 +773,61 @@ def test_prompt_create_roster_writes_class_centered_roster(tmp_path, monkeypatch
     assert workflows.prompt_create_roster() == 0
 
     output_path = tmp_path / "classes" / "english_9_period_2" / "roster.csv"
+    metadata_path = tmp_path / "classes" / "english_9_period_2" / "class.json"
     assert output_path.exists()
+    assert metadata_path.exists()
     assert output_path.read_text(encoding="utf-8").splitlines() == [
         "class_id,student_id,last_name,first_name,period",
         "english_9_period_2,1001,Doe,Jane,2",
     ]
+    metadata = load_class_metadata_for_class(tmp_path, "english_9_period_2")
+    assert metadata.school_year == "2026-2027"
 
     loaded = roster.load_roster(str(output_path))
     assert loaded is not None
     assert loaded["class_id"] == "english_9_period_2"
     assert len(loaded["students"]) == 1
+
+
+def test_prompt_create_roster_accepts_active_school_year(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    open_school_year(
+        tmp_path,
+        "2026-2027",
+        opened_at=datetime.now(timezone.utc),
+    )
+    responses = iter([
+        "English 9 Period 2",
+        "",
+        "",
+        "2",
+        "1001",
+        "Doe",
+        "Jane",
+        "n",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_create_roster() == 0
+
+    metadata = load_class_metadata_for_class(tmp_path, "english_9_period_2")
+    assert metadata.school_year == "2026-2027"
+    output = capsys.readouterr().out
+    assert "Active school year: 2026-2027" in output
+
+
+def test_prompt_create_roster_rejects_invalid_school_year(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    responses = iter([
+        "English 9 Period 2",
+        "",
+        "2026-2028",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_create_roster() == 1
+    assert not (tmp_path / "classes" / "english_9_period_2" / "roster.csv").exists()
+    assert not (tmp_path / "classes" / "english_9_period_2" / "class.json").exists()
 
 
 def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
@@ -697,6 +836,7 @@ def test_roster_menu_create_class_roster_flow(tmp_path, monkeypatch):
         "1",
         "English 12 P5",
         "",
+        "2026-2027",
         "5",
         "1002",
         "Smith",

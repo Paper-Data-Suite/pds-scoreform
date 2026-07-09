@@ -14,10 +14,17 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pds_core.assignments import (
     list_assignment_folders as list_core_assignment_folders,
+)
+from pds_core.class_metadata import (
+    ClassMetadataError,
+    create_class_metadata,
+    load_class_metadata_for_class,
+    write_class_metadata_for_class,
 )
 from pds_core.classes import (
     list_class_folders as list_core_class_folders,
@@ -177,9 +184,25 @@ def discover_class_rosters(classes_dir=None):
             continue
 
         roster_path = os.fspath(class_folder.roster_path)
+        metadata_path = os.fspath(class_folder.metadata_path)
+        school_year = None
+        metadata_error = None
+        if class_folder.metadata_path.exists():
+            try:
+                metadata = load_class_metadata_for_class(
+                    workspace_root,
+                    class_folder.class_id,
+                )
+                school_year = metadata.school_year
+            except ClassMetadataError as error:
+                metadata_error = str(error)
+
         discovered.append({
             "class_id": class_folder.class_id,
             "roster_path": roster_path,
+            "metadata_path": metadata_path,
+            "school_year": school_year,
+            "metadata_error": metadata_error,
             "roster": _core_roster_to_legacy_dict(class_folder.roster),
         })
 
@@ -362,6 +385,9 @@ def _roster_workflows_module():
     roster_workflows.suggest_class_id = suggest_class_id
     roster_workflows.write_class_roster = write_class_roster
     roster_workflows.write_roster_csv = write_roster_csv
+    roster_workflows.write_roster_with_class_metadata = (
+        write_roster_with_class_metadata
+    )
     return roster_workflows
 
 
@@ -450,6 +476,66 @@ def write_roster_csv(path, class_id, period, students):
     except Exception as e:
         print(f"Error: Could not write roster CSV '{path}': {e}")
         return False
+
+
+def write_roster_with_class_metadata(
+    *,
+    workspace_root,
+    class_id,
+    period,
+    students,
+    school_year,
+    overwrite=False,
+):
+    """Write a canonical class roster and class metadata side by side."""
+    try:
+        if not validate_identifier("class_id", class_id, context="roster"):
+            return None
+        for student in students:
+            if not validate_identifier(
+                "student_id",
+                student.get("student_id"),
+                context="roster",
+            ):
+                return None
+
+        rows = [
+            {
+                "student_id": student["student_id"],
+                "last_name": student["last_name"],
+                "first_name": student["first_name"],
+                "period": period,
+            }
+            for student in students
+        ]
+        roster = create_core_roster(class_id, rows)
+        created_at = datetime.now(timezone.utc)
+        metadata = create_class_metadata(
+            class_id,
+            school_year,
+            created_at=created_at,
+        )
+
+        roster_path = write_class_roster(
+            workspace_root,
+            roster,
+            overwrite=overwrite,
+        )
+        metadata_path = write_class_metadata_for_class(
+            workspace_root,
+            metadata,
+            overwrite=overwrite,
+        )
+        return {
+            "roster_path": os.fspath(roster_path),
+            "metadata_path": os.fspath(metadata_path),
+        }
+    except (RosterError, ClassMetadataError) as e:
+        print(f"Error: Could not write class roster files: {e}")
+        return None
+    except Exception as e:
+        print(f"Error: Could not write class roster files: {e}")
+        return None
 
 
 def write_assignment_json(path, assignment):

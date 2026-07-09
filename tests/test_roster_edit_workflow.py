@@ -1,5 +1,10 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
+from pds_core.class_metadata import (
+    create_class_metadata,
+    write_class_metadata_for_class,
+)
 from pds_core.rosters import RosterReadError
 
 from scoreform import roster, workflows
@@ -270,6 +275,47 @@ def test_remove_student_save_does_not_touch_generated_or_historical_files(
     assert results.read_text(encoding="utf-8") == "results"
     assert assignment_json.read_text(encoding="utf-8") == '{"assignment_id":"unit_1"}'
     assert scan.read_text(encoding="utf-8") == "scan"
+
+
+def test_edit_roster_preserves_class_metadata(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    roster_path = _class_roster_path(tmp_path)
+    _write_roster(
+        roster_path,
+        [{
+            "class_id": "english_9_period_2",
+            "student_id": "1001",
+            "last_name": "Doe",
+            "first_name": "Jane",
+            "period": "2",
+        }],
+    )
+    metadata_path = write_class_metadata_for_class(
+        tmp_path,
+        create_class_metadata(
+            "english_9_period_2",
+            "2026-2027",
+            created_at=datetime.now(timezone.utc),
+        ),
+    )
+    before_metadata = metadata_path.read_text(encoding="utf-8")
+    responses = iter([
+        "1",
+        "1",
+        "1002",
+        "Smith",
+        "Marcus",
+        "2",
+        "5",
+        "SAVE",
+    ])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert workflows.prompt_edit_class_roster() == 0
+
+    assert metadata_path.read_text(encoding="utf-8") == before_metadata
+    students = _load_students(roster_path)
+    assert [student["student_id"] for student in students] == ["1001", "1002"]
 
 
 def test_discard_confirmation_exits_without_writing(tmp_path, monkeypatch):
