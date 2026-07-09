@@ -11,7 +11,18 @@ from pds_core.rosters import (
     remove_student_record,
     replace_student_record,
 )
-from pds_core.routes import class_roster_path as core_class_roster_path
+from pds_core.routes import (
+    class_metadata_path as core_class_metadata_path,
+)
+from pds_core.routes import (
+    class_roster_path as core_class_roster_path,
+)
+from pds_core.school_years import (
+    SchoolYearStateError,
+    SchoolYearValidationError,
+    get_active_school_year,
+    validate_school_year,
+)
 
 from scoreform import workspace
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
@@ -24,7 +35,7 @@ from scoreform.workflows import (
     pause_for_user,
     print_menu_header,
     suggest_class_id,
-    write_roster_csv,
+    write_roster_with_class_metadata,
 )
 
 
@@ -32,6 +43,14 @@ def format_roster_for_display(class_record):
     """Return readable terminal text for a discovered class roster."""
     roster = class_record["roster"]
     students = roster.get("students", [])
+    metadata_error = class_record.get("metadata_error")
+    school_year = class_record.get("school_year")
+    if metadata_error:
+        school_year_text = "metadata error"
+    elif school_year:
+        school_year_text = school_year
+    else:
+        school_year_text = "not set"
     fieldnames = ["student_id", "last_name", "first_name", "period"]
 
     for student in students:
@@ -41,18 +60,24 @@ def format_roster_for_display(class_record):
 
     widths = {
         field: max(
-            len(field),
-            *(len(str(student.get(field, ""))) for student in students),
+            [len(field)]
+            + [len(str(student.get(field, ""))) for student in students]
         )
         for field in fieldnames
     }
 
     lines = [
         f"Class: {class_record['class_id']}",
+        f"School year: {school_year_text}",
         f"Roster: {class_record['roster_path']}",
+        f"Class metadata: {class_record.get('metadata_path', 'not set')}",
+    ]
+    if metadata_error:
+        lines.append(f"Metadata error: {metadata_error}")
+    lines.extend([
         f"Students: {len(students)}",
         "",
-    ]
+    ])
 
     if not students:
         lines.append("(No student rows)")
@@ -67,12 +92,17 @@ def format_roster_for_display(class_record):
     return "\n".join(lines)
 
 
-def _class_record_from_core_roster(roster, roster_path):
-    return {
+def _class_record_from_core_roster(roster, roster_path, base_record=None):
+    record = {
         "class_id": roster.class_id,
         "roster_path": os.fspath(roster_path),
         "roster": _core_roster_to_legacy_dict(roster),
     }
+    if base_record:
+        for key in ("metadata_path", "school_year", "metadata_error"):
+            if key in base_record:
+                record[key] = base_record[key]
+    return record
 
 
 def _optional_roster_columns(roster):
@@ -258,7 +288,11 @@ def prompt_edit_class_roster():
     dirty = False
     saved_path = class_record["roster_path"]
     print()
-    print(format_roster_for_display(_class_record_from_core_roster(staged_roster, saved_path)))
+    print(
+        format_roster_for_display(
+            _class_record_from_core_roster(staged_roster, saved_path, class_record)
+        )
+    )
 
     while True:
         print()
@@ -304,7 +338,15 @@ def prompt_edit_class_roster():
                 print("Staged: student removed from active roster.")
 
         elif choice == "4":
-            print(format_roster_for_display(_class_record_from_core_roster(staged_roster, saved_path)))
+            print(
+                format_roster_for_display(
+                    _class_record_from_core_roster(
+                        staged_roster,
+                        saved_path,
+                        class_record,
+                    )
+                )
+            )
             if dirty:
                 print()
                 print("Unsaved staged changes are shown above.")
@@ -388,6 +430,54 @@ def confirm_roster_overwrite(path, class_id):
     return response in ['y', 'yes']
 
 
+def confirm_class_files_overwrite(roster_path, metadata_path, class_id):
+    """Prompt once before replacing existing canonical class files."""
+    existing = []
+    if os.path.exists(roster_path):
+        existing.append(("Roster", roster_path))
+    if os.path.exists(metadata_path):
+        existing.append(("Class metadata", metadata_path))
+
+    if not existing:
+        return True
+
+    print(f"Existing class files were found for class '{class_id}':")
+    print()
+    for label, path in existing:
+        print(f"{label}:")
+        print(path)
+        print()
+
+    response = input(
+        "Type OVERWRITE to replace the roster and class metadata: "
+    ).strip()
+    return response == "OVERWRITE"
+
+
+def prompt_school_year_for_roster(workspace_root):
+    """Prompt for a pds-core validated school year for a new class roster."""
+    try:
+        active_school_year = get_active_school_year(workspace_root)
+    except SchoolYearStateError as e:
+        print(f"Error: Could not read active school-year state: {e}")
+        return None
+
+    if active_school_year:
+        print(f"Active school year: {active_school_year}")
+        response = input("Use this school year for the class roster? [Y/n]: ").strip()
+        if response.lower() not in {"n", "no"}:
+            return active_school_year
+    else:
+        print("No active school year is open for this workspace.")
+
+    school_year = input("School year for this roster (YYYY-YYYY): ").strip()
+    try:
+        return validate_school_year(school_year)
+    except SchoolYearValidationError as e:
+        print(f"Error: Invalid school year: {e}")
+        return None
+
+
 def prompt_create_roster():
     """Interactive prompt to create a new roster.
 
@@ -419,9 +509,14 @@ def prompt_create_roster():
 
     workspace_root = workspace.get_scoreform_workspace_root()
     output_path = os.fspath(core_class_roster_path(workspace_root, class_id))
+    metadata_path = os.fspath(core_class_metadata_path(workspace_root, class_id))
 
-    if not confirm_roster_overwrite(output_path, class_id):
-        print("Cancelled: Roster overwrite not confirmed.")
+    if not confirm_class_files_overwrite(output_path, metadata_path, class_id):
+        print("Cancelled: class file overwrite not confirmed.")
+        return 1
+
+    school_year = prompt_school_year_for_roster(workspace_root)
+    if school_year is None:
         return 1
 
     period = input("Period: ").strip()
@@ -477,9 +572,18 @@ def prompt_create_roster():
 
     print()
     print(f"Writing {len(students)} students to: {output_path}")
-    if not write_roster_csv(output_path, class_id, period, students):
-        print("Error: Failed to write roster CSV.")
+    result = write_roster_with_class_metadata(
+        workspace_root=workspace_root,
+        class_id=class_id,
+        period=period,
+        students=students,
+        school_year=school_year,
+        overwrite=True,
+    )
+    if result is None:
+        print("Error: Failed to write roster and class metadata.")
         return 1
+    print(f"Class metadata: {result['metadata_path']}")
 
     print("Validating roster...")
     roster = load_roster(output_path)

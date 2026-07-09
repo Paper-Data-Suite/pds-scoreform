@@ -208,6 +208,7 @@ $SampleDebugDir = Join-Path $SampleAssignmentDir "debug"
 $SampleResultsCsv = Join-Path $SampleAssignmentDir "results.csv"
 $MenuRosterClassDir = Join-Path $ClassesDir "000_test_class_v5"
 $MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
+$MenuClassMetadataJson = Join-Path $MenuRosterClassDir "class.json"
 $TempAssignmentJson = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\assignment.json"
 $MenuInboxScanPdf = Join-Path $ScansInboxDir "000_menu_picker_class_packet.pdf"
 $MenuInboxIgnoredTxt = Join-Path $ScansInboxDir "000_menu_picker_ignored.txt"
@@ -464,6 +465,7 @@ Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
     "1",                    # Roster menu -> Create a class roster
     "Menu Test Class V5",   # Class name
     "000_test_class_v5",    # Override suggested class_id
+    "2026-2027",            # school year
     "5",                    # period
     "5001",                 # student 1 id
     "Test",                 # student 1 last_name
@@ -488,12 +490,14 @@ Write-Host "PASSED: Roster creation through menu" -ForegroundColor Green
 Write-Host ""
 Write-Host "Checking roster creation output..." -ForegroundColor Yellow
 Assert-Exists $MenuRosterCsv
+Assert-Exists $MenuClassMetadataJson
 Assert-FileContains $MenuRosterCsv "class_id,student_id,last_name,first_name,period"
 Assert-FileContains $MenuRosterCsv "000_test_class_v5"
 Assert-FileContains $MenuRosterCsv "5001"
 Assert-FileContains $MenuRosterCsv "5002"
 Assert-FileContains $MenuRosterCsv "Alice"
 Assert-FileContains $MenuRosterCsv "Bob"
+Assert-FileContains $MenuClassMetadataJson '"school_year": "2026-2027"'
 
 Invoke-Test "Validate created roster" "$PythonCommand main.py validate-roster $MenuRosterCsv"
 
