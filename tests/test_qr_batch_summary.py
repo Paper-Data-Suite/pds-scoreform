@@ -198,6 +198,98 @@ def test_process_file_qr_aware_records_unsupported_input_type(tmp_path):
     assert results.summary.file_failures[0].reason == "Unsupported input type: .txt"
 
 
+def test_process_file_qr_aware_rejects_bmp_before_retention(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.bmp"
+    scan_path.write_bytes(b"synthetic")
+    retain_calls = []
+    monkeypatch.setattr(
+        scoring,
+        "retain_source_scan",
+        lambda *args: retain_calls.append(args),
+    )
+
+    results = scoring.process_file_qr_aware(str(scan_path))
+
+    assert results == []
+    assert results.summary.failure_counts() == {"unsupported_input_type": 1}
+    assert retain_calls == []
+
+
+def test_process_file_qr_aware_processes_retained_pdf(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.pdf"
+    retained_path = tmp_path / "scans" / "source" / "2026-07-11" / "retained.pdf"
+    scan_path.write_bytes(b"synthetic")
+    calls = []
+    monkeypatch.setattr(
+        scoring,
+        "retain_source_scan",
+        lambda root, source: calls.append(("retain", root, source))
+        or types.SimpleNamespace(retained_source_path=retained_path),
+    )
+    monkeypatch.setattr(
+        scoring,
+        "_process_qr_pdf",
+        lambda path, *_args, **_kwargs: calls.append(("process", path)),
+    )
+
+    scoring.process_file_qr_aware(str(scan_path), workspace_root=tmp_path)
+
+    assert calls == [
+        ("retain", tmp_path, str(scan_path)),
+        ("process", str(retained_path)),
+    ]
+
+
+def test_process_file_qr_aware_processes_retained_image(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.png"
+    retained_path = tmp_path / "scans" / "source" / "2026-07-11" / "retained.png"
+    scan_path.write_bytes(b"synthetic")
+    calls = []
+    monkeypatch.setattr(
+        scoring,
+        "retain_source_scan",
+        lambda root, source: calls.append(("retain", root, source))
+        or types.SimpleNamespace(retained_source_path=retained_path),
+    )
+    monkeypatch.setattr(
+        scoring,
+        "_process_qr_image",
+        lambda path, *_args, **_kwargs: calls.append(("process", path)),
+    )
+
+    scoring.process_file_qr_aware(str(scan_path), workspace_root=tmp_path)
+
+    assert calls == [
+        ("retain", tmp_path, str(scan_path)),
+        ("process", str(retained_path)),
+    ]
+
+
+def test_process_file_qr_aware_stops_after_retention_failure(tmp_path, monkeypatch):
+    scan_path = tmp_path / "scan.pdf"
+    scan_path.write_bytes(b"synthetic")
+    process_calls = []
+
+    def fail_retention(_root, _source):
+        raise scoring.SourceRetentionError("locked")
+
+    monkeypatch.setattr(scoring, "retain_source_scan", fail_retention)
+    monkeypatch.setattr(
+        scoring,
+        "_process_qr_pdf",
+        lambda *_args, **_kwargs: process_calls.append("processed"),
+    )
+
+    results = scoring.process_file_qr_aware(str(scan_path), workspace_root=tmp_path)
+
+    assert results == []
+    assert results.summary.failure_counts() == {"source_retention_failed": 1}
+    assert "Source scan retention failed: locked" in (
+        results.summary.file_failures[0].reason
+    )
+    assert process_calls == []
+
+
 def test_process_file_qr_aware_records_missing_pdf2image(tmp_path, monkeypatch):
     scan_path = tmp_path / "scan.pdf"
     scan_path.write_bytes(b"synthetic")
