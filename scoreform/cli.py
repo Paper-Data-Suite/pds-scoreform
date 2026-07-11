@@ -3,6 +3,7 @@
 import os
 import sys
 
+from pds_core.menu_navigation import NavigationChoice, QuitPDS, ReturnToMainMenu
 from pds_core.scan_routes import scans_inbox_dir  # noqa: F401 - compatibility re-export
 from pds_core.school_years import (
     SchoolYearStateError,
@@ -37,6 +38,11 @@ from scoreform.cli_workspace import (
     run_workspace,
 )
 from scoreform.folders import setup_assignment_folder
+from scoreform.menu_navigation import (
+    parse_scoreform_navigation,
+    print_invalid_navigation,
+    print_scoreform_navigation_options,
+)
 from scoreform.roster import load_roster
 from scoreform.roster_workflows import launch_roster_menu
 from scoreform.scoring import (
@@ -185,11 +191,15 @@ def launch_school_year_menu():
             print("1. Show school year status")
             print("2. Open school year")
             print("3. Close school year")
-            print("4. Back")
+            print_scoreform_navigation_options()
             print()
 
             choice = input("Select an option: ").strip()
             print()
+
+            navigation = parse_scoreform_navigation(choice)
+            if navigation is NavigationChoice.BACK or choice == "4":
+                return 0
 
             if choice == "1":
                 clear_screen()
@@ -295,11 +305,9 @@ def launch_school_year_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "4":
-                return 0
-
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 4.")
+                print(f"Invalid selection: {choice}.")
+                print_invalid_navigation()
                 print()
                 pause_for_user()
 
@@ -319,11 +327,15 @@ def launch_workspace_menu():
             print("3. Validate/create current workspace")
             print("4. School year settings")
             print("5. Reset saved workspace preference")
-            print("6. Back")
+            print_scoreform_navigation_options()
             print()
 
             choice = input("Select an option: ").strip()
             print()
+
+            navigation = parse_scoreform_navigation(choice)
+            if navigation is NavigationChoice.BACK or choice == "6":
+                return 0
 
             if choice == "1":
                 clear_screen()
@@ -362,11 +374,9 @@ def launch_workspace_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "6":
-                return 0
-
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
+                print(f"Invalid selection: {choice}.")
+                print_invalid_navigation()
                 print()
                 pause_for_user()
 
@@ -384,10 +394,18 @@ def launch_menu():
             print("2. Roster Management")
             print("3. Workspace Settings")
             print("4. Help")
-            print("5. Exit")
+            print_scoreform_navigation_options(back=False, main_menu=False)
 
             choice = input("Select an option: ").strip()
             print()
+
+            try:
+                parse_scoreform_navigation(
+                    choice, allow_back=False, allow_main_menu=False
+                )
+            except QuitPDS:
+                print("Goodbye.")
+                return 0
 
             if choice == "1":
                 launch_assignment_menu()
@@ -408,10 +426,16 @@ def launch_menu():
                 return 0
 
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
+                print(f"Invalid selection: {choice}. Please choose a listed option or Q.")
                 print()
                 pause_for_user()
 
+
+    except QuitPDS:
+        print("Goodbye.")
+        return 0
+    except ReturnToMainMenu:
+        return launch_menu()
     except KeyboardInterrupt:
         print("\nExiting menu.")
         return 0

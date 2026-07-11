@@ -18,7 +18,9 @@ def test_workspace_settings_routes_to_school_year_settings(monkeypatch, capsys):
     assert "1. Show school year status" in output
     assert "2. Open school year" in output
     assert "3. Close school year" in output
-    assert "4. Back" in output
+    assert output.count("B. Back") == 3
+    assert output.count("M. Main Menu") == 3
+    assert output.count("Q. Quit") == 3
 
 
 def test_school_year_menu_show_displays_status(monkeypatch, capsys):

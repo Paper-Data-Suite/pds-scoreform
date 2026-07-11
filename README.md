@@ -326,8 +326,11 @@ ScoreForm
 2. Roster Management
 3. Workspace Settings
 4. Help
-5. Exit
+Q. Quit
 ```
+
+Interactive submenus use the shared Paper Data Suite navigation commands:
+`B. Back`, `M. Main Menu`, and `Q. Quit`.
 
 Assignment Management contains assignment creation, editing, and validation, answer-sheet generation, scoring, read-only routed-results viewing, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
