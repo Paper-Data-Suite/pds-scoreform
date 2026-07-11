@@ -57,6 +57,33 @@ teacher workflow more technical without adding useful guidance.
 `setup-assignment` is the current example: it remains available to power users,
 developers, and imports, but is not a top-level teacher-facing menu item.
 
+## Active scan review commands
+
+ScoreForm exposes the durable QR-aware failure queue through:
+
+```powershell
+scoreform list-scan-review
+scoreform list-scan-review --include-resolved --limit 25
+scoreform list-scan-review --class-id english9_p2 --assignment-id quiz
+scoreform resolve-scan-review <failure_id> --action rescan_needed
+scoreform resolve-scan-review <failure_id> --action defer
+```
+
+List filters are `--class-id`, `--assignment-id`, and `--failure-category`.
+The default list includes unresolved and deferred ScoreForm records and hides
+resolved records. Malformed and non-ScoreForm records do not stop listing.
+
+Direct resolution actions are `manual_marks`, `rescan_needed`, `cannot_route`,
+`mixed_assignment`, `evidence_filed`, `dismissed_duplicate`, `other`, and
+`defer`. `other` requires `--message`; `evidence_filed` requires a safe
+workspace-relative `--evidence-path`. Identity flags are `--class-id`,
+`--assignment-id`, and `--student-id`, and supplied identity is validated.
+
+`manual_entry` requires answer-by-answer review and confirmation, so the direct
+command points teachers to **Assignment Management > Resolve Scan Review
+Items**. The same menu supports all actions. It uses compact list, detail,
+action, input, and result screens and returns to the active list after a change.
+
 ## Stability Categories
 
 These categories apply to command names and broad purpose. Unless stated

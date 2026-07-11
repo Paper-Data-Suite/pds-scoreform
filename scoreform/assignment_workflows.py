@@ -15,7 +15,13 @@ from pds_core.standards_selection import (
     resolve_profile_standard_selection,
 )
 
-from scoreform import generate_workflows, menu_scoring, qr_workflows, workspace
+from scoreform import (
+    generate_workflows,
+    menu_scan_review,
+    menu_scoring,
+    qr_workflows,
+    workspace,
+)
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import MAX_QUESTION_COUNT
 from scoreform.menu_navigation import (
@@ -981,6 +987,7 @@ def launch_assignment_menu():
             print("5. Score scanned responses")
             print("6. View assignment results")
             print("7. Decode QR from a file")
+            print("9. Resolve scan review items")
             print_scoreform_navigation_options()
             print()
 
@@ -1049,6 +1056,9 @@ def launch_assignment_menu():
                 qr_workflows.run_decode_qr([input_file])
                 print()
                 pause_for_user()
+
+            elif choice == "9":
+                menu_scan_review.launch_scan_review_menu()
 
             else:
                 print(f"Invalid selection: {choice}.")
