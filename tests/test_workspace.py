@@ -132,7 +132,7 @@ def test_set_and_reset_use_isolated_pds_core_config(
     assert config_path.is_file()
     assert core_workspace.resolve_workspace_root() == requested_root
 
-    data_file.parent.mkdir()
+    data_file.parent.mkdir(exist_ok=True)
     data_file.write_text("keep me", encoding="utf-8")
 
     cleared, resolved_root = workspace.reset_scoreform_workspace_root()

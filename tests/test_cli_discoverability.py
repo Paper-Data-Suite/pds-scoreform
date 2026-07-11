@@ -326,7 +326,10 @@ def test_main_menu_is_teacher_centered_and_omits_assignment_operations():
     assert "2. Roster Management" in output
     assert "3. Workspace Settings" in output
     assert "4. Help" in output
-    assert "5. Exit" in output
+    assert output.count("Q. Quit") == 1
+    assert "B. Back" not in output
+    assert "M. Main Menu" not in output
+    assert "5. Exit" not in output
     assert "Generate answer sheets" not in output
     assert "Score scanned responses" not in output
     assert "Decode QR from a file" not in output
@@ -349,7 +352,9 @@ def test_assignment_management_menu_contains_teacher_workflows():
     assert "5. Score scanned responses" in output
     assert "6. View assignment results" in output
     assert "7. Decode QR from a file" in output
-    assert "8. Return to main menu" in output
+    assert output.count("B. Back") == 1
+    assert output.count("M. Main Menu") == 1
+    assert output.count("Q. Quit") == 3  # initial main, submenu, redrawn main
     assert "Set up assignment folders" not in output
 
 
@@ -364,7 +369,9 @@ def test_roster_management_menu_still_contains_teacher_workflows():
     assert "2. View a class roster" in output
     assert "3. Edit class roster" in output
     assert "4. Validate a roster file" in output
-    assert "5. Return to main menu" in output
+    assert output.count("B. Back") == 1
+    assert output.count("M. Main Menu") == 1
+    assert output.count("Q. Quit") == 3  # initial main, submenu, redrawn main
 
 
 def test_menu_selection_does_not_strip_quotes():
@@ -376,7 +383,7 @@ def test_menu_selection_does_not_strip_quotes():
     assert result.returncode == 0
     output = combined_output(result)
     assert "Invalid selection" in output
-    assert "Please enter a number from 1 to 5." in output
+    assert "Please choose a listed option or Q." in output
     assert "Goodbye." in output
 
 
@@ -558,7 +565,8 @@ def test_menu_score_invalid_scoring_mode_returns_to_mode_selection(monkeypatch, 
     assert scoreform.cli.launch_menu() == 0
 
     output = capsys.readouterr().out
-    assert "Invalid selection: 9. Please enter a number from 1 to 3." in output
+    assert "Invalid selection: 9." in output
+    assert "Please choose a listed option, B, M, or Q." in output
     assert output.count("Scoring mode:") >= 2
     assert pauses == ["pause"]
     assert run_score_calls == []

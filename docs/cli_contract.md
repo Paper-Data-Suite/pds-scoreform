@@ -267,7 +267,7 @@ The teacher-facing main menu currently provides:
 2. Roster Management
 3. Workspace Settings
 4. Help
-5. Exit
+Q. Quit
 ```
 
 Assignment Management includes assignment creation, editing, and validation,
@@ -329,7 +329,9 @@ School Year Settings includes:
 1. Show school year status
 2. Open school year
 3. Close school year
-4. Back
+B. Back
+M. Main Menu
+Q. Quit
 ```
 
 Replacing a different active school year requires typing `OVERWRITE` exactly.

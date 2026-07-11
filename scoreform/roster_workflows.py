@@ -25,6 +25,11 @@ from pds_core.school_years import (
 )
 
 from scoreform import workspace
+from scoreform.menu_navigation import (
+    parse_scoreform_navigation,
+    print_invalid_navigation,
+    print_scoreform_navigation_options,
+)
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 from scoreform.workflows import (
@@ -136,6 +141,8 @@ def _prompt_nonblank_roster_value(field_name):
 
 def _prompt_student_selection(roster, prompt):
     selection = input(prompt).strip()
+    if parse_scoreform_navigation(selection) is not None:
+        return None
     if not selection:
         raise ValueError("Select one student.")
 
@@ -200,11 +207,14 @@ def _prompt_edit_student_in_roster(roster):
     print()
     print("Edit student")
     _print_student_choices(roster)
+    print_scoreform_navigation_options()
     print()
     student = _prompt_student_selection(
         roster,
         "Select student by number or student_id: ",
     )
+    if student is None:
+        return roster
 
     print()
     print(f"student_id: {student.student_id}")
@@ -232,11 +242,14 @@ def _prompt_remove_student_from_roster(roster):
     print()
     print("Remove student from active roster")
     _print_student_choices(roster)
+    print_scoreform_navigation_options()
     print()
     student = _prompt_student_selection(
         roster,
         "Select student by number or student_id: ",
     )
+    if student is None:
+        return roster
 
     print()
     print(
@@ -265,11 +278,15 @@ def prompt_edit_class_roster():
     print("Available classes:")
     for index, class_record in enumerate(available_classes, start=1):
         print(f"{index}. {class_record['class_id']}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select class: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         class_record = parse_single_selection(
-            input("Select class: "),
+            selection,
             available_classes,
             "class",
         )
@@ -302,11 +319,14 @@ def prompt_edit_class_roster():
         print("3. Remove student from active roster")
         print("4. View current roster")
         print("5. Save changes")
-        print("6. Cancel without saving")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         print()
+
+        if parse_scoreform_navigation(choice) is not None:
+            choice = "6"
 
         if choice == "1":
             try:
@@ -385,7 +405,8 @@ def prompt_edit_class_roster():
             return 0
 
         else:
-            print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
+            print(f"Invalid selection: {choice}.")
+            print_invalid_navigation()
 
 
 def prompt_view_roster():
@@ -401,11 +422,15 @@ def prompt_view_roster():
     print("Available classes:")
     for index, class_record in enumerate(available_classes, start=1):
         print(f"{index}. {class_record['class_id']}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select class: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         class_record = parse_single_selection(
-            input("Select class: "),
+            selection,
             available_classes,
             "class",
         )
@@ -609,11 +634,14 @@ def launch_roster_menu():
             print("2. View a class roster")
             print("3. Edit class roster")
             print("4. Validate a roster file")
-            print("5. Return to main menu")
+            print_scoreform_navigation_options()
             print()
 
             choice = input("Select an option: ").strip()
             print()
+
+            if parse_scoreform_navigation(choice) is not None or choice == "5":
+                return 0
 
             if choice == "1":
                 clear_screen()
@@ -658,11 +686,9 @@ def launch_roster_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "5":
-                return 0
-
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 5.")
+                print(f"Invalid selection: {choice}.")
+                print_invalid_navigation()
                 print()
                 pause_for_user()
 

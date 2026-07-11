@@ -202,7 +202,9 @@ def test_workspace_menu_opens_and_returns(monkeypatch, capsys):
     assert "3. Validate/create current workspace" in output
     assert "4. School year settings" in output
     assert "5. Reset saved workspace preference" in output
-    assert "6. Back" in output
+    assert output.count("B. Back") == 1
+    assert output.count("M. Main Menu") == 1
+    assert output.count("Q. Quit") == 3  # initial main, submenu, redrawn main
     assert "Goodbye." in output
 
 

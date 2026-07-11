@@ -4,6 +4,11 @@ import os
 
 from scoreform.assignment import load_assignment
 from scoreform.folders import setup_assignment_folder
+from scoreform.menu_navigation import (
+    parse_scoreform_navigation,
+    print_invalid_navigation,
+    print_scoreform_navigation_options,
+)
 from scoreform.roster import load_roster
 from scoreform.templates import (
     generate_class_packet_pdf,
@@ -105,11 +110,15 @@ def launch_generate_menu():
             print_menu_header("Generate Answer Sheets")
             print("1. Generate answer sheets for an existing class assignment")
             print("2. Generate a generic blank template")
-            print("3. Return to Assignment Management")
+            print_scoreform_navigation_options()
             print()
 
             choice = input("Select an option: ").strip()
             print()
+
+            navigation = parse_scoreform_navigation(choice)
+            if navigation is not None or choice == "3":
+                return 0
 
             if choice == "1":
                 clear_screen()
@@ -123,11 +132,15 @@ def launch_generate_menu():
                 print("Available classes:")
                 for index, class_record in enumerate(available_classes, start=1):
                     print(f"{index}. {class_record['class_id']}")
+                print_scoreform_navigation_options()
                 print()
 
                 try:
+                    selection = input("Select class: ")
+                    if parse_scoreform_navigation(selection) is not None:
+                        continue
                     class_record = parse_single_selection(
-                        input("Select class: "),
+                        selection,
                         available_classes,
                         "class",
                     )
@@ -147,11 +160,15 @@ def launch_generate_menu():
                 print(f"Available assignments for {class_id}:")
                 for index, assignment_record in enumerate(available_assignments, start=1):
                     print(f"{index}. {assignment_record['assignment_id']}")
+                print_scoreform_navigation_options()
                 print()
 
                 try:
+                    selection = input("Select assignment: ")
+                    if parse_scoreform_navigation(selection) is not None:
+                        continue
                     assignment_record = parse_single_selection(
-                        input("Select assignment: "),
+                        selection,
                         available_assignments,
                         "assignment",
                     )
@@ -188,11 +205,9 @@ def launch_generate_menu():
                 pause_for_user()
                 return result
 
-            elif choice == "3":
-                return 0
-
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+                print(f"Invalid selection: {choice}.")
+                print_invalid_navigation()
                 print()
                 pause_for_user()
 

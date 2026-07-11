@@ -6,6 +6,11 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.cli_score import run_score
+from scoreform.menu_navigation import (
+    parse_scoreform_navigation,
+    print_invalid_navigation,
+    print_scoreform_navigation_options,
+)
 from scoreform.workflows import (
     clear_screen,
     discover_scans_in_inbox,
@@ -36,10 +41,14 @@ def prompt_select_scan_from_inbox(scans_dir=None):
     print()
     for index, scan_path in enumerate(scans, start=1):
         print(f"{index}. {os.path.basename(scan_path)}")
+    print_scoreform_navigation_options()
     print()
 
     try:
-        return parse_single_selection(input("Select scan: "), scans, "scan")
+        selection = input("Select scan: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return None
+        return parse_single_selection(selection, scans, "scan")
     except ValueError as e:
         print()
         print(f"Error: {e}")
@@ -55,11 +64,15 @@ def prompt_scoring_input_file():
         print_menu_header("Score Scanned Responses")
         print("1. Choose a file from scans_inbox")
         print("2. Enter a custom path")
-        print("3. Return to Assignment Management")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         print()
+
+        navigation = parse_scoreform_navigation(choice)
+        if navigation is not None or choice == "3":
+            return None
 
         if choice == "1":
             selected_scan = prompt_select_scan_from_inbox()
@@ -81,11 +94,9 @@ def prompt_scoring_input_file():
                 continue
             return input_file
 
-        elif choice == "3":
-            return None
-
         else:
-            print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+            print(f"Invalid selection: {choice}.")
+            print_invalid_navigation()
             print()
             pause_for_user()
 
@@ -145,11 +156,15 @@ def prompt_scoring_mode(input_file):
         print()
         print("1. QR-aware routed scoring (recommended)")
         print("2. Manual scoring with answer key")
-        print("3. Return to Assignment Management")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         print()
+
+        navigation = parse_scoreform_navigation(choice)
+        if navigation is not None or choice == "3":
+            return
 
         if choice == "1":
             run_menu_qr_aware_routed_scoring(input_file)
@@ -160,9 +175,7 @@ def prompt_scoring_mode(input_file):
                 return
             continue
 
-        if choice == "3":
-            return
-
-        print(f"Invalid selection: {choice}. Please enter a number from 1 to 3.")
+        print(f"Invalid selection: {choice}.")
+        print_invalid_navigation()
         print()
         pause_for_user()

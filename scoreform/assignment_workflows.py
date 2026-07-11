@@ -20,6 +20,11 @@ from pds_core.standards import (
 from scoreform import generate_workflows, menu_scoring, qr_workflows, workspace
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import MAX_QUESTION_COUNT
+from scoreform.menu_navigation import (
+    parse_scoreform_navigation,
+    print_invalid_navigation,
+    print_scoreform_navigation_options,
+)
 from scoreform.results_viewer import (
     ResultsViewError,
     format_assignment_results_table,
@@ -335,11 +340,14 @@ def _prompt_edit_assignment_standards(assignment, workspace_root):
         print("1. Attach existing standard")
         print("2. Remove standard")
         print("3. Clear standards for question(s)")
-        print("4. Return to assignment edit menu")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         print()
+
+        if parse_scoreform_navigation(choice) is not None or choice == "4":
+            return assignment, False
 
         if choice == "1":
             return _prompt_attach_standard_to_assignment(assignment, workspace_root)
@@ -347,10 +355,8 @@ def _prompt_edit_assignment_standards(assignment, workspace_root):
             return _prompt_remove_standard_from_assignment(assignment, workspace_root)
         if choice == "3":
             return _prompt_clear_assignment_standards(assignment)
-        if choice == "4":
-            return assignment, False
-
-        print("Invalid selection. Please enter 1, 2, 3, or 4.")
+        print("Invalid selection.")
+        print_invalid_navigation()
 
 
 def _assignment_record_for_display(class_id, assignment_path, assignment):
@@ -418,11 +424,15 @@ def prompt_edit_assignment():
     print("Available classes:")
     for index, class_record in enumerate(available_classes, start=1):
         print(f"{index}. {class_record['class_id']}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select class: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         class_record = parse_single_selection(
-            input("Select class: "),
+            selection,
             available_classes,
             "class",
         )
@@ -442,11 +452,15 @@ def prompt_edit_assignment():
     for index, assignment_record in enumerate(available_assignments, start=1):
         title = assignment_record["assignment"].get("title", "")
         print(f"{index}. {assignment_record['assignment_id']} - {title}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select assignment: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         assignment_record = parse_single_selection(
-            input("Select assignment: "),
+            selection,
             available_assignments,
             "assignment",
         )
@@ -485,11 +499,14 @@ def prompt_edit_assignment():
         print("3. Edit standards alignment")
         print("4. View current assignment summary")
         print("5. Save changes")
-        print("6. Cancel without saving")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         print()
+
+        if parse_scoreform_navigation(choice) is not None:
+            choice = "6"
 
         if choice == "1":
             updated_assignment, changed = _prompt_edit_assignment_title(
@@ -578,7 +595,8 @@ def prompt_edit_assignment():
             return 0
 
         else:
-            print(f"Invalid selection: {choice}. Please enter a number from 1 to 6.")
+            print(f"Invalid selection: {choice}.")
+            print_invalid_navigation()
 
 
 def launch_view_assignment_results_menu():
@@ -594,11 +612,15 @@ def launch_view_assignment_results_menu():
     print("Available classes:")
     for index, class_record in enumerate(available_classes, start=1):
         print(f"{index}. {class_record['class_id']}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select class: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         class_record = parse_single_selection(
-            input("Select class: "),
+            selection,
             available_classes,
             "class",
         )
@@ -618,11 +640,15 @@ def launch_view_assignment_results_menu():
     for index, assignment_record in enumerate(available_assignments, start=1):
         title = assignment_record["assignment"].get("title", "")
         print(f"{index}. {assignment_record['assignment_id']} - {title}")
+    print_scoreform_navigation_options()
     print()
 
     try:
+        selection = input("Select assignment: ")
+        if parse_scoreform_navigation(selection) is not None:
+            return 0
         assignment_record = parse_single_selection(
-            input("Select assignment: "),
+            selection,
             available_assignments,
             "assignment",
         )
@@ -835,9 +861,12 @@ def prompt_standards_alignment(workspace_root, question_count):
         print("1. Skip standards for now")
         print("2. Attach existing shared standards")
         print("3. Enter a new shared standard, then attach it")
+        print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
+        if parse_scoreform_navigation(choice) is not None:
+            return initialize_empty_standards_alignment(question_count)
         if choice == "1":
             return initialize_empty_standards_alignment(question_count)
         if choice == "2":
@@ -857,7 +886,8 @@ def prompt_standards_alignment(workspace_root, question_count):
                 return standards_by_question
             continue
 
-        print("Invalid selection. Please enter 1, 2, or 3.")
+        print("Invalid selection.")
+        print_invalid_navigation()
 
 
 def prompt_create_assignment():
@@ -876,9 +906,12 @@ def prompt_create_assignment():
     for index, class_record in enumerate(available_classes, start=1):
         student_count = len(class_record["roster"].get("students", []))
         print(f"{index}. {class_record['class_id']} ({student_count} students)")
+    print_scoreform_navigation_options()
     print()
 
     selection_text = input("Select class(es), comma-separated: ").strip()
+    if parse_scoreform_navigation(selection_text) is not None:
+        return 0
     try:
         selected_classes = parse_class_selection(selection_text, available_classes)
     except ValueError as e:
@@ -1012,11 +1045,14 @@ def launch_assignment_menu():
             print("5. Score scanned responses")
             print("6. View assignment results")
             print("7. Decode QR from a file")
-            print("8. Return to main menu")
+            print_scoreform_navigation_options()
             print()
 
             choice = input("Select an option: ").strip()
             print()
+
+            if parse_scoreform_navigation(choice) is not None or choice == "8":
+                return 0
 
             if choice == "1":
                 clear_screen()
@@ -1078,11 +1114,9 @@ def launch_assignment_menu():
                 print()
                 pause_for_user()
 
-            elif choice == "8":
-                return 0
-
             else:
-                print(f"Invalid selection: {choice}. Please enter a number from 1 to 8.")
+                print(f"Invalid selection: {choice}.")
+                print_invalid_navigation()
                 print()
                 pause_for_user()
 
