@@ -57,7 +57,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Automatic assignment lookup from QR payloads
 * Mixed-scan QR-aware scoring for multi-page class packets
 * Result routing into class/assignment folders
-* Same-assignment QR-aware scan filing into assignment `scans/` folders
+* Configurable same-assignment QR-aware scan filing (`copy`, `move`, or `off`)
 
 ### Results and Auditability
 
@@ -113,9 +113,8 @@ Current limitations include:
   scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
   small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is
-  implemented, and automatic scan filing is limited to full-success,
-  single-target routed batches. Broader scan lifecycle workflows are still
-  being developed.
+  implemented, and configurable automatic scan filing is limited to
+  full-success, single-target routed batches.
 * Question count support is currently limited to 1-15 questions on a single page.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
@@ -336,7 +335,8 @@ Assignment Management contains assignment creation, editing, and validation, ans
 Workspace Settings can show, set, validate/create, or reset the shared PDS
 workspace root using the same `pds-core` operations as the direct CLI. It also
 contains School Year Settings for showing, opening, and closing the shared
-active school year.
+active school year and **ScoreForm Scan Filing Mode** for choosing `copy`,
+`move`, `off`, or the default.
 
 ScoreForm supports two interaction layers:
 
@@ -1006,7 +1006,25 @@ scoreform score path\to\scan.pdf
 
 QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`.
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
-ScoreForm automatically files a timestamped `_scored` copy of the original source scan only when a QR-aware batch has full success and resolves to exactly one `(class_id, assignment_id)` target. The original source file is preserved. Partial-success, zero-success, export-failure, multi-target, and unavailable-source batches are not filed automatically. For those cases, review the saved QR batch summary and handle the source scan manually; skipping scan filing does not make a successful result export fail.
+For a full-success QR-aware routed batch that resolves to exactly one
+`(class_id, assignment_id)` target, ScoreForm applies the persistent scan-filing
+mode from `<PDS workspace root>/.pds/scoreform.json` using the JSON key
+`scan_filing_mode`. The default is `copy` when the file or key is absent.
+
+* `copy` files a timestamped, non-overwriting `_scored` assignment-local copy
+  and preserves the teacher-selected original.
+* `move` files and SHA-256 verifies that copy, then removes the original only
+  when it is a direct child of the active workspace `scans_inbox/`. Custom
+  paths and nested inbox folders are always preserved.
+* `off` disables only this automatic assignment-local scored-copy.
+
+Inspect or change the preference with `scoreform scan-filing show`, `scoreform
+scan-filing set copy|move|off`, or `scoreform scan-filing reset`. Core retained
+source scans under `scans/source/YYYY-MM-DD/` are unaffected in every mode.
+Results, QR summaries, diagnostics, failure metadata, and scan-review resolution
+evidence are also unaffected. Partial-success, zero-success, export-failure,
+multi-target, explicit-output, manual, and unavailable-source batches are not
+automatically filed or cleaned up.
 
 QR-aware scoring uses these batch outcomes and exit codes:
 

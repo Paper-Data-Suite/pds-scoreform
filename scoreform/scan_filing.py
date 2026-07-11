@@ -1,5 +1,6 @@
 """Helpers for filing scored source scans into assignment scan folders."""
 
+import hashlib
 import os
 import re
 import shutil
@@ -9,6 +10,10 @@ from datetime import datetime
 from pds_core.routes import assignment_scans_dir as core_assignment_scans_dir
 
 from scoreform import workspace
+from scoreform.scan_filing_settings import (
+    DEFAULT_SCAN_FILING_MODE,
+    SCAN_FILING_MODES,
+)
 
 
 @dataclass
@@ -17,6 +22,9 @@ class ScanFilingResult:
     source_path: str | None = None
     skipped_reason: str | None = None
     warning: str | None = None
+    mode: str = DEFAULT_SCAN_FILING_MODE
+    original_removed: bool = False
+    cleanup_skipped_reason: str | None = None
 
     @property
     def filed(self):
@@ -168,30 +176,106 @@ def file_original_scan_copy(
     retention. Canonical retained sources live under ``scans/source/YYYY-MM-DD/``
     through pds-core.
     """
+    return file_original_scan_after_success(
+        results,
+        source_path,
+        mode="copy",
+        now=now,
+        copy_func=copy_func,
+        workspace_root=workspace_root,
+    )
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as source_file:
+        for block in iter(lambda: source_file.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def is_direct_child_of_scans_inbox(path, workspace_root) -> bool:
+    """Return whether path is a real file directly inside this workspace inbox."""
+    try:
+        source_path = os.path.abspath(os.fspath(path))
+        workspace_path = os.path.abspath(os.fspath(workspace_root))
+        inbox_path = os.path.join(workspace_path, "scans_inbox")
+        if os.path.normcase(os.path.dirname(source_path)) != os.path.normcase(
+            inbox_path
+        ):
+            return False
+
+        workspace_real = os.path.realpath(workspace_path)
+        inbox_real = os.path.realpath(inbox_path)
+        source_real = os.path.realpath(source_path)
+        if os.path.normcase(os.path.commonpath([workspace_real, inbox_real])) != (
+            os.path.normcase(workspace_real)
+        ):
+            return False
+        return os.path.isfile(source_path) and os.path.normcase(
+            os.path.dirname(source_real)
+        ) == os.path.normcase(inbox_real)
+    except (OSError, TypeError, ValueError):
+        return False
+
+
+def file_original_scan_after_success(
+    results,
+    source_path,
+    *,
+    mode,
+    now=None,
+    copy_func=shutil.copy2,
+    unlink_func=os.unlink,
+    workspace_root=None,
+):
+    """Apply one post-success assignment-local scan filing mode safely."""
+    if mode not in SCAN_FILING_MODES:
+        mode = DEFAULT_SCAN_FILING_MODE
+
+    source = os.fspath(source_path)
+    if mode == "off":
+        return ScanFilingResult(
+            mode=mode,
+            source_path=source,
+            skipped_reason="scan filing mode is off",
+        )
+
     if not results:
-        return ScanFilingResult(skipped_reason="no pages scored successfully")
+        return ScanFilingResult(
+            mode=mode,
+            source_path=source,
+            skipped_reason="no pages scored successfully",
+        )
 
     target = _single_assignment_target(results)
     if target is None:
-        return ScanFilingResult(skipped_reason="no assignment target was detected")
+        return ScanFilingResult(
+            mode=mode,
+            source_path=source,
+            skipped_reason="no assignment target was detected",
+        )
     if target == "multiple":
         return ScanFilingResult(
+            mode=mode,
+            source_path=source,
             skipped_reason=(
                 "source scan was not filed because scored pages resolved to "
                 "multiple assignment targets"
             ),
         )
 
-    source_path = os.fspath(source_path)
-    if not os.path.exists(source_path):
+    if not os.path.exists(source):
         return ScanFilingResult(
-            source_path=source_path,
-            warning=f"Scan filing skipped: source scan is missing: {source_path}",
+            mode=mode,
+            source_path=source,
+            warning=f"Scan filing skipped: source scan is missing: {source}",
         )
-    if not os.path.isfile(source_path):
+    if not os.path.isfile(source):
         return ScanFilingResult(
-            source_path=source_path,
-            warning=f"Scan filing skipped: source scan is not a file: {source_path}",
+            mode=mode,
+            source_path=source,
+            warning=f"Scan filing skipped: source scan is not a file: {source}",
         )
 
     class_id, assignment_id = target
@@ -200,15 +284,73 @@ def file_original_scan_copy(
             workspace_root = workspace.get_scoreform_workspace_root()
         scans_dir = core_assignment_scans_dir(workspace_root, class_id, assignment_id)
         os.makedirs(scans_dir, exist_ok=True)
-        filed_path = build_filed_scan_path(scans_dir, source_path, now=now)
-        copy_func(source_path, filed_path)
+        filed_path = build_filed_scan_path(scans_dir, source, now=now)
+        copy_func(source, filed_path)
     except Exception as error:
         return ScanFilingResult(
-            source_path=source_path,
+            mode=mode,
+            source_path=source,
             warning=f"Warning: Scan filing failed after results export: {error}",
         )
 
-    return ScanFilingResult(filed_path=os.fspath(filed_path), source_path=source_path)
+    filed = os.fspath(filed_path)
+    if mode == "copy":
+        return ScanFilingResult(mode=mode, filed_path=filed, source_path=source)
+
+    try:
+        if not os.path.isfile(filed):
+            raise OSError("filed destination does not exist or is not a file")
+        if os.path.islink(filed) or os.path.samefile(source, filed):
+            raise OSError("filed destination is not an independent copy")
+        if _sha256(source) != _sha256(filed):
+            raise OSError("filed destination does not match the source")
+    except (OSError, ValueError) as error:
+        reason = f"destination verification failed: {error}"
+        return ScanFilingResult(
+            mode=mode,
+            filed_path=filed if os.path.exists(filed) else None,
+            source_path=source,
+            cleanup_skipped_reason=reason,
+            warning=(
+                "Scan filing mode is move, but the filed copy could not be verified. "
+                "The original source was preserved."
+            ),
+        )
+
+    if not is_direct_child_of_scans_inbox(source, workspace_root):
+        reason = "selected source is not a direct child of scans_inbox"
+        return ScanFilingResult(
+            mode=mode,
+            filed_path=filed,
+            source_path=source,
+            cleanup_skipped_reason=reason,
+            warning=(
+                "Scan filing mode is move, but the selected source is not a direct "
+                "child of scans_inbox.\nThe assignment-local copy was filed, and "
+                "the original source was preserved."
+            ),
+        )
+
+    try:
+        unlink_func(source)
+    except OSError as error:
+        return ScanFilingResult(
+            mode=mode,
+            filed_path=filed,
+            source_path=source,
+            cleanup_skipped_reason=f"could not remove inbox original: {error}",
+            warning=(
+                "The assignment-local copy was filed, but the scans_inbox original "
+                f"could not be removed: {error}"
+            ),
+        )
+
+    return ScanFilingResult(
+        mode=mode,
+        filed_path=filed,
+        source_path=source,
+        original_removed=True,
+    )
 
 
 def print_scan_filing_result(result):
@@ -217,8 +359,14 @@ def print_scan_filing_result(result):
     if result.filed:
         print("Filed scan copy:")
         print(result.filed_path)
-        print("Original scan preserved:")
-        print(result.source_path)
+        if result.original_removed:
+            print("Removed scans_inbox original after verified filing:")
+            print(result.source_path)
+        else:
+            print("Original scan preserved:")
+            print(result.source_path)
+        if result.warning:
+            print(result.warning)
         return
     if result.warning:
         print(result.warning)
