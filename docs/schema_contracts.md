@@ -256,8 +256,10 @@ absolute paths must not be written to results.
 For QR-aware scoring, this field identifies the canonical retained source scan,
 normally as `scans/source/YYYY-MM-DD/<retained-source-filename>`. ScoreForm
 retains that source before conversion, image loading, QR decoding, or scoring.
-Separately, post-success scan filing may copy the teacher-selected original into
-an assignment `scans/` directory; it never removes the original.
+Separately, post-success scan filing may create an assignment-local scored-copy
+from the teacher-selected original. Its `move` mode may remove that selected
+original only when it is a direct child of the active workspace `scans_inbox/`.
+It never moves or removes the canonical retained source.
 
 ## 11. Attempt metadata
 
@@ -280,10 +282,19 @@ assignment's `scans/` folder. This assignment-local copy is a provisional
 post-success scored-copy convenience, not canonical source retention.
 
 Assignment-local filing occurs only after a full-success, single-target routed
-batch. Partial or zero success, export failure, explicit-output or manual
-scoring, and multi-target batches are not automatically filed. The original
-remains in place; copies use timestamped, non-overwriting names. Routed results
-and QR batch summaries remain the audit trail.
+batch. The ScoreForm-specific setting is stored at `.pds/scoreform.json` as
+`scan_filing_mode`; the effective default is `copy`. `copy` creates a timestamped,
+non-overwriting scored-copy and preserves the original. `move` creates the same
+copy, verifies it against the source with SHA-256, and removes the original only
+when its resolved parent is exactly the workspace `scans_inbox/`. `off` creates
+no automatic scored-copy and preserves the original.
+
+Partial or zero success, export failure, explicit-output or manual scoring,
+multi-target batches, and unresolved review conditions are not automatically
+filed or cleaned up. The setting does not affect Core retained sources or
+ScoreForm scan-review resolution evidence such as `_manual_entry`,
+`_manual_marks`, or `_rescan_needed`. Routed results and QR batch summaries
+remain the audit trail.
 
 ## 13. QR batch summaries and diagnostics
 

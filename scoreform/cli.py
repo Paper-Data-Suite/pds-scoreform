@@ -24,6 +24,7 @@ from scoreform.cli_help import (
     print_menu_help,
     print_version,
 )
+from scoreform.cli_scan_filing import run_scan_filing
 from scoreform.cli_scan_review import (
     run_list_scan_review,
     run_resolve_scan_review,
@@ -47,6 +48,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.menu_scan_filing import launch_scan_filing_menu
 from scoreform.roster import load_roster
 from scoreform.roster_workflows import launch_roster_menu
 from scoreform.scoring import (
@@ -331,6 +333,7 @@ def launch_workspace_menu():
             print("3. Validate/create current workspace")
             print("4. School year settings")
             print("5. Reset saved workspace preference")
+            print("S. ScoreForm Scan Filing Mode")
             print_scoreform_navigation_options()
             print()
 
@@ -370,6 +373,9 @@ def launch_workspace_menu():
 
             elif choice == "4":
                 launch_school_year_menu()
+
+            elif choice.lower() == "s":
+                launch_scan_filing_menu()
 
             elif choice == "5":
                 clear_screen()
@@ -493,6 +499,8 @@ def main(argv=None, default_to_menu=True):
         return run_workspace(args)
     elif cmd == "school-year":
         return run_school_year(args)
+    elif cmd == "scan-filing":
+        return run_scan_filing(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

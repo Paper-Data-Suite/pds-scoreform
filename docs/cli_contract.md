@@ -254,17 +254,35 @@ implementation and must not be documented as working unless code support is
 added in a separate compatibility-conscious change.
 
 When `scoreform score <scan.pdf-or-image>` uses QR-aware routed scoring without
-an explicit output CSV, successful routed result export may also file a copy of
-the source scan into the resolved assignment's `scans/` folder. This scan
-filing applies only when at least one page scores successfully and all
-successfully scored pages resolve to exactly one `(class_id, assignment_id)`
-target. The filed copy uses a readable timestamped `_scored` filename and never
-overwrites an existing scan. The original source scan remains in place.
+an explicit output CSV, a full-success export may apply the configured
+assignment-local scan-filing mode. The mode is stored in
+`<workspace>/.pds/scoreform.json` under `scan_filing_mode` and defaults to
+`copy`: `copy` files a readable timestamped `_scored` copy and preserves the
+original; `move` verifies the filed copy with SHA-256 and removes the original
+only if its resolved parent is exactly the active workspace `scans_inbox/`;
+`off` files no automatic scored-copy. Existing filed scans are never
+overwritten.
 
 Automatic scan filing does not apply to QR-aware scoring with an explicit
 output CSV or to manual scoring with an answer key. If a successful QR-aware
 routed batch contains multiple assignment targets, ScoreForm skips scan filing
 instead of guessing a destination.
+
+The direct settings commands are:
+
+```powershell
+scoreform scan-filing show
+scoreform scan-filing set copy
+scoreform scan-filing set move
+scoreform scan-filing set off
+scoreform scan-filing reset
+```
+
+`reset` removes only the `scan_filing_mode` key and preserves unrelated settings.
+Malformed or invalid settings fall back to effective mode `copy` during scoring
+and are reported by `show`. None of these modes changes Core retained sources,
+QR summaries or diagnostics, failure metadata, results, or scan-review
+resolution evidence.
 
 Mode inference and extra positional-argument validation are provisional. Scripts
 should use only the documented forms.
@@ -303,8 +321,11 @@ Q. Quit
 Assignment Management includes assignment creation, editing, and validation,
 answer-sheet generation, scan scoring, read-only assignment results viewing,
 and QR decoding. Roster Management includes roster creation, viewing, editing,
-and validation. Workspace Settings
-includes show, set, validate/create, reset actions, and School Year Settings.
+and validation. Workspace Settings includes show, set, validate/create, reset
+actions, School Year Settings, and ScoreForm Scan Filing Mode. The scan-filing
+menu shows the effective mode and offers `copy`, `move`, `off`, and reset.
+Enabling `move` interactively requires typing `MOVE` after the direct-child
+cleanup rule is displayed.
 
 The Assignment Management edit workflow is menu-only. It discovers existing
 classes and assignments, loads the selected canonical

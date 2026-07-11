@@ -1,4 +1,5 @@
 from scoreform import cli, cli_score, scoring
+from scoreform.scan_filing_settings import set_scan_filing_mode
 
 
 def _result():
@@ -185,3 +186,71 @@ def test_manual_scoring_skips_scan_filing(tmp_path, monkeypatch):
 
     assert cli.run_score([str(scan), str(answer_key)]) == 0
     assert filed == []
+
+
+def test_qr_routed_scoring_applies_off_mode_without_filing(tmp_path, monkeypatch):
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(b"scan")
+    set_scan_filing_mode("off", tmp_path)
+    results = scoring.QRBatchResults([_result()])
+    results.summary.record_processed_page()
+    results.summary.record_scored_page()
+    calls = []
+
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: results,
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "export_routed_results",
+        lambda all_results, workspace_root=None: calls.append("export") or True,
+    )
+
+    assert cli.run_score([str(scan)]) == 0
+
+    assert calls == ["export"]
+    assert scan.exists()
+    assert not (tmp_path / "classes").exists()
+
+
+def test_qr_routed_scoring_applies_move_mode_after_export(tmp_path, monkeypatch):
+    scan = tmp_path / "scans_inbox" / "scan.pdf"
+    scan.parent.mkdir()
+    scan.write_bytes(b"scan")
+    retained = tmp_path / "scans" / "source" / "2026-07-11" / "scan.pdf"
+    retained.parent.mkdir(parents=True)
+    retained.write_bytes(b"scan")
+    set_scan_filing_mode("move", tmp_path)
+    results = scoring.QRBatchResults([_result()])
+    results.summary.record_processed_page()
+    results.summary.record_scored_page()
+
+    monkeypatch.setattr(
+        cli_score,
+        "process_file_qr_aware",
+        lambda input_file, workspace_root=None: results,
+    )
+    monkeypatch.setattr(
+        cli_score,
+        "export_routed_results",
+        lambda all_results, workspace_root=None: True,
+    )
+
+    assert cli.run_score([str(scan)]) == 0
+
+    filed = list(
+        (
+            tmp_path
+            / "classes"
+            / "english9_p2"
+            / "assignments"
+            / "rj_act1_quiz"
+            / "scans"
+        ).glob("*_scored.pdf")
+    )
+    assert len(filed) == 1
+    assert filed[0].read_bytes() == b"scan"
+    assert not scan.exists()
+    assert retained.exists()

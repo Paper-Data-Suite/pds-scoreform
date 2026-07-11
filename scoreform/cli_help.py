@@ -64,6 +64,9 @@ Usage:
   scoreform school-year show
   scoreform school-year open <school_year> [--overwrite]
   scoreform school-year close
+  scoreform scan-filing show
+  scoreform scan-filing set <copy|move|off>
+  scoreform scan-filing reset
   scoreform help
   scoreform --help
   scoreform version
@@ -81,6 +84,7 @@ Commands:
   setup-assignment      Create class and assignment folders.
   workspace             View or configure the shared PDS workspace root.
   school-year           View, open, or close the active PDS school year.
+  scan-filing           View or configure ScoreForm scored-copy filing.
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
@@ -96,6 +100,8 @@ Scoring modes:
   The saved QR batch summary is the source of truth for completeness.
   Automatic scan filing occurs only for full-success, single-target routed batches.
   Partial, failed, multi-target, explicit-output, and manual batches are not filed.
+  The persistent mode is copy (default), move, or off. Move removes an original
+  only when it is a direct child of the active workspace scans_inbox.
 
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
@@ -120,6 +126,8 @@ Examples:
   scoreform school-year show
   scoreform school-year open 2026-2027
   scoreform school-year close
+  scoreform scan-filing show
+  scoreform scan-filing set move
 
 Notes:
   Running scoreform with no arguments launches the terminal menu.
