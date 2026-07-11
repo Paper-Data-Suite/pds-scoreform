@@ -151,6 +151,9 @@ class QRBatchFailure:
     page_num: int | None
     category: str
     reason: str
+    class_id: str | None = None
+    assignment_id: str | None = None
+    student_id: str | None = None
 
 
 @dataclass
@@ -295,9 +298,10 @@ class QRBatchSummary:
 
 
 class QRBatchResults(list):
-    def __init__(self, *args, summary=None):
+    def __init__(self, *args, summary=None, retained_source=None):
         super().__init__(*args)
         self.summary = summary or QRBatchSummary()
+        self.retained_source = retained_source
 
 
 @dataclass
@@ -1208,12 +1212,26 @@ def _default_qr_failure_reason(category):
     }.get(category, "failed")
 
 
-def _record_qr_failure(summary, page_num, category, reason=None):
+def _record_qr_failure(
+    summary,
+    page_num,
+    category,
+    reason=None,
+    *,
+    class_id=None,
+    assignment_id=None,
+    student_id=None,
+):
     if summary is not None:
-        summary.record_failure(
-            page_num,
-            category,
-            reason or _default_qr_failure_reason(category),
+        summary.failures.append(
+            QRBatchFailure(
+                page_num,
+                category,
+                reason or _default_qr_failure_reason(category),
+                class_id,
+                assignment_id,
+                student_id,
+            )
         )
 
 
@@ -1606,6 +1624,7 @@ def process_file_qr_aware(file_path, workspace_root=None):
     retained_source = _retain_qr_source_scan(file_path, workspace_root, summary)
     if retained_source is None:
         return all_results
+    all_results.retained_source = retained_source
     retained_path = os.fspath(retained_source.retained_source_path)
 
     if ext == ".pdf":
@@ -1681,6 +1700,12 @@ def _score_page_qr_aware(
     )
     assignment_data = _load_qr_aware_assignment(assignment_path, page_num, summary)
     if assignment_data is None:
+        if summary is not None and summary.failures:
+            failure = summary.failures[-1]
+            if failure.page_num == page_num and failure.category == "assignment_lookup_failed":
+                failure.class_id = class_id
+                failure.assignment_id = assignment_id
+                failure.student_id = student_id
         return None
 
     # Step 3: Extract answer key and score the page
@@ -1715,6 +1740,15 @@ def _score_page_qr_aware(
         summary=summary,
     )
     if result is None:
+        if summary is not None and summary.failures:
+            failure = summary.failures[-1]
+            if (
+                failure.page_num == page_num
+                and failure.category == "registration_or_scoring_failed"
+            ):
+                failure.class_id = class_id
+                failure.assignment_id = assignment_id
+                failure.student_id = student_id
         return None
 
     # Step 4: Attach metadata to the result

@@ -307,3 +307,38 @@ layout assumptions require an explicit compatibility issue.
 Formal assignment `schema_version`, embedded template/layout versioning, QR
 versions beyond PDS1, and results schema versioning or migrations are **future /
 not yet implemented**. This document does not introduce them.
+
+## 15. Active ScoreForm scan review metadata
+
+QR-aware ScoreForm failures are preserved through the shared Core
+`RoutingFailureMetadata` schema at:
+
+```text
+<PDS workspace root>/scans/review/<failure_id>.json
+```
+
+The shared failure category is stored in `failure_category`; the original
+ScoreForm category and reason remain in `module_details`. Records use
+`module="scoreform"` and `stage="scoreform_qr_review"`. When retention succeeded,
+the record includes the source scan ID, SHA-256 digest, original filename,
+workspace-relative retained path, and page number. Safe QR identity is included
+only when it was actually decoded. Failure records are immutable.
+
+Teacher decisions use Core `ScanResolutionMetadata` records at:
+
+```text
+<PDS workspace root>/scans/review/resolutions/<resolution_id>.json
+```
+
+Resolution records are also immutable. The latest valid record determines the
+current view: resolved items are hidden by default, while deferred items stay
+visible. Older records remain part of the review trail.
+
+Canonical sources remain under `scans/source/YYYY-MM-DD/`. Assignment-local
+`scans/` files are routed scoring or resolution evidence copies. Manual-entry,
+manual-marks, and rescan-needed evidence names carry readable status tags and
+never overwrite an existing file. Source evidence is copied, never moved.
+
+Manual entry keeps the routed-results header in section 8 unchanged. Its row is
+distinguished by a `source_file` path containing `_manual_entry` and by the
+linked Core resolution record; no result-source or resolution columns are added.

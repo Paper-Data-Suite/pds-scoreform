@@ -24,6 +24,10 @@ from scoreform.cli_help import (
     print_menu_help,
     print_version,
 )
+from scoreform.cli_scan_review import (
+    run_list_scan_review,
+    run_resolve_scan_review,
+)
 from scoreform.cli_school_year import (
     _format_school_year_timestamp,
     _print_school_year_open_success,
@@ -473,6 +477,10 @@ def main(argv=None, default_to_menu=True):
         return run_generate(args)
     elif cmd == "score":
         return run_score(args)
+    elif cmd == "list-scan-review":
+        return run_list_scan_review(args)
+    elif cmd == "resolve-scan-review":
+        return run_resolve_scan_review(args)
     elif cmd == "validate-assignment":
         return run_validate_assignment(args)
     elif cmd == "validate-roster":

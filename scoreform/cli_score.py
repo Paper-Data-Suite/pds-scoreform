@@ -11,6 +11,7 @@ from scoreform.scan_filing import (
     print_scan_filing_result,
     skipped_scan_filing_for_batch_outcome,
 )
+from scoreform.scan_review_resolution import preserve_qr_batch_failures_for_review
 from scoreform.scoring import (
     ManualScoringSummary,
     get_qr_batch_summary,
@@ -36,6 +37,16 @@ def _get_manual_scoring_summary(results_data):
 
 def _print_manual_scoring_summary(summary):
     print(summary.format())
+
+
+def _preserve_review_failures(results_data, input_file, workspace_root):
+    paths = preserve_qr_batch_failures_for_review(
+        results_data,
+        input_file,
+        workspace_root,
+    )
+    if paths:
+        print(f"Preserved {len(paths)} scan review item(s) under scans/review/.")
 
 
 def run_score(args):
@@ -92,6 +103,7 @@ def run_score(args):
     if not results_data:
         if use_qr_aware:
             summary = get_qr_batch_summary(results_data)
+            _preserve_review_failures(results_data, input_file, workspace_root)
             print_qr_batch_summary(summary)
             save_qr_batch_summary(
                 summary,
@@ -123,6 +135,7 @@ def run_score(args):
                 workspace_root=workspace_root,
             )
             summary = get_qr_batch_summary(results_data)
+            _preserve_review_failures(results_data, input_file, workspace_root)
             print_qr_batch_summary(summary)
             save_qr_batch_summary(
                 summary,
@@ -142,6 +155,7 @@ def run_score(args):
             workspace_root=workspace_root,
         )
         summary = get_qr_batch_summary(results_data)
+        _preserve_review_failures(results_data, input_file, workspace_root)
         if not explicit_output_csv:
             if summary is not None and summary.outcome() == "full_success":
                 filing_result = file_original_scan_copy(

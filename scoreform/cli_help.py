@@ -51,6 +51,8 @@ Usage:
   scoreform score <scan.pdf> <output.csv>
   scoreform score <scan.pdf> <answer_key.json>
   scoreform score <scan.pdf> <output.csv> <answer_key.json>
+  scoreform list-scan-review [--include-resolved] [--limit <n>]
+  scoreform resolve-scan-review <failure_id> --action <action>
   scoreform decode-qr <file.pdf-or-image>
   scoreform validate-assignment <assignment.json>
   scoreform validate-roster <roster.csv>
@@ -71,6 +73,8 @@ Commands:
   menu                  Launch the terminal menu.
   generate              Generate a generic template or assignment-based answer sheets.
   score                 Score scanned responses.
+  list-scan-review      List unresolved and deferred ScoreForm scan review items.
+  resolve-scan-review   Resolve or defer one ScoreForm scan review item.
   decode-qr             Decode QR metadata from a PDF or image.
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.

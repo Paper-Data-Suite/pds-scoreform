@@ -99,6 +99,62 @@ def build_filed_scan_path(scans_dir, source_path, now=None):
     return _non_overwriting_path(os.path.join(os.fspath(scans_dir), filename))
 
 
+def build_resolution_scan_path(scans_dir, source_path, status_tag, now=None):
+    """Return a readable, non-overwriting assignment-local evidence path."""
+    if status_tag not in {
+        "manual_entry",
+        "manual_marks",
+        "rescan_needed",
+        "scoring_failed",
+    }:
+        raise ValueError(f"Unsupported scan evidence status tag: {status_tag}")
+    timestamp = now or datetime.now()
+    extension = os.path.splitext(os.path.basename(os.fspath(source_path)))[1]
+    filename = (
+        f"{_safe_filename_stem(source_path)}_"
+        f"{timestamp.strftime('%Y-%m-%d_%H%M%S')}_{status_tag}{extension}"
+    )
+    return _non_overwriting_path(os.path.join(os.fspath(scans_dir), filename))
+
+
+def file_resolution_scan_copy(
+    workspace_root,
+    class_id,
+    assignment_id,
+    source_path,
+    status_tag,
+    now=None,
+    copy_func=shutil.copy2,
+):
+    """Copy retained review evidence without moving or overwriting its source."""
+    source = os.fspath(source_path)
+    if not os.path.isfile(source):
+        return ScanFilingResult(
+            source_path=source,
+            warning=f"Review evidence is missing or is not a file: {source}",
+        )
+    try:
+        scans_dir = core_assignment_scans_dir(
+            workspace_root, class_id, assignment_id
+        )
+        if not scans_dir.parent.is_dir():
+            return ScanFilingResult(
+                source_path=source,
+                warning="The selected assignment folder does not exist.",
+            )
+        os.makedirs(scans_dir, exist_ok=True)
+        filed_path = build_resolution_scan_path(
+            scans_dir, source, status_tag, now=now
+        )
+        copy_func(source, filed_path)
+    except Exception as error:
+        return ScanFilingResult(
+            source_path=source,
+            warning=f"Could not file scan review evidence: {error}",
+        )
+    return ScanFilingResult(filed_path=os.fspath(filed_path), source_path=source)
+
+
 def file_original_scan_copy(
     results,
     source_path,

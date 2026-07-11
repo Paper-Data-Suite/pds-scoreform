@@ -348,6 +348,38 @@ The layers intentionally do not have one-to-one command parity. Path-oriented se
 Select **4. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
 
+### Resolve QR-Aware Scan Review Items
+
+QR-aware failures are retained as active Core review records under
+`scans/review/`. Their canonical source scans remain under
+`scans/source/YYYY-MM-DD/`. Teachers can use **Assignment Management > Resolve
+Scan Review Items** to view unresolved or deferred items, inspect one item, and
+choose manual entry, manual marks, rescan needed, cannot route, mixed assignment,
+evidence filed, dismissed duplicate, another documented outcome, or defer.
+
+The direct commands are:
+
+```powershell
+scoreform list-scan-review
+scoreform list-scan-review --include-resolved
+scoreform resolve-scan-review <failure_id> --action rescan_needed
+scoreform resolve-scan-review <failure_id> --action cannot_route
+scoreform resolve-scan-review <failure_id> --action defer
+```
+
+Resolved records are hidden by default; deferred records stay visible. Decisions
+are written as immutable Core records under `scans/review/resolutions/`. Failure
+records and retained sources are not changed or removed.
+
+Manual entry is guided by the menu because it requires verified class,
+assignment, and student identity plus a complete confirmed answer set. It writes
+through the existing routed-results safety path and does not add columns. The
+row's `source_file` points to a non-overwriting assignment-local
+`_manual_entry` evidence copy. Manual marks and rescan-needed evidence use
+`_manual_marks` and `_rescan_needed`; manual marks do not write a result row.
+Assignment-local evidence is a working copy, while `scans/source/YYYY-MM-DD/`
+remains the canonical retained source.
+
 ### Create a Roster from the Menu
 
 ScoreForm now includes menu-driven roster creation, so you can create valid roster CSV files without manually editing CSV:
