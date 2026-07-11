@@ -10,7 +10,10 @@ from pds_core.standards import (
     standards_library_to_dict,
     write_workspace_standards_library,
 )
-from pds_core.standards_selection import StandardSelectionItem
+from pds_core.standards_selection import (
+    StandardSelectionItem,
+    list_standards_for_profile_selection,
+)
 
 from scoreform import assignment, assignment_workflows, standards_workflows, workflows
 
@@ -214,7 +217,7 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
         "1",
         "1,2",
         "1,2",
-        "4",
+        "5",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
@@ -241,6 +244,44 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
         "local-writing:evidence_explanation",
         "njsls-ela:RL.CR.11-12.1",
     ]
+
+
+def test_alignment_loop_shows_full_standard_list_once_for_one_add_action(
+    monkeypatch,
+    capsys,
+):
+    library = StandardsLibrary(
+        standards=(make_standard(),),
+        profiles=(StandardsProfile(
+            profile_id="english12_profile",
+            standards=("njsls-ela:RL.CR.11-12.1",),
+        ),),
+    )
+    available = tuple(list_standards_for_profile_selection(
+        library,
+        "english12_profile",
+    ))
+    responses = iter(["1", "1", "2", "5"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+    monkeypatch.setattr(assignment_workflows, "clear_screen", lambda: None)
+
+    updated, backed = assignment_workflows._run_alignment_loop(
+        {
+            "question_count": 2,
+            "standards_profile_id": "english12_profile",
+            "standards": {"1": [], "2": []},
+        },
+        library,
+        available,
+    )
+
+    output = capsys.readouterr().out
+    assert backed is False
+    assert updated["standards"]["2"] == ["njsls-ela:RL.CR.11-12.1"]
+    assert output.count("njsls-ela:RL.CR.11-12.1 | RL.CR.11-12.1") == 1
+    assert output.count("Available standards:") == 1
+    assert "Current alignment: 1 standard attached across 1 question" in output
+    assert "Last action: Attached njsls-ela:RL.CR.11-12.1 to Q2." in output
 
 
 def test_prompt_create_assignment_does_not_offer_shared_standard_authoring(

@@ -381,9 +381,9 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
         "1",
         "2",
         "1,2",
-        "3",
-        "3",
         "4",
+        "3",
+        "5",
         "5",
         "SAVE",
     ])

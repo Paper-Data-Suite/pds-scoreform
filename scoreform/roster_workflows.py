@@ -216,6 +216,9 @@ def _prompt_edit_student_in_roster(roster):
     if student is None:
         return roster
 
+    clear_screen()
+    print_menu_header("Edit Student")
+    print(f"Class: {roster.class_id}")
     print()
     print(f"student_id: {student.student_id}")
     print("Press Enter to keep the current value.")
@@ -251,6 +254,9 @@ def _prompt_remove_student_from_roster(roster):
     if student is None:
         return roster
 
+    clear_screen()
+    print_menu_header("Remove Student from Active Roster")
+    print(f"Class: {roster.class_id}")
     print()
     print(
         f"Selected: {student.student_id} - "
@@ -312,8 +318,11 @@ def prompt_edit_class_roster():
     )
 
     while True:
+        clear_screen()
+        print_menu_header("Edit Class Roster")
+        print(f"Class: {class_id}")
+        print(f"Staged changes: {'yes' if dirty else 'none'}")
         print()
-        print("Edit menu")
         print("1. Add student")
         print("2. Edit student")
         print("3. Remove student from active roster")
@@ -438,6 +447,9 @@ def prompt_view_roster():
         print(f"Error: {e}")
         return 1
 
+    clear_screen()
+    print_menu_header("View a Class Roster")
+    print(f"Class: {class_record['class_id']}")
     print()
     print(format_roster_for_display(class_record))
     return 0
