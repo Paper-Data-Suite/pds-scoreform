@@ -313,14 +313,14 @@ assignment JSON, historical results, scans, and scan evidence are not deleted or
 rewritten.
 
 During assignment creation, the standards alignment prompt allows teachers to
-skip standards, attach existing shared standards from the workspace standards
-library, or enter a new shared standard and attach it to selected questions.
-Assignments store standard IDs only in their existing question-level
-`standards` lists. Shared definitions live in the `pds-core` workspace
-standards library; when `standards_profile_id` is present, profile-scoped
-validation checks that selected question standards belong to that shared
-profile. Empty standards lists remain valid, and this workflow does not record
-standards usage or add standards reporting. ScoreForm-specific assessment,
+skip standards or select a PDS Core standards profile. Standards in the profile
+are enumerated so one or more standards can be attached to one or more
+questions. Assignments store durable standard IDs in their question-level
+`standards` lists and persist the selected `standards_profile_id`. Shared
+definitions and profiles are managed in PDS Core; ScoreForm does not create or
+edit them. Profile-scoped validation checks that every selected question
+standard belongs to that profile. Empty standards lists remain valid, and this
+workflow does not record standards usage or add standards reporting. ScoreForm-specific assessment,
 scoring, reporting, and export behavior remains module-owned.
 
 School Year Settings includes:

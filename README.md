@@ -434,7 +434,7 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 
 7. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
 
-8. Choose whether to skip standards, attach existing shared standards from the workspace standards library, or enter a new shared standard and attach it to selected questions.
+8. Choose whether to skip standards or select a PDS Core standards profile, then attach one or more enumerated profile standards to one or more questions.
 
 9. The tool saves the assignment JSON to:
 
@@ -448,7 +448,8 @@ Notes:
 
 * Supported `question_count` range is 1-15 and choices remain fixed at A-D.
 * Teachers may skip standards during assignment creation. Empty `standards` lists remain valid.
-* Assignment files store shared `standard_id`s only. Shared standard definitions and optional standards profiles live in the workspace standards library owned by `pds-core`.
+* Standards alignment is profile-first and question-level. A question may have multiple standards, and a standard may be attached to multiple questions.
+* Assignment files store durable `standard_id`s only. Shared definitions and profiles are managed in PDS Core; ScoreForm does not author them.
 * When `standards_profile_id` is present, shared-library validation checks that the profile exists and that question-level standard IDs belong to that profile.
 * Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
@@ -466,7 +467,7 @@ Assignment edits are safe by default:
 * Editable fields are `title`, existing answer-key entries, and assignment-local standards alignment.
 * Locked fields are `assignment_id`, `question_count`, and `choices`.
 * Answer-key editing changes one existing question at a time; it does not add or remove questions.
-* Standards editing can attach, remove, or clear existing shared standard IDs on selected questions. It does not create shared standards, record standards usage events, write standards usage ledgers, or modify the shared standards library.
+* Standards editing enumerates the assignment's selected PDS Core profile and can attach or clear IDs on selected questions. ScoreForm does not create shared standards, record standards usage events, write standards usage ledgers, or modify the shared standards library.
 * Saving writes only the selected `assignment.json` after validation.
 * Editing an assignment does not regenerate answer sheets, rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs, delete scans, alter rosters, or change unrelated assignments.
 
@@ -538,7 +539,7 @@ The top-level `standards` object is optional assignment metadata. Existing assig
 
 Structural assignment validation checks the assignment shape without loading a standards library. When shared-library validation is requested, `standards_profile_id` must refer to a profile in the `pds-core` workspace standards library, and question-level standard IDs must exist in that library and belong to the selected profile. ScoreForm does not maintain an independent standards universe.
 
-Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, QR payloads, result routing, or roster CSVs. ScoreForm-specific assessment, scoring, reporting, and export behavior remains ScoreForm-owned. Creating or attaching standards during assignment creation does not record standards usage. Usage-event emission and Codex-assisted standards ingestion are future work in the broader Paper Data Suite standards pipeline.
+Standards metadata is preserved when assignments are loaded, but it is not written to `results.csv` and does not change scoring behavior, answer-sheet generation, QR payloads, result routing, or roster CSVs. ScoreForm-specific assessment, scoring, reporting, and export behavior remains ScoreForm-owned. Creating or attaching standards during assignment creation does not record standards usage. Usage-event emission and Codex-assisted standards ingestion are future work in the broader Paper Data Suite standards pipeline.
 
 ### QR Payload Format
 

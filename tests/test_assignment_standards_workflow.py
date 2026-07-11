@@ -4,11 +4,13 @@ import pytest
 from pds_core.standards import (
     StandardDefinition,
     StandardsLibrary,
+    StandardsProfile,
     load_workspace_standard_usage_events,
     load_workspace_standards_library,
     standards_library_to_dict,
     write_workspace_standards_library,
 )
+from pds_core.standards_selection import StandardSelectionItem
 
 from scoreform import assignment, assignment_workflows, standards_workflows, workflows
 
@@ -70,6 +72,43 @@ def test_parse_question_selection_accepts_commas_and_deduplicates():
     assert standards_workflows.parse_question_selection(" 2,1,2 ", 3) == (2, 1)
 
 
+def _selection_item(standard_id):
+    return StandardSelectionItem(
+        standard_id=standard_id,
+        label=standard_id,
+        code=standard_id,
+        short_name=standard_id,
+        source="Test",
+    )
+
+
+def test_parse_standard_selection_supports_multiple_standards():
+    available = (_selection_item("standard:a"), _selection_item("standard:b"))
+    assert standards_workflows.parse_standard_selection("2,1", available) == (
+        "standard:b",
+        "standard:a",
+    )
+
+
+@pytest.mark.parametrize("selection", ["", "1,1", "0", "3", "x", "1,"])
+def test_parse_standard_selection_rejects_invalid_values(selection):
+    available = (_selection_item("standard:a"), _selection_item("standard:b"))
+    with pytest.raises(ValueError):
+        standards_workflows.parse_standard_selection(selection, available)
+
+
+def test_attach_multiple_standards_to_multiple_questions():
+    assert standards_workflows.attach_standards_to_questions(
+        {"1": ["standard:a"]},
+        standard_ids=("standard:a", "standard:b"),
+        question_numbers=(1, 2),
+        question_count=2,
+    ) == {
+        "1": ["standard:a", "standard:b"],
+        "2": ["standard:a", "standard:b"],
+    }
+
+
 def test_attach_standard_to_questions_prevents_duplicates_and_allows_multiple():
     aligned = standards_workflows.attach_standard_to_questions(
         {"1": ["local:evidence"], "2": []},
@@ -117,11 +156,6 @@ def test_prompt_create_assignment_skip_standards_writes_empty_alignment_without_
     def fail_write(*_args, **_kwargs):
         raise AssertionError("standards library should not be written")
 
-    monkeypatch.setattr(
-        assignment_workflows,
-        "write_workspace_standards_library",
-        fail_write,
-    )
     responses = iter([
         "1",
         "Standards Assignment",
@@ -155,7 +189,14 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
                 "Evidence Explanation",
             ),
             make_standard(),
-        )
+        ),
+        profiles=(StandardsProfile(
+            profile_id="english12_profile",
+            standards=(
+                "local-writing:evidence_explanation",
+                "njsls-ela:RL.CR.11-12.1",
+            ),
+        ),),
     )
     write_workspace_standards_library(tmp_path, library)
     before = standards_library_to_dict(load_workspace_standards_library(tmp_path))
@@ -170,22 +211,26 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
         "C",
         "2",
         "1",
-        "1,2",
-        "2",
         "1",
-        "",
+        "1,2",
+        "1,2",
+        "4",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert assignment_workflows.prompt_create_assignment() == 0
 
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
+    assert saved["standards_profile_id"] == "english12_profile"
     assert saved["standards"] == {
         "1": [
             "local-writing:evidence_explanation",
             "njsls-ela:RL.CR.11-12.1",
         ],
-        "2": ["local-writing:evidence_explanation"],
+        "2": [
+            "local-writing:evidence_explanation",
+            "njsls-ela:RL.CR.11-12.1",
+        ],
         "3": [],
     }
     assert standards_library_to_dict(load_workspace_standards_library(tmp_path)) == before
@@ -198,9 +243,10 @@ def test_prompt_create_assignment_attaches_existing_standards_without_modifying_
     ]
 
 
-def test_prompt_create_assignment_creates_shared_standard_then_attaches_id_only(
+def test_prompt_create_assignment_does_not_offer_shared_standard_authoring(
     tmp_path,
     monkeypatch,
+    capsys,
 ):
     monkeypatch.chdir(tmp_path)
     create_roster(tmp_path)
@@ -211,38 +257,18 @@ def test_prompt_create_assignment_creates_shared_standard_then_attaches_id_only(
         "2",
         "A",
         "B",
-        "3",
-        "local-writing:evidence_explanation",
-        "evidence_explanation",
-        "Local Writing Rubric",
-        "Evidence Explanation",
-        "Explain how evidence supports a claim.",
-        "English Language Arts",
-        "English 12",
-        "11-12",
-        "Writing",
-        "English Language Arts, Writing",
-        "evidence, explanation",
-        "",
-        "1,2",
+        "1",
     ])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
 
     assert assignment_workflows.prompt_create_assignment() == 0
 
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
-    assert saved["standards"] == {
-        "1": ["local-writing:evidence_explanation"],
-        "2": ["local-writing:evidence_explanation"],
-    }
-
-    library = load_workspace_standards_library(tmp_path)
-    definition = library.standards[0]
-    assert definition.standard_id == "local-writing:evidence_explanation"
-    assert definition.active is True
-    assert "pds-scoreform" in definition.available_modules
-    assert saved["standards"]["1"] == [definition.standard_id]
-    assert load_workspace_standard_usage_events(tmp_path, "2025-2026", "test_class") == ()
+    assert saved["standards"] == {"1": [], "2": []}
+    output = capsys.readouterr().out
+    assert "Enter a new shared standard" not in output
+    assert "Select a PDS Core standards profile" in output
+    assert not (tmp_path / "standards").exists()
 
 
 def test_attach_existing_empty_library_returns_to_menu_and_can_skip(
@@ -266,6 +292,6 @@ def test_attach_existing_empty_library_returns_to_menu_and_can_skip(
     assert assignment_workflows.prompt_create_assignment() == 0
 
     output = capsys.readouterr().out
-    assert "No shared standards exist yet." in output
+    assert "No PDS Core standards profiles found." in output
     saved = json.loads(assignment_path(tmp_path).read_text(encoding="utf-8"))
     assert saved["standards"] == {"1": []}
