@@ -111,13 +111,13 @@ def _normalize_question_standards(
         )
 
     try:
-        standards_entries = tuple(standards)  # type: ignore[arg-type]
+        standards_entries: tuple[object, ...] = tuple(standards)  # type: ignore[arg-type]
     except TypeError as error:
         raise ValueError(
             f"standards for question {question_number} must be an iterable of strings"
         ) from error
 
-    normalized = set()
+    normalized: set[str] = set()
     for standard in standards_entries:
         if not isinstance(standard, str):
             raise ValueError(

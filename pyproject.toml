@@ -23,7 +23,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
-  "ruff"
+  "ruff",
+  "mypy"
 ]
 
 [project.scripts]
@@ -44,3 +45,14 @@ target-version = "py311"
 select = ["E", "F", "I"]
 # Existing long lines are deferred to avoid a broad formatting-only rewrite.
 ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+pretty = true
+show_error_codes = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+no_implicit_optional = false
