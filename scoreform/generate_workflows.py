@@ -156,8 +156,11 @@ def launch_generate_menu():
                     pause_for_user()
                     return 1
 
+                clear_screen()
+                print_menu_header("Generate Answer Sheets")
+                print(f"Class: {class_id}")
                 print()
-                print(f"Available assignments for {class_id}:")
+                print("Available assignments:")
                 for index, assignment_record in enumerate(available_assignments, start=1):
                     print(f"{index}. {assignment_record['assignment_id']}")
                 print_scoreform_navigation_options()
@@ -178,7 +181,8 @@ def launch_generate_menu():
                     return 1
 
                 assignment_id = assignment_record["assignment_id"]
-                print()
+                clear_screen()
+                print_menu_header("Generate Answer Sheets")
                 print("Generate answer sheets for:")
                 print(f"Class: {class_id}")
                 print(f"Assignment: {assignment_id}")

@@ -193,7 +193,7 @@ def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_pa
     assert "Generate answer sheets for an existing class assignment" in output
     assert "Available classes:" in output
     assert "english_9_period_2" in output
-    assert "Available assignments for english_9_period_2:" in output
+    assert "Available assignments:" in output
     assert "act_1_quiz" in output
     assert "Goodbye." in output
     assert (tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "templates" / "class_packet.pdf").exists()
@@ -262,14 +262,25 @@ def test_menu_view_assignment_results_displays_selected_assignment_results(
     responses = iter(["1", "6", "1", "1", "8", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
+    monkeypatch.setattr(
+        assignment_workflows,
+        "clear_screen",
+        lambda: print("<CLEAR>"),
+    )
 
     assert scoreform.cli.launch_menu() == 0
 
     output = capsys.readouterr().out
     assert "View Assignment Results" in output
     assert "Available classes:" in output
-    assert "Available assignments for english12_p3:" in output
-    assert "Results for: english12_p3 / final_exam" in output
+    assert "Available assignments:" in output
+    detail_screen = next(
+        screen for screen in output.split("<CLEAR>") if f"Source: {results_path}" in screen
+    )
+    assert "Available classes:" not in detail_screen
+    assert "Available assignments:" not in detail_screen
+    assert "Class: english12_p3" in detail_screen
+    assert "Assignment: final_exam" in detail_screen
     assert f"Source: {results_path}" in output
     assert "Student ID" in output
     assert "Recent" in output
@@ -277,6 +288,51 @@ def test_menu_view_assignment_results_displays_selected_assignment_results(
     assert "1001" in output
     assert "Doe, Jane" in output
     assert "13" in output
+
+
+def test_generate_menu_clears_lists_before_assignment_and_confirmation(
+    monkeypatch,
+    capsys,
+):
+    class_record = {"class_id": "english10", "roster_path": "roster.csv"}
+    assignment_record = {
+        "assignment_id": "quiz_1",
+        "assignment_path": "assignment.json",
+    }
+    monkeypatch.setattr(
+        generate_workflows,
+        "discover_class_rosters",
+        lambda: [class_record],
+    )
+    monkeypatch.setattr(
+        generate_workflows,
+        "discover_class_assignments",
+        lambda _class_id: [assignment_record],
+    )
+    monkeypatch.setattr(generate_workflows, "run_generate", lambda _args: 0)
+    monkeypatch.setattr(generate_workflows, "pause_for_user", lambda: None)
+    monkeypatch.setattr(
+        generate_workflows,
+        "clear_screen",
+        lambda: print("<CLEAR>"),
+    )
+    responses = iter(["1", "1", "1", "y"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
+
+    assert generate_workflows.launch_generate_menu() == 0
+
+    screens = capsys.readouterr().out.split("<CLEAR>")
+    assignment_screen = next(
+        screen for screen in screens if "Available assignments:" in screen
+    )
+    confirmation_screen = next(
+        screen for screen in screens if "Generate answer sheets for:" in screen
+    )
+    assert "Available classes:" not in assignment_screen
+    assert "Class: english10" in assignment_screen
+    assert "Available assignments:" not in confirmation_screen
+    assert "Class: english10" in confirmation_screen
+    assert "Assignment: quiz_1" in confirmation_screen
 
 
 def test_menu_view_assignment_results_reports_missing_results_csv(
@@ -310,7 +366,8 @@ def test_menu_view_assignment_results_reports_missing_results_csv(
     assert scoreform.cli.launch_menu() == 0
 
     output = capsys.readouterr().out
-    assert "Results for: english12_p3 / final_exam" in output
+    assert "Class: english12_p3" in output
+    assert "Assignment: final_exam" in output
     assert "No results have been recorded for this assignment yet." in output
 
 

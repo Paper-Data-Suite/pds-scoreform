@@ -77,10 +77,6 @@ def prompt_scoring_input_file():
         if choice == "1":
             selected_scan = prompt_select_scan_from_inbox()
             if selected_scan:
-                print()
-                print("Selected scan:")
-                print(selected_scan)
-                print()
                 return selected_scan
 
         elif choice == "2":

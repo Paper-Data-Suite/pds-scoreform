@@ -1114,6 +1114,24 @@ ScoreForm is being designed around the following principles:
 * Build toward a teacher-friendly workflow without adding unnecessary complexity too early.
 * Avoid hardcoded assumptions that would prevent future multi-page forms.
 
+### Interactive Menu Screen Policy
+
+ScoreForm's terminal menu is designed for teacher use during classroom and
+preparation workflows. Screen clearing is the default between interactive
+workflow steps. ScoreForm keeps information on screen only when it is essential
+for the teacher to complete the current action.
+
+Menus redraw with the current workflow title, relevant selected context, current
+options, and short status messages. Long lists appear when the teacher is
+selecting from them, rather than after every completed action. Generated file
+paths, scoring summaries, warnings, and destructive-action confirmations remain
+visible until the teacher has had a chance to read or respond to them.
+
+Selection lists are temporary screens. After a valid selection, ScoreForm clears
+the terminal before displaying the next object, list, confirmation, result, or
+detail screen. The selected item is carried forward as compact context instead
+of leaving the prior list and prompt visible as terminal transcript.
+
 ## Contributing
 
 This project is currently in early solo development.

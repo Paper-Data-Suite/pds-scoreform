@@ -549,6 +549,7 @@ def test_prompt_view_roster_displays_selected_class_roster(tmp_path, monkeypatch
     )
     responses = iter(["2"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+    monkeypatch.setattr(workflows, "clear_screen", lambda: print("<CLEAR>"))
 
     assert workflows.prompt_view_roster() == 0
 
@@ -562,6 +563,13 @@ def test_prompt_view_roster_displays_selected_class_roster(tmp_path, monkeypatch
     assert "1001" in output
     assert "Doe" in output
     assert "Jane" in output
+    detail_screen = next(
+        screen
+        for screen in output.split("<CLEAR>")
+        if "Roster:" in screen and "Students: 1" in screen
+    )
+    assert "Available classes:" not in detail_screen
+    assert "Select class:" not in detail_screen
 
 
 def test_prompt_view_roster_rejects_invalid_selection(tmp_path, monkeypatch, capsys):

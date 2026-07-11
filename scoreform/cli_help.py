@@ -126,6 +126,8 @@ Notes:
 def print_menu_help():
     print_menu_header("Help")
     print("ScoreForm generates printable answer sheets and scores scanned responses.")
+    print("Menus clear between workflow steps and retain only the context needed")
+    print("for the teacher's current action; warnings and results remain readable.")
     print()
     print("Typical workflow:")
     print("  1. Create or validate a roster CSV.")

@@ -250,6 +250,8 @@ def _prompt_profile(library):
         print("No PDS Core standards profiles found.")
         print("Create or import standards profiles in PDS Core, then return to ScoreForm.")
         return None
+    clear_screen()
+    print_menu_header("Select Standards Profile")
     print("Available PDS Core standards profiles:")
     for index, profile in enumerate(profiles, start=1):
         print(f"{index}. {profile.label}")
@@ -279,24 +281,45 @@ def _profile_standards(library, profile_id):
 def _run_alignment_loop(assignment, library, available_standards):
     updated = dict(assignment)
     updated["standards"] = _assignment_standards_for_edit(assignment)
+    last_action = None
     while True:
-        print()
-        print(f"Available standards in {updated['standards_profile_id']}:")
-        for index, standard in enumerate(available_standards, start=1):
-            print(f"{index}. {standard.label}")
+        clear_screen()
+        print_menu_header("Standards Alignment")
+        print(f"Profile: {updated['standards_profile_id']}")
+        print(f"Questions: {updated['question_count']}")
+        attached = sum(len(values) for values in updated["standards"].values())
+        aligned_questions = sum(bool(values) for values in updated["standards"].values())
+        standard_word = "standard" if attached == 1 else "standards"
+        question_word = "question" if aligned_questions == 1 else "questions"
+        print(
+            f"Current alignment: {attached} {standard_word} attached across "
+            f"{aligned_questions} {question_word}"
+        )
+        if last_action:
+            print(f"Last action: {last_action}")
         print()
         print("1. Add standard(s) to question(s)")
         print("2. View current alignment")
-        print("3. Clear standards from question(s)")
-        print("4. Done")
+        print("3. View available standards")
+        print("4. Clear standards from question(s)")
+        print("5. Done")
         print_scoreform_navigation_options()
         choice = input("Select an option: ").strip()
         navigation = parse_scoreform_navigation(choice)
-        if choice == "4":
+        if choice == "5":
             return updated, False
         if navigation is NavigationChoice.BACK:
             return updated, True
         if choice == "1":
+            clear_screen()
+            print_menu_header("Add Standards to Questions")
+            print(f"Profile: {updated['standards_profile_id']}")
+            print()
+            print("Available standards:")
+            for index, standard in enumerate(available_standards, start=1):
+                print(f"{index}. {standard.label}")
+            print_scoreform_navigation_options()
+            print()
             try:
                 standard_selection = input(
                     "Select standard(s) by number, comma-separated: "
@@ -325,12 +348,43 @@ def _run_alignment_loop(assignment, library, available_standards):
                     question_numbers=question_numbers,
                     question_count=updated["question_count"],
                 )
+                standards_text = ", ".join(standard_ids)
+                questions_text = ", ".join(f"Q{number}" for number in question_numbers)
+                last_action = f"Attached {standards_text} to {questions_text}."
             except (ValueError, StandardsValidationError) as error:
-                print(f"Error: {error}")
+                last_action = f"Error: {error}"
         elif choice == "2":
+            clear_screen()
+            print_menu_header("Current Standards Alignment")
+            print(f"Profile: {updated['standards_profile_id']}")
+            print()
             _print_assignment_standards(updated)
+            pause_for_user()
         elif choice == "3":
-            updated, _ = _prompt_clear_assignment_standards(updated)
+            clear_screen()
+            print_menu_header("Available Standards")
+            print(f"Profile: {updated['standards_profile_id']}")
+            print()
+            for index, standard in enumerate(available_standards, start=1):
+                print(f"{index}. {standard.label}")
+            pause_for_user()
+        elif choice == "4":
+            clear_screen()
+            print_menu_header("Clear Standards from Questions")
+            print(f"Profile: {updated['standards_profile_id']}")
+            print()
+            before = updated
+            updated, changed = _prompt_clear_assignment_standards(updated)
+            if changed:
+                cleared = [
+                    f"Q{number}"
+                    for number in range(1, updated["question_count"] + 1)
+                    if before["standards"].get(str(number))
+                    and not updated["standards"].get(str(number))
+                ]
+                last_action = f"Cleared standards from {', '.join(cleared)}."
+            else:
+                last_action = "No standards were cleared."
         else:
             print("Invalid selection.")
             print_invalid_navigation()
@@ -457,8 +511,11 @@ def prompt_edit_assignment():
         print("Create an assignment first, then return to this option.")
         return 1
 
+    clear_screen()
+    print_menu_header("Edit an Assignment")
+    print(f"Class: {class_id}")
     print()
-    print(f"Available assignments for {class_id}:")
+    print("Available assignments:")
     for index, assignment_record in enumerate(available_assignments, start=1):
         title = assignment_record["assignment"].get("title", "")
         print(f"{index}. {assignment_record['assignment_id']} - {title}")
@@ -502,8 +559,12 @@ def prompt_edit_assignment():
     print("Changes are staged until you choose Save changes.")
 
     while True:
+        clear_screen()
+        print_menu_header("Edit Assignment")
+        print(f"Class: {class_id}")
+        print(f"Assignment: {staged_assignment['assignment_id']}")
+        print(f"Staged changes: {'yes' if dirty else 'none'}")
         print()
-        print("Edit menu")
         print("1. Edit title")
         print("2. Edit answer key")
         print("3. Edit standards alignment")
@@ -645,8 +706,11 @@ def launch_view_assignment_results_menu():
         print("Create an assignment first, then return to this option.")
         return 1
 
+    clear_screen()
+    print_menu_header("View Assignment Results")
+    print(f"Class: {class_id}")
     print()
-    print(f"Available assignments for {class_id}:")
+    print("Available assignments:")
     for index, assignment_record in enumerate(available_assignments, start=1):
         title = assignment_record["assignment"].get("title", "")
         print(f"{index}. {assignment_record['assignment_id']} - {title}")
@@ -669,8 +733,11 @@ def launch_view_assignment_results_menu():
     assignment_id = assignment_record["assignment_id"]
     results_csv_path = Path(assignment_record["assignment_path"]).parent / "results.csv"
 
+    clear_screen()
+    print_menu_header("View Assignment Results")
+    print(f"Class: {class_id}")
+    print(f"Assignment: {assignment_id}")
     print()
-    print(f"Results for: {class_id} / {assignment_id}")
     print(f"Source: {results_csv_path}")
     print()
 
@@ -707,8 +774,8 @@ def confirm_assignment_overwrite(path, class_id):
 def prompt_standards_alignment(workspace_root, question_count):
     """Prompt for assignment-local standards alignment during assignment creation."""
     while True:
-        print()
-        print("Standards alignment")
+        clear_screen()
+        print_menu_header("Standards Alignment")
         print("1. Skip standards for now")
         print("2. Select a PDS Core standards profile and align questions")
         print_scoreform_navigation_options()
@@ -771,6 +838,9 @@ def prompt_create_assignment():
         print(f"Error: {e}")
         return 1
 
+    clear_screen()
+    print_menu_header("Assignment Identity")
+    print(f"Classes: {', '.join(record['class_id'] for record in selected_classes)}")
     print()
     title = input("Assignment title: ").strip()
     if not title:
@@ -794,6 +864,9 @@ def prompt_create_assignment():
     if not validate_identifier("assignment_id", assignment_id, context="assignment"):
         return 1
 
+    clear_screen()
+    print_menu_header("Assignment Questions")
+    print(f"Assignment: {assignment_id}")
     print()
 
     choices = ["A", "B", "C", "D"]
@@ -809,6 +882,9 @@ def prompt_create_assignment():
             continue
         question_count = count_value
 
+    clear_screen()
+    print_menu_header("Answer Key")
+    print(f"Assignment: {assignment_id}")
     print()
     print(f"Using question_count: {question_count}")
     print("Using choices: A, B, C, D")
@@ -841,6 +917,11 @@ def prompt_create_assignment():
     if standards_profile_id is not None:
         assignment["standards_profile_id"] = standards_profile_id
 
+    clear_screen()
+    print_menu_header("Save Assignment")
+    print(f"Assignment: {assignment_id}")
+    print(f"Classes: {', '.join(record['class_id'] for record in selected_classes)}")
+    print()
     written_paths = []
     skipped_paths = []
     for class_record in selected_classes:
