@@ -7,6 +7,9 @@ current pre-1.0 development state. It describes the current implementation,
 identifies which parts are intended to remain available, and records areas that
 may change before a stable release.
 
+This document covers command-line behavior. ScoreForm file formats and schema
+contracts are documented in [`schema_contracts.md`](schema_contracts.md).
+
 This is a compatibility and development contract, not a redesign. It does not
 change scoring, QR handling, result routing, workspace routing, menu structure,
 or file formats.
