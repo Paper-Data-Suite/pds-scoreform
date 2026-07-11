@@ -191,7 +191,9 @@ def validate_question_standard_alignments(
             "question_standards must be a mapping of question numbers to standards."
         )
 
-    normalized = {question_number: () for question_number in range(1, question_count + 1)}
+    normalized: dict[int, tuple[str, ...]] = {
+        question_number: () for question_number in range(1, question_count + 1)
+    }
     seen_questions: set[int] = set()
     for key, standards in question_standards.items():
         q_num = _alignment_question_number(key, question_count)

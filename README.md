@@ -674,7 +674,7 @@ installs:
 * the ordinary third-party dependencies from `requirements.txt`;
 * the sibling `../pds-core` checkout in editable mode;
 * ScoreForm itself in editable mode with development/test dependencies such as
-  `pytest` and `ruff`.
+  `pytest`, `ruff`, and `mypy`.
 
 `requirements.txt` remains useful as the list of ordinary third-party
 dependencies, but it does not install the local `pds-core` checkout and is not
@@ -1073,6 +1073,28 @@ Run linting directly with:
 ```powershell
 python -m ruff check .
 ```
+
+### Type Checking
+
+ScoreForm includes initial mypy tooling for gradual typing. The configuration
+is intentionally cautious while the older operational codebase is brought
+under type checking incrementally; stricter typing is future incremental work.
+
+After installing `requirements-dev.txt`, run the repository helper:
+
+```powershell
+.\run_type_checks.ps1
+```
+
+Or run the same check directly with the repository virtual environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m mypy scoreform
+```
+
+Mypy is development tooling only and is not required for ordinary ScoreForm
+use. Type checking remains separate from `run_tests.ps1`; the full regression
+gate does not currently run mypy.
 
 ### Full Regression Checks
 
