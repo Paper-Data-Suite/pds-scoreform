@@ -134,6 +134,21 @@ def test_privacy_safe_source_file_preserves_safe_relative_path(tmp_path):
     )
 
 
+def test_privacy_safe_source_file_preserves_retained_workspace_path(tmp_path):
+    retained_path = (
+        tmp_path
+        / "scans"
+        / "source"
+        / "2026-07-11"
+        / "20260711T120000Z__scan__abc123def456.pdf"
+    )
+
+    assert results.privacy_safe_source_file(retained_path, tmp_path) == (
+        "scans/source/2026-07-11/"
+        "20260711T120000Z__scan__abc123def456.pdf"
+    )
+
+
 def test_privacy_safe_source_file_rejects_parent_traversal(tmp_path):
     assert (
         results.privacy_safe_source_file(

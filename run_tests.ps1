@@ -334,7 +334,8 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "PASSED: Scan inbox picker through menu" -ForegroundColor Green
 Assert-Exists $SampleResultsCsv
-Assert-FileContains $SampleResultsCsv "000_menu_picker_class_packet.pdf"
+Assert-FileContains $SampleResultsCsv "scans/source/"
+Assert-FileContains $SampleResultsCsv "000_menu_picker_class_packet"
 
 Write-Host ""
 Write-Host "Testing collision protection..." -ForegroundColor Yellow
@@ -395,7 +396,8 @@ Write-Host ""
 Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
 Assert-Exists $QrMetadataResultsCsv
 Assert-FileContains $QrMetadataResultsCsv "source_file"
-Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane.pdf"
+Assert-FileContains $QrMetadataResultsCsv "scans/source/"
+Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane"
 
 Write-Host ""
 Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
@@ -432,7 +434,8 @@ Assert-FileContains $SampleResultsCsv "Brown"
 Assert-FileContains $SampleResultsCsv "Alyssa"
 Assert-FileContains $SampleResultsCsv "2"
 Assert-FileContains $SampleResultsCsv "source_file"
-Assert-FileContains $SampleResultsCsv "class_packet.pdf"
+Assert-FileContains $SampleResultsCsv "scans/source/"
+Assert-FileContains $SampleResultsCsv "class_packet"
 Assert-FileContains $SampleResultsCsv "scan_timestamp"
 
 Write-Host ""

@@ -253,8 +253,11 @@ preserved with forward slashes, while one containing `..` falls back to its
 basename. Blank or invalid values become an empty string. Arbitrary external
 absolute paths must not be written to results.
 
-This field identifies the source scan. Separately, scan filing may copy the
-original into an assignment `scans/` directory; it never removes the original.
+For QR-aware scoring, this field identifies the canonical retained source scan,
+normally as `scans/source/YYYY-MM-DD/<retained-source-filename>`. ScoreForm
+retains that source before conversion, image loading, QR decoding, or scoring.
+Separately, post-success scan filing may copy the teacher-selected original into
+an assignment `scans/` directory; it never removes the original.
 
 ## 11. Attempt metadata
 
@@ -270,13 +273,17 @@ rows in one batch may share it. Attempt number does not select an official grade
 
 **Status: Provisional operational behavior.**
 
-After QR-aware routed scoring without an explicit output CSV, ScoreForm may file a
-copy under the resolved assignment's `scans/` folder. Filing occurs only after a
-full-success, single-target routed batch. Partial or zero success, export failure,
-explicit-output or manual scoring, and multi-target batches are not automatically
-filed. The original remains in place; copies use timestamped, non-overwriting
-names. Filing is operational convenience, while routed results and QR batch
-summaries remain the audit trail.
+Canonical active retained source scans live under `scans/source/YYYY-MM-DD/` and
+are created before QR-aware scoring. After QR-aware routed scoring without an
+explicit output CSV, ScoreForm may also file a copy under the resolved
+assignment's `scans/` folder. This assignment-local copy is a provisional
+post-success scored-copy convenience, not canonical source retention.
+
+Assignment-local filing occurs only after a full-success, single-target routed
+batch. Partial or zero success, export failure, explicit-output or manual
+scoring, and multi-target batches are not automatically filed. The original
+remains in place; copies use timestamped, non-overwriting names. Routed results
+and QR batch summaries remain the audit trail.
 
 ## 13. QR batch summaries and diagnostics
 

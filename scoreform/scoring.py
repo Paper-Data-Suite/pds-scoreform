@@ -11,6 +11,7 @@ from pds_core.qr_payload import QrPayloadValidationError
 from pds_core.routes import assignment_config_path as core_assignment_config_path
 from pds_core.routes import assignment_debug_dir as core_assignment_debug_dir
 from pds_core.routes import assignment_dir as core_assignment_dir
+from pds_core.scan_retention import SourceRetentionError, retain_source_scan
 
 from scoreform import workspace
 from scoreform.config import (
@@ -45,6 +46,7 @@ POSSIBLE_SECONDARY_RELATIVE_RATIO = 0.20
 QR_FAILURE_LABELS = {
     "input_file_missing": "Input file missing",
     "unsupported_input_type": "Unsupported input type",
+    "source_retention_failed": "Source scan retention failure",
     "pdf2image_missing": "pdf2image missing",
     "poppler_missing": "Poppler unavailable",
     "pdf_conversion_failed": "PDF conversion/processing failure",
@@ -1452,6 +1454,24 @@ def _image_extensions():
     return [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]
 
 
+def _qr_retained_image_extensions():
+    """Return QR-aware image types covered by Core source retention."""
+    return [extension for extension in _image_extensions() if extension != ".bmp"]
+
+
+def _retain_qr_source_scan(file_path, workspace_root, summary):
+    try:
+        return retain_source_scan(workspace_root, file_path)
+    except SourceRetentionError as error:
+        print(f"Error: Could not retain source scan before scoring: {error}")
+        _record_qr_file_failure(
+            summary,
+            "source_retention_failed",
+            f"Source scan retention failed: {error}",
+        )
+        return None
+
+
 def _process_qr_pdf(file_path, all_results, summary, workspace_root=None):
     try:
         from pdf2image import convert_from_path
@@ -1567,21 +1587,8 @@ def process_file_qr_aware(file_path, workspace_root=None):
         return all_results
 
     ext = os.path.splitext(file_path)[1].lower()
-    if workspace_root is None and (ext == ".pdf" or ext in _image_extensions()):
-        workspace_root = workspace.get_scoreform_workspace_root()
-
-    if ext == ".pdf":
-        _process_qr_pdf(file_path, all_results, summary, workspace_root=workspace_root)
-
-    elif ext in _image_extensions():
-        _process_qr_image(
-            file_path,
-            all_results,
-            summary,
-            workspace_root=workspace_root,
-        )
-
-    else:
+    supported = ext == ".pdf" or ext in _qr_retained_image_extensions()
+    if not supported:
         print(
             f"Error: Unsupported file extension '{ext}'. "
             "Please provide a PDF or an image."
@@ -1590,6 +1597,30 @@ def process_file_qr_aware(file_path, workspace_root=None):
             summary,
             "unsupported_input_type",
             f"Unsupported input type: {ext or '(no extension)'}",
+        )
+        return all_results
+
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+
+    retained_source = _retain_qr_source_scan(file_path, workspace_root, summary)
+    if retained_source is None:
+        return all_results
+    retained_path = os.fspath(retained_source.retained_source_path)
+
+    if ext == ".pdf":
+        _process_qr_pdf(
+            retained_path,
+            all_results,
+            summary,
+            workspace_root=workspace_root,
+        )
+    else:
+        _process_qr_image(
+            retained_path,
+            all_results,
+            summary,
+            workspace_root=workspace_root,
         )
 
     return all_results

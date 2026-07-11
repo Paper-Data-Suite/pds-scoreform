@@ -106,7 +106,12 @@ def file_original_scan_copy(
     copy_func=shutil.copy2,
     workspace_root=None,
 ):
-    """Copy a successfully scored source scan into one assignment scan folder."""
+    """Copy a full-success scored source into one assignment scan folder.
+
+    This is assignment-local scored-copy filing, not canonical active source
+    retention. Canonical retained sources live under ``scans/source/YYYY-MM-DD/``
+    through pds-core.
+    """
     if not results:
         return ScanFilingResult(skipped_reason="no pages scored successfully")
 
