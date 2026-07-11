@@ -477,6 +477,17 @@ Select **1. Assignment Management**, then **6. View assignment results** to choo
 
 The viewer is read-only. It shows one summary row per student with `Student ID`, `Name`, `Recent`, `Total`, and `Attempts`. If a student has more than one scored row, `Recent` shows the most recent scored attempt by `scan_timestamp` when available, otherwise the last row for that student in `results.csv`; `Attempts` shows how many scored rows exist. ScoreForm does not decide which attempt counts as the grade.
 
+## Schema and File Contracts
+
+ScoreForm-specific artifacts include assignment and answer-key JSON, roster and
+result CSVs, QR payload use, generated answer sheets, and question-level standards
+metadata. Their current shapes, ownership boundaries, stability, privacy rules,
+and versioning policy are documented in
+[`docs/schema_contracts.md`](docs/schema_contracts.md).
+
+The examples below are a quick orientation; the contract document is the
+authoritative compatibility reference.
+
 ## Data Model
 
 Identifiers used in paths and QR metadata must contain only letters, numbers, underscores, and hyphens. This applies to `class_id`, `assignment_id`, and `student_id`.
