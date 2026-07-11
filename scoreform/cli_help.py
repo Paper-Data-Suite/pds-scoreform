@@ -130,6 +130,7 @@ def print_menu_help():
     print("Typical workflow:")
     print("  1. Create or validate a roster CSV.")
     print("  2. Create or validate an assignment JSON file.")
+    print("     Question-level standards use enumerated PDS Core standards profiles.")
     print("  3. Generate answer sheets.")
     print("  4. Scan completed sheets.")
     print("  5. Score scanned responses.")

@@ -4,6 +4,7 @@ from pathlib import Path
 from pds_core.standards import (
     StandardDefinition,
     StandardsLibrary,
+    StandardsProfile,
     load_workspace_standard_usage_events,
     load_workspace_standards_library,
     standards_library_to_dict,
@@ -36,6 +37,7 @@ def _write_assignment(tmp_path, *, assignment_id="unit_1", title="Unit 1 Quiz"):
             "question_count": 3,
             "choices": ["A", "B", "C", "D"],
             "answer_key": {"1": "A", "2": "B", "3": "C"},
+            "standards_profile_id": "local_profile",
             "standards": {
                 "1": ["local:evidence"],
                 "2": [],
@@ -363,19 +365,15 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
         standards=(
             _standard("local:evidence", "Evidence"),
             _standard("local:theme", "Theme"),
-        )
+        ),
+        profiles=(StandardsProfile(
+            profile_id="local_profile",
+            standards=("local:evidence", "local:theme"),
+        ),),
     )
     write_workspace_standards_library(tmp_path, library)
     before_library = standards_library_to_dict(load_workspace_standards_library(tmp_path))
 
-    def fail_library_write(*_args, **_kwargs):
-        raise AssertionError("standards library should not be written")
-
-    monkeypatch.setattr(
-        assignment_workflows,
-        "write_workspace_standards_library",
-        fail_library_write,
-    )
     responses = iter([
         "1",
         "1",
@@ -384,12 +382,8 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
         "2",
         "1,2",
         "3",
-        "2",
-        "1",
-        "1",
         "3",
-        "3",
-        "3",
+        "4",
         "5",
         "SAVE",
     ])
@@ -399,10 +393,11 @@ def test_standards_can_attach_remove_and_clear_without_usage_or_library_writes(
 
     saved = _load_json(path)
     assert saved["standards"] == {
-        "1": ["local:theme"],
+        "1": ["local:evidence", "local:theme"],
         "2": ["local:theme"],
         "3": [],
     }
+    assert saved["standards_profile_id"] == "local_profile"
     assert standards_library_to_dict(load_workspace_standards_library(tmp_path)) == before_library
     assert load_workspace_standard_usage_events(tmp_path, "2025-2026", "test_class") == ()
 

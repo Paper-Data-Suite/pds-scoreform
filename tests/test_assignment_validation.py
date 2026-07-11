@@ -311,6 +311,14 @@ def test_load_assignment_rejects_non_string_standard(tmp_path):
     assert assignment.load_assignment(path) is None
 
 
+def test_load_assignment_rejects_duplicate_standard_ids(tmp_path):
+    path = make_assignment(
+        tmp_path,
+        standards={"1": ["local:evidence", " local:evidence "]},
+    )
+    assert assignment.load_assignment(path) is None
+
+
 def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(

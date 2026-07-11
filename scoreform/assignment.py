@@ -148,6 +148,7 @@ def _normalize_standards(standards, question_count):
             return None
 
         normalized_values = []
+        seen_values = set()
         for value in values:
             if not isinstance(value, str) or not value.strip():
                 print(
@@ -155,7 +156,12 @@ def _normalize_standards(standards, question_count):
                     "non-empty strings only."
                 )
                 return None
-            normalized_values.append(value.strip())
+            normalized_value = value.strip()
+            if normalized_value in seen_values:
+                print(f"Error: Standards for question {q_num} contain duplicate standard IDs.")
+                return None
+            seen_values.add(normalized_value)
+            normalized_values.append(normalized_value)
 
         normalized_standards[question_key] = normalized_values
 
@@ -255,18 +261,21 @@ def validate_assignment_standard_alignments(
             f"assignment question_count must be an integer between 1 and {MAX_QUESTION_COUNT}."
         )
 
-    standards_profile_id = assignment.get("standards_profile_id")
-    if not isinstance(standards_profile_id, str) or not standards_profile_id.strip():
-        raise AssignmentStandardsAlignmentError(
-            "assignment standards_profile_id is required for shared standards validation."
-        )
-
     standards = assignment.get("standards", {})
     if standards is None:
         standards = {}
     if not isinstance(standards, Mapping):
         raise AssignmentStandardsAlignmentError(
             "assignment standards must be a mapping of question numbers to standards."
+        )
+
+    standards_profile_id = assignment.get("standards_profile_id")
+    has_standards = any(bool(values) for values in standards.values())
+    if not isinstance(standards_profile_id, str) or not standards_profile_id.strip():
+        if not has_standards:
+            return {question_number: () for question_number in range(1, question_count + 1)}
+        raise AssignmentStandardsAlignmentError(
+            "assignment standards_profile_id is required when question standards are attached."
         )
 
     return validate_question_standard_alignments(
