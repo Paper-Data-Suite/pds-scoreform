@@ -46,6 +46,7 @@ SCOREFORM_FAILURE_CATEGORY_MAP = {
     "assignment_lookup_failed": "assignment_unknown",
     "image_processing_failed": "source_unreadable",
     "registration_or_scoring_failed": "processing_error",
+    "multi_page_assembly_failed": "processing_error",
     "result_write_failed": "processing_error",
     "unknown_failed": "processing_error",
 }

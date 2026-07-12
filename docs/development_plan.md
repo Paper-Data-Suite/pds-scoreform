@@ -220,7 +220,8 @@ Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and
 
 ### Assignment JSON Format
 
-`question_count` currently supports values from 1 to 15 for single-page forms.
+`question_count` supports values from 1 to 75. The current layout places up to
+15 questions on each physical page.
 
 ```json
 {
@@ -999,7 +1000,7 @@ v0.5.0
 
 ## Status
 
-Completed for single-page assignments with 1-15 questions.
+Completed for assignments with 1-75 questions using 15-question physical pages.
 
 ## Goal
 
@@ -1007,7 +1008,7 @@ Move beyond fixed 10-question sheets.
 
 ## Initial Limit
 
-Support **1-15 questions** on a single page.
+Support **1-75 questions**, paged at 15 questions per physical sheet.
 
 ## Assignment JSON Controls
 
@@ -1017,7 +1018,7 @@ Support **1-15 questions** on a single page.
 
 ## Requirements
 
-* Assignment validation allows 1-15 questions.
+* Assignment validation allows 1-75 questions.
 * Student PDFs draw only the required number of question rows.
 * Class packet PDFs draw only the required number of question rows.
 * QR-aware scoring scores only the assignment's configured question count.
@@ -1600,3 +1601,9 @@ Next active direction:
     * keep CHANGELOG.md current
     * complete public-readiness audit
 7. Later: support multi-page forms.
+# Multi-page assessment boundary
+
+The current layout is fixed at 15 questions per physical page, with assignments
+bounded at 75 questions (five pages). Multi-page QR attempts are assembled only
+within one scan batch. Template versioning, mixed layouts, and the compact
+25-question-per-page layout are separate future work.

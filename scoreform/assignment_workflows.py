@@ -23,7 +23,7 @@ from scoreform import (
     workspace,
 )
 from scoreform.assignment import load_assignment, validate_assignment_data
-from scoreform.config import MAX_QUESTION_COUNT
+from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT as MAX_QUESTION_COUNT
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,

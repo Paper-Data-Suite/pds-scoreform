@@ -24,9 +24,14 @@ from scoreform.config import (
     IMG_WIDTH,
     LOCAL_DEBUG_DIR,
     LOCAL_OUTPUTS_DIR,
-    MAX_QUESTION_COUNT,
+    MAX_ASSIGNMENT_QUESTION_COUNT,
     Q_START_Y,
     Q_STEP_Y,
+)
+from scoreform.paging import (
+    page_count_for_question_count,
+    question_count_for_page,
+    question_range_for_page,
 )
 from scoreform.validation import (
     IDENTIFIER_PATTERN,
@@ -55,6 +60,7 @@ QR_FAILURE_LABELS = {
     "assignment_lookup_failed": "Assignment lookup failure",
     "image_processing_failed": "Image loading/processing failure",
     "registration_or_scoring_failed": "Registration/scoring failure",
+    "multi_page_assembly_failed": "Multi-page assessment assembly failure",
     "result_write_failed": "Result writing failure",
     "unknown_failed": "Unknown failure",
 }
@@ -346,7 +352,7 @@ def _infer_question_count(answer_key, default=10):
         return default
 
     max_question = max(keys)
-    if max_question > MAX_QUESTION_COUNT:
+    if max_question > MAX_ASSIGNMENT_QUESTION_COUNT:
         return default
 
     if set(keys) == set(range(1, max_question + 1)):
@@ -510,7 +516,14 @@ def _classify_answer_row(row_filled):
     return best_letter
 
 
-def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None):
+def score_image(
+    img,
+    answer_key,
+    page_num=1,
+    debug_dir=None,
+    question_count=None,
+    question_start=1,
+):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     if debug_dir is None:
         debug_dir = os.fspath(
@@ -523,6 +536,12 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
 
     if not isinstance(question_count, int) or question_count < 1:
         question_count = 10
+    if (
+        not isinstance(question_start, int)
+        or isinstance(question_start, bool)
+        or question_start < 1
+    ):
+        question_start = 1
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -605,13 +624,14 @@ def score_image(img, answer_key, page_num=1, debug_dir=None, question_count=None
 
         # Score it
         correct = False
-        if answer == answer_key.get(i + 1, ""):
+        question_number = question_start + i
+        if answer == answer_key.get(question_number, ""):
             score += 1
             correct = True
 
         results.append(
             {
-                "Q": i + 1,
+                "Q": question_number,
                 "Answer": answer,
                 "Correct": correct,
             }
@@ -777,6 +797,10 @@ def validate_qr_metadata(qr_metadata):
         if not validate_qr_identifier(field_name, qr_metadata[field_name]):
             return False
 
+    page = qr_metadata.get("page")
+    if isinstance(page, bool) or not isinstance(page, int) or page < 1:
+        print("Error: QR metadata missing a valid positive integer 'page'.")
+        return False
     return True
 
 
@@ -812,6 +836,7 @@ def parse_qr_payload(payload):
         "class_id": parsed_payload.class_id,
         "assignment_id": parsed_payload.assignment_id,
         "student_id": parsed_payload.student_id,
+        "page": parsed_payload.page,
     }
 
 
@@ -1430,7 +1455,7 @@ def _question_count_for_assignment(assignment_data, answer_key):
     if (
         not isinstance(question_count, int)
         or question_count < 1
-        or question_count > MAX_QUESTION_COUNT
+        or question_count > MAX_ASSIGNMENT_QUESTION_COUNT
     ):
         question_count = _infer_question_count(answer_key, default=10)
     return question_count
@@ -1443,6 +1468,7 @@ def _score_qr_aware_image(
     debug_dir,
     question_count,
     summary,
+    question_start=1,
 ):
     result = score_image(
         img,
@@ -1450,6 +1476,7 @@ def _score_qr_aware_image(
         page_num,
         debug_dir=debug_dir,
         question_count=question_count,
+        question_start=question_start,
     )
     if result is None:
         _record_qr_failure(
@@ -1635,7 +1662,75 @@ def process_file_qr_aware(file_path, workspace_root=None):
             workspace_root=workspace_root,
         )
 
+    assembled = _assemble_qr_attempts(all_results, summary)
+    all_results.clear()
+    all_results.extend(assembled)
     return all_results
+
+
+def _assemble_qr_attempts(page_results, summary):
+    """Assemble successful physical pages into one result per complete attempt."""
+    groups = {}
+    for result in page_results:
+        key = (
+            result.get("class_id"),
+            result.get("assignment_id"),
+            result.get("student_id"),
+            result.get("source_file"),
+        )
+        groups.setdefault(key, []).append(result)
+
+    assembled = []
+    for key, pages in groups.items():
+        class_id, assignment_id, student_id, source_file = key
+        expected_page_count = pages[0]["assignment_page_count"]
+        by_page = {}
+        duplicate_pages = []
+        for page in pages:
+            assessment_page = page["assessment_page"]
+            if assessment_page in by_page:
+                duplicate_pages.append(assessment_page)
+            by_page[assessment_page] = page
+        missing_pages = sorted(set(range(1, expected_page_count + 1)) - set(by_page))
+        if duplicate_pages or missing_pages:
+            details = []
+            if missing_pages:
+                details.append("missing page(s) " + ",".join(map(str, missing_pages)))
+            if duplicate_pages:
+                details.append(
+                    "duplicate page(s) "
+                    + ",".join(map(str, sorted(set(duplicate_pages))))
+                )
+            _record_qr_failure(
+                summary,
+                None,
+                "multi_page_assembly_failed",
+                "; ".join(details),
+                class_id=class_id,
+                assignment_id=assignment_id,
+                student_id=student_id,
+            )
+            continue
+
+        ordered = [by_page[number] for number in range(1, expected_page_count + 1)]
+        answers = [answer for page in ordered for answer in page["answers"]]
+        assembled.append(
+            {
+                "page_num": (
+                    ordered[0]["page_num"]
+                    if len(ordered) == 1
+                    else ",".join(str(page["page_num"]) for page in ordered)
+                ),
+                "score": sum(page["score"] for page in ordered),
+                "total_points": pages[0]["assignment_question_count"],
+                "answers": answers,
+                "class_id": class_id,
+                "assignment_id": assignment_id,
+                "student_id": student_id,
+                "source_file": source_file,
+            }
+        )
+    return assembled
 
 
 def _score_page_qr_aware(
@@ -1669,11 +1764,13 @@ def _score_page_qr_aware(
     class_id = qr_metadata.get("class_id")
     assignment_id = qr_metadata.get("assignment_id")
     student_id = qr_metadata.get("student_id")
+    assessment_page = qr_metadata.get("page")
 
     print(f"Page {page_num} QR metadata:")
     print(f"  class_id: {class_id}")
     print(f"  assignment_id: {assignment_id}")
     print(f"  student_id: {student_id}")
+    print(f"  page: {assessment_page}")
 
     if not validate_qr_metadata(qr_metadata):
         print(f"Error: QR metadata for page {page_num} is unsafe, rejecting page.")
@@ -1714,6 +1811,25 @@ def _score_page_qr_aware(
         return None
 
     question_count = _question_count_for_assignment(assignment_data, answer_key)
+    assignment_page_count = page_count_for_question_count(question_count)
+    if assessment_page > assignment_page_count:
+        reason = (
+            f"QR page {assessment_page} is outside assignment page count "
+            f"{assignment_page_count}."
+        )
+        print(f"Error: {reason}")
+        _record_qr_failure(
+            summary,
+            page_num,
+            "multi_page_assembly_failed",
+            reason,
+            class_id=class_id,
+            assignment_id=assignment_id,
+            student_id=student_id,
+        )
+        return None
+    question_start, _ = question_range_for_page(assessment_page, question_count)
+    questions_on_page = question_count_for_page(assessment_page, question_count)
 
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
@@ -1729,8 +1845,9 @@ def _score_page_qr_aware(
         answer_key,
         page_num,
         debug_dir=debug_dir,
-        question_count=question_count,
+        question_count=questions_on_page,
         summary=summary,
+        question_start=question_start,
     )
     if result is None:
         if summary is not None and summary.failures:
@@ -1748,6 +1865,9 @@ def _score_page_qr_aware(
     result["class_id"] = class_id
     result["assignment_id"] = assignment_id
     result["student_id"] = student_id
+    result["assessment_page"] = assessment_page
+    result["assignment_page_count"] = assignment_page_count
+    result["assignment_question_count"] = question_count
     # Attach source file information if provided
     if file_path:
         result["source_file"] = file_path

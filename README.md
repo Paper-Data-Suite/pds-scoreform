@@ -33,7 +33,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Multi-roster answer-sheet generation
 * Individual personalized student PDFs
 * Class packet PDF generation
-* Single-page assignments with 1-15 questions
+* Multi-page assignments with 1-75 questions and 15 questions per physical page
 
 ### Scoring
 
@@ -115,7 +115,7 @@ Current limitations include:
 * Result routing works for QR-aware scoring. Duplicate/attempt handling is
   implemented, and configurable automatic scan filing is limited to
   full-success, single-target routed batches.
-* Question count support is currently limited to 1-15 questions on a single page.
+* Question count support is 1-75, paged automatically at 15 questions per sheet.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
 * Manual verification is recommended before using results for actual grades.
@@ -466,7 +466,7 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 
 6. Accept or edit the suggested `assignment_id`.
 
-7. Enter the assignment `question_count` (1-15), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
+7. Enter the assignment `question_count` (1-75), then enter answers for Q1 through Q{question_count}. Current choices are A-D only.
 
 8. Choose whether to skip standards or select a PDS Core standards profile, then attach one or more enumerated profile standards to one or more questions.
 
@@ -480,7 +480,7 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 
 Notes:
 
-* Supported `question_count` range is 1-15 and choices remain fixed at A-D.
+* Supported `question_count` range is 1-75 and choices remain fixed at A-D.
 * Teachers may skip standards during assignment creation. Empty `standards` lists remain valid.
 * Standards alignment is profile-first and question-level. A question may have multiple standards, and a standard may be attached to multiple questions.
 * Assignment files store durable `standard_id`s only. Shared definitions and profiles are managed in PDS Core; ScoreForm does not author them.
@@ -1175,7 +1175,7 @@ Future test improvements may include:
 
 * Poor scan quality may still prevent QR detection, though ScoreForm now retries
   with QR preprocessing fallbacks before giving up.
-* Multi-page forms are not implemented yet; assignments are currently limited to 1-15 questions on a single page.
+* The current optical layout remains fixed at 15 questions per physical page; compact 25-question pages are not implemented.
 * Legacy/manual scoring writes default debug images to `local_outputs/debug/`, while QR-aware scoring routes debug images into assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit replacement workflow has not been implemented yet.
@@ -1229,3 +1229,11 @@ Contributions should follow these expectations:
 ## License
 
 This project is licensed under the MIT License.
+# Multi-page assessments
+
+ScoreForm supports QR-aware assignments with 1-75 questions using the existing
+15-question physical page layout. Student PDFs and class packets contain as many
+pages as needed, in student-then-page order. The PDS1 `page` field identifies the
+physical assessment page. A routed result is written only after every page for a
+student attempt is present in the same scan batch; complete attempts produce one
+CSV row. The compact 25-question layout remains separate future work.

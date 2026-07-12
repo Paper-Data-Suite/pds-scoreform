@@ -400,6 +400,7 @@ def test_process_file_qr_aware_records_success_and_routed_output(tmp_path, monke
                 "class_id": "english9_p2",
                 "assignment_id": "rj_act1_quiz",
                 "student_id": "1001",
+                "page": 1,
             }
         ),
     )
@@ -506,8 +507,9 @@ def test_process_file_qr_aware_resolves_workspace_once_for_multi_page_pdf(
         lambda _img, page_num, **_kwargs: scoring.QRDecodeResult(
             {
                 "class_id": "english9_p2",
-                "assignment_id": "rj_act1_quiz",
-                "student_id": metadata_by_page[page_num],
+                    "assignment_id": "rj_act1_quiz",
+                    "student_id": metadata_by_page[page_num],
+                    "page": 1,
             }
         ),
     )

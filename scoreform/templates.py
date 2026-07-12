@@ -18,13 +18,14 @@ from scoreform.config import (
     IMG_WIDTH,
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
-    MAX_QUESTION_COUNT,
+    MAX_ASSIGNMENT_QUESTION_COUNT,
     PDF_HEIGHT,
     PDF_SCALE,
     Q_START_Y,
     Q_STEP_Y,
 )
 from scoreform.folders import ensure_parent_dir
+from scoreform.paging import page_count_for_question_count, question_range_for_page
 from scoreform.validation import validate_identifier
 
 
@@ -208,11 +209,14 @@ def generate_student_pdf(output_path, assignment_data, student_data):
         c.setFillColorRGB(0, 0, 0)
         c.setStrokeColorRGB(0, 0, 0)
 
-        if not draw_student_answer_sheet_page(c, assignment_data, student_data):
-            print(f"Error: Failed to draw student answer sheet page for '{output_path}'")
-            return False
-
-        c.showPage()
+        page_count = page_count_for_question_count(assignment_data["question_count"])
+        for assessment_page in range(1, page_count + 1):
+            if not draw_student_answer_sheet_page(
+                c, assignment_data, student_data, assessment_page
+            ):
+                print(f"Error: Failed to draw student answer sheet page for '{output_path}'")
+                return False
+            c.showPage()
         c.save()
         return True
 
@@ -221,10 +225,10 @@ def generate_student_pdf(output_path, assignment_data, student_data):
         return False
 
 
-def build_qr_payload(assignment_data, student_data):
+def build_qr_payload(assignment_data, student_data, page_number=1):
     """Build the default PDS1 QR code payload string.
 
-    PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=1
+    PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=<page_number>
     """
     class_id = student_data.get("class_id")
     assignment_id = assignment_data.get("assignment_id")
@@ -232,6 +236,9 @@ def build_qr_payload(assignment_data, student_data):
 
     if not class_id or not assignment_id or not student_id:
         print("Error: Missing required student or assignment metadata for QR payload.")
+        return None
+    if isinstance(page_number, bool) or not isinstance(page_number, int) or page_number < 1:
+        print("Error: QR payload page must be a positive integer.")
         return None
     if not validate_identifier("class_id", class_id, context="QR payload"):
         return None
@@ -247,7 +254,7 @@ def build_qr_payload(assignment_data, student_data):
             class_id=class_id,
             assignment_id=assignment_id,
             student_id=student_id,
-            page=1,
+            page=page_number,
         )
         return build_pds1_payload(payload)
     except (Pds1PayloadError, QrPayloadValidationError) as error:
@@ -280,9 +287,9 @@ def make_qr_image(payload):
     return ImageReader(img_io)
 
 
-def draw_qr_code(c, assignment_data, student_data):
+def draw_qr_code(c, assignment_data, student_data, page_number=1):
     """Build the QR payload, generate the QR image, and draw it onto the ReportLab canvas."""
-    payload = build_qr_payload(assignment_data, student_data)
+    payload = build_qr_payload(assignment_data, student_data, page_number)
     if payload is None:
         return False
 
@@ -305,7 +312,7 @@ def draw_qr_code(c, assignment_data, student_data):
         return False
 
 
-def draw_student_answer_sheet_page(c, assignment_data, student_data):
+def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number=1):
     """Draw a single personalized answer-sheet page onto an existing ReportLab canvas.
 
     This function uses the assignment's question_count to render the correct number
@@ -332,17 +339,28 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data):
     c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
 
     question_count = assignment_data.get("question_count", 10)
-    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_QUESTION_COUNT:
+    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_ASSIGNMENT_QUESTION_COUNT:
         question_count = 10
+
+    page_count = page_count_for_question_count(question_count)
+    try:
+        question_start, question_end = question_range_for_page(page_number, question_count)
+    except ValueError as error:
+        print(f"Error: {error}")
+        return False
+    context_x, context_y = _pdf_coord(760, 260)
+    c.setFont("Helvetica", 10)
+    c.drawString(context_x, context_y, f"Page {page_number} of {page_count}")
+    c.drawString(context_x, context_y - 13, f"Questions {question_start}-{question_end}")
 
     # Draw question boxes based on assignment question_count
     c.setLineWidth(1)
     c.setFont("Helvetica", 12)
 
-    for i in range(question_count):
+    for i, question_number in enumerate(range(question_start, question_end + 1)):
         y = Q_START_Y + i * Q_STEP_Y
         q_x, q_y = _pdf_coord(150, y + 25)
-        c.drawString(q_x, q_y, f"{i + 1}.")
+        c.drawString(q_x, q_y, f"{question_number}.")
 
         for j, letter in enumerate(["A", "B", "C", "D"]):
             box_x = BOX_START_X + j * BOX_STEP_X
@@ -351,7 +369,7 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data):
             c.drawString(letter_x, letter_y, letter)
 
     # Draw QR code
-    if not draw_qr_code(c, assignment_data, student_data):
+    if not draw_qr_code(c, assignment_data, student_data, page_number):
         return False
 
     return True
@@ -382,12 +400,16 @@ def generate_class_packet_pdf(output_path, assignment_data, roster_data):
         c.setStrokeColorRGB(0, 0, 0)
 
         students = roster_data.get('students', [])
+        page_count = page_count_for_question_count(assignment_data["question_count"])
         for student in students:
-            if not draw_student_answer_sheet_page(c, assignment_data, student):
-                student_id = student.get('student_id', '<unknown>')
-                print(f"Error: Failed to draw class packet page for student_id='{student_id}'")
-                return False
-            c.showPage()
+            for assessment_page in range(1, page_count + 1):
+                if not draw_student_answer_sheet_page(
+                    c, assignment_data, student, assessment_page
+                ):
+                    student_id = student.get('student_id', '<unknown>')
+                    print(f"Error: Failed to draw class packet page for student_id='{student_id}'")
+                    return False
+                c.showPage()
 
         c.save()
         return True

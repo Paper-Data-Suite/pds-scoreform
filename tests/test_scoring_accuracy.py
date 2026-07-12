@@ -184,6 +184,25 @@ def test_score_image_detects_synthetic_marked_answers(tmp_path, monkeypatch):
         assert answer["Correct"] == (expected_answer == answer_key[q_num])
 
 
+def test_score_image_maps_local_rows_to_global_questions(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    image = _draw_synthetic_answer_sheet({1: "A", 2: "C"}, 2)
+
+    result = score_image(
+        image,
+        {16: "A", 17: "B"},
+        page_num=2,
+        debug_dir=tmp_path / "debug",
+        question_count=2,
+        question_start=16,
+    )
+
+    assert result is not None
+    assert [answer["Q"] for answer in result["answers"]] == [16, 17]
+    assert [answer["Answer"] for answer in result["answers"]] == ["A", "C"]
+    assert result["score"] == 1
+
+
 def test_score_image_detects_lighter_double_mark_as_ambiguous(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 

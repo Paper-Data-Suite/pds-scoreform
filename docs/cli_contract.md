@@ -808,3 +808,10 @@ document does not implement:
   `PDS_WORKSPACE_ROOT` and saved shared configuration already exist?
 * Should bare `python main.py` eventually launch the menu, or remain a
   help-and-failure development invocation?
+# Multi-page assessment behavior
+
+Existing `generate`, `regenerate-sheets`, and `score` commands require no new
+flags. Assignments may contain 1-75 questions and are automatically paged at 15
+questions per physical sheet. QR-aware scoring requires all pages for a student
+attempt in the same input batch and writes one routed results row per complete
+attempt.
