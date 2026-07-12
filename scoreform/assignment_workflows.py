@@ -24,6 +24,7 @@ from scoreform import (
 )
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT as MAX_QUESTION_COUNT
+from scoreform.layouts import DEFAULT_LAYOUT_ID, get_layout
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -78,6 +79,7 @@ def _assignment_for_edit(assignment):
         "title": assignment["title"],
         "question_count": assignment["question_count"],
         "choices": list(assignment["choices"]),
+        "layout_id": assignment["layout_id"],
         "answer_key": _assignment_answer_key_for_edit(assignment),
         "standards": _assignment_standards_for_edit(assignment),
     }
@@ -92,6 +94,7 @@ def format_assignment_for_display(assignment_record):
     question_count = assignment["question_count"]
     answer_key = assignment["answer_key"]
     standards = assignment.get("standards", {})
+    layout = get_layout(assignment.get("layout_id"))
     aligned = [
         question_number
         for question_number in range(1, question_count + 1)
@@ -132,6 +135,7 @@ def format_assignment_for_display(assignment_record):
         f"title: {assignment['title']}",
         f"question_count: {question_count}",
         f"choices: {', '.join(assignment['choices'])}",
+        f"layout: {layout.display_name}",
         f"answer_key: {answer_summary}",
         f"standards: {standards_summary}",
         f"assignment path: {assignment_record['assignment_path']}",
@@ -439,6 +443,7 @@ def _assignment_record_for_display(class_id, assignment_path, assignment):
             "title": assignment["title"],
             "question_count": assignment["question_count"],
             "choices": list(assignment["choices"]),
+            "layout_id": assignment["layout_id"],
             "answer_key": {
                 int(question_number): answer
                 for question_number, answer in assignment["answer_key"].items()
@@ -457,6 +462,7 @@ def _validate_staged_assignment(assignment):
         "title",
         "question_count",
         "choices",
+        "layout_id",
         "answer_key",
         "standards",
     }
@@ -553,6 +559,7 @@ def prompt_edit_assignment():
         staged_assignment["assignment_id"],
         staged_assignment["question_count"],
         tuple(staged_assignment["choices"]),
+        staged_assignment["layout_id"],
     )
     dirty = False
 
@@ -561,7 +568,7 @@ def prompt_edit_assignment():
         _assignment_record_for_display(class_id, assignment_path, staged_assignment)
     ))
     print()
-    print("assignment_id, question_count, and choices are not editable here.")
+    print("assignment_id, question_count, choices, and layout are not editable here.")
     print("Changes are staged until you choose Save changes.")
 
     while True:
@@ -640,6 +647,7 @@ def prompt_edit_assignment():
                 staged_assignment["assignment_id"],
                 staged_assignment["question_count"],
                 tuple(staged_assignment["choices"]),
+                staged_assignment["layout_id"],
             ):
                 print("Error: immutable assignment fields changed unexpectedly.")
                 continue
@@ -917,6 +925,7 @@ def prompt_create_assignment():
         "title": title,
         "question_count": question_count,
         "choices": choices,
+        "layout_id": DEFAULT_LAYOUT_ID,
         "answer_key": answer_key,
         "standards": standards_by_question,
     }

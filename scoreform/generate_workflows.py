@@ -7,6 +7,7 @@ from pathlib import Path
 from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.folders import setup_assignment_folder
+from scoreform.layouts import get_layout
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -110,7 +111,9 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
         individual_count=len(roster["students"]),
         class_packet_path=os.fspath(packet_path),
         templates_dir=os.fspath(templates_dir),
-        pages_per_student=page_count_for_question_count(assignment["question_count"]),
+        pages_per_student=page_count_for_question_count(
+            assignment["question_count"], get_layout(assignment["layout_id"])
+        ),
         stale_extra_count=len(stale),
         stale_extra_examples=tuple(stale[:3]),
     )
@@ -404,7 +407,10 @@ def run_generate(args):
             generated_count += 1
 
         print(f"Generated {generated_count} individual student PDFs in:")
-        print(f"Pages per student: {page_count_for_question_count(assignment['question_count'])}")
+        print(
+            "Pages per student: "
+            f"{page_count_for_question_count(assignment['question_count'], get_layout(assignment['layout_id']))}"
+        )
         print(individual_dir)
 
         templates_dir = setup_paths.get('templates_dir')

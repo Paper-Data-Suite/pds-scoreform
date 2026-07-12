@@ -223,12 +223,19 @@ Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and
 `question_count` supports values from 1 to 75. The current layout places up to
 15 questions on each physical page.
 
+Generation, page math, and scoring resolve the assignment's versioned layout.
+The current/default and only supported layout is `standard_15q_abcd_v1`; older
+assignments without `layout_id` normalize to it. It preserves the existing
+15-question A-D geometry. PDS1 and `results.csv` are unchanged, and the compact
+25-question layout remains deferred to #130.
+
 ```json
 {
   "assignment_id": "rj_act1_quiz",
   "title": "Romeo and Juliet Act 1 Quiz",
   "question_count": 10,
   "choices": ["A", "B", "C", "D"],
+  "layout_id": "standard_15q_abcd_v1",
   "answer_key": {
     "1": "A",
     "2": "C",
