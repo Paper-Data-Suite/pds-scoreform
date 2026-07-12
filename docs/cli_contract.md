@@ -214,7 +214,15 @@ not record standards usage.
 ```powershell
 scoreform generate
 scoreform generate <assignment.json> --rosters <roster.csv> [more-rosters.csv ...]
+scoreform regenerate-sheets --class-id <class_id> --assignment-id <assignment_id>
+scoreform regenerate-sheets --class-id <class_id> --all-assignments
 ```
+
+`regenerate-sheets` uses the managed workspace roster and assignment files. It
+regenerates the current individual sheets and class packet only; it does not
+change rosters or assignments, rescore scans, rewrite results, or delete old
+individual PDFs. Teachers can use **Roster Management > Update generated answer
+sheets** for the equivalent confirmed menu workflow after roster changes.
 
 Actual current behavior differs from the shorthand
 `scoreform generate <assignment.json> <roster.csv>` sometimes proposed in

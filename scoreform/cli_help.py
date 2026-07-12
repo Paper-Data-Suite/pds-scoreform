@@ -47,6 +47,8 @@ Usage:
   scoreform menu
   scoreform generate
   scoreform generate <assignment.json> --rosters <roster.csv> [more rosters...]
+  scoreform regenerate-sheets --class-id <class_id> --assignment-id <assignment_id>
+  scoreform regenerate-sheets --class-id <class_id> --all-assignments
   scoreform score <scan.pdf>
   scoreform score <scan.pdf> <output.csv>
   scoreform score <scan.pdf> <answer_key.json>
@@ -75,6 +77,7 @@ Usage:
 Commands:
   menu                  Launch the terminal menu.
   generate              Generate a generic template or assignment-based answer sheets.
+  regenerate-sheets     Regenerate managed answer sheets from the current roster.
   score                 Score scanned responses.
   list-scan-review      List unresolved and deferred ScoreForm scan review items.
   resolve-scan-review   Resolve or defer one ScoreForm scan review item.

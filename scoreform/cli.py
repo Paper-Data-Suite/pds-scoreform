@@ -113,6 +113,11 @@ def run_generate(args):
     return _generate_workflows.run_generate(args)
 
 
+def run_regenerate_sheets(args):
+    """Compatibility wrapper for managed sheet regeneration."""
+    return _generate_workflows.run_regenerate_sheets(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -481,6 +486,8 @@ def main(argv=None, default_to_menu=True):
         return launch_menu()
     elif cmd == "generate":
         return run_generate(args)
+    elif cmd == "regenerate-sheets":
+        return run_regenerate_sheets(args)
     elif cmd == "score":
         return run_score(args)
     elif cmd == "list-scan-review":
