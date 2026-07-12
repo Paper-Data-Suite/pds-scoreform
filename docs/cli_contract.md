@@ -328,8 +328,8 @@ Q. Quit
 ```
 
 Assignment Management includes assignment creation, editing, and validation,
-answer-sheet generation, scan scoring, read-only assignment results viewing,
-and QR decoding. Roster Management includes roster creation, viewing, editing,
+answer-sheet generation, scan scoring, plain-paper A-D result entry, read-only
+assignment results viewing, QR decoding, and scan review. Roster Management includes roster creation, viewing, editing,
 and validation. Workspace Settings includes show, set, validate/create, reset
 actions, School Year Settings, and ScoreForm Scan Filing Mode. The scan-filing
 menu shows the effective mode and offers `copy`, `move`, `off`, and reset.
@@ -357,6 +357,20 @@ supported `compact_25q_abcd_v1` in its layout picker. Standard remains the
 default; compact supports 25 questions per physical page. Existing
 assignments without `layout_id` load as the standard default, and editing cannot
 change an assignment's layout.
+
+The Assignment Management plain-paper workflow is menu-only. It discovers a
+valid class roster and assignment, retains roster order for student selection,
+and accepts case-insensitive A-D responses plus explicit blank and ambiguous
+values. A compact score review precedes confirmation. Only `y` or `yes` writes;
+cancellation or declined confirmation writes nothing, and a successful write
+returns to the same student list for another entry.
+
+Plain-paper entry calls the existing routed-results exporter with `Page` set to
+`manual` and `source_file` set to `plain_paper_manual_entry`. The exporter owns
+preflight, roster enrichment, append-preserving writes, and attempt numbering.
+This workflow is not scan review and creates no scan artifacts, evidence, or
+generated PDFs. It does not change assignment JSON, PDS1 payloads, or the
+`results.csv` header contract. No bulk-import direct CLI is provided.
 
 The Assignment Management results viewer is menu-only and read-only. It
 discovers classes and assignments, opens the selected assignment-local

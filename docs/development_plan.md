@@ -62,6 +62,10 @@ The project currently supports:
 * CSV export creates dynamic question columns based on result question count
 * Roster lookup for routed results using `classes/<class_id>/roster.csv`
 * Routed result rows enriched with `last_name`, `first_name`, and `period`
+* Menu-driven plain-paper A-D response entry for students who did not use generated ScoreForm sheets
+* Plain-paper entries reuse routed-results preflight, roster enrichment, append-preserving writes, and attempt numbering
+* Plain-paper response entry supports explicit blank and ambiguous values, confirmation before write, and repeated student entry for one class and assignment
+* Plain-paper entries use `Page=manual` and `source_file=plain_paper_manual_entry` without changing results headers, PDS1, scan review, or generating scan/PDF artifacts
 * CSV export functions return success/failure status
 * Regression coverage for QR decoding, QR-aware scoring, mixed-scan scoring, routed results, and roster-enriched routed results
 * Scan source file tracking in all result rows

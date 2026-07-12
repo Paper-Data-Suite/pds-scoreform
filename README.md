@@ -331,7 +331,10 @@ Q. Quit
 Interactive submenus use the shared Paper Data Suite navigation commands:
 `B. Back`, `M. Main Menu`, and `Q. Quit`.
 
-Assignment Management contains assignment creation, editing, and validation, answer-sheet generation, scoring, read-only routed-results viewing, and QR decoding. Roster Management contains roster creation, viewing, editing, and validation.
+Assignment Management contains assignment creation, editing, and validation,
+answer-sheet generation, scanned-response scoring, plain-paper result entry,
+read-only routed-results viewing, QR decoding, and scan review. Roster Management
+contains roster creation, viewing, editing, and validation.
 Workspace Settings can show, set, validate/create, or reset the shared PDS
 workspace root using the same `pds-core` operations as the direct CLI. It also
 contains School Year Settings for showing, opening, and closing the shared
@@ -347,6 +350,21 @@ The layers intentionally do not have one-to-one command parity. Path-oriented se
 
 Select **4. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
+
+### Enter Plain-Paper Results
+
+Use **Assignment Management > Enter Plain-Paper Results** when students answered
+an A-D assignment on lined, notebook, or other plain paper instead of generated
+ScoreForm sheets. Select a class, assignment, and student, then enter `A`-`D`,
+`blank`, or `ambiguous` for every response. ScoreForm shows a review and writes
+only after `y` or `yes` confirmation; cancellation writes nothing.
+
+Confirmed entries use the assignment answer key and the normal routed
+`results.csv`. They receive roster enrichment and the next attempt number from
+the existing routed exporter, so scanned and manual attempts can coexist. This
+workflow does not create scan evidence, scan artifacts, or PDFs; it is separate
+from scan review. It does not change PDS1, assignment metadata, or the routed
+results header.
 
 ### Resolve QR-Aware Scan Review Items
 

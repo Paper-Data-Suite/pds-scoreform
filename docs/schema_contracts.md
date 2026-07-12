@@ -234,7 +234,8 @@ The fixed fields are `Page`, `class_id`, `assignment_id`, `student_id`,
 `last_name`, `first_name`, `period`, `source_file`, `attempt_number`,
 `scan_timestamp`, `Score`, and `Total`, followed by `Qn`, `Qn_Correct` pairs.
 
-One row is one scored page/student sheet. `Page` is its page number in the input;
+One row is one scored page/student sheet or one confirmed plain-paper entry.
+For scanned sheets, `Page` is its page number in the input;
 the three identifiers come from QR metadata; names and period come from roster
 enrichment; `Score` counts correct responses; `Total` is the number scored; `Qn`
 is the detected response or classification; and `Qn_Correct` records whether it
@@ -245,6 +246,14 @@ preserved and new attempts appended; ScoreForm does not choose which attempt is
 the grade. Before any target is changed, existing files and headers are validated.
 Incompatible headers abort export. Writes use a same-directory temporary file and
 replace operation.
+
+Teacher-entered plain-paper results use this same routed contract, not the
+provisional explicit-output contract in section 9. They set `Page` to `manual`
+and `source_file` to `plain_paper_manual_entry`; all `Qn` and `Qn_Correct`
+fields are present. A-D responses match the assignment key normally, while
+`BLANK` and `AMBIGUOUS` are incorrect. The existing exporter supplies roster
+fields and the next attempt number. No columns are added, PDS1 is unchanged,
+and the workflow creates no scan artifacts or review evidence.
 
 ## 9. Manual and explicit-output results CSV contract
 
