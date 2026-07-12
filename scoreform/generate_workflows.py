@@ -12,6 +12,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.paging import page_count_for_question_count
 from scoreform.roster import load_roster
 from scoreform.templates import (
     generate_class_packet_pdf,
@@ -40,6 +41,7 @@ class RegenerateSheetsResult:
     individual_count: int
     class_packet_path: str
     templates_dir: str
+    pages_per_student: int = 1
     stale_extra_count: int = 0
     stale_extra_examples: tuple[str, ...] = ()
 
@@ -108,6 +110,7 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
         individual_count=len(roster["students"]),
         class_packet_path=os.fspath(packet_path),
         templates_dir=os.fspath(templates_dir),
+        pages_per_student=page_count_for_question_count(assignment["question_count"]),
         stale_extra_count=len(stale),
         stale_extra_examples=tuple(stale[:3]),
     )
@@ -207,6 +210,7 @@ def run_regenerate_sheets(args):
             print(f"Class: {class_id}")
             print(f"Assignment: {assignment_id}")
             print(f"Students: {result.student_count}")
+            print(f"Pages per student: {result.pages_per_student}")
             print(f"Individual sheets: {result.individual_count}")
             print(f"Class packet: {result.class_packet_path}")
             _print_stale_note(result, include_examples=True)
@@ -311,6 +315,7 @@ def launch_regenerate_sheets_menu(preselected_class_id=None):
         print(f"Class: {class_id}")
         print(f"Assignment: {assignment_id}")
         print(f"Students: {result.student_count}")
+        print(f"Pages per student: {result.pages_per_student}")
         print(f"Class packet: {result.class_packet_path}")
         if result.stale_extra_count:
             print("\nNote: Older individual PDFs remain in the templates folder.")
@@ -399,6 +404,7 @@ def run_generate(args):
             generated_count += 1
 
         print(f"Generated {generated_count} individual student PDFs in:")
+        print(f"Pages per student: {page_count_for_question_count(assignment['question_count'])}")
         print(individual_dir)
 
         templates_dir = setup_paths.get('templates_dir')

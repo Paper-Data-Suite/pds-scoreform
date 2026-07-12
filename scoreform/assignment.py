@@ -8,7 +8,7 @@ from pds_core.standards import (
     validate_profile_standard_selection,
 )
 
-from scoreform.config import MAX_QUESTION_COUNT
+from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT as MAX_QUESTION_COUNT
 from scoreform.validation import validate_identifier
 
 VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}

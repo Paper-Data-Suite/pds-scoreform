@@ -26,7 +26,10 @@ DST_PTS = np.array(
 )
 
 # Question layout
-MAX_QUESTION_COUNT = 15
+QUESTIONS_PER_PAGE = 15
+MAX_ASSIGNMENT_QUESTION_COUNT = 75
+# Backward-compatible assignment-limit name. Optical capacity is QUESTIONS_PER_PAGE.
+MAX_QUESTION_COUNT = MAX_ASSIGNMENT_QUESTION_COUNT
 Q_START_Y = 400
 Q_STEP_Y = 80
 BOX_SIZE = 30

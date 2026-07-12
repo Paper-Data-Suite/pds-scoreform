@@ -15,6 +15,7 @@ VALID_QR_METADATA = {
     "class_id": "english9_p2",
     "assignment_id": "rj_act1_quiz",
     "student_id": "1001",
+    "page": 1,
 }
 
 
@@ -71,6 +72,7 @@ def test_parse_qr_delegates_pds1_to_pds_core(monkeypatch):
         class_id = "class_from_core"
         assignment_id = "assignment_from_core"
         student_id = "student_from_core"
+        page = 2
 
     seen = []
 
@@ -84,6 +86,7 @@ def test_parse_qr_delegates_pds1_to_pds_core(monkeypatch):
         "class_id": "class_from_core",
         "assignment_id": "assignment_from_core",
         "student_id": "student_from_core",
+        "page": 2,
     }
     assert seen == ["PDS1|delegated payload"]
 
@@ -107,10 +110,10 @@ def test_is_safe_qr_identifier_rejects():
 
 
 def test_validate_qr_metadata():
-    good = {"class_id": "english9_p2", "assignment_id": "rj_act1_quiz", "student_id": "1001"}
+    good = {"class_id": "english9_p2", "assignment_id": "rj_act1_quiz", "student_id": "1001", "page": 1}
     assert scoring.validate_qr_metadata(good)
 
-    bad = {"class_id": "../secret", "assignment_id": "rj_act1_quiz", "student_id": "1001"}
+    bad = {"class_id": "../secret", "assignment_id": "rj_act1_quiz", "student_id": "1001", "page": 1}
     assert not scoring.validate_qr_metadata(bad)
 
 

@@ -152,12 +152,13 @@ payloads, sheet generation, result routing or headers, or roster CSVs.
 primitives are shared pds-core-owned contracts.**
 
 ```text
-PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=1
+PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=<page_number>
 ```
 
 PDS1 is the only supported ScoreForm QR payload format. ScoreForm requires
 `module=scoreform`; `class`, `aid`, and `sid` must pass safe identifier validation;
-and `page=1` represents the current single-page sheet model.
+and `page` is the 1-based physical assessment page. After assignment lookup,
+ScoreForm rejects pages outside that assignment's computed page count.
 
 ### OMR1
 
@@ -183,12 +184,14 @@ IMG_WIDTH = 1275
 IMG_HEIGHT = 1650
 PDF_WIDTH = 612
 PDF_HEIGHT = 792
-MAX_QUESTION_COUNT = 15
+QUESTIONS_PER_PAGE = 15
+MAX_ASSIGNMENT_QUESTION_COUNT = 75
 choices = A-D
 ```
 
-Sheets are single-page, contain 1-15 questions with A-D choices, use registration
-marks for perspective correction, and place a QR code for routing. Existing PDFs
+Sheets may span multiple pages. Each physical page contains up to 15 questions
+with A-D choices, uses unchanged registration marks for perspective correction,
+and places a page-aware QR code for routing. Existing PDFs
 should be treated as coupled to the scoring layout that generated them. Generated
 template layout is currently versioned only by ScoreForm release/code behavior,
 not by an embedded template marker. A change that can break old scans needs a
@@ -350,3 +353,13 @@ never overwrite an existing file. Source evidence is copied, never moved.
 Manual entry keeps the routed-results header in section 8 unchanged. Its row is
 distinguished by a `source_file` path containing `_manual_entry` and by the
 linked Core resolution record; no result-source or resolution columns are added.
+# Multi-page ScoreForm sheets
+
+Sheets may span multiple pages. `question_count` is an integer from 1 through 75,
+and the current optical layout supports up to 15 questions per physical page.
+Visible question labels and exported answer fields use global assignment question
+numbers. PDS1 `page` is a positive, 1-based physical assessment page number.
+
+QR-aware scoring exports one row per completed student assessment attempt. Every
+expected page must be present exactly once in the same scan batch; incomplete or
+duplicate page sets are sent to review and are not exported as partial attempts.
