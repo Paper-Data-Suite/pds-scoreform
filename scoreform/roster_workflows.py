@@ -24,7 +24,7 @@ from pds_core.school_years import (
     validate_school_year,
 )
 
-from scoreform import workspace
+from scoreform import generate_workflows, workspace
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -34,6 +34,7 @@ from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 from scoreform.workflows import (
     clear_screen,
+    discover_class_assignments,
     discover_class_rosters,
     normalize_path_input,
     parse_single_selection,
@@ -42,6 +43,25 @@ from scoreform.workflows import (
     suggest_class_id,
     write_roster_with_class_metadata,
 )
+
+
+def _offer_sheet_regeneration_after_save(class_id):
+    """Offer an explicit next step only when the saved class has assignments."""
+    if not discover_class_assignments(class_id):
+        print("No assignments found for this class yet.")
+        return 0
+    print()
+    print("Generated answer sheets for this class may be out of date.")
+    print()
+    print("1. Update sheets now")
+    print("2. Not now")
+    choice = input("Select an option: ").strip()
+    if choice != "1":
+        print("Answer sheets were not changed.")
+        return 0
+    return generate_workflows.launch_regenerate_sheets_menu(
+        preselected_class_id=class_id
+    )
 
 
 def format_roster_for_display(class_record):
@@ -400,7 +420,7 @@ def prompt_edit_class_roster():
                 print(f"Error: Could not save roster: {e}")
                 continue
             print(f"Saved roster: {saved_path}")
-            return 0
+            return _offer_sheet_regeneration_after_save(class_id)
 
         elif choice == "6":
             if dirty:
@@ -629,7 +649,7 @@ def prompt_create_roster():
         return 1
 
     print(f"Success! Roster created with {len(roster['students'])} students.")
-    return 0
+    return _offer_sheet_regeneration_after_save(class_id)
 
 
 def launch_roster_menu():
@@ -646,6 +666,7 @@ def launch_roster_menu():
             print("2. View a class roster")
             print("3. Edit class roster")
             print("4. Validate a roster file")
+            print("U. Update generated answer sheets")
             print_scoreform_navigation_options()
             print()
 
@@ -695,6 +716,12 @@ def launch_roster_menu():
                     print("First students:")
                     for student in roster['students'][:5]:
                         print(f"  {student['student_id']}: {student['last_name']}, {student['first_name']}")
+                print()
+                pause_for_user()
+
+            elif choice.lower() == "u":
+                clear_screen()
+                generate_workflows.launch_regenerate_sheets_menu()
                 print()
                 pause_for_user()
 

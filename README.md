@@ -435,6 +435,8 @@ Features:
 
 Select **2. Roster Management**, then **3. Edit class roster** to choose an existing class roster. ScoreForm loads the canonical `classes/<class_id>/roster.csv` through shared `pds-core` roster contracts, displays the current roster, and opens an edit menu for adding a student, editing a student, removing a student from the active roster, viewing staged changes, saving, or canceling.
 
+After editing a roster, existing answer sheets may be out of date. Use **Roster Management > Update generated answer sheets**, or run `scoreform regenerate-sheets`, to rebuild sheets from the current roster and assignment. Regeneration updates print artifacts only: it does not rewrite results or change scans and scan evidence. Older individual PDFs may remain after students are removed or renamed, while the regenerated class packet reflects the current roster.
+
 Roster edits are safe by default:
 
 * Changes are staged in memory until you type `SAVE`.
