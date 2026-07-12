@@ -296,8 +296,9 @@ scoreform validate-roster <roster.csv>
 scoreform setup-assignment <assignment.json> <roster.csv>
 ```
 
-* `decode-qr` accepts a supported PDF or image path and reports decoded routing
-  identifiers.
+* `decode-qr` accepts a supported PDF or image path and reports routing
+  identifiers decoded from a ScoreForm PDS1 payload. Other payload schemas are
+  rejected as invalid.
 * `validate-assignment` validates one assignment JSON file.
 * `validate-roster` validates one roster CSV file.
 * `setup-assignment` validates both inputs, creates managed class and assignment

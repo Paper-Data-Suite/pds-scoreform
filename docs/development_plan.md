@@ -261,12 +261,8 @@ PDS1|module=scoreform|class=english9_p2|aid=rj_act1_quiz|sid=1001|page=1
 ```
 
 Newly generated ScoreForm sheets use the shared PDS1 contract with
-`module=scoreform` and `page=1`. ScoreForm accepts legacy OMR1 payloads from
-older sheets as a parsing fallback:
-
-```text
-OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
-```
+`module=scoreform` and `page=1`. PDS1 is the only supported ScoreForm QR payload
+format.
 ### Current Routed Results CSV Format
 
 ```csv

@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
-from pds_core.omr1 import Omr1PayloadError, parse_omr1_payload
 from pds_core.pds1 import Pds1PayloadError, parse_pds1_payload
 from pds_core.qr_payload import QrPayloadValidationError
 from pds_core.routes import assignment_config_path as core_assignment_config_path
@@ -782,11 +781,7 @@ def validate_qr_metadata(qr_metadata):
 
 
 def parse_qr_payload(payload):
-    """Parse a PDS1 or legacy OMR1 payload and return metadata dict or None.
-
-    PDS1 payloads must use module=scoreform. OMR1 remains supported for
-    previously generated answer sheets.
-    """
+    """Parse a ScoreForm PDS1 payload and return metadata dict or None."""
     if payload is None:
         print("Error: QR payload is None")
         return None
@@ -797,21 +792,19 @@ def parse_qr_payload(payload):
         print("Error: QR payload is empty")
         return None
 
+    if not payload.startswith("PDS1"):
+        print("Error: QR payload invalid: unsupported payload schema; expected PDS1.")
+        return None
+
     try:
-        if payload.startswith("PDS1"):
-            parsed_payload = parse_pds1_payload(payload)
-            if parsed_payload.module != "scoreform":
-                print(
-                    "Error: QR payload invalid: "
-                    f"expected module 'scoreform', got '{parsed_payload.module}'"
-                )
-                return None
-        elif payload.startswith("OMR1"):
-            parsed_payload = parse_omr1_payload(payload)
-        else:
-            print("Error: QR payload invalid: unsupported payload schema")
+        parsed_payload = parse_pds1_payload(payload)
+        if parsed_payload.module != "scoreform":
+            print(
+                "Error: QR payload invalid: "
+                f"expected module 'scoreform', got '{parsed_payload.module}'"
+            )
             return None
-    except (Pds1PayloadError, Omr1PayloadError, QrPayloadValidationError) as error:
+    except (Pds1PayloadError, QrPayloadValidationError) as error:
         print(f"Error: QR payload invalid: {error}")
         return None
 
