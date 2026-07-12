@@ -345,12 +345,16 @@ exist, discard requires typing `DISCARD`.
 
 Assignment editing can change `title`, one existing answer-key entry at a time, and
 assignment-local standards alignment. It does not allow changing
-`assignment_id`, `question_count`, or `choices`. Standards editing can attach,
+`assignment_id`, `question_count`, `choices`, or `layout_id`. Standards editing can attach,
 remove, or clear existing shared standard IDs only; it does not create shared
 standards, write standards usage events or ledgers, or modify the shared
 standards library. Assignment editing does not regenerate answer sheets,
 rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs or
 scan evidence, alter rosters, or change unrelated assignments.
+
+Assignment creation silently writes the default versioned layout ID,
+`standard_15q_abcd_v1`; there is no layout picker while only one layout is
+supported. Existing assignments without `layout_id` load as that default.
 
 The Assignment Management results viewer is menu-only and read-only. It
 discovers classes and assignments, opens the selected assignment-local

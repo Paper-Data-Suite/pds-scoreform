@@ -9,6 +9,7 @@ from pds_core.standards import (
 )
 
 from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT as MAX_QUESTION_COUNT
+from scoreform.layouts import DEFAULT_LAYOUT_ID, require_layout
 from scoreform.validation import validate_identifier
 
 VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}
@@ -372,9 +373,16 @@ def validate_assignment_data(data):
         print(f"Error: 'question_count' must be an integer between 1 and {MAX_QUESTION_COUNT}.")
         return None
 
+    layout_id = data.get("layout_id", DEFAULT_LAYOUT_ID)
+    try:
+        layout = require_layout(layout_id)
+    except ValueError as error:
+        print(f"Error: {error}")
+        return None
+
     choices = data.get("choices")
-    if choices != ["A", "B", "C", "D"]:
-        print("Error: 'choices' must equal exactly ['A', 'B', 'C', 'D'].")
+    if choices != list(layout.choices):
+        print(f"Error: 'choices' must match layout choices {list(layout.choices)}.")
         return None
 
     normalized_answer_key = _normalize_answer_key(
@@ -394,7 +402,8 @@ def validate_assignment_data(data):
         "assignment_id": assignment_id,
         "title": data["title"].strip(),
         "question_count": question_count,
-        "choices": ["A", "B", "C", "D"],
+        "choices": list(layout.choices),
+        "layout_id": layout.layout_id,
         "answer_key": normalized_answer_key,
         "standards": normalized_standards,
     }

@@ -9,51 +9,44 @@ from pds_core.qr_payload import QrPayload, QrPayloadValidationError
 
 from scoreform import workspace
 from scoreform.config import (
-    BOX_SIZE,
-    BOX_START_X,
-    BOX_STEP_X,
-    CORNER_SIZE,
-    CORNERS,
-    IMG_HEIGHT,
-    IMG_WIDTH,
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
     MAX_ASSIGNMENT_QUESTION_COUNT,
-    PDF_HEIGHT,
-    PDF_SCALE,
-    Q_START_Y,
-    Q_STEP_Y,
 )
 from scoreform.folders import ensure_parent_dir
+from scoreform.layouts import get_layout
 from scoreform.paging import page_count_for_question_count, question_range_for_page
 from scoreform.validation import validate_identifier
 
 
-def _pdf_coord(x, y):
+def _pdf_coord(x, y, layout=None):
     """Convert template coordinates to PDF points with origin at bottom-left."""
-    return x * PDF_SCALE, PDF_HEIGHT - (y * PDF_SCALE)
+    resolved = get_layout() if layout is None else layout
+    return x * resolved.pdf_scale, resolved.pdf_height - (y * resolved.pdf_scale)
 
 
-def _pdf_rect(c, x, y, w, h, fill=False, stroke=True):
-    pd_x, pd_y = _pdf_coord(x, y)
-    pd_w = w * PDF_SCALE
-    pd_h = h * PDF_SCALE
+def _pdf_rect(c, x, y, w, h, fill=False, stroke=True, layout=None):
+    resolved = get_layout() if layout is None else layout
+    pd_x, pd_y = _pdf_coord(x, y, resolved)
+    pd_w = w * resolved.pdf_scale
+    pd_h = h * resolved.pdf_scale
     c.rect(pd_x, pd_y - pd_h, pd_w, pd_h, fill=fill, stroke=stroke)
 
 
-def _generate_template_png(filename="template.png"):
+def _generate_template_png(filename="template.png", layout=None):
     """Generates the blank answer sheet template PNG for debugging."""
     ensure_parent_dir(filename)
 
     # Create a white image
-    img = np.ones((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8) * 255
+    layout = get_layout() if layout is None else layout
+    img = np.ones((layout.img_height, layout.img_width, 3), dtype=np.uint8) * 255
 
     # Draw registration marks (solid black squares)
-    for (x, y) in CORNERS:
+    for (x, y) in layout.registration_marks:
         cv2.rectangle(
             img,
             (x, y),
-            (x + CORNER_SIZE, y + CORNER_SIZE),
+            (x + layout.registration_size, y + layout.registration_size),
             (0, 0, 0),
             -1,
         )
@@ -70,26 +63,24 @@ def _generate_template_png(filename="template.png"):
     )
 
     # Draw questions
-    for i in range(10):
-        y = Q_START_Y + i * Q_STEP_Y
+    for i, slot in enumerate(layout.question_slots[:10]):
         cv2.putText(
             img,
             f"{i + 1}.",
-            (150, y + 25),
+            (slot.label_x, slot.label_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (0, 0, 0),
             2,
         )
 
-        for j, letter in enumerate(["A", "B", "C", "D"]):
-            box_x = BOX_START_X + j * BOX_STEP_X
+        for box in slot.boxes:
 
             # Draw box
             cv2.rectangle(
                 img,
-                (box_x, y),
-                (box_x + BOX_SIZE, y + BOX_SIZE),
+                (box.x, box.y),
+                (box.x + box.size, box.y + box.size),
                 (0, 0, 0),
                 2,
             )
@@ -97,8 +88,8 @@ def _generate_template_png(filename="template.png"):
             # Draw letter
             cv2.putText(
                 img,
-                letter,
-                (box_x + BOX_SIZE + 15, y + 25),
+                box.choice,
+                (box.x + box.size + 15, slot.label_y),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
                 (0, 0, 0),
@@ -109,7 +100,7 @@ def _generate_template_png(filename="template.png"):
     print(f"Debug PNG template saved as {filename}")
 
 
-def _generate_template_pdf(filename="template.pdf"):
+def _generate_template_pdf(filename="template.pdf", layout=None):
     """Generates a printable letter-size PDF answer sheet."""
     try:
         from reportlab.lib.pagesizes import letter
@@ -121,31 +112,30 @@ def _generate_template_pdf(filename="template.pdf"):
 
     ensure_parent_dir(filename)
 
+    layout = get_layout() if layout is None else layout
     c = canvas.Canvas(filename, pagesize=letter)
     c.setFillColorRGB(0, 0, 0)
     c.setStrokeColorRGB(0, 0, 0)
     c.setFont("Helvetica-Bold", 36)
-    title_x, title_y = _pdf_coord(450, 200)
+    title_x, title_y = _pdf_coord(450, 200, layout)
     c.drawString(title_x, title_y, "Answer Sheet")
 
     # Draw registration marks
-    for (x, y) in CORNERS:
-        _pdf_rect(c, x, y, CORNER_SIZE, CORNER_SIZE, fill=True)
+    for (x, y) in layout.registration_marks:
+        _pdf_rect(c, x, y, layout.registration_size, layout.registration_size, fill=True, layout=layout)
 
     c.setLineWidth(1)
     c.setFont("Helvetica", 12)
 
     # Draw questions
-    for i in range(10):
-        y = Q_START_Y + i * Q_STEP_Y
-        q_x, q_y = _pdf_coord(150, y + 25)
+    for i, slot in enumerate(layout.question_slots[:10]):
+        q_x, q_y = _pdf_coord(slot.label_x, slot.label_y, layout)
         c.drawString(q_x, q_y, f"{i + 1}.")
 
-        for j, letter in enumerate(["A", "B", "C", "D"]):
-            box_x = BOX_START_X + j * BOX_STEP_X
-            _pdf_rect(c, box_x, y, BOX_SIZE, BOX_SIZE, fill=False)
-            letter_x, letter_y = _pdf_coord(box_x + BOX_SIZE + 15, y + 25)
-            c.drawString(letter_x, letter_y, letter)
+        for box in slot.boxes:
+            _pdf_rect(c, box.x, box.y, box.size, box.size, fill=False, layout=layout)
+            letter_x, letter_y = _pdf_coord(box.x + box.size + 15, slot.label_y, layout)
+            c.drawString(letter_x, letter_y, box.choice)
 
     c.showPage()
     c.save()
@@ -209,10 +199,11 @@ def generate_student_pdf(output_path, assignment_data, student_data):
         c.setFillColorRGB(0, 0, 0)
         c.setStrokeColorRGB(0, 0, 0)
 
-        page_count = page_count_for_question_count(assignment_data["question_count"])
+        layout = get_layout(assignment_data.get("layout_id"))
+        page_count = page_count_for_question_count(assignment_data["question_count"], layout)
         for assessment_page in range(1, page_count + 1):
             if not draw_student_answer_sheet_page(
-                c, assignment_data, student_data, assessment_page
+                c, assignment_data, student_data, assessment_page, layout
             ):
                 print(f"Error: Failed to draw student answer sheet page for '{output_path}'")
                 return False
@@ -287,21 +278,19 @@ def make_qr_image(payload):
     return ImageReader(img_io)
 
 
-def draw_qr_code(c, assignment_data, student_data, page_number=1):
+def draw_qr_code(c, assignment_data, student_data, page_number=1, layout=None):
     """Build the QR payload, generate the QR image, and draw it onto the ReportLab canvas."""
     payload = build_qr_payload(assignment_data, student_data, page_number)
     if payload is None:
         return False
 
     # Coordinates specified by requirements
-    qr_x = 950
-    qr_y = 220
-    qr_size = 100
+    layout = get_layout(assignment_data.get("layout_id")) if layout is None else layout
 
     # Convert template coordinates to PDF points
-    pd_x, pd_y = _pdf_coord(qr_x, qr_y)
-    pd_w = qr_size * PDF_SCALE
-    pd_h = qr_size * PDF_SCALE
+    pd_x, pd_y = _pdf_coord(layout.qr_x, layout.qr_y, layout)
+    pd_w = layout.qr_size * layout.pdf_scale
+    pd_h = layout.qr_size * layout.pdf_scale
 
     try:
         qr_img = make_qr_image(payload)
@@ -312,19 +301,20 @@ def draw_qr_code(c, assignment_data, student_data, page_number=1):
         return False
 
 
-def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number=1):
+def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number=1, layout=None):
     """Draw a single personalized answer-sheet page onto an existing ReportLab canvas.
 
     This function uses the assignment's question_count to render the correct number
     of question rows while preserving the existing layout for A-D choices.
     """
     # Draw registration marks
-    for (x, y) in CORNERS:
-        _pdf_rect(c, x, y, CORNER_SIZE, CORNER_SIZE, fill=True)
+    layout = get_layout(assignment_data.get("layout_id")) if layout is None else layout
+    for (x, y) in layout.registration_marks:
+        _pdf_rect(c, x, y, layout.registration_size, layout.registration_size, fill=True, layout=layout)
 
     # Metadata area (away from corners and questions)
     c.setFont("Helvetica-Bold", 14)
-    meta_x, meta_y = _pdf_coord(150, 260)
+    meta_x, meta_y = _pdf_coord(150, 260, layout)
     c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
 
     c.setFont("Helvetica", 12)
@@ -342,13 +332,13 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
     if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_ASSIGNMENT_QUESTION_COUNT:
         question_count = 10
 
-    page_count = page_count_for_question_count(question_count)
+    page_count = page_count_for_question_count(question_count, layout)
     try:
-        question_start, question_end = question_range_for_page(page_number, question_count)
+        question_start, question_end = question_range_for_page(page_number, question_count, layout)
     except ValueError as error:
         print(f"Error: {error}")
         return False
-    context_x, context_y = _pdf_coord(760, 260)
+    context_x, context_y = _pdf_coord(layout.page_context_x, layout.page_context_y, layout)
     c.setFont("Helvetica", 10)
     c.drawString(context_x, context_y, f"Page {page_number} of {page_count}")
     c.drawString(context_x, context_y - 13, f"Questions {question_start}-{question_end}")
@@ -357,19 +347,17 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
     c.setLineWidth(1)
     c.setFont("Helvetica", 12)
 
-    for i, question_number in enumerate(range(question_start, question_end + 1)):
-        y = Q_START_Y + i * Q_STEP_Y
-        q_x, q_y = _pdf_coord(150, y + 25)
+    for slot, question_number in zip(layout.question_slots, range(question_start, question_end + 1)):
+        q_x, q_y = _pdf_coord(slot.label_x, slot.label_y, layout)
         c.drawString(q_x, q_y, f"{question_number}.")
 
-        for j, letter in enumerate(["A", "B", "C", "D"]):
-            box_x = BOX_START_X + j * BOX_STEP_X
-            _pdf_rect(c, box_x, y, BOX_SIZE, BOX_SIZE, fill=False)
-            letter_x, letter_y = _pdf_coord(box_x + BOX_SIZE + 15, y + 25)
-            c.drawString(letter_x, letter_y, letter)
+        for box in slot.boxes:
+            _pdf_rect(c, box.x, box.y, box.size, box.size, fill=False, layout=layout)
+            letter_x, letter_y = _pdf_coord(box.x + box.size + 15, slot.label_y, layout)
+            c.drawString(letter_x, letter_y, box.choice)
 
     # Draw QR code
-    if not draw_qr_code(c, assignment_data, student_data, page_number):
+    if not draw_qr_code(c, assignment_data, student_data, page_number, layout):
         return False
 
     return True
@@ -400,11 +388,12 @@ def generate_class_packet_pdf(output_path, assignment_data, roster_data):
         c.setStrokeColorRGB(0, 0, 0)
 
         students = roster_data.get('students', [])
-        page_count = page_count_for_question_count(assignment_data["question_count"])
+        layout = get_layout(assignment_data.get("layout_id"))
+        page_count = page_count_for_question_count(assignment_data["question_count"], layout)
         for student in students:
             for assessment_page in range(1, page_count + 1):
                 if not draw_student_answer_sheet_page(
-                    c, assignment_data, student, assessment_page
+                    c, assignment_data, student, assessment_page, layout
                 ):
                     student_id = student.get('student_id', '<unknown>')
                     print(f"Error: Failed to draw class packet page for student_id='{student_id}'")

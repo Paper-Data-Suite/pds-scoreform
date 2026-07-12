@@ -14,20 +14,12 @@ from pds_core.scan_retention import SourceRetentionError, retain_source_scan
 
 from scoreform import workspace
 from scoreform.config import (
-    BOX_SIZE,
-    BOX_START_X,
-    BOX_STEP_X,
-    CORNER_SIZE,
-    DST_PTS,
     FULL_PAGE_DIAGNOSTICS_ENV,
-    IMG_HEIGHT,
-    IMG_WIDTH,
     LOCAL_DEBUG_DIR,
     LOCAL_OUTPUTS_DIR,
     MAX_ASSIGNMENT_QUESTION_COUNT,
-    Q_START_Y,
-    Q_STEP_Y,
 )
+from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.paging import (
     page_count_for_question_count,
     question_count_for_page,
@@ -388,9 +380,10 @@ def _expected_corner_regions(img_w, img_h):
     ]
 
 
-def _registration_size_bounds(img_w, img_h):
-    scale = min(img_w / IMG_WIDTH, img_h / IMG_HEIGHT)
-    expected_size = CORNER_SIZE * scale
+def _registration_size_bounds(img_w, img_h, layout=None):
+    resolved = get_layout() if layout is None else layout
+    scale = min(img_w / resolved.img_width, img_h / resolved.img_height)
+    expected_size = resolved.registration_size * scale
     min_size = max(12, expected_size * MIN_REGISTRATION_SIZE_RATIO)
     max_size = expected_size * MAX_REGISTRATION_SIZE_RATIO
     return min_size, max_size, expected_size
@@ -471,9 +464,9 @@ def _dark_component_candidates(
     return candidates
 
 
-def _find_registration_mark_centers(thresh, img_w, img_h):
+def _find_registration_mark_centers(thresh, img_w, img_h, layout=None):
     """Find registration mark centers using per-corner dark-component searches."""
-    min_size, max_size, expected_size = _registration_size_bounds(img_w, img_h)
+    min_size, max_size, expected_size = _registration_size_bounds(img_w, img_h, layout)
     candidates = []
     corner_centers = []
 
@@ -523,6 +516,7 @@ def score_image(
     debug_dir=None,
     question_count=None,
     question_start=1,
+    layout: AnswerSheetLayout | None = None,
 ):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
     if debug_dir is None:
@@ -530,6 +524,7 @@ def score_image(
             workspace.get_scoreform_workspace_root() / LOCAL_DEBUG_DIR
         )
 
+    layout = get_layout() if layout is None else layout
     debug_img = img.copy()
     if question_count is None:
         question_count = _infer_question_count(answer_key, default=10)
@@ -553,7 +548,9 @@ def score_image(
     )[1]
 
     img_h, img_w = img.shape[:2]
-    candidates, corner_centers = _find_registration_mark_centers(thresh, img_w, img_h)
+    candidates, corner_centers = _find_registration_mark_centers(
+        thresh, img_w, img_h, layout
+    )
 
     # Draw debug information on debug_img
     for cX, cY in candidates:
@@ -583,8 +580,8 @@ def score_image(
     rect = order_points(corner_centers)
 
     # Compute perspective transform
-    M = cv2.getPerspectiveTransform(rect, DST_PTS)
-    warped = cv2.warpPerspective(img, M, (IMG_WIDTH, IMG_HEIGHT))
+    M = cv2.getPerspectiveTransform(rect, layout.dst_points)
+    warped = cv2.warpPerspective(img, M, (layout.img_width, layout.img_height))
 
     warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
     warped_thresh = cv2.threshold(
@@ -598,27 +595,23 @@ def score_image(
     results = []
 
     # Check each question
-    for i in range(question_count):
-        y = Q_START_Y + i * Q_STEP_Y
-
+    for i, slot in enumerate(layout.question_slots[:question_count]):
         row_filled = []
 
-        for j, letter in enumerate(["A", "B", "C", "D"]):
-            box_x = BOX_START_X + j * BOX_STEP_X
-
+        for box in slot.boxes:
             # Extract ROI for the box.
             # Inset avoids counting the black border of the box itself.
             inset = 5
             roi = warped_thresh[
-                y + inset : y + BOX_SIZE - inset,
-                box_x + inset : box_x + BOX_SIZE - inset,
+                box.y + inset : box.y + box.size - inset,
+                box.x + inset : box.x + box.size - inset,
             ]
 
             # Count white pixels (filled area)
             filled_pixels = cv2.countNonZero(roi)
             total_pixels = roi.shape[0] * roi.shape[1]
             fill_ratio = filled_pixels / total_pixels
-            row_filled.append((fill_ratio, letter))
+            row_filled.append((fill_ratio, box.choice))
 
         answer = _classify_answer_row(row_filled)
 
@@ -1469,6 +1462,7 @@ def _score_qr_aware_image(
     question_count,
     summary,
     question_start=1,
+    layout=None,
 ):
     result = score_image(
         img,
@@ -1477,6 +1471,7 @@ def _score_qr_aware_image(
         debug_dir=debug_dir,
         question_count=question_count,
         question_start=question_start,
+        layout=layout,
     )
     if result is None:
         _record_qr_failure(
@@ -1811,7 +1806,8 @@ def _score_page_qr_aware(
         return None
 
     question_count = _question_count_for_assignment(assignment_data, answer_key)
-    assignment_page_count = page_count_for_question_count(question_count)
+    layout = get_layout(assignment_data.get("layout_id"))
+    assignment_page_count = page_count_for_question_count(question_count, layout)
     if assessment_page > assignment_page_count:
         reason = (
             f"QR page {assessment_page} is outside assignment page count "
@@ -1828,8 +1824,8 @@ def _score_page_qr_aware(
             student_id=student_id,
         )
         return None
-    question_start, _ = question_range_for_page(assessment_page, question_count)
-    questions_on_page = question_count_for_page(assessment_page, question_count)
+    question_start, _ = question_range_for_page(assessment_page, question_count, layout)
+    questions_on_page = question_count_for_page(assessment_page, question_count, layout)
 
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
@@ -1848,6 +1844,7 @@ def _score_page_qr_aware(
         question_count=questions_on_page,
         summary=summary,
         question_start=question_start,
+        layout=layout,
     )
     if result is None:
         if summary is not None and summary.failures:
