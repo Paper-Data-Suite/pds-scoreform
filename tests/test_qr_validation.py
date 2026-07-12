@@ -10,7 +10,7 @@ VALID_QR_PAYLOAD = (
     "PDS1|module=scoreform|class=english9_p2|"
     "aid=rj_act1_quiz|sid=1001|page=1"
 )
-LEGACY_QR_PAYLOAD = "OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001"
+OMR1_QR_PAYLOAD = "OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001"
 VALID_QR_METADATA = {
     "class_id": "english9_p2",
     "assignment_id": "rj_act1_quiz",
@@ -36,8 +36,12 @@ def test_parse_qr_valid_pds1():
     assert parsed == VALID_QR_METADATA
 
 
-def test_parse_qr_valid_legacy_omr1():
-    assert scoring.parse_qr_payload(LEGACY_QR_PAYLOAD) == VALID_QR_METADATA
+def test_parse_qr_rejects_omr1(capsys):
+    assert scoring.parse_qr_payload(OMR1_QR_PAYLOAD) is None
+    assert (
+        "Error: QR payload invalid: unsupported payload schema; expected PDS1."
+        in capsys.readouterr().out
+    )
 
 
 def test_parse_qr_strips_payload():
@@ -55,10 +59,6 @@ def test_parse_qr_strips_payload():
             "aid=rj_act1_quiz|sid=1001|page=1"
         ),
         "UNKNOWN|class=english9_p2|aid=rj_act1_quiz|sid=1001",
-        "OMR1|class=english9_p2|aid",
-        "OMR1|class=english9_p2|sid=1001",
-        "OMR1|class=|aid=rj_act1_quiz|sid=1001",
-        "OMR1|class=../secret|aid=rj_act1_quiz|sid=1001",
     ],
 )
 def test_parse_qr_rejects_invalid_payload(payload):
@@ -86,28 +86,6 @@ def test_parse_qr_delegates_pds1_to_pds_core(monkeypatch):
         "student_id": "student_from_core",
     }
     assert seen == ["PDS1|delegated payload"]
-
-
-def test_parse_qr_delegates_legacy_omr1_to_pds_core(monkeypatch):
-    class ParsedPayload:
-        class_id = "class_from_core"
-        assignment_id = "assignment_from_core"
-        student_id = "student_from_core"
-
-    seen = []
-
-    def fake_parse(payload):
-        seen.append(payload)
-        return ParsedPayload()
-
-    monkeypatch.setattr(scoring, "parse_omr1_payload", fake_parse)
-
-    assert scoring.parse_qr_payload("  OMR1|delegated payload  ") == {
-        "class_id": "class_from_core",
-        "assignment_id": "assignment_from_core",
-        "student_id": "student_from_core",
-    }
-    assert seen == ["OMR1|delegated payload"]
 
 
 def test_parse_qr_result_still_passes_metadata_validation():
@@ -188,16 +166,17 @@ def test_decode_qr_from_image_uses_tight_crop_threshold_5x_fallback(monkeypatch)
     assert scoring.decode_qr_from_image(page) == VALID_QR_METADATA
 
 
-def test_decode_qr_from_image_fallback_still_rejects_unsafe_metadata(monkeypatch):
-    unsafe_payload = "OMR1|class=../secret|aid=rj_act1_quiz|sid=1001"
-
+def test_decode_qr_from_image_rejects_omr1_as_malformed(monkeypatch):
     class FakeDetector:
         def detectAndDecode(self, img):
             if len(img.shape) == 2:
-                return unsafe_payload, None, None
+                return OMR1_QR_PAYLOAD, None, None
             return "", None, None
 
     monkeypatch.setattr(scoring.cv2, "QRCodeDetector", lambda: FakeDetector())
 
     img = np.ones((200, 200, 3), dtype=np.uint8) * 255
-    assert scoring.decode_qr_from_image(img) is None
+    result = scoring._decode_qr_from_image_with_status(img)
+
+    assert result.metadata is None
+    assert result.failure_category == "malformed_qr"

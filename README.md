@@ -602,13 +602,9 @@ This identifies:
 
 The QR code is intended to allow ScoreForm to automatically connect a scanned answer sheet to the correct class, assignment, roster entry, and answer key.
 
-ScoreForm validates QR payload fields before using them to build file paths, rejects malformed or unsafe QR metadata, and rejects PDS1 payloads for modules other than `scoreform`.
-
-Legacy answer sheets using the earlier OMR1 format remain supported as a parsing fallback:
-
-```text
-OMR1|class=english9_p2|aid=rj_act1_quiz|sid=1001
-```
+PDS1 is the only supported ScoreForm QR payload format. ScoreForm validates QR
+payload fields before using them to build file paths, rejects malformed or unsafe
+QR metadata, and rejects PDS1 payloads for modules other than `scoreform`.
 
 ## Requirements
 
@@ -669,8 +665,8 @@ Package names vary by distribution.
 ## Installation and Setup
 
 `pds-core` is a required runtime dependency of ScoreForm. It provides shared
-identifier validation, route and scan-inbox helpers, legacy OMR1 parsing, and
-PDS1 QR payload generation and parsing.
+identifier validation, route and scan-inbox helpers, and PDS1 QR payload
+generation and parsing.
 
 ScoreForm currently depends on a sibling editable `pds-core` checkout during
 development. `requirements-dev.txt` installs it from `../pds-core`;

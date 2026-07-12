@@ -23,7 +23,7 @@ ScoreForm consumes shared records without redefining their shared schemas.
 
 PDS Core owns workspace-root configuration and resolution, canonical class and
 assignment routes, shared roster validation, standards-library and standards-
-profile definitions, and the PDS1/OMR1 QR building and parsing primitives used by
+profile definitions, and the PDS1 QR building and parsing primitives used by
 ScoreForm. Those are **shared pds-core-owned contracts**.
 
 ScoreForm owns its assignment JSON expectations, answer-key representation,
@@ -155,20 +155,17 @@ primitives are shared pds-core-owned contracts.**
 PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=1
 ```
 
-PDS1 is the default for newly generated personalized sheets. ScoreForm requires
+PDS1 is the only supported ScoreForm QR payload format. ScoreForm requires
 `module=scoreform`; `class`, `aid`, and `sid` must pass safe identifier validation;
 and `page=1` represents the current single-page sheet model.
 
 ### OMR1
 
-**Status: Stable-enough legacy parsing fallback.**
+**Status: Removed legacy ScoreForm payload.**
 
-```text
-OMR1|class=<class_id>|aid=<assignment_id>|sid=<student_id>
-```
-
-New sheets must not use OMR1. It lacks a module marker, but compatibility should
-not be removed without a documented deprecation decision.
+OMR1 was ScoreForm's initial QR payload format during early development. It has
+been superseded by PDS1 and is no longer accepted by ScoreForm QR-aware scoring
+or QR decoding.
 
 Neither payload currently carries standards, answer-key data, roster names,
 result paths, attempt numbers, school year, or template version. Adding any of
