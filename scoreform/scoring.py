@@ -35,10 +35,6 @@ CORNER_ZONE_FRACTION = 0.22
 MIN_REGISTRATION_SIZE_RATIO = 0.65
 MAX_REGISTRATION_SIZE_RATIO = 4.0
 
-STRONG_MARK_FILL_RATIO = 0.30
-POSSIBLE_SECONDARY_FILL_RATIO = 0.15
-POSSIBLE_SECONDARY_RELATIVE_RATIO = 0.20
-
 QR_FAILURE_LABELS = {
     "input_file_missing": "Input file missing",
     "unsupported_input_type": "Unsupported input type",
@@ -491,17 +487,18 @@ def _find_registration_mark_centers(thresh, img_w, img_h, layout=None):
     return candidates, corner_centers
 
 
-def _classify_answer_row(row_filled):
+def _classify_answer_row(row_filled, layout=None):
     """Classify one question from (fill_ratio, letter) pairs."""
+    resolved = get_layout() if layout is None else layout
     ranked = sorted(row_filled, reverse=True, key=lambda item: item[0])
     best_fill, best_letter = ranked[0]
 
-    if best_fill < STRONG_MARK_FILL_RATIO:
+    if best_fill < resolved.strong_mark_fill_ratio:
         return "BLANK"
 
     secondary_threshold = max(
-        POSSIBLE_SECONDARY_FILL_RATIO,
-        best_fill * POSSIBLE_SECONDARY_RELATIVE_RATIO,
+        resolved.possible_secondary_fill_ratio,
+        best_fill * resolved.possible_secondary_relative_ratio,
     )
     if any(fill >= secondary_threshold for fill, _ in ranked[1:]):
         return "AMBIGUOUS"
@@ -601,7 +598,7 @@ def score_image(
         for box in slot.boxes:
             # Extract ROI for the box.
             # Inset avoids counting the black border of the box itself.
-            inset = 5
+            inset = layout.mark_inset
             roi = warped_thresh[
                 box.y + inset : box.y + box.size - inset,
                 box.x + inset : box.x + box.size - inset,
@@ -613,7 +610,7 @@ def score_image(
             fill_ratio = filled_pixels / total_pixels
             row_filled.append((fill_ratio, box.choice))
 
-        answer = _classify_answer_row(row_filled)
+        answer = _classify_answer_row(row_filled, layout)
 
         # Score it
         correct = False

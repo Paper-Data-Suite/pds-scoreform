@@ -220,14 +220,15 @@ Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and
 
 ### Assignment JSON Format
 
-`question_count` supports values from 1 to 75. The current layout places up to
-15 questions on each physical page.
+`question_count` supports values from 1 to 75. The standard layout places up to
+15 questions on each physical page; compact places up to 25.
 
 Generation, page math, and scoring resolve the assignment's versioned layout.
-The current/default and only supported layout is `standard_15q_abcd_v1`; older
-assignments without `layout_id` normalize to it. It preserves the existing
-15-question A-D geometry. PDS1 and `results.csv` are unchanged, and the compact
-25-question layout remains deferred to #130.
+The current/default layout is `standard_15q_abcd_v1`; older assignments without
+`layout_id` normalize to it. `compact_25q_abcd_v1` is registered with a
+13-left/12-right A-D geometry and is available behind the experimental compact
+layout flag pending real print/scan calibration. PDS1 and `results.csv` are
+unchanged. Layout remains immutable after assignment creation.
 
 ```json
 {

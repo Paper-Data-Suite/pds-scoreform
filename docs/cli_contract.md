@@ -352,9 +352,13 @@ standards library. Assignment editing does not regenerate answer sheets,
 rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs or
 scan evidence, alter rosters, or change unrelated assignments.
 
-Assignment creation silently writes the default versioned layout ID,
-`standard_15q_abcd_v1`; there is no layout picker while only one layout is
-supported. Existing assignments without `layout_id` load as that default.
+Assignment creation writes the default versioned layout ID,
+`standard_15q_abcd_v1`. The experimental calibration flag
+`PDS_SCOREFORM_EXPERIMENTAL_COMPACT_LAYOUT=1` adds a compact two-choice layout
+picker and allows selecting `compact_25q_abcd_v1`. Normal teacher-facing use
+remains standard-only until real print/scan calibration passes. Existing
+assignments without `layout_id` load as the standard default, and editing cannot
+change an assignment's layout.
 
 The Assignment Management results viewer is menu-only and read-only. It
 discovers classes and assignments, opens the selected assignment-local

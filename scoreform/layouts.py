@@ -59,6 +59,13 @@ class AnswerSheetLayout:
     question_slots: tuple[QuestionSlot, ...]
     page_context_x: int
     page_context_y: int
+    choice_label_offset: int = 15
+    question_font_size: int = 12
+    choice_font_size: int = 12
+    mark_inset: int = 5
+    strong_mark_fill_ratio: float = 0.30
+    possible_secondary_fill_ratio: float = 0.15
+    possible_secondary_relative_ratio: float = 0.20
 
     @property
     def pdf_scale(self) -> float:
@@ -103,7 +110,59 @@ STANDARD_15Q_ABCD_V1 = AnswerSheetLayout(
     page_context_y=260,
 )
 
-_LAYOUTS = {DEFAULT_LAYOUT_ID: STANDARD_15Q_ABCD_V1}
+
+def _compact_question_slots() -> tuple[QuestionSlot, ...]:
+    choices = ("A", "B", "C", "D")
+    slots = []
+    for row_index in range(25):
+        column = 0 if row_index < 13 else 1
+        column_row = row_index if column == 0 else row_index - 13
+        y = 400 + column_row * 80
+        label_x = 150 + column * 540
+        box_start_x = 215 + column * 540
+        slots.append(
+            QuestionSlot(
+                row_index=row_index,
+                label_x=label_x,
+                label_y=y + 25,
+                y=y,
+                boxes=tuple(
+                    ChoiceBox(choice, box_start_x + index * 75, y, 30)
+                    for index, choice in enumerate(choices)
+                ),
+            )
+        )
+    return tuple(slots)
+
+
+COMPACT_25Q_ABCD_V1 = AnswerSheetLayout(
+    layout_id="compact_25q_abcd_v1",
+    display_name="Compact 25-question A-D",
+    choices=("A", "B", "C", "D"),
+    questions_per_page=25,
+    img_width=IMG_WIDTH,
+    img_height=IMG_HEIGHT,
+    pdf_width=PDF_WIDTH,
+    pdf_height=PDF_HEIGHT,
+    registration_marks=tuple(CORNERS),
+    registration_size=CORNER_SIZE,
+    dst_points=DST_PTS.copy(),
+    qr_x=950,
+    qr_y=220,
+    qr_size=100,
+    question_slots=_compact_question_slots(),
+    page_context_x=760,
+    page_context_y=260,
+    choice_label_offset=8,
+    question_font_size=10,
+    choice_font_size=9,
+)
+
+
+_LAYOUTS = {
+    DEFAULT_LAYOUT_ID: STANDARD_15Q_ABCD_V1,
+    COMPACT_25Q_ABCD_V1.layout_id: COMPACT_25Q_ABCD_V1,
+}
 
 
 def supported_layout_ids() -> tuple[str, ...]:
