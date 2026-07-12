@@ -199,6 +199,13 @@ questions in two columns. Layouts own page capacity, image/PDF dimensions,
 registration and perspective geometry, QR placement, labels, answer-box
 coordinates, rendering details, and mark-classification settings.
 
+Both layouts are supported in assignment creation after compact 50-question
+physical scan validation and a standard 15-question regression test. Standard
+remains the default, and layout is immutable after creation. PDS1 does not carry
+`layout_id`; assignment JSON remains the source of truth. The `results.csv`
+format is unchanged. Local `.scan-test-workspace/` and `scan_test/` folders are
+ignored and must not be committed.
+
 Sheets may span multiple pages. Each physical page contains up to 15 or 25
 questions according to layout, uses A-D choices and registration marks for perspective correction,
 and places a page-aware QR code for routing. Existing PDFs

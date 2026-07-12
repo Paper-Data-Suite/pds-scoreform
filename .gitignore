@@ -48,6 +48,10 @@ Thumbs.db
 # Organized local generated outputs
 local_outputs/
 
+# Local physical scan-validation workspaces
+.scan-test-workspace/
+scan_test/
+
 # Generated generic templates
 template.png
 template.pdf

@@ -352,11 +352,9 @@ standards library. Assignment editing does not regenerate answer sheets,
 rescore scans, rewrite historical results, rewrite QR payloads, delete PDFs or
 scan evidence, alter rosters, or change unrelated assignments.
 
-Assignment creation writes the default versioned layout ID,
-`standard_15q_abcd_v1`. The experimental calibration flag
-`PDS_SCOREFORM_EXPERIMENTAL_COMPACT_LAYOUT=1` adds a compact two-choice layout
-picker and allows selecting `compact_25q_abcd_v1`. Normal teacher-facing use
-remains standard-only until real print/scan calibration passes. Existing
+Assignment creation offers `standard_15q_abcd_v1` and the physically validated,
+supported `compact_25q_abcd_v1` in its layout picker. Standard remains the
+default; compact supports 25 questions per physical page. Existing
 assignments without `layout_id` load as the standard default, and editing cannot
 change an assignment's layout.
 
