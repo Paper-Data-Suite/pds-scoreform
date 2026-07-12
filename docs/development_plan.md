@@ -226,9 +226,13 @@ Required columns remain `class_id`, `student_id`, `last_name`, `first_name`, and
 Generation, page math, and scoring resolve the assignment's versioned layout.
 The current/default layout is `standard_15q_abcd_v1`; older assignments without
 `layout_id` normalize to it. `compact_25q_abcd_v1` is registered with a
-13-left/12-right A-D geometry and is available behind the experimental compact
-layout flag pending real print/scan calibration. PDS1 and `results.csv` are
-unchanged. Layout remains immutable after assignment creation.
+13-left/12-right A-D geometry, supports 25 questions per physical page, and is
+supported in normal assignment creation after compact 50-question physical scan
+validation and a standard 15-question regression test. Standard remains the
+default. PDS1 does not carry `layout_id`; assignment JSON remains the source of
+truth. PDS1 and `results.csv` are unchanged. Layout remains immutable after
+assignment creation. Local `.scan-test-workspace/` and `scan_test/` folders are
+ignored and must not be committed.
 
 ```json
 {

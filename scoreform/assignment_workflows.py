@@ -885,29 +885,25 @@ def prompt_create_assignment():
 
     choices = ["A", "B", "C", "D"]
     layout_id = DEFAULT_LAYOUT_ID
-    if os.environ.get("PDS_SCOREFORM_EXPERIMENTAL_COMPACT_LAYOUT") == "1":
-        print("Layout:")
-        print("1. Standard 15-question A-D")
-        print("2. Compact 25-question A-D")
-        while True:
-            layout_selection = input("Select layout: ").strip()
-            if layout_selection in {"", "1"}:
-                break
-            if layout_selection == "2":
-                layout_id = "compact_25q_abcd_v1"
-                break
-            print("Error: Select layout 1 or 2.")
-        print()
+    print("Layout:")
+    print("1. Standard 15-question A-D")
+    print("2. Compact 25-question A-D")
+    while True:
+        layout_selection = input("Select layout: ").strip()
+        if layout_selection in {"", "1"}:
+            break
+        if layout_selection == "2":
+            layout_id = "compact_25q_abcd_v1"
+            break
+        print("Error: Select layout 1 or 2.")
+    print()
     selected_layout = get_layout(layout_id)
     question_count = None
     while question_count is None:
-        if os.environ.get("PDS_SCOREFORM_EXPERIMENTAL_COMPACT_LAYOUT") == "1":
-            count_prompt = (
-                f"Question count (1-{MAX_QUESTION_COUNT}; "
-                f"{selected_layout.questions_per_page} per page): "
-            )
-        else:
-            count_prompt = f"Question count (1-{MAX_QUESTION_COUNT}): "
+        count_prompt = (
+            f"Question count (1-{MAX_QUESTION_COUNT}; "
+            f"{selected_layout.questions_per_page} per page): "
+        )
         count_input = input(count_prompt).strip()
         if not count_input.isdigit():
             print(f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}.")
