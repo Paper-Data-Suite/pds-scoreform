@@ -17,6 +17,7 @@ from pds_core.standards_selection import (
 
 from scoreform import (
     generate_workflows,
+    menu_manual_entry,
     menu_scan_review,
     menu_scoring,
     qr_workflows,
@@ -1014,6 +1015,7 @@ def launch_assignment_menu():
             print("5. Score scanned responses")
             print("6. View assignment results")
             print("7. Decode QR from a file")
+            print("8. Enter Plain-Paper Results")
             print("9. Resolve scan review items")
             print_scoreform_navigation_options()
             print()
@@ -1021,7 +1023,7 @@ def launch_assignment_menu():
             choice = input("Select an option: ").strip()
             print()
 
-            if parse_scoreform_navigation(choice) is not None or choice == "8":
+            if parse_scoreform_navigation(choice) is not None:
                 return 0
 
             if choice == "1":
@@ -1083,6 +1085,9 @@ def launch_assignment_menu():
                 qr_workflows.run_decode_qr([input_file])
                 print()
                 pause_for_user()
+
+            elif choice == "8":
+                menu_manual_entry.launch_manual_entry_menu()
 
             elif choice == "9":
                 menu_scan_review.launch_scan_review_menu()
