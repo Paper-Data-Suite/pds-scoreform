@@ -584,12 +584,17 @@ Optional roster fields are not automatically added to `results.csv` or routed re
 The top-level `standards` object is optional assignment metadata. Existing assignment JSON files without `standards` remain valid. When present, standards keys must be valid question numbers for the assignment's `question_count`, and each value must be a list of non-empty shared `standard_id` strings. Empty lists and missing question keys are allowed.
 
 Answer-sheet geometry is selected by the assignment's versioned `layout_id`.
-The only supported layout is currently `standard_15q_abcd_v1` (Standard
-15-question A-D). Existing assignments without `layout_id` normalize to that
+Registered layouts are `standard_15q_abcd_v1` (15 questions per page) and the
+experimental `compact_25q_abcd_v1` (25 questions per page in 13-left/12-right
+columns). Existing assignments without `layout_id` normalize to the standard
 default. The layout controls page capacity, registration marks, QR placement,
-question boxes, and scoring geometry. PDS1 remains unchanged and does not carry
-the layout ID; QR-aware scoring resolves it from assignment JSON. The compact
-25-question layout remains future work in #130.
+question boxes, rendering details, and scoring geometry. PDS1 remains unchanged
+and does not carry the layout ID; assignment JSON is the source of truth.
+
+The compact layout is available for calibration with
+`PDS_SCOREFORM_EXPERIMENTAL_COMPACT_LAYOUT=1`. It must remain gated from normal
+assignment creation until physical print/scan testing passes. Layout is
+immutable after assignment creation.
 
 Structural assignment validation checks the assignment shape without loading a standards library. When shared-library validation is requested, `standards_profile_id` must refer to a profile in the `pds-core` workspace standards library, and question-level standard IDs must exist in that library and belong to the selected profile. ScoreForm does not maintain an independent standards universe.
 

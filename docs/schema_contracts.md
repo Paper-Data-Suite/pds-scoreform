@@ -71,7 +71,7 @@ optional input metadata; normalized assignments always include `layout_id`.
 * `assignment_id` must be a safe identifier accepted by ScoreForm validation.
 * `title` must be a non-empty string.
 * `question_count` must be an integer from 1 through `MAX_QUESTION_COUNT`,
-  currently 15.
+  currently 75.
 * `choices` must equal exactly `["A", "B", "C", "D"]`.
 * Missing `layout_id` normalizes to `standard_15q_abcd_v1`. When present it must
   be a non-empty supported layout ID, and `choices` must match that layout.
@@ -193,13 +193,14 @@ MAX_ASSIGNMENT_QUESTION_COUNT = 75
 choices = A-D
 ```
 
-The current/default versioned layout is `standard_15q_abcd_v1`. It owns page
-capacity, image/PDF dimensions, registration and perspective geometry, QR
-placement, labels, and answer-box coordinates. It is the only registered layout;
-the compact 25-question layout remains future work in #130.
+The current/default versioned layout is `standard_15q_abcd_v1`; it holds 15
+questions per page. `compact_25q_abcd_v1` is also registered and holds 25 A-D
+questions in two columns. Layouts own page capacity, image/PDF dimensions,
+registration and perspective geometry, QR placement, labels, answer-box
+coordinates, rendering details, and mark-classification settings.
 
-Sheets may span multiple pages. Each physical page contains up to 15 questions
-with A-D choices, uses unchanged registration marks for perspective correction,
+Sheets may span multiple pages. Each physical page contains up to 15 or 25
+questions according to layout, uses A-D choices and registration marks for perspective correction,
 and places a page-aware QR code for routing. Existing PDFs
 should be treated as coupled to the scoring layout that generated them. Generated
 PDFs do not embed a separate layout marker: PDS1 is unchanged and QR-aware

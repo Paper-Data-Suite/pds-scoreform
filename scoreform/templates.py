@@ -125,7 +125,7 @@ def _generate_template_pdf(filename="template.pdf", layout=None):
         _pdf_rect(c, x, y, layout.registration_size, layout.registration_size, fill=True, layout=layout)
 
     c.setLineWidth(1)
-    c.setFont("Helvetica", 12)
+    c.setFont("Helvetica", layout.question_font_size)
 
     # Draw questions
     for i, slot in enumerate(layout.question_slots[:10]):
@@ -134,8 +134,12 @@ def _generate_template_pdf(filename="template.pdf", layout=None):
 
         for box in slot.boxes:
             _pdf_rect(c, box.x, box.y, box.size, box.size, fill=False, layout=layout)
-            letter_x, letter_y = _pdf_coord(box.x + box.size + 15, slot.label_y, layout)
+            c.setFont("Helvetica", layout.choice_font_size)
+            letter_x, letter_y = _pdf_coord(
+                box.x + box.size + layout.choice_label_offset, slot.label_y, layout
+            )
             c.drawString(letter_x, letter_y, box.choice)
+            c.setFont("Helvetica", layout.question_font_size)
 
     c.showPage()
     c.save()
@@ -317,7 +321,7 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
     meta_x, meta_y = _pdf_coord(150, 260, layout)
     c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
 
-    c.setFont("Helvetica", 12)
+    c.setFont("Helvetica", layout.question_font_size)
     meta_y -= 16
     student_line = f"Student: {student_data.get('last_name','')}, {student_data.get('first_name','')}"
     c.drawString(meta_x, meta_y, student_line)
@@ -353,8 +357,12 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
 
         for box in slot.boxes:
             _pdf_rect(c, box.x, box.y, box.size, box.size, fill=False, layout=layout)
-            letter_x, letter_y = _pdf_coord(box.x + box.size + 15, slot.label_y, layout)
+            c.setFont("Helvetica", layout.choice_font_size)
+            letter_x, letter_y = _pdf_coord(
+                box.x + box.size + layout.choice_label_offset, slot.label_y, layout
+            )
             c.drawString(letter_x, letter_y, box.choice)
+            c.setFont("Helvetica", layout.question_font_size)
 
     # Draw QR code
     if not draw_qr_code(c, assignment_data, student_data, page_number, layout):
