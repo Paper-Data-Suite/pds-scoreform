@@ -12,22 +12,13 @@ from pds_core.school_years import (
     open_school_year,
 )
 
-from scoreform import generate_workflows as _generate_workflows
-from scoreform import menu_scoring as _menu_scoring
-from scoreform import qr_workflows as _qr_workflows
 from scoreform import workspace
 from scoreform.assignment import load_assignment
-from scoreform.assignment_workflows import launch_assignment_menu
 from scoreform.cli_help import (
     get_version,  # noqa: F401 - compatibility re-export
     print_help,
     print_menu_help,
     print_version,
-)
-from scoreform.cli_scan_filing import run_scan_filing
-from scoreform.cli_scan_review import (
-    run_list_scan_review,
-    run_resolve_scan_review,
 )
 from scoreform.cli_school_year import (
     _format_school_year_timestamp,
@@ -37,28 +28,21 @@ from scoreform.cli_school_year import (
     print_school_year_help,  # noqa: F401 - compatibility re-export
     run_school_year,
 )
-from scoreform.cli_score import run_score
 from scoreform.cli_workspace import (
     print_workspace_help,  # noqa: F401 - compatibility re-export
     run_workspace,
 )
-from scoreform.folders import setup_assignment_folder
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
-from scoreform.menu_scan_filing import launch_scan_filing_menu
+from scoreform.migration import (
+    ScoreFormMigrationPendingError,
+    migration_pending,
+    print_migration_error,
+)
 from scoreform.roster import load_roster
-from scoreform.roster_workflows import launch_roster_menu
-from scoreform.scoring import (
-    decode_qr_from_image,  # noqa: F401 - compatibility re-export
-)
-from scoreform.templates import (
-    generate_class_packet_pdf,  # noqa: F401 - compatibility re-export
-    generate_student_pdf,  # noqa: F401 - compatibility re-export
-    generate_template,  # noqa: F401 - compatibility re-export
-)
 from scoreform.workflows import (
     discover_class_assignments,  # noqa: F401 - compatibility re-export
     discover_class_rosters,  # noqa: F401 - compatibility re-export
@@ -85,37 +69,76 @@ def pause_for_user():
 
 def prompt_select_scan_from_inbox(scans_dir=None):
     """Compatibility wrapper for interactive scan inbox selection."""
-    return _menu_scoring.prompt_select_scan_from_inbox(scans_dir)
+    from scoreform import menu_scoring
+
+    return menu_scoring.prompt_select_scan_from_inbox(scans_dir)
 
 
 def prompt_scoring_input_file():
     """Compatibility wrapper for interactive scan path selection."""
-    return _menu_scoring.prompt_scoring_input_file()
+    from scoreform import menu_scoring
+
+    return menu_scoring.prompt_scoring_input_file()
 
 
 def run_menu_qr_aware_routed_scoring(input_file):
     """Compatibility wrapper for QR-aware menu scoring."""
-    return _menu_scoring.run_menu_qr_aware_routed_scoring(input_file)
+    from scoreform import menu_scoring
+
+    return menu_scoring.run_menu_qr_aware_routed_scoring(input_file)
 
 
 def run_menu_manual_scoring(input_file):
     """Compatibility wrapper for manual menu scoring."""
-    return _menu_scoring.run_menu_manual_scoring(input_file)
+    from scoreform import menu_scoring
+
+    return menu_scoring.run_menu_manual_scoring(input_file)
 
 
 def prompt_scoring_mode(input_file):
     """Compatibility wrapper for selecting the interactive scoring mode."""
-    return _menu_scoring.prompt_scoring_mode(input_file)
+    from scoreform import menu_scoring
+
+    return menu_scoring.prompt_scoring_mode(input_file)
 
 
 def run_generate(args):
     """Compatibility wrapper for direct generate command dispatch."""
-    return _generate_workflows.run_generate(args)
+    from scoreform.generate_workflows import run_generate as generate
+
+    return generate(args)
 
 
 def run_regenerate_sheets(args):
     """Compatibility wrapper for managed sheet regeneration."""
-    return _generate_workflows.run_regenerate_sheets(args)
+    from scoreform.generate_workflows import run_regenerate_sheets
+
+    return run_regenerate_sheets(args)
+
+
+def run_score(args):
+    """Load scoring only when the scoring command is selected."""
+    from scoreform.cli_score import run_score as score
+
+    return score(args)
+
+
+def run_list_scan_review(args):
+    from scoreform.cli_scan_review import run_list_scan_review as list_review
+
+    return list_review(args)
+
+
+def run_resolve_scan_review(args):
+    from scoreform.cli_scan_review import run_resolve_scan_review as resolve_review
+
+    return resolve_review(args)
+
+
+def run_scan_filing(args):
+    from scoreform.cli_scan_filing import run_scan_filing as scan_filing
+
+    return scan_filing(args)
 
 
 def run_validate_assignment(args):
@@ -160,6 +183,10 @@ def run_setup_assignment(args):
         print("Usage: scoreform setup-assignment <assignment_json> <roster_csv>")
         return 1
 
+    migration_pending("Assignment-folder setup", "#139")
+
+    from scoreform.folders import setup_assignment_folder
+
     assignment_file = args[0]
     roster_file = args[1]
 
@@ -185,12 +212,16 @@ def run_setup_assignment(args):
 
 def run_decode_qr(args):
     """Compatibility wrapper for direct QR decode command dispatch."""
-    return _qr_workflows.run_decode_qr(args)
+    from scoreform.qr_workflows import run_decode_qr as decode
+
+    return decode(args)
 
 
 def launch_generate_menu():
     """Teacher-centered generate submenu for interactive menu use."""
-    return _generate_workflows.launch_generate_menu()
+    from scoreform.generate_workflows import launch_generate_menu as generate_menu
+
+    return generate_menu()
 
 
 def launch_school_year_menu():
@@ -380,6 +411,8 @@ def launch_workspace_menu():
                 launch_school_year_menu()
 
             elif choice.lower() == "s":
+                from scoreform.menu_scan_filing import launch_scan_filing_menu
+
                 launch_scan_filing_menu()
 
             elif choice == "5":
@@ -423,9 +456,13 @@ def launch_menu():
                 return 0
 
             if choice == "1":
+                from scoreform.assignment_workflows import launch_assignment_menu
+
                 launch_assignment_menu()
 
             elif choice == "2":
+                from scoreform.roster_workflows import launch_roster_menu
+
                 launch_roster_menu()
 
             elif choice == "3":
@@ -456,7 +493,7 @@ def launch_menu():
         return 0
 
 
-def main(argv=None, default_to_menu=True):
+def _main(argv=None, default_to_menu=True):
     """Main CLI entry point.
 
     Args:
@@ -511,6 +548,14 @@ def main(argv=None, default_to_menu=True):
     else:
         print(f"Unknown command: {cmd}")
         return 1
+
+
+def main(argv=None, default_to_menu=True):
+    """Run the CLI and render known migration gates without a traceback."""
+    try:
+        return _main(argv, default_to_menu=default_to_menu)
+    except ScoreFormMigrationPendingError as error:
+        return print_migration_error(error)
 
 
 if __name__ == "__main__":

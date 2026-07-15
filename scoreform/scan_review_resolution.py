@@ -10,10 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Mapping
 
-from pds_core.routes import (
-    assignment_config_path,
-    class_roster_path,
-)
+from pds_core.routes import class_roster_path
 from pds_core.scan_failure_metadata import (
     RoutingFailureMetadata,
     routing_failure_metadata_from_dict,
@@ -27,6 +24,7 @@ from pds_core.scan_resolution_metadata import (
 from pds_core.scan_routes import routing_review_dir
 
 from scoreform.assignment import load_assignment
+from scoreform.migration import migration_pending
 from scoreform.results import export_routed_results
 from scoreform.roster import load_roster
 from scoreform.scan_filing import file_resolution_scan_copy
@@ -177,6 +175,8 @@ def preserve_qr_batch_failures_for_review(
     now: datetime | None = None,
 ) -> list[Path]:
     """Write one immutable Core failure record per QR-aware batch failure."""
+    migration_pending("ScoreForm scan-review failure persistence", "#145")
+
     summary = getattr(results, "summary", None)
     failures = getattr(summary, "failures", ())
     if not failures:
@@ -397,8 +397,8 @@ def _validated_identity(
     if resolved_class and resolved_assignment and (
         require_destination or explicit_destination
     ):
-        assignment_path = assignment_config_path(
-            root, resolved_class, resolved_assignment
+        assignment_path: str = migration_pending(
+            "Assignment-qualified scan-review lookup", "#139 and #145"
         )
         assignment = load_assignment(assignment_path)
         if assignment is None:
@@ -446,6 +446,8 @@ def resolve_scan_review_item(
     now: datetime | None = None,
 ) -> ScoreFormResolutionResult:
     """Safely perform one ScoreForm-specific review resolution action."""
+    migration_pending("ScoreForm scan-review resolution", "#145")
+
     if action not in RESOLUTION_ACTIONS:
         raise ScanReviewError(f"Unsupported scan review action: {action}")
     if action == "other" and (message is None or not message.strip()):

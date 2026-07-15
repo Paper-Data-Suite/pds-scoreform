@@ -1,4 +1,2 @@
--r requirements.txt
-# Required sibling editable checkout for current Paper Data Suite development.
--e ../pds-core
+# Development dependencies are authoritative in pyproject.toml.
 -e .[dev]

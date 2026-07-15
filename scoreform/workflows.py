@@ -17,9 +17,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pds_core.assignments import (
-    list_assignment_folders as list_core_assignment_folders,
-)
 from pds_core.class_metadata import (
     ClassMetadataError,
     create_class_metadata,
@@ -46,6 +43,7 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
+from scoreform.migration import migration_pending
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.standards_workflows import (
     attach_standard_to_questions as attach_standard_to_questions,
@@ -59,7 +57,7 @@ from scoreform.standards_workflows import (
 from scoreform.standards_workflows import (
     parse_question_selection as parse_question_selection,
 )
-from scoreform.validation import is_safe_identifier, validate_identifier
+from scoreform.validation import validate_identifier
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
 GREEN_ANSI = "\033[32m"
@@ -244,23 +242,7 @@ def _discover_class_rosters_in_legacy_directory(classes_dir):
 
 def discover_class_assignments(class_id, classes_dir=None):
     """Return valid assignments discovered under classes/<class_id>/assignments/*."""
-    if not is_safe_identifier(class_id):
-        return []
-
-    if classes_dir is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
-    else:
-        classes_path = Path(classes_dir)
-        if classes_path.name == "classes":
-            workspace_root = classes_path.parent
-        else:
-            return _discover_class_assignments_in_legacy_directory(
-                class_id,
-                classes_path,
-            )
-
-    assignment_folders = list_core_assignment_folders(workspace_root, class_id)
-    return _load_discovered_assignments(assignment_folders)
+    migration_pending("Assignment discovery", "#139")
 
 
 def _load_discovered_assignments(assignment_folders):

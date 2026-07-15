@@ -1,33 +1,11 @@
 import json
 import os
-import shutil
 
-from pds_core.routes import (
-    assignment_config_path as core_assignment_config_path,
-)
-from pds_core.routes import (
-    assignment_debug_dir as core_assignment_debug_dir,
-)
-from pds_core.routes import (
-    assignment_dir as core_assignment_dir,
-)
-from pds_core.routes import (
-    assignment_scans_dir as core_assignment_scans_dir,
-)
-from pds_core.routes import (
-    assignment_templates_dir as core_assignment_templates_dir,
-)
-from pds_core.routes import (
-    class_dir as core_class_dir,
-)
-from pds_core.routes import (
-    class_roster_path as core_class_roster_path,
-)
 from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.config import LOCAL_OUTPUTS_DIR
-from scoreform.validation import validate_identifier
+from scoreform.migration import migration_pending
 
 
 def ensure_parent_dir(path):
@@ -111,80 +89,4 @@ def setup_assignment_folder(roster_data, assignment_data, roster_path, assignmen
 
     Returns a dictionary of created paths on success, or None on failure.
     """
-    try:
-        class_id = roster_data.get("class_id")
-        assignment_id = assignment_data.get("assignment_id")
-
-        if not class_id or not assignment_id:
-            print("Error: roster_data or assignment_data missing required identifiers.")
-            return None
-        if not validate_identifier("class_id", class_id, context="folder setup"):
-            return None
-        if not validate_identifier("assignment_id", assignment_id, context="folder setup"):
-            return None
-
-        # Ensure scan inbox exists only after path-bearing identifiers are safe.
-        scan_inbox = ensure_scan_inbox()
-        if scan_inbox is None:
-            return None
-
-        workspace_root = workspace.get_scoreform_workspace_root()
-        class_dir = os.fspath(core_class_dir(workspace_root, class_id))
-        assignment_dir = os.fspath(
-            core_assignment_dir(workspace_root, class_id, assignment_id)
-        )
-        templates_dir = os.fspath(
-            core_assignment_templates_dir(workspace_root, class_id, assignment_id)
-        )
-        individual_templates_dir = os.path.join(templates_dir, "individual")
-        scans_dir = os.fspath(
-            core_assignment_scans_dir(workspace_root, class_id, assignment_id)
-        )
-        debug_dir = os.fspath(
-            core_assignment_debug_dir(workspace_root, class_id, assignment_id)
-        )
-
-        # Compute paths for copies before creating directories
-        roster_copy = os.fspath(core_class_roster_path(workspace_root, class_id))
-        assignment_copy = os.fspath(
-            core_assignment_config_path(workspace_root, class_id, assignment_id)
-        )
-
-        # Check for existing assignment.json and collision protection
-        if os.path.exists(assignment_copy):
-            if not assignments_match(assignment_copy, assignment_path):
-                print(f"Error: Assignment folder already exists for class '{class_id}' and assignment '{assignment_id}', but the existing assignment.json differs from the incoming assignment file.")
-                print("Refusing to overwrite to prevent assignment/results mismatch.")
-                print("Use a different assignment_id or remove/archive the existing assignment folder.")
-                return None
-            # If they match, continue normally
-
-        # Create directories
-        os.makedirs(individual_templates_dir, exist_ok=True)
-        os.makedirs(scans_dir, exist_ok=True)
-        os.makedirs(debug_dir, exist_ok=True)
-
-        # Ensure parent dirs exist for copies
-        os.makedirs(class_dir, exist_ok=True)
-        os.makedirs(assignment_dir, exist_ok=True)
-
-        if os.path.abspath(roster_path) != os.path.abspath(roster_copy):
-            shutil.copy2(roster_path, roster_copy)
-        if os.path.abspath(assignment_path) != os.path.abspath(assignment_copy):
-            shutil.copy2(assignment_path, assignment_copy)
-
-        return {
-            "class_dir": class_dir,
-            "assignment_dir": assignment_dir,
-            "templates_dir": templates_dir,
-            "individual_templates_dir": individual_templates_dir,
-            "scans_dir": scans_dir,
-            "debug_dir": debug_dir,
-            "roster_copy": roster_copy,
-            "assignment_copy": assignment_copy,
-            "scan_inbox": scan_inbox,
-        }
-
-    except Exception as e:
-        print(f"Error setting up assignment folder: {e}")
-        return None
+    migration_pending("Assignment-folder setup", "#139")

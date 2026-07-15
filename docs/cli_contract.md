@@ -18,6 +18,22 @@ The installed `scoreform` command is the preferred interface. The
 `python main.py ...` wrapper remains available for source-checkout and backward
 compatibility use.
 
+### Core 0.5/PDS2 foundation state
+
+During the staged Core 0.5 migration, commands that require module-qualified
+assignment storage, authoritative answer-sheet page records, PDS2 route
+registrations, PDS2 scan dispatch, or scan-review schema v2 are deliberately
+gated. Personalized/class-packet generation, managed regeneration,
+assignment-folder setup and discovery, QR decoding/routed scoring, and
+scan-review mutation return a clear nonzero migration error before creating
+partial artifacts. Issues #139-#145 remove these narrow gates as their
+replacement contracts land.
+
+Help/version, assignment and roster validation, generic blank-template
+generation, workspace inspection, school-year operations, scan-filing setting
+inspection, and explicit-answer-key manual scoring remain available when they
+do not enter a gated storage or routing path.
+
 ## Interaction Model
 
 ScoreForm intentionally has two interaction layers.

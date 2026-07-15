@@ -13,6 +13,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.migration import migration_pending
 from scoreform.paging import page_count_for_question_count
 from scoreform.roster import load_roster
 from scoreform.templates import (
@@ -48,6 +49,8 @@ class RegenerateSheetsResult:
 
 
 def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_root=None):
+    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+
     """Regenerate one assignment from its current managed roster and assignment."""
     if not is_safe_identifier(class_id):
         raise ValueError(f"Unsafe class_id: {class_id!r}")
@@ -120,6 +123,8 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
 
 
 def regenerate_answer_sheets_for_class(class_id, workspace_root=None):
+    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+
     """Regenerate every managed assignment for a class, failing fast."""
     if not is_safe_identifier(class_id):
         raise ValueError(f"Unsafe class_id: {class_id!r}")
@@ -152,6 +157,8 @@ def _print_stale_note(result, *, include_examples=False):
 
 
 def run_regenerate_sheets(args):
+    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+
     """Run the non-interactive managed answer-sheet regeneration command."""
     usage = (
         "Usage: scoreform regenerate-sheets --class-id <class_id> "
@@ -354,6 +361,8 @@ def run_generate(args):
     if not args:
         generate_template()
         return 0
+
+    migration_pending("Personalized answer-sheet generation", "#139 through #141")
 
     assignment_file = args[0]
     if "--rosters" not in args[1:]:

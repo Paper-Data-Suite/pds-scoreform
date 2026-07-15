@@ -91,6 +91,13 @@ Commands:
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
+Core 0.5/PDS2 migration notice:
+  Personalized/class-packet generation, assignment-folder setup and discovery,
+  QR decoding/routed scoring, sheet regeneration, and scan-review mutation are
+  temporarily unavailable. These commands fail cleanly before writing legacy
+  or partial routing data. Generic generation, validation, workspace,
+  school-year, help/version, and explicit-answer-key manual scoring remain usable.
+
 Scoring modes:
   scoreform score scanned_file.pdf
       QR-aware scoring. Uses QR metadata to locate the assignment and routes results to
@@ -155,6 +162,7 @@ def print_menu_help():
     print()
     print("QR-aware routed scoring writes to:")
     print("  classes/<class_id>/assignments/<assignment_id>/results.csv")
+    print("  Temporarily unavailable during the Core 0.5/PDS2 migration.")
     print()
     print("Routed results are an audit log, not a finalized gradebook export.")
     print("Manually verify scores before using them for grades.")

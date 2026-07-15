@@ -4,8 +4,6 @@ import sys
 
 import cv2
 import numpy as np
-from pds_core.pds1 import Pds1PayloadError, build_pds1_payload
-from pds_core.qr_payload import QrPayload, QrPayloadValidationError
 
 from scoreform import workspace
 from scoreform.config import (
@@ -15,8 +13,8 @@ from scoreform.config import (
 )
 from scoreform.folders import ensure_parent_dir
 from scoreform.layouts import get_layout
+from scoreform.migration import migration_pending
 from scoreform.paging import page_count_for_question_count, question_range_for_page
-from scoreform.validation import validate_identifier
 
 
 def _pdf_coord(x, y, layout=None):
@@ -184,6 +182,8 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
     Returns True on success, False on failure.
     """
+    migration_pending("Personalized answer-sheet generation", "#140 and #141")
+
     try:
         import qrcode  # noqa: F401 - dependency availability check
     except ImportError:
@@ -221,40 +221,8 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
 
 def build_qr_payload(assignment_data, student_data, page_number=1):
-    """Build the default PDS1 QR code payload string.
-
-    PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=<page_number>
-    """
-    class_id = student_data.get("class_id")
-    assignment_id = assignment_data.get("assignment_id")
-    student_id = student_data.get("student_id")
-
-    if not class_id or not assignment_id or not student_id:
-        print("Error: Missing required student or assignment metadata for QR payload.")
-        return None
-    if isinstance(page_number, bool) or not isinstance(page_number, int) or page_number < 1:
-        print("Error: QR payload page must be a positive integer.")
-        return None
-    if not validate_identifier("class_id", class_id, context="QR payload"):
-        return None
-    if not validate_identifier("assignment_id", assignment_id, context="QR payload"):
-        return None
-    if not validate_identifier("student_id", student_id, context="QR payload"):
-        return None
-
-    try:
-        payload = QrPayload(
-            schema="PDS1",
-            module="scoreform",
-            class_id=class_id,
-            assignment_id=assignment_id,
-            student_id=student_id,
-            page=page_number,
-        )
-        return build_pds1_payload(payload)
-    except (Pds1PayloadError, QrPayloadValidationError) as error:
-        print(f"Error: QR payload invalid: {error}")
-        return None
+    """Reject QR generation until authoritative PDS2 records exist."""
+    migration_pending("Answer-sheet QR payload generation", "#140 and #141")
 
 
 def make_qr_image(payload):
@@ -376,6 +344,8 @@ def generate_class_packet_pdf(output_path, assignment_data, roster_data):
 
     Returns True on success, False on failure.
     """
+    migration_pending("Class-packet QR generation", "#140 and #141")
+
     try:
         import qrcode  # noqa: F401 - dependency availability check
     except ImportError:

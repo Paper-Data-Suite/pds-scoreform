@@ -5,6 +5,7 @@ import os
 from scoreform import workspace
 from scoreform.assignment import load_answer_key
 from scoreform.config import LOCAL_RESULTS_CSV
+from scoreform.migration import migration_pending
 from scoreform.results import export_routed_results, export_to_csv
 from scoreform.scan_filing import (
     file_original_scan_after_success,
@@ -65,11 +66,9 @@ def run_score(args):
         print("      Legacy/manual scoring with explicit output CSV.")
         return 1
 
-    workspace_root = workspace.get_scoreform_workspace_root()
-    default_results_csv = os.fspath(workspace_root / LOCAL_RESULTS_CSV)
     input_file = args[0]
     use_qr_aware = False
-    output_file = default_results_csv
+    output_file = None
     answer_key_file = "answer_key.json"
     explicit_output_csv = False
 
@@ -88,6 +87,14 @@ def run_score(args):
         output_file = args[1]
         answer_key_file = args[2]
         use_qr_aware = False
+
+    if use_qr_aware:
+        migration_pending("QR-aware scan scoring", "#143")
+
+    workspace_root = workspace.get_scoreform_workspace_root()
+    default_results_csv = os.fspath(workspace_root / LOCAL_RESULTS_CSV)
+    if output_file is None:
+        output_file = default_results_csv
 
     if use_qr_aware:
         print("Using QR-aware scoring mode...")

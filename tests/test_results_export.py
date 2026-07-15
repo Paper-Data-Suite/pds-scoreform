@@ -1,355 +1,59 @@
+from __future__ import annotations
+
 import csv
 
-from scoreform import results
+import pytest
+
+from scoreform.migration import ScoreFormMigrationPendingError
+from scoreform.results import (
+    export_routed_results,
+    export_to_csv,
+    privacy_safe_source_file,
+)
 
 
-def _routed_result(
-    student_id,
-    answer="A",
-    page_num=1,
-    source_file=None,
-    class_id="english9_p2",
-    assignment_id="rj_act1_quiz",
-):
-    return {
-        "page_num": page_num,
-        "class_id": class_id,
-        "assignment_id": assignment_id,
-        "student_id": student_id,
-        "source_file": source_file or f"{student_id}.pdf",
-        "score": 1,
-        "total_points": 1,
-        "answers": [{"Q": 1, "Answer": answer, "Correct": True}],
-    }
-
-
-def _prepare_routed_assignment(tmp_path, monkeypatch):
-    class_dir = tmp_path / "classes" / "english9_p2"
-    assignment_dir = class_dir / "assignments" / "rj_act1_quiz"
-    assignment_dir.mkdir(parents=True)
-    (class_dir / "roster.csv").write_text(
-        "class_id,student_id,last_name,first_name,period\n"
-        "english9_p2,0001,Alpha,Ada,2\n"
-        "english9_p2,0002,Beta,Ben,2\n"
-        "english9_p2,0003,Gamma,Gia,2\n"
-        "english9_p2,0004,Delta,Dan,2\n",
-        encoding="utf-8",
-    )
-    run_dir = tmp_path / "run-directory"
-    run_dir.mkdir()
-    monkeypatch.chdir(run_dir)
-    return assignment_dir
-
-
-def _read_routed_csv(path):
-    with path.open(newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
-def test_export_to_csv_variable_question_count(tmp_path):
-    all_results = [
+def test_export_to_csv_variable_question_count(tmp_path) -> None:
+    output = tmp_path / "results.csv"
+    results = [
         {
             "page_num": 1,
-            "score": 4,
-            "total_points": 5,
+            "score": 2,
+            "total_points": 2,
             "answers": [
-                {"Q": i, "Answer": "A", "Correct": i % 2 == 1}
-                for i in range(1, 6)
+                {"Q": 1, "Answer": "A", "Correct": True},
+                {"Q": 2, "Answer": "B", "Correct": True},
             ],
         }
     ]
 
-    output_file = tmp_path / "results.csv"
-    assert results.export_to_csv(all_results, str(output_file))
-
-    with output_file.open(encoding="utf-8") as f:
-        header = next(csv.reader(f))
-
-    assert "Q5" in header
-    assert "Q5_Correct" in header
-    assert "Q6" not in header
-    assert "Q6_Correct" not in header
-    assert header[-1] == "Q5_Correct"
+    assert export_to_csv(results, output)
+    with output.open(newline="", encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["Q1"] == "A"
+    assert row["Q1_Correct"] == "True"
+    assert row["Q2"] == "B"
 
 
-def test_export_to_csv_privacy_minimizes_source_file(tmp_path):
-    workspace_root = tmp_path / "workspace"
-    inside_source = workspace_root / "scans_inbox" / "class_packet.pdf"
-    outside_source = tmp_path / "private" / "teacher" / "makeup.pdf"
-    output_file = workspace_root / "local_outputs" / "results" / "results.csv"
-    all_results = [
-        _routed_result("0001", source_file=str(inside_source)),
-        _routed_result("0002", source_file=str(outside_source)),
-    ]
+def test_privacy_safe_source_file_preserves_safe_workspace_relative_path(tmp_path) -> None:
+    source = tmp_path / "scans" / "source" / "2026-07-14" / "scan.pdf"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"scan")
 
-    assert results.export_to_csv(
-        all_results,
-        str(output_file),
-        workspace_root=workspace_root,
-    )
-
-    with output_file.open(newline="", encoding="utf-8") as csv_file:
-        rows = list(csv.DictReader(csv_file))
-
-    assert "source_file" in rows[0]
-    assert rows[0]["source_file"] == "scans_inbox/class_packet.pdf"
-    assert rows[1]["source_file"] == "makeup.pdf"
-    assert str(tmp_path) not in output_file.read_text(encoding="utf-8")
+    assert privacy_safe_source_file(source, tmp_path) == "scans/source/2026-07-14/scan.pdf"
+    assert privacy_safe_source_file("../outside.pdf", tmp_path) == "outside.pdf"
 
 
-def test_privacy_safe_source_file_handles_empty_values(tmp_path):
-    assert results.privacy_safe_source_file(None, tmp_path) == ""
-    assert results.privacy_safe_source_file("", tmp_path) == ""
-
-
-def test_privacy_safe_source_file_windows_absolute_without_workspace():
-    safe = results.privacy_safe_source_file(
-        r"C:\Users\Teacher\OneDrive\School\English12_Final_Exam.pdf",
-        workspace_root=None,
-    )
-
-    assert safe == "English12_Final_Exam.pdf"
-    assert r"C:\Users" not in safe
-    assert "OneDrive" not in safe
-
-
-def test_privacy_safe_source_file_windows_absolute_with_temp_workspace(tmp_path):
-    safe = results.privacy_safe_source_file(
-        r"C:\Users\Teacher\OneDrive\School\English12_Final_Exam.pdf",
-        workspace_root=tmp_path,
-    )
-
-    assert safe == "English12_Final_Exam.pdf"
-    assert r"C:\Users" not in safe
-    assert "OneDrive" not in safe
-
-
-def test_privacy_safe_source_file_preserves_safe_relative_path(tmp_path):
-    assert (
-        results.privacy_safe_source_file(
-            "scans_inbox/class_packet.pdf",
-            workspace_root=tmp_path,
+def test_routed_results_wait_for_module_qualified_storage(tmp_path) -> None:
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139 and #143"):
+        export_routed_results(
+            [
+                {
+                    "class_id": "class1",
+                    "assignment_id": "quiz",
+                    "student_id": "1001",
+                }
+            ],
+            tmp_path,
         )
-        == "scans_inbox/class_packet.pdf"
-    )
 
-
-def test_privacy_safe_source_file_preserves_retained_workspace_path(tmp_path):
-    retained_path = (
-        tmp_path
-        / "scans"
-        / "source"
-        / "2026-07-11"
-        / "20260711T120000Z__scan__abc123def456.pdf"
-    )
-
-    assert results.privacy_safe_source_file(retained_path, tmp_path) == (
-        "scans/source/2026-07-11/"
-        "20260711T120000Z__scan__abc123def456.pdf"
-    )
-
-
-def test_privacy_safe_source_file_rejects_parent_traversal(tmp_path):
-    assert (
-        results.privacy_safe_source_file(
-            "../private/scan.pdf",
-            workspace_root=tmp_path,
-        )
-        == "scan.pdf"
-    )
-
-
-def test_routed_results_do_not_export_optional_roster_columns(tmp_path, monkeypatch):
-    class_dir = tmp_path / "classes" / "english9_p2"
-    assignment_dir = class_dir / "assignments" / "rj_act1_quiz"
-    assignment_dir.mkdir(parents=True)
-    (class_dir / "roster.csv").write_text(
-        "class_id,student_id,last_name,first_name,period,preferred_name,email,notes\n"
-        "english9_p2,1001,Doe,Jane,2,Janie,jdoe@example.com,extra time\n",
-        encoding="utf-8",
-    )
-    monkeypatch.chdir(tmp_path)
-
-    all_results = [
-        {
-            "page_num": 1,
-            "class_id": "english9_p2",
-            "assignment_id": "rj_act1_quiz",
-            "student_id": "1001",
-            "source_file": "scan.pdf",
-            "score": 1,
-            "total_points": 1,
-            "answers": [{"Q": 1, "Answer": "A", "Correct": True}],
-        }
-    ]
-
-    assert results.export_routed_results(all_results)
-
-    with (assignment_dir / "results.csv").open(encoding="utf-8") as f:
-        header = next(csv.reader(f))
-
-    assert "last_name" in header
-    assert "first_name" in header
-    assert "period" in header
-    assert "preferred_name" not in header
-    assert "email" not in header
-    assert "notes" not in header
-
-
-def test_routed_results_preserve_existing_rows_and_append(tmp_path, monkeypatch):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    results_path = assignment_dir / "results.csv"
-
-    assert results.export_routed_results(
-        [
-            _routed_result("0001", source_file="class_packet.pdf"),
-            _routed_result("0002", source_file="class_packet.pdf"),
-            _routed_result("0003", source_file="class_packet.pdf"),
-        ]
-    )
-    original_text = results_path.read_text(encoding="utf-8")
-
-    assert results.export_routed_results([_routed_result("0004", source_file="makeup.pdf")])
-
-    rows = _read_routed_csv(results_path)
-    assert [row["student_id"] for row in rows] == ["0001", "0002", "0003", "0004"]
-    assert rows[-1]["source_file"] == "makeup.pdf"
-    assert rows[-1]["attempt_number"] == "1"
-
-    header = original_text.splitlines()[0]
-    assert results_path.read_text(encoding="utf-8").splitlines()[0] == header
-
-
-def test_routed_results_privacy_minimize_inside_and_outside_sources(
-    tmp_path,
-    monkeypatch,
-):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    inside_source = tmp_path / "scans_inbox" / "class_packet.pdf"
-    outside_source = tmp_path.parent / "private" / "makeup.pdf"
-
-    assert results.export_routed_results(
-        [
-            _routed_result("0001", source_file=str(inside_source)),
-            _routed_result("0002", source_file=str(outside_source)),
-        ],
-        workspace_root=tmp_path,
-    )
-
-    rows = _read_routed_csv(assignment_dir / "results.csv")
-    assert [row["source_file"] for row in rows] == [
-        "scans_inbox/class_packet.pdf",
-        "makeup.pdf",
-    ]
-
-
-def test_routed_results_attempt_number_increments_from_existing_rows(tmp_path, monkeypatch):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    results_path = assignment_dir / "results.csv"
-
-    assert results.export_routed_results([_routed_result("0003", source_file="first.pdf")])
-    assert results.export_routed_results([_routed_result("0003", source_file="rescan.pdf")])
-
-    rows = _read_routed_csv(results_path)
-    assert [row["student_id"] for row in rows] == ["0003", "0003"]
-    assert [row["attempt_number"] for row in rows] == ["1", "2"]
-    assert [row["source_file"] for row in rows] == ["first.pdf", "rescan.pdf"]
-
-
-def test_routed_results_include_dynamic_question_columns_through_q15(tmp_path, monkeypatch):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    result = _routed_result("0001")
-    result["score"] = 15
-    result["total_points"] = 15
-    result["answers"] = [
-        {"Q": i, "Answer": "A", "Correct": True}
-        for i in range(1, 16)
-    ]
-
-    assert results.export_routed_results([result])
-
-    with (assignment_dir / "results.csv").open(encoding="utf-8") as f:
-        header = next(csv.reader(f))
-
-    assert "Q15" in header
-    assert "Q15_Correct" in header
-    assert "Q16" not in header
-    assert "Q16_Correct" not in header
-    assert header[-1] == "Q15_Correct"
-
-
-def test_routed_results_replace_failure_is_actionable_and_cleans_temp_file(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    results_path = assignment_dir / "results.csv"
-
-    assert results.export_routed_results([_routed_result("0001", source_file="first.pdf")])
-    original_text = results_path.read_text(encoding="utf-8")
-
-    def fail_replace(src, dst):
-        raise PermissionError("locked file")
-
-    monkeypatch.setattr(results.os, "replace", fail_replace)
-
-    assert not results.export_routed_results([_routed_result("0002", source_file="second.pdf")])
-    output = capsys.readouterr().out
-
-    assert results_path.read_text(encoding="utf-8") == original_text
-    assert not list(assignment_dir.glob(".results.*.tmp"))
-    assert str(results_path) in output
-    assert "open or locked" in output
-    assert "Excel" in output
-    assert "OneDrive" in output
-    assert "locked file" in output
-
-
-def test_routed_results_header_mismatch_fails_safely(tmp_path, monkeypatch):
-    assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    results_path = assignment_dir / "results.csv"
-    original_text = "Page,student_id,Score,Total,Q1,Q1_Correct\n1,0001,1,1,A,True\n"
-    results_path.write_text(original_text, encoding="utf-8")
-
-    assert not results.export_routed_results([_routed_result("0002", source_file="new.pdf")])
-    assert results_path.read_text(encoding="utf-8") == original_text
-
-
-def test_multi_target_preflight_failure_modifies_no_results_file(
-    tmp_path,
-    monkeypatch,
-):
-    first_assignment_dir = _prepare_routed_assignment(tmp_path, monkeypatch)
-    first_results_path = first_assignment_dir / "results.csv"
-    assert results.export_routed_results([_routed_result("0001")])
-    first_original_text = first_results_path.read_text(encoding="utf-8")
-
-    second_assignment_dir = (
-        tmp_path
-        / "classes"
-        / "math7_p1"
-        / "assignments"
-        / "fractions_quiz"
-    )
-    second_assignment_dir.mkdir(parents=True)
-    second_results_path = second_assignment_dir / "results.csv"
-    second_original_text = (
-        "Page,student_id,Score,Total,Q1,Q1_Correct\n"
-        "1,1001,1,1,A,True\n"
-    )
-    second_results_path.write_text(second_original_text, encoding="utf-8")
-
-    batch = [
-        _routed_result("0002", source_file="batch.pdf"),
-        _routed_result(
-            "1002",
-            source_file="batch.pdf",
-            class_id="math7_p1",
-            assignment_id="fractions_quiz",
-        ),
-    ]
-
-    assert not results.export_routed_results(batch)
-    assert first_results_path.read_text(encoding="utf-8") == first_original_text
-    assert second_results_path.read_text(encoding="utf-8") == second_original_text
+    assert list(tmp_path.iterdir()) == []

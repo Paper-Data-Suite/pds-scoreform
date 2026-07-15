@@ -1,8 +1,10 @@
 import json
-import os
 from pathlib import Path
 
+import pytest
+
 from scoreform import folders
+from scoreform.migration import ScoreFormMigrationPendingError
 
 
 def test_assignments_match_equivalent(tmp_path):
@@ -55,14 +57,14 @@ def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs
     roster_path.write_text("placeholder", encoding="utf-8")
     assignment_path.write_text("{}", encoding="utf-8")
 
-    result = folders.setup_assignment_folder(
-        {"class_id": "../secret", "students": []},
-        {"assignment_id": "rj_act1_quiz"},
-        str(roster_path),
-        str(assignment_path),
-    )
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139"):
+        folders.setup_assignment_folder(
+            {"class_id": "../secret", "students": []},
+            {"assignment_id": "rj_act1_quiz"},
+            str(roster_path),
+            str(assignment_path),
+        )
 
-    assert result is None
     assert not (tmp_path / "classes").exists()
     assert not (tmp_path / "scans_inbox").exists()
 
@@ -73,75 +75,13 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
     roster_path.write_text("placeholder", encoding="utf-8")
     assignment_path.write_text('{"assignment_id": "act_1_quiz"}', encoding="utf-8")
 
-    result = folders.setup_assignment_folder(
-        {"class_id": "english9_p2", "students": []},
-        {"assignment_id": "act_1_quiz"},
-        str(roster_path),
-        str(assignment_path),
-    )
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139"):
+        folders.setup_assignment_folder(
+            {"class_id": "english9_p2", "students": []},
+            {"assignment_id": "act_1_quiz"},
+            str(roster_path),
+            str(assignment_path),
+        )
 
-    assert result is not None
-    assert result["class_dir"] == os.fspath(tmp_path / "classes" / "english9_p2")
-    assert result["assignment_dir"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-    )
-    assert result["templates_dir"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-        "templates",
-    )
-    assert result["individual_templates_dir"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-        "templates",
-        "individual",
-    )
-    assert result["scans_dir"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-        "scans",
-    )
-    assert result["debug_dir"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-        "debug",
-    )
-    assert result["roster_copy"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "roster.csv",
-    )
-    assert result["assignment_copy"] == os.path.join(
-        tmp_path,
-        "classes",
-        "english9_p2",
-        "assignments",
-        "act_1_quiz",
-        "assignment.json",
-    )
-    assert result["scan_inbox"] == os.fspath(tmp_path / "scans_inbox")
-    assert not (
-        tmp_path
-        / "classes"
-        / "english9_p2"
-        / "assignments"
-        / "act_1_quiz"
-        / "results"
-    ).exists()
+    assert not (tmp_path / "classes").exists()
+    assert not (tmp_path / "scans_inbox").exists()

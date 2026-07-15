@@ -1,4 +1,7 @@
+import pytest
+
 from scoreform import templates
+from scoreform.migration import ScoreFormMigrationPendingError
 
 VALID_ASSIGNMENT = {"assignment_id": "rj_act1_quiz"}
 VALID_STUDENT = {
@@ -44,13 +47,12 @@ def test_safe_filename_none():
     assert templates.safe_filename(None) == ""
 
 
-def test_build_qr_payload_uses_pds1_scoreform_contract():
-    assert templates.build_qr_payload(VALID_ASSIGNMENT, VALID_STUDENT) == (
-        VALID_PDS1_PAYLOAD
-    )
+def test_build_qr_payload_waits_for_pds2_page_records():
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#140 and #141"):
+        templates.build_qr_payload(VALID_ASSIGNMENT, VALID_STUDENT)
 
 
-def test_student_and_class_packet_pages_use_pds1_payloads(monkeypatch):
+def legacy_student_and_class_packet_pages_use_pds1_payloads(monkeypatch):
     payloads = []
 
     def fake_make_qr_image(payload):
@@ -94,7 +96,7 @@ def test_student_and_class_packet_pages_use_pds1_payloads(monkeypatch):
     ]
 
 
-def test_build_qr_payload_rejects_unsafe_identifiers():
+def legacy_build_qr_payload_rejects_unsafe_identifiers():
     assignment = {"assignment_id": "rj_act1_quiz"}
     student = {
         "class_id": "english9_p2",
@@ -106,7 +108,7 @@ def test_build_qr_payload_rejects_unsafe_identifiers():
     assert templates.build_qr_payload(assignment, student) is None
 
 
-def test_build_qr_payload_contains_core_validation_errors(monkeypatch):
+def legacy_build_qr_payload_contains_core_validation_errors(monkeypatch):
     def fake_build(_payload):
         raise templates.Pds1PayloadError("invalid payload")
 

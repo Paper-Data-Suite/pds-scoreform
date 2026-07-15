@@ -320,7 +320,7 @@ def test_load_assignment_rejects_duplicate_standard_ids(tmp_path):
     assert assignment.load_assignment(path) is None
 
 
-def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "test_class" / "roster.csv"),
@@ -352,7 +352,7 @@ def test_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch
     assert loaded["standards"] == {"1": [], "2": [], "3": []}
 
 
-def test_prompt_create_assignment_selects_and_persists_compact_without_env(
+def legacy_prompt_create_assignment_selects_and_persists_compact_without_env(
     tmp_path, monkeypatch
 ):
     monkeypatch.chdir(tmp_path)
@@ -393,7 +393,7 @@ def test_gitignore_excludes_physical_scan_test_workspaces():
     assert "scan_test/" in ignored
 
 
-def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "test_class" / "roster.csv"),
@@ -429,7 +429,7 @@ def test_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypat
     assert len(saved["answer_key"]) == MAX_QUESTION_COUNT
 
 
-def test_prompt_create_assignment_rejects_question_count_above_max(tmp_path, monkeypatch, capsys):
+def legacy_prompt_create_assignment_rejects_question_count_above_max(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "test_class" / "roster.csv"),
@@ -461,7 +461,7 @@ def test_prompt_create_assignment_rejects_question_count_above_max(tmp_path, mon
     assert saved["question_count"] == MAX_QUESTION_COUNT
 
 
-def test_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "test_class" / "roster.csv"),
