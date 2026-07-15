@@ -1,13 +1,18 @@
-import pytest
+from pds_core.routing_models import PDS2_SCHEMA, ModuleWorkRef, RouteLocator
 
-from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.templates import build_qr_payload
 
 
-def test_multipage_qr_generation_waits_for_authoritative_page_records() -> None:
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#141"):
-        build_qr_payload(
-            {"assignment_id": "quiz", "question_count": 16},
-            {"class_id": "class1", "student_id": "1001"},
-            page_number=2,
-        )
+def test_multipage_qr_generation_uses_only_the_route_locator() -> None:
+    locator = RouteLocator(
+        PDS2_SCHEMA,
+        ModuleWorkRef("scoreform", "class1", "quiz"),
+        "rt_20000000000000000000000000000000",
+    )
+    payload = build_qr_payload(locator)
+    assert payload == (
+        "PDS2|m=scoreform|c=class1|w=quiz|"
+        "r=rt_20000000000000000000000000000000"
+    )
+    assert "page" not in payload
+    assert "student" not in payload

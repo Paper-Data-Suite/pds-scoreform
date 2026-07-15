@@ -1,11 +1,15 @@
 import cv2
 import numpy as np
-import pytest
 
 from scoreform import templates
+from scoreform.answer_sheet_records import build_answer_sheet_record_set
+from scoreform.answer_sheet_routes import (
+    RegisteredAnswerSheetPageRoute,
+    build_answer_sheet_page_route,
+)
 from scoreform.layouts import get_layout
-from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.scoring import score_image
+from scoreform.work_paths import scoreform_work_ref
 
 
 class RecordingCanvas:
@@ -41,12 +45,40 @@ def _compact_assignment(question_count=50):
 
 def test_compact_second_page_renders_global_question_labels(monkeypatch):
     canvas = RecordingCanvas()
-    student = {"class_id": "class1", "student_id": "1001"}
+    student = {
+        "class_id": "class1",
+        "student_id": "1001",
+        "last_name": "Doe",
+        "first_name": "Jane",
+        "period": "2",
+    }
+    assignment = _compact_assignment()
+    records = build_answer_sheet_record_set(
+        "class1",
+        assignment,
+        student,
+        generation_id="gen_10000000000000000000000000000000",
+        artifact_id="art_10000000000000000000000000000000",
+        output_kind="individual_pdf",
+        reason="initial",
+    )
+    route = build_answer_sheet_page_route(
+        scoreform_work_ref("class1", "compact_quiz"), records.pages[1]
+    )
+    registered = RegisteredAnswerSheetPageRoute(route, __file__)
+    monkeypatch.setattr(templates, "make_qr_image", lambda _payload: object())
 
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#141"):
-        templates.draw_student_answer_sheet_page(
-            canvas, _compact_assignment(), student, 2
-        )
+    templates.draw_student_answer_sheet_page(
+        canvas, assignment, student, registered
+    )
+    assert "Page 2 of 2" in canvas.text
+    assert "Questions 26\N{EN DASH}50" in canvas.text
+    assert "26." in canvas.text
+    assert "50." in canvas.text
+    assert f"Sheet ID: {records.pages[1].page_id}" in canvas.text
+    assert f"Route ID: {route.locator.route_id}" in canvas.text
+    assert "Assignment: Compact Quiz" in canvas.text
+    assert "Student: Doe, Jane" in canvas.text
 
 
 def test_compact_synthetic_page_scores_both_columns(tmp_path):

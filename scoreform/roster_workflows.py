@@ -30,7 +30,6 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
-from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 from scoreform.workflows import (
@@ -62,16 +61,9 @@ def _offer_sheet_regeneration_after_save(class_id):
     if choice != "1":
         print("Answer sheets were not changed.")
         return 0
-    try:
-        return generate_workflows.launch_regenerate_sheets_menu(
-            preselected_class_id=class_id
-        )
-    except ScoreFormMigrationPendingError:
-        print(
-            "Answer-sheet regeneration is temporarily unavailable pending "
-            "route-registration and PDS2-rendering work (#141)."
-        )
-        return 0
+    return generate_workflows.launch_regenerate_sheets_menu(
+        preselected_class_id=class_id
+    )
 
 
 def format_roster_for_display(class_record):

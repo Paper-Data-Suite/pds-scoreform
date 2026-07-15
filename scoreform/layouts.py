@@ -59,6 +59,10 @@ class AnswerSheetLayout:
     question_slots: tuple[QuestionSlot, ...]
     page_context_x: int
     page_context_y: int
+    identity_context_x: int = 150
+    identity_context_y: int = 350
+    identity_context_width: int = 610
+    identity_context_height: int = 35
     choice_label_offset: int = 15
     question_font_size: int = 12
     choice_font_size: int = 12
@@ -70,6 +74,16 @@ class AnswerSheetLayout:
     @property
     def pdf_scale(self) -> float:
         return self.pdf_width / self.img_width
+
+    @property
+    def identity_bounds(self) -> tuple[int, int, int, int]:
+        """Conservative template-space bounds for the two visible identity lines."""
+        return (
+            self.identity_context_x - 5,
+            self.identity_context_y - 15,
+            self.identity_context_x + self.identity_context_width,
+            self.identity_context_y + self.identity_context_height,
+        )
 
 
 def _standard_question_slots() -> tuple[QuestionSlot, ...]:
