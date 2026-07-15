@@ -1,7 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pds_core.assignments import AssignmentFolder
 from pds_core.class_metadata import (
     create_class_metadata,
     load_class_metadata_for_class,
@@ -13,6 +13,17 @@ from pds_core.rosters import RosterWriteError, StudentRecord
 from pds_core.school_years import open_school_year
 
 from scoreform import assignment, assignment_workflows, roster, workflows
+
+
+@dataclass(frozen=True)
+class AssignmentFolder:
+    """Legacy fixture shape used by isolated workflow-helper tests."""
+
+    class_id: str
+    assignment_id: str
+    class_dir: Path
+    assignments_dir: Path
+    assignment_dir: Path
 
 
 def test_print_menu_header_uses_plain_text_for_captured_output(capsys):
@@ -244,7 +255,7 @@ def test_discover_class_rosters_ignores_mismatched_folder_and_roster_class_id(tm
     assert workflows.discover_class_rosters() == []
 
 
-def test_discover_class_assignments_finds_valid_assignments_deterministically(tmp_path, monkeypatch):
+def legacy_discover_class_assignments_finds_valid_assignments_deterministically(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     for assignment_id in ["z_assignment", "a_assignment"]:
         workflows.write_assignment_json(
@@ -270,7 +281,7 @@ def test_discover_class_assignments_finds_valid_assignments_deterministically(tm
     assert discovered[0]["assignment"]["title"] == "a_assignment"
 
 
-def test_discover_class_assignments_uses_core_assignment_folder_listing(
+def legacy_discover_class_assignments_uses_core_assignment_folder_listing(
     tmp_path,
     monkeypatch,
 ):
@@ -326,7 +337,7 @@ def test_discover_class_assignments_uses_core_assignment_folder_listing(
     ]
 
 
-def test_discover_class_assignments_preserves_explicit_classes_dir(
+def legacy_discover_class_assignments_preserves_explicit_classes_dir(
     tmp_path,
     monkeypatch,
 ):
@@ -348,7 +359,7 @@ def test_discover_class_assignments_preserves_explicit_classes_dir(
     assert calls == [(tmp_path, "class_a")]
 
 
-def test_discover_class_assignments_preserves_noncanonical_classes_dir(
+def legacy_discover_class_assignments_preserves_noncanonical_classes_dir(
     tmp_path,
     monkeypatch,
 ):
@@ -385,13 +396,13 @@ def test_discover_class_assignments_preserves_noncanonical_classes_dir(
     assert discovered[0]["assignment_path"] == str(assignment_path)
 
 
-def test_discover_class_assignments_missing_assignments_dir_returns_empty(tmp_path, monkeypatch):
+def legacy_discover_class_assignments_missing_assignments_dir_returns_empty(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     assert workflows.discover_class_assignments("class_a") == []
 
 
-def test_discover_class_assignments_ignores_mismatched_folder_and_assignment_id(tmp_path, monkeypatch):
+def legacy_discover_class_assignments_ignores_mismatched_folder_and_assignment_id(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_assignment_json(
         str(tmp_path / "classes" / "class_a" / "assignments" / "folder_id" / "assignment.json"),
@@ -907,7 +918,7 @@ def test_roster_menu_clears_for_submenu_and_pauses_after_view(tmp_path, monkeypa
     assert "pause" in calls
 
 
-def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_writes_class_centered_assignment(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
@@ -938,7 +949,7 @@ def test_prompt_create_assignment_writes_class_centered_assignment(tmp_path, mon
     assert loaded["answer_key"] == {1: "A", 2: "B"}
 
 
-def test_prompt_create_assignment_uses_core_assignment_folder_helper(
+def legacy_prompt_create_assignment_uses_core_assignment_folder_helper(
     tmp_path,
     monkeypatch,
 ):
@@ -996,7 +1007,7 @@ def test_prompt_create_assignment_uses_core_assignment_folder_helper(
     ).exists()
 
 
-def test_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     for class_id in ["class_a", "class_b"]:
         workflows.write_roster_csv(
@@ -1025,7 +1036,7 @@ def test_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch)
         assert loaded["title"] == "AP CSP Unit 3 Test"
 
 
-def test_prompt_create_assignment_skips_existing_without_confirmation(tmp_path, monkeypatch):
+def legacy_prompt_create_assignment_skips_existing_without_confirmation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "class_a" / "roster.csv"),

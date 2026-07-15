@@ -1,5 +1,2 @@
-opencv-python
-numpy
-pdf2image
-reportlab
-qrcode[pil]
+# Runtime dependencies are authoritative in pyproject.toml.
+.

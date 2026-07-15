@@ -7,12 +7,13 @@ name = "scoreform"
 version = "0.8.1"
 description = "A local-first classroom OMR tool for generating and scoring printable answer sheets."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
   { name = "Stephen Severino" }
 ]
 dependencies = [
+  "pds-core>=0.5,<0.6",
   "opencv-python",
   "numpy",
   "pdf2image",

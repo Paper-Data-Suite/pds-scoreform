@@ -5,11 +5,14 @@ import os
 import cv2
 import numpy as np
 
+from scoreform.migration import migration_pending
 from scoreform.scoring import decode_qr_from_image
 
 
 def run_decode_qr(args):
     """Decode QR metadata from a PDF or image."""
+    migration_pending("ScoreForm QR decoding", "#143")
+
     if len(args) != 1:
         print("Usage: scoreform decode-qr <input_file>")
         return 1

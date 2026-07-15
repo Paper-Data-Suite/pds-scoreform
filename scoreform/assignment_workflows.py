@@ -3,9 +3,6 @@
 import os
 from pathlib import Path
 
-from pds_core.assignments import (
-    ensure_assignment_folder as ensure_core_assignment_folder,
-)
 from pds_core.menu_navigation import NavigationChoice
 from pds_core.standards import StandardsReadError, StandardsValidationError
 from pds_core.standards_selection import (
@@ -31,6 +28,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.migration import migration_pending
 from scoreform.results_viewer import (
     ResultsViewError,
     format_assignment_results_table,
@@ -826,6 +824,8 @@ def prompt_standards_alignment(workspace_root, question_count):
 
 
 def prompt_create_assignment():
+    migration_pending("Assignment creation", "#139")
+
     """Interactive prompt to create assignment JSON files for selected classes.
 
     Returns 0 on success, 1 on cancellation or error.
@@ -960,11 +960,7 @@ def prompt_create_assignment():
     skipped_paths = []
     for class_record in selected_classes:
         class_id = class_record["class_id"]
-        folder = ensure_core_assignment_folder(
-            workspace_root,
-            class_id,
-            assignment_id,
-        )
+        folder = migration_pending("Assignment creation", "#139")
         output_path = os.fspath(folder.assignment_dir / "assignment.json")
 
         if not confirm_assignment_overwrite(output_path, class_id):

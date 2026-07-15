@@ -6,14 +6,12 @@ import tempfile
 from pathlib import Path
 
 from pds_core.routes import (
-    assignment_dir as core_assignment_dir,
-)
-from pds_core.routes import (
     class_roster_path as core_class_roster_path,
 )
 
 from scoreform import workspace
 from scoreform.folders import ensure_parent_dir
+from scoreform.migration import migration_pending
 from scoreform.scoring import validate_qr_identifier
 
 
@@ -368,9 +366,7 @@ def _build_routed_result_target_plan(
     results,
     workspace_root,
 ):
-    output_dir = os.fspath(
-        core_assignment_dir(workspace_root, class_id, assignment_id)
-    )
+    output_dir = migration_pending("Routed result storage", "#139 and #143")
     output_file = os.path.join(output_dir, "results.csv")
 
     if not os.path.isdir(output_dir):
@@ -493,14 +489,7 @@ def _build_routed_result_write_plan(groups, workspace_root):
                 workspace_root,
             )
         except (OSError, KeyError, TypeError, ValueError) as error:
-            output_file = os.fspath(
-                core_assignment_dir(
-                    workspace_root,
-                    class_id,
-                    assignment_id,
-                )
-                / "results.csv"
-            )
+            output_file = migration_pending("Routed result storage", "#139 and #143")
             print(
                 f"Error: Could not preflight routed results for class "
                 f"'{class_id}', assignment '{assignment_id}': {output_file}"
@@ -523,6 +512,8 @@ def export_routed_results(all_results, workspace_root=None):
     
     Returns True on success, False on failure.
     """
+    migration_pending("Routed result export", "#139 and #143")
+
     if not all_results:
         print("No results to export.")
         return False

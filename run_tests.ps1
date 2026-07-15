@@ -1,590 +1,142 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== ScoreForm Test Script ===" -ForegroundColor Cyan
-
-function Invoke-Test {
-    param (
-        [string]$Name,
-        [string]$Command
-    )
-
-    Write-Host ""
-    Write-Host "Running: $Name" -ForegroundColor Yellow
-    Write-Host $Command -ForegroundColor DarkGray
-
-    Invoke-Expression $Command
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "FAILED: $Name" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "PASSED: $Name" -ForegroundColor Green
-}
-
-function Invoke-TestExpectFailure {
-    param (
-        [string]$Name,
-        [string]$Command
-    )
-
-    Write-Host ""
-    Write-Host "Running expected failure: $Name" -ForegroundColor Yellow
-    Write-Host $Command -ForegroundColor DarkGray
-
-    Invoke-Expression $Command
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "FAILED: Expected command to fail but it succeeded: $Name" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "PASSED EXPECTED FAILURE: $Name" -ForegroundColor Green
-}
-
-function Assert-Exists {
-    param (
-        [string]$Path
-    )
-
-    if (-not (Test-Path $Path)) {
-        Write-Host "FAILED: Expected file/folder not found: $Path" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "FOUND: $Path" -ForegroundColor Green
-}
-
-function Assert-FileContains {
-    param (
-        [string]$Path,
-        [string]$Text
-    )
-
-    if (-not (Select-String -Path $Path -Pattern $Text -Quiet)) {
-        Write-Host "FAILED: Expected '$Text' in $Path" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "FOUND TEXT: '$Text'" -ForegroundColor Green
-}
-
-function Assert-FileDoesNotContain {
-    param (
-        [string]$Path,
-        [string]$Text
-    )
-
-    if (Select-String -Path $Path -Pattern $Text -Quiet) {
-        Write-Host "FAILED: Did not expect '$Text' in $Path" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "CONFIRMED ABSENT: '$Text'" -ForegroundColor Green
-}
-
-function Assert-CsvValueCount {
-    param (
-        [string]$Path,
-        [string]$Column,
-        [string]$Value,
-        [int]$ExpectedCount
-    )
-
-    $rows = Import-Csv $Path
-    $count = ($rows | Where-Object { $_.$Column -eq $Value }).Count
-
-    if ($count -ne $ExpectedCount) {
-        Write-Host "FAILED: Expected $ExpectedCount rows with $Column=$Value in $Path, found $count" -ForegroundColor Red
-        exit 1
-    }
-
-    Write-Host "FOUND CSV COUNT: $Column=$Value appears $ExpectedCount time(s)" -ForegroundColor Green
-}
-
-$RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = $PSScriptRoot
 $VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
-if (Test-Path -LiteralPath $VenvPython) {
+$VenvScoreForm = Join-Path $RepoRoot ".venv\Scripts\scoreform.exe"
+
+if (Test-Path -LiteralPath $VenvPython -PathType Leaf) {
     $Python = $VenvPython
 }
 else {
-    $Python = "python"
-}
-
-try {
-    & $Python --version
-    if ($LASTEXITCODE -ne 0) {
-        throw "Python command exited with code $LASTEXITCODE"
+    $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $PythonCommand) {
+        throw "Python was not found. Create .venv with Python 3.11 or newer."
     }
-}
-catch {
-    Write-Host "FAILED: Python was not found. Create .venv or install Python on PATH." -ForegroundColor Red
-    exit 1
+    $Python = $PythonCommand.Source
 }
 
-if ($Python -eq "python") {
-    $PythonCommand = "python"
-}
-else {
-    $PythonCommand = "& `"$Python`""
+function Invoke-Step {
+    param([string]$Name, [scriptblock]$Action)
+
+    Write-Host ""
+    Write-Host "Running: $Name" -ForegroundColor Yellow
+    & $Action
+    if ($LASTEXITCODE -ne 0) {
+        throw "FAILED: $Name (exit $LASTEXITCODE)"
+    }
+    Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
+function Invoke-MigrationGate {
+    param([string]$Name, [string[]]$Arguments, [string]$Issue)
+
+    Write-Host ""
+    Write-Host "Running expected migration gate: $Name" -ForegroundColor Yellow
+    $output = & $ScoreForm @Arguments 2>&1
+    $code = $LASTEXITCODE
+    if ($code -eq 0) {
+        throw "FAILED: $Name unexpectedly succeeded."
+    }
+    $text = $output -join "`n"
+    if ($text -notmatch "temporarily unavailable" -or $text -notmatch [regex]::Escape($Issue)) {
+        throw "FAILED: $Name did not report the expected actionable $Issue migration message.`n$text"
+    }
+    if ($text -match "Traceback") {
+        throw "FAILED: $Name exposed a traceback.`n$text"
+    }
+    Write-Host "PASSED EXPECTED MIGRATION GATE: $Name" -ForegroundColor Green
+}
+
+Write-Host "=== ScoreForm Core 0.5 Foundation Validation ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
-function Clear-PytestTemp {
-    $pytestTempDir = Join-Path $RepoRoot ".pytest_tmp"
-
-    if (-not (Test-Path -LiteralPath $pytestTempDir)) {
-        return
-    }
-
-    $resolvedTemp = [System.IO.Path]::GetFullPath($pytestTempDir)
-    $resolvedRepo = [System.IO.Path]::GetFullPath($RepoRoot)
-    $repoPrefix = $resolvedRepo.TrimEnd([char[]]@(
-        [System.IO.Path]::DirectorySeparatorChar,
-        [System.IO.Path]::AltDirectorySeparatorChar
-    )) + [System.IO.Path]::DirectorySeparatorChar
-
-    if (
-        (Split-Path -Leaf $resolvedTemp) -ne ".pytest_tmp" -or
-        -not $resolvedTemp.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)
-    ) {
-        Write-Warning "Refusing to remove unexpected pytest temp path: $resolvedTemp"
-        return
-    }
-
-    $tempItem = Get-Item -LiteralPath $resolvedTemp -Force
-    if (-not $tempItem.PSIsContainer) {
-        Write-Warning "Refusing to remove pytest temp path because it is not a directory: $resolvedTemp"
-        return
-    }
-
-    if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-        Write-Warning "Refusing to remove pytest temp path because it is a reparse point: $resolvedTemp"
-        return
-    }
-
-    try {
-        Remove-Item -LiteralPath $resolvedTemp -Recurse -Force -ErrorAction Stop
-    }
-    catch {
-        Write-Warning "Could not remove pytest temp directory '$resolvedTemp': $($_.Exception.Message)"
-    }
+Invoke-Step "Require Python 3.11+" {
+    & $Python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
+}
+Invoke-Step "Install ScoreForm editable with development extras" {
+    & $Python -m pip install -e ".[dev]" --quiet
+}
+Invoke-Step "Check installed dependency consistency" {
+    & $Python -m pip check
+}
+Invoke-Step "Compile ScoreForm" {
+    & $Python -m compileall -q scoreform
+}
+Invoke-Step "Import ScoreForm, PDS contract, CLI, and Core" {
+    & $Python -c "import pds_core; import scoreform; import scoreform.pds_contract; import scoreform.cli"
+}
+Invoke-Step "Run pytest suite" {
+    & $Python -m pytest tests -q
+}
+Invoke-Step "Run Ruff" {
+    & $Python -m ruff check .
 }
 
-$TestWorkspaceRoot = Join-Path $RepoRoot "local_outputs\regression_workspace"
-$resolvedWorkspaceRoot = [System.IO.Path]::GetFullPath($TestWorkspaceRoot)
-$resolvedRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
-$workspaceRootWasSet = Test-Path Env:PDS_WORKSPACE_ROOT
-$previousWorkspaceRoot = $env:PDS_WORKSPACE_ROOT
-if (-not $resolvedWorkspaceRoot.StartsWith(
-    $resolvedRepoRoot + [System.IO.Path]::DirectorySeparatorChar,
-    [System.StringComparison]::OrdinalIgnoreCase
-)) {
-    throw "Refusing to use regression workspace outside the repository: $resolvedWorkspaceRoot"
+if (Test-Path -LiteralPath $VenvScoreForm -PathType Leaf) {
+    $ScoreForm = $VenvScoreForm
+}
+else {
+    $ScoreFormCommand = Get-Command scoreform -ErrorAction SilentlyContinue
+    if (-not $ScoreFormCommand) {
+        throw "The scoreform console command was not installed."
+    }
+    $ScoreForm = $ScoreFormCommand.Source
 }
 
-$env:PDS_WORKSPACE_ROOT = $resolvedWorkspaceRoot
+$SmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+    "scoreform-foundation-smoke-" + [guid]::NewGuid().ToString("N")
+)
+if (Test-Path -LiteralPath $SmokeRoot) {
+    throw "Refusing to use an existing smoke workspace: $SmokeRoot"
+}
+$workspaceWasSet = Test-Path Env:PDS_WORKSPACE_ROOT
+$savedWorkspace = $env:PDS_WORKSPACE_ROOT
+$env:PDS_WORKSPACE_ROOT = $SmokeRoot
 try {
-$ClassesDir = Join-Path $TestWorkspaceRoot "classes"
-$ScansInboxDir = Join-Path $TestWorkspaceRoot "scans_inbox"
-$LocalOutputsDir = Join-Path $TestWorkspaceRoot "local_outputs"
-$LocalTemplatesDir = Join-Path $LocalOutputsDir "templates"
-$LocalResultsDir = Join-Path $LocalOutputsDir "results"
-$LocalDebugDir = Join-Path $LocalOutputsDir "debug"
-$LocalTempDir = Join-Path $LocalOutputsDir "temp"
-$TemplatePdf = Join-Path $LocalTemplatesDir "template.pdf"
-$TemplatePng = Join-Path $LocalTemplatesDir "template.png"
-$DefaultResultsCsv = Join-Path $LocalResultsDir "results.csv"
-$QrMetadataResultsCsv = Join-Path $LocalResultsDir "qr_metadata_results.csv"
-$MixedScanResultsCsv = Join-Path $LocalResultsDir "mixed_scan_results.csv"
-$MenuInboxResultsCsv = Join-Path $LocalResultsDir "menu_inbox_results.csv"
-$ConflictingAssignmentJson = Join-Path $LocalTempDir "conflicting_assignment.json"
-$SampleClassDir = Join-Path $ClassesDir "english9_p2"
-$SampleAssignmentDir = Join-Path $SampleClassDir "assignments\rj_act1_quiz"
-$SampleTemplatesDir = Join-Path $SampleAssignmentDir "templates"
-$SampleIndividualDir = Join-Path $SampleTemplatesDir "individual"
-$SampleDebugDir = Join-Path $SampleAssignmentDir "debug"
-$SampleResultsCsv = Join-Path $SampleAssignmentDir "results.csv"
-$MenuRosterClassDir = Join-Path $ClassesDir "000_test_class_v5"
-$MenuRosterCsv = Join-Path $MenuRosterClassDir "roster.csv"
-$MenuClassMetadataJson = Join-Path $MenuRosterClassDir "class.json"
-$TempAssignmentJson = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\assignment.json"
-$MenuInboxScanPdf = Join-Path $ScansInboxDir "000_menu_picker_class_packet.pdf"
-$MenuInboxIgnoredTxt = Join-Path $ScansInboxDir "000_menu_picker_ignored.txt"
-
-Write-Host ""
-Write-Host "Cleaning old generated test outputs..." -ForegroundColor Yellow
-Remove-Item $TestWorkspaceRoot -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "results.csv" -ErrorAction SilentlyContinue
-Remove-Item "debug_corners_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item "debug_warped_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item "conflicting_assignment.json" -ErrorAction SilentlyContinue
-Remove-Item "temp_test_roster.csv" -ErrorAction SilentlyContinue
-Remove-Item "temp_test_assignment.json" -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $LocalTemplatesDir, $LocalResultsDir, $LocalDebugDir, $LocalTempDir, $ScansInboxDir -Force | Out-Null
-Remove-Item $TemplatePdf -ErrorAction SilentlyContinue
-Remove-Item $TemplatePng -ErrorAction SilentlyContinue
-Remove-Item $DefaultResultsCsv -ErrorAction SilentlyContinue
-Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
-Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
-Remove-Item $MenuInboxResultsCsv -ErrorAction SilentlyContinue
-Remove-Item $MenuInboxScanPdf -ErrorAction SilentlyContinue
-Remove-Item $MenuInboxIgnoredTxt -ErrorAction SilentlyContinue
-Remove-Item "$LocalDebugDir\debug_corners_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item "$LocalDebugDir\debug_warped_page_*.png" -ErrorAction SilentlyContinue
-Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
-Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
-
-Write-Host ""
-Write-Host "Installing ScoreForm in editable mode (with dev extras)..." -ForegroundColor Yellow
-Invoke-Test "Install ScoreForm in editable mode (with dev extras)" "$PythonCommand -m pip install -r requirements-dev.txt --quiet"
-
-Write-Host ""
-Write-Host "Checking dependency contract..." -ForegroundColor Yellow
-Invoke-Test "Check dependencies" "powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1"
-
-$pythonScriptsDir = & $Python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
-if ($pythonScriptsDir -and (Test-Path $pythonScriptsDir)) {
-    $env:Path = "$pythonScriptsDir;$env:Path"
-    Write-Host "Added Python Scripts directory to PATH for this test run: $pythonScriptsDir" -ForegroundColor DarkGray
-}
-
-Write-Host ""
-Write-Host "Running pytest suite..." -ForegroundColor Yellow
-Clear-PytestTemp
-Invoke-Test "Run pytest suite" "$PythonCommand -m pytest --basetemp .\.pytest_tmp"
-Clear-PytestTemp
-
-Write-Host ""
-Write-Host "Running Ruff..." -ForegroundColor Yellow
-Invoke-Test "Run Ruff" "$PythonCommand -m ruff check ."
-
-Write-Host ""
-Write-Host "Testing installed scoreform command..." -ForegroundColor Yellow
-Invoke-Test "Show scoreform help" "scoreform --help"
-Invoke-Test "Show scoreform short help" "scoreform -h"
-Invoke-Test "Show scoreform help command" "scoreform help"
-Invoke-Test "Show scoreform version" "scoreform --version"
-Invoke-Test "Show scoreform version command" "scoreform version"
-Invoke-Test "Launch installed scoreform command with menu exit" "Write-Output '5' | scoreform"
-Invoke-Test "Launch installed scoreform menu subcommand and exit" "Write-Output '5' | scoreform menu"
-Invoke-Test "Validate assignment with installed scoreform command" "scoreform validate-assignment examples\sample_assignment.json"
-Invoke-Test "Validate roster with installed scoreform command" "scoreform validate-roster examples\sample_roster_english9_p2.csv"
-$qrValidationCmd = "$PythonCommand -c `"from scoreform.scoring import validate_qr_metadata; assert validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':'1001','page':1}); assert not validate_qr_metadata({'class_id':'../secret','assignment_id':'rj_act1_quiz','student_id':'1001','page':1}); assert not validate_qr_metadata({'class_id':'classes/foo','assignment_id':'rj_act1_quiz','student_id':'1001','page':1}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj.act1.quiz','student_id':'1001','page':1}); assert not validate_qr_metadata({'class_id':'english9_p2','assignment_id':'rj_act1_quiz','student_id':r'C:\Users\Teacher','page':1});`""
-Invoke-Test "Validate QR payload identifier helper" $qrValidationCmd
-
-Write-Host ""
-Write-Host "Testing direct Python main.py compatibility..." -ForegroundColor Yellow
-Invoke-Test "Validate assignment with Python main.py" "$PythonCommand main.py validate-assignment examples\sample_assignment.json"
-Invoke-Test "Validate roster" "$PythonCommand main.py validate-roster examples\sample_roster_english9_p2.csv"
-
-Invoke-Test "Generate generic template" "$PythonCommand main.py generate"
-
-Write-Host ""
-Write-Host "Checking generic template files..." -ForegroundColor Yellow
-Assert-Exists $TemplatePdf
-Assert-Exists $TemplatePng
-
-Invoke-Test "Generate class assignment materials" "$PythonCommand main.py generate examples\sample_assignment.json --rosters examples\sample_roster_english9_p2.csv"
-
-Write-Host ""
-Write-Host "Checking generated class/assignment files..." -ForegroundColor Yellow
-Assert-Exists (Join-Path $SampleClassDir "roster.csv")
-Assert-Exists (Join-Path $SampleAssignmentDir "assignment.json")
-Assert-Exists $SampleTemplatesDir
-Assert-Exists $SampleIndividualDir
-Assert-Exists (Join-Path $SampleTemplatesDir "class_packet.pdf")
-Assert-Exists (Join-Path $SampleIndividualDir "1001_doe_jane.pdf")
-Assert-Exists (Join-Path $SampleIndividualDir "1002_smith_marcus.pdf")
-Assert-Exists (Join-Path $SampleIndividualDir "1003_brown_alyssa.pdf")
-Assert-Exists (Join-Path $SampleAssignmentDir "scans")
-Assert-Exists $SampleDebugDir
-Assert-Exists $ScansInboxDir
-
-$SampleStudentPdf = Join-Path $SampleIndividualDir "1001_doe_jane.pdf"
-$SampleClassPacketPdf = Join-Path $SampleTemplatesDir "class_packet.pdf"
-Invoke-Test "Decode QR from generated individual PDF" "$PythonCommand main.py decode-qr `"$SampleStudentPdf`""
-
-Invoke-Test "Setup assignment folder" "$PythonCommand main.py setup-assignment examples\sample_assignment.json examples\sample_roster_english9_p2.csv"
-
-Invoke-Test "Launch menu help and exit" "Write-Output '4', '', '5' | $PythonCommand main.py menu"
-
-Write-Host ""
-Write-Host "Testing scan inbox picker through menu..." -ForegroundColor Yellow
-Remove-Item $SampleResultsCsv -ErrorAction SilentlyContinue
-Copy-Item $SampleClassPacketPdf $MenuInboxScanPdf -Force
-Set-Content -Path $MenuInboxIgnoredTxt -Value "not a supported scan" -Encoding UTF8
-@(
-    "1",                    # Main menu -> Assignment Management
-    "5",                    # Assignment Management -> Score scanned responses
-    "1",                    # Scoring input menu -> Choose from scans_inbox
-    "1",                    # Select generated menu picker scan
-    "1",                    # Scoring mode -> QR-aware routed scoring (recommended)
-    "",                     # pause after scoring
-    "8",                    # Return to main menu
-    "5"                     # Exit
-) | & $Python main.py menu
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "FAILED: Scan inbox picker through menu" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "PASSED: Scan inbox picker through menu" -ForegroundColor Green
-Assert-Exists $SampleResultsCsv
-Assert-FileContains $SampleResultsCsv "scans/source/"
-Assert-FileContains $SampleResultsCsv "000_menu_picker_class_packet"
-
-Write-Host ""
-Write-Host "Testing collision protection..." -ForegroundColor Yellow
-
-# Verify original assignment.json exists and contains expected title
-$SampleAssignmentJson = Join-Path $SampleAssignmentDir "assignment.json"
-Assert-FileContains $SampleAssignmentJson "Romeo and Juliet Act 1 Quiz"
-Write-Host "CONFIRMED: Original assignment.json has expected title" -ForegroundColor Green
-
-# Create conflicting assignment with same assignment_id but different content
-$conflictingAssignment = @{
-    assignment_id = "rj_act1_quiz"
-    title = "Romeo and Juliet Act 1 Quiz - CONFLICTING VERSION"
-    question_count = 10
-    choices = @("A", "B", "C", "D")
-    answer_key = @{
-        "1" = "B"
-        "2" = "A"
-        "3" = "C"
-        "4" = "D"
-        "5" = "B"
-        "6" = "A"
-        "7" = "B"
-        "8" = "D"
-        "9" = "A"
-        "10" = "C"
+    Invoke-Step "Show installed CLI help" { & $ScoreForm --help }
+    Invoke-Step "Show installed CLI short help" { & $ScoreForm -h }
+    Invoke-Step "Show installed CLI help command" { & $ScoreForm help }
+    Invoke-Step "Show installed CLI version" { & $ScoreForm --version }
+    Invoke-Step "Show installed CLI version command" { & $ScoreForm version }
+    Invoke-Step "Show direct main.py help" { & $Python main.py --help }
+    Invoke-Step "Validate an assignment file" {
+        & $ScoreForm validate-assignment examples\sample_assignment.json
     }
-} | ConvertTo-Json -Depth 5
-[System.IO.File]::WriteAllText($ConflictingAssignmentJson, $conflictingAssignment, (New-Object System.Text.UTF8Encoding $false))
+    Invoke-Step "Validate a roster file" {
+        & $ScoreForm validate-roster examples\sample_roster_english9_p2.csv
+    }
 
-Invoke-Test "Validate conflicting assignment fixture" "$PythonCommand main.py validate-assignment $ConflictingAssignmentJson"
+    if (Test-Path -LiteralPath $SmokeRoot) {
+        throw "Imports/help/version/validation created workspace data: $SmokeRoot"
+    }
 
-# Attempt setup with conflicting assignment - should fail
-Invoke-TestExpectFailure "Attempt setup with conflicting assignment (should fail)" "$PythonCommand main.py setup-assignment $ConflictingAssignmentJson examples\sample_roster_english9_p2.csv"
+    Invoke-MigrationGate "Personalized generation" @(
+        "generate", "examples\sample_assignment.json", "--rosters",
+        "examples\sample_roster_english9_p2.csv"
+    ) "#139"
+    Invoke-MigrationGate "QR-aware scoring" @("score", "missing-scan.pdf") "#143"
+    Invoke-MigrationGate "QR decoding" @("decode-qr", "missing-scan.pdf") "#143"
+    Invoke-MigrationGate "Assignment-folder setup" @(
+        "setup-assignment", "examples\sample_assignment.json",
+        "examples\sample_roster_english9_p2.csv"
+    ) "#139"
 
-# Verify original assignment.json was NOT overwritten
-Assert-FileContains $SampleAssignmentJson "Romeo and Juliet Act 1 Quiz"
-Assert-FileDoesNotContain $SampleAssignmentJson "CONFLICTING VERSION"
-Write-Host "CONFIRMED: Original assignment.json was protected and not overwritten" -ForegroundColor Green
-
-# Clean up test artifact
-Remove-Item $ConflictingAssignmentJson -ErrorAction SilentlyContinue
-
-Invoke-Test "Score generated template PDF with manual defaults" "$PythonCommand main.py score $TemplatePdf examples\answer_key.json"
-
-Write-Host ""
-Write-Host "Checking scoring output files..." -ForegroundColor Yellow
-Assert-Exists $DefaultResultsCsv
-Assert-Exists "$LocalDebugDir\debug_corners_page_1.png"
-Assert-Exists "$LocalDebugDir\debug_warped_page_1.png"
-
-Write-Host ""
-Write-Host "Testing QR-aware scoring..." -ForegroundColor Yellow
-Remove-Item $QrMetadataResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score with QR-aware metadata extraction" "$PythonCommand main.py score `"$SampleStudentPdf`" `"$QrMetadataResultsCsv`""
-
-Write-Host ""
-Write-Host "Checking QR-aware scoring output..." -ForegroundColor Yellow
-Assert-Exists $QrMetadataResultsCsv
-Assert-FileContains $QrMetadataResultsCsv "source_file"
-Assert-FileContains $QrMetadataResultsCsv "scans/source/"
-Assert-FileContains $QrMetadataResultsCsv "1001_doe_jane"
-
-Write-Host ""
-Write-Host "Testing mixed-scan QR-aware scoring..." -ForegroundColor Yellow
-Remove-Item $MixedScanResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with QR-aware mixed-scan mode" "$PythonCommand main.py score `"$SampleClassPacketPdf`" `"$MixedScanResultsCsv`""
-
-Write-Host ""
-Write-Host "Checking mixed-scan scoring output..." -ForegroundColor Yellow
-Assert-Exists $MixedScanResultsCsv
-Assert-FileContains $MixedScanResultsCsv "1001"
-Assert-FileContains $MixedScanResultsCsv "1002"
-Assert-FileContains $MixedScanResultsCsv "1003"
-Assert-FileContains $MixedScanResultsCsv "english9_p2"
-Assert-FileContains $MixedScanResultsCsv "rj_act1_quiz"
-
-Write-Host ""
-Write-Host "Testing result routing..." -ForegroundColor Yellow
-Remove-Item $SampleResultsCsv -ErrorAction SilentlyContinue
-Invoke-Test "Score class packet with result routing" "$PythonCommand main.py score `"$SampleClassPacketPdf`""
-
-Write-Host ""
-Write-Host "Checking routed results output..." -ForegroundColor Yellow
-Assert-Exists $SampleResultsCsv
-Assert-FileContains $SampleResultsCsv "1001"
-Assert-FileContains $SampleResultsCsv "1002"
-Assert-FileContains $SampleResultsCsv "1003"
-Assert-FileContains $SampleResultsCsv "english9_p2"
-Assert-FileContains $SampleResultsCsv "rj_act1_quiz"
-Assert-FileContains $SampleResultsCsv "Doe"
-Assert-FileContains $SampleResultsCsv "Jane"
-Assert-FileContains $SampleResultsCsv "Smith"
-Assert-FileContains $SampleResultsCsv "Marcus"
-Assert-FileContains $SampleResultsCsv "Brown"
-Assert-FileContains $SampleResultsCsv "Alyssa"
-Assert-FileContains $SampleResultsCsv "2"
-Assert-FileContains $SampleResultsCsv "source_file"
-Assert-FileContains $SampleResultsCsv "scans/source/"
-Assert-FileContains $SampleResultsCsv "class_packet"
-Assert-FileContains $SampleResultsCsv "scan_timestamp"
-
-Write-Host ""
-Write-Host "Testing duplicate/attempt handling for routed results..." -ForegroundColor Yellow
-Invoke-Test "Score class packet with result routing again for attempt tracking" "$PythonCommand main.py score `"$SampleClassPacketPdf`""
-Assert-Exists $SampleResultsCsv
-Assert-CsvValueCount $SampleResultsCsv "attempt_number" "1" 3
-Assert-CsvValueCount $SampleResultsCsv "attempt_number" "2" 3
-Assert-FileContains $SampleResultsCsv "source_file"
-Assert-FileContains $SampleResultsCsv "scan_timestamp"
-Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_1.png")
-Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_1.png")
-Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_2.png")
-Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_2.png")
-Assert-Exists (Join-Path $SampleDebugDir "debug_corners_page_3.png")
-Assert-Exists (Join-Path $SampleDebugDir "debug_warped_page_3.png")
-
-Write-Host ""
-Write-Host "Testing roster creation through menu..." -ForegroundColor Yellow
-
-# Clean up test roster if it exists
-Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
-
-# Use piped input to create a test roster through the menu
-# Main menu: 2 = Roster Management
-# Roster menu: 1 = Create a class roster
-# Then respond to prompts
-@(
-    "2",                    # Main menu -> Roster Management
-    "1",                    # Roster menu -> Create a class roster
-    "Menu Test Class V5",   # Class name
-    "000_test_class_v5",    # Override suggested class_id
-    "2026-2027",            # school year
-    "5",                    # period
-    "5001",                 # student 1 id
-    "Test",                 # student 1 last_name
-    "Alice",                # student 1 first_name
-    "y",                    # add another? yes
-    "5002",                 # student 2 id
-    "Student",              # student 2 last_name
-    "Bob",                  # student 2 first_name
-    "n",                    # add another? no
-    "",                     # pause after roster creation output
-    "5",                    # Return to main menu
-    "5"                     # Exit
-) | & $Python main.py menu
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "FAILED: Roster creation through menu" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "PASSED: Roster creation through menu" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Checking roster creation output..." -ForegroundColor Yellow
-Assert-Exists $MenuRosterCsv
-Assert-Exists $MenuClassMetadataJson
-Assert-FileContains $MenuRosterCsv "class_id,student_id,last_name,first_name,period"
-Assert-FileContains $MenuRosterCsv "000_test_class_v5"
-Assert-FileContains $MenuRosterCsv "5001"
-Assert-FileContains $MenuRosterCsv "5002"
-Assert-FileContains $MenuRosterCsv "Alice"
-Assert-FileContains $MenuRosterCsv "Bob"
-Assert-FileContains $MenuClassMetadataJson '"school_year": "2026-2027"'
-
-Invoke-Test "Validate created roster" "$PythonCommand main.py validate-roster $MenuRosterCsv"
-
-Write-Host ""
-Write-Host "Testing assignment creation through menu..." -ForegroundColor Yellow
-
-# Clean up temp assignment if it exists
-Remove-Item $TempAssignmentJson -ErrorAction SilentlyContinue
-
-# Use piped input to create a test assignment through the menu
-@(
-    "1",                        # Main menu -> Assignment Management
-    "1",                        # Assignment menu -> Create an assignment for class(es)
-    "1",                        # Select first available class (000_test_class_v5)
-    "Test Assignment V5",       # title
-    "test_assignment_v5",       # Override suggested assignment_id
-    "10",                       # question_count
-    "A", "B", "C", "D", "A", "B", "C", "D", "A", "B", # Q1-Q10
-    "1",                        # Standards alignment -> Skip standards for now
-    "",                         # pause after assignment creation output
-    "8",                        # Return to main menu
-    "5"                         # Exit
-) | & $Python main.py menu
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "FAILED: Assignment creation through menu" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "PASSED: Assignment creation through menu" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Checking assignment creation output..." -ForegroundColor Yellow
-Assert-Exists $TempAssignmentJson
-Assert-FileContains $TempAssignmentJson "assignment_id"
-Assert-FileContains $TempAssignmentJson "test_assignment_v5"
-Assert-FileContains $TempAssignmentJson "question_count"
-Assert-FileContains $TempAssignmentJson "10"
-Assert-FileContains $TempAssignmentJson "choices"
-Assert-FileContains $TempAssignmentJson "answer_key"
-Assert-FileContains $TempAssignmentJson "standards"
-
-Invoke-Test "Validate created assignment" "$PythonCommand main.py validate-assignment $TempAssignmentJson"
-
-Write-Host ""
-Write-Host "Testing answer sheet generation through menu class/assignment selection..." -ForegroundColor Yellow
-
-@(
-    "1",                        # Main menu -> Assignment Management
-    "4",                        # Assignment Management -> Generate answer sheets
-    "1",                        # Generate menu -> Existing class assignment
-    "1",                        # Select first available class (000_test_class_v5)
-    "1",                        # Select first available assignment (test_assignment_v5)
-    "y",                        # Confirm generation
-    "",                         # pause after generation output
-    "8",                        # Return to main menu
-    "5"                         # Exit
-) | & $Python main.py menu
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "FAILED: Answer sheet generation through menu" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "PASSED: Answer sheet generation through menu" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Checking menu generation output..." -ForegroundColor Yellow
-$MenuAssignmentTemplatesDir = Join-Path $MenuRosterClassDir "assignments\test_assignment_v5\templates"
-Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "class_packet.pdf")
-Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "individual\5001_test_alice.pdf")
-Assert-Exists (Join-Path $MenuAssignmentTemplatesDir "individual\5002_student_bob.pdf")
-
-# Clean up test roster and assignment
-Remove-Item $MenuRosterClassDir -Recurse -Force -ErrorAction SilentlyContinue
-
-Write-Host ""
-Write-Host "All tests passed." -ForegroundColor Green
+    if (Test-Path -LiteralPath $SmokeRoot) {
+        throw "A migration-gated command created partial workspace artifacts: $SmokeRoot"
+    }
 }
 finally {
-    if ($workspaceRootWasSet) {
-        $env:PDS_WORKSPACE_ROOT = $previousWorkspaceRoot
+    if ($workspaceWasSet) {
+        $env:PDS_WORKSPACE_ROOT = $savedWorkspace
     }
     else {
         Remove-Item Env:PDS_WORKSPACE_ROOT -ErrorAction SilentlyContinue
     }
 }
+
+Invoke-Step "Run dependency checker" {
+    powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1
+}
+
+Write-Host ""
+Write-Host "All ScoreForm Core 0.5 foundation checks passed." -ForegroundColor Green

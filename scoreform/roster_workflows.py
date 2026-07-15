@@ -30,6 +30,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.validation import is_safe_identifier, validate_identifier
 from scoreform.workflows import (
@@ -47,8 +48,17 @@ from scoreform.workflows import (
 
 def _offer_sheet_regeneration_after_save(class_id):
     """Offer an explicit next step only when the saved class has assignments."""
-    if not discover_class_assignments(class_id):
+    try:
+        assignments = discover_class_assignments(class_id)
+    except ScoreFormMigrationPendingError:
+        print(
+            "Answer-sheet regeneration is temporarily unavailable during the "
+            "Core 0.5/PDS2 migration (#139 through #141)."
+        )
+        return 0
+    if not assignments:
         print("No assignments found for this class yet.")
+        return 0
         return 0
     print()
     print("Generated answer sheets for this class may be out of date.")

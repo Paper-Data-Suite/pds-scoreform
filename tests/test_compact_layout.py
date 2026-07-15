@@ -1,8 +1,10 @@
 import cv2
 import numpy as np
+import pytest
 
 from scoreform import templates
 from scoreform.layouts import get_layout
+from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.scoring import score_image
 
 
@@ -38,26 +40,13 @@ def _compact_assignment(question_count=50):
 
 
 def test_compact_second_page_renders_global_question_labels(monkeypatch):
-    payloads = []
-    monkeypatch.setattr(
-        templates,
-        "make_qr_image",
-        lambda payload: payloads.append(payload) or object(),
-    )
     canvas = RecordingCanvas()
     student = {"class_id": "class1", "student_id": "1001"}
 
-    assert templates.draw_student_answer_sheet_page(
-        canvas, _compact_assignment(), student, 2
-    )
-    assert "Page 2 of 2" in canvas.text
-    assert "Questions 26-50" in canvas.text
-    assert "26." in canvas.text
-    assert "50." in canvas.text
-    assert "25." not in canvas.text
-    assert payloads == [
-        "PDS1|module=scoreform|class=class1|aid=compact_quiz|sid=1001|page=2"
-    ]
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#140 and #141"):
+        templates.draw_student_answer_sheet_page(
+            canvas, _compact_assignment(), student, 2
+        )
 
 
 def test_compact_synthetic_page_scores_both_columns(tmp_path):

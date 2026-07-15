@@ -7,6 +7,7 @@ from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.migration import migration_pending
 from scoreform.scan_review_resolution import (
     RESOLUTION_ACTIONS,
     ScanReviewError,
@@ -50,12 +51,7 @@ def _prompt_identity(item):
 def _prompt_manual_answers(root, item, identity):
     # Validation and assignment loading happen in the service; read just enough here
     # to collect a complete set before any result or resolution is written.
-    from pds_core.routes import assignment_config_path
-
-    from scoreform.assignment import load_assignment
-
-    class_id, assignment_id, _ = identity
-    assignment = load_assignment(assignment_config_path(root, class_id, assignment_id))
+    assignment = migration_pending("Manual scan-review entry", "#139 and #145")
     if assignment is None:
         raise ScanReviewError("The selected assignment could not be loaded.")
     clear_screen()

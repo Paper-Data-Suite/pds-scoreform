@@ -147,7 +147,7 @@ def test_menu_help_can_return_to_menu_and_exit():
     assert "Goodbye." in output
 
 
-def test_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_path, monkeypatch, capsys):
+def legacy_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     workflows.write_roster_csv(
         str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
@@ -219,7 +219,7 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
     assert "Goodbye." in output
 
 
-def test_menu_view_assignment_results_displays_selected_assignment_results(
+def legacy_menu_view_assignment_results_displays_selected_assignment_results(
     tmp_path,
     monkeypatch,
     capsys,
@@ -335,7 +335,7 @@ def test_generate_menu_clears_lists_before_assignment_and_confirmation(
     assert "Assignment: quiz_1" in confirmation_screen
 
 
-def test_menu_view_assignment_results_reports_missing_results_csv(
+def legacy_menu_view_assignment_results_reports_missing_results_csv(
     tmp_path,
     monkeypatch,
     capsys,

@@ -5,11 +5,6 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
-from pds_core.pds1 import Pds1PayloadError, parse_pds1_payload
-from pds_core.qr_payload import QrPayloadValidationError
-from pds_core.routes import assignment_config_path as core_assignment_config_path
-from pds_core.routes import assignment_debug_dir as core_assignment_debug_dir
-from pds_core.routes import assignment_dir as core_assignment_dir
 from pds_core.scan_retention import SourceRetentionError, retain_source_scan
 
 from scoreform import workspace
@@ -20,6 +15,7 @@ from scoreform.config import (
     MAX_ASSIGNMENT_QUESTION_COUNT,
 )
 from scoreform.layouts import AnswerSheetLayout, get_layout
+from scoreform.migration import migration_pending
 from scoreform.paging import (
     page_count_for_question_count,
     question_count_for_page,
@@ -795,39 +791,8 @@ def validate_qr_metadata(qr_metadata):
 
 
 def parse_qr_payload(payload):
-    """Parse a ScoreForm PDS1 payload and return metadata dict or None."""
-    if payload is None:
-        print("Error: QR payload is None")
-        return None
-
-    payload = payload.strip()
-
-    if not payload:
-        print("Error: QR payload is empty")
-        return None
-
-    if not payload.startswith("PDS1"):
-        print("Error: QR payload invalid: unsupported payload schema; expected PDS1.")
-        return None
-
-    try:
-        parsed_payload = parse_pds1_payload(payload)
-        if parsed_payload.module != "scoreform":
-            print(
-                "Error: QR payload invalid: "
-                f"expected module 'scoreform', got '{parsed_payload.module}'"
-            )
-            return None
-    except (Pds1PayloadError, QrPayloadValidationError) as error:
-        print(f"Error: QR payload invalid: {error}")
-        return None
-
-    return {
-        "class_id": parsed_payload.class_id,
-        "assignment_id": parsed_payload.assignment_id,
-        "student_id": parsed_payload.student_id,
-        "page": parsed_payload.page,
-    }
+    """Reject scan payload parsing until PDS2 dispatch is implemented."""
+    migration_pending("QR payload parsing", "#143")
 
 
 def _try_decode_qr(detector, img):
@@ -1273,28 +1238,7 @@ def _qr_output_paths_for_results(
     explicit_output_file=None,
     workspace_root=None,
 ):
-    if explicit_output_file:
-        return [explicit_output_file]
-
-    paths = []
-    if workspace_root is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
-    for res in all_results:
-        class_id = res.get("class_id")
-        assignment_id = res.get("assignment_id")
-        if class_id and assignment_id:
-            paths.append(
-                os.fspath(
-                    core_assignment_dir(
-                        workspace_root,
-                        class_id,
-                        assignment_id,
-                    )
-                    / "results.csv"
-                )
-            )
-
-    return list(dict.fromkeys(paths))
+    migration_pending("QR-aware result routing", "#139 and #143")
 
 
 def print_qr_batch_summary(summary):
@@ -1401,15 +1345,7 @@ def _score_page_qr_aware_assignment_path(
     assignment_id,
     workspace_root=None,
 ):
-    if workspace_root is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
-    return os.fspath(
-        core_assignment_config_path(
-            workspace_root,
-            class_id,
-            assignment_id,
-        )
-    )
+    migration_pending("QR-aware assignment lookup", "#139 and #143")
 
 
 def _load_qr_aware_assignment(assignment_path, page_num, summary):
@@ -1604,6 +1540,8 @@ def process_file_qr_aware(file_path, workspace_root=None):
     Returns a list of structured results for each successfully scored page,
     or an empty list if no pages were scored successfully.
     """
+    migration_pending("QR-aware scan scoring", "#143")
+
     summary = QRBatchSummary()
     all_results = QRBatchResults(summary=summary)
 
@@ -1741,6 +1679,8 @@ def _score_page_qr_aware(
     
     Returns a scored result dict with metadata, or None on failure.
     """
+    migration_pending("QR-aware page scoring", "#143")
+
     # Step 1: Decode QR metadata
     qr_metadata = _score_page_qr_aware_decode_metadata(
         img,
@@ -1826,13 +1766,7 @@ def _score_page_qr_aware(
 
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-    debug_dir = os.fspath(
-        core_assignment_debug_dir(
-            workspace_root,
-            class_id,
-            assignment_id,
-        )
-    )
+    debug_dir = migration_pending("QR-aware debug routing", "#139 and #143")
     result = _score_qr_aware_image(
         img,
         answer_key,

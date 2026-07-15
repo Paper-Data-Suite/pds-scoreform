@@ -3,167 +3,98 @@ $ErrorActionPreference = "Continue"
 $RepoRoot = $PSScriptRoot
 $VenvDir = Join-Path $RepoRoot ".venv"
 $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
-$PdsCoreDir = Join-Path (Split-Path -Parent $RepoRoot) "pds-core"
 $script:Failures = 0
 
-function Pass {
-    param ([string]$Message)
-
+function Pass([string]$Message) {
     Write-Host "PASS: $Message" -ForegroundColor Green
 }
 
-function Fail {
-    param ([string]$Message)
-
+function Fail([string]$Message) {
     Write-Host "FAIL: $Message" -ForegroundColor Red
     $script:Failures += 1
 }
 
-function Info {
-    param ([string]$Message)
-
+function Info([string]$Message) {
     Write-Host $Message -ForegroundColor DarkGray
 }
 
-function Test-PythonExecutable {
-    param (
-        [string]$Path
-    )
-
-    try {
-        $output = & $Path --version 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            return ($output -join "`n")
-        }
-    }
-    catch {
-        return $null
-    }
-
-    return $null
-}
-
 function Check-PythonImport {
-    param (
-        [string]$Module,
-        [string]$DisplayName = $Module
-    )
+    param([string]$Module, [string]$DisplayName = $Module)
 
-    if (-not (Test-Path -LiteralPath $VenvPython -PathType Leaf)) {
-        Fail "Cannot check import '$DisplayName' because .venv\Scripts\python.exe is missing."
-        return
-    }
-
-    $output = & $VenvPython -c "import $Module" 2>&1
+    $output = & $Python -c "import $Module" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Pass "$DisplayName is importable from .venv."
-        return
+        Pass "$DisplayName is importable."
     }
-
-    Fail "$DisplayName is not importable from .venv."
-    if ($output) {
-        Info ($output -join "`n")
+    else {
+        Fail "$DisplayName is not importable in the selected ScoreForm environment."
+        if ($output) { Info ($output -join "`n") }
     }
 }
 
 Write-Host "=== ScoreForm Dependency Check ===" -ForegroundColor Cyan
 Info "Repository: $RepoRoot"
-Write-Host ""
-
-$venvPythonVersion = $null
-if (Test-Path -LiteralPath $VenvPython -PathType Leaf) {
-    $venvPythonVersion = Test-PythonExecutable $VenvPython
-}
-
-if ($venvPythonVersion) {
-    Pass "Python is available through the repo-local virtual environment: $venvPythonVersion"
-}
-else {
-    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-    if ($pythonCommand) {
-        $pythonVersion = Test-PythonExecutable $pythonCommand.Source
-        if ($pythonVersion) {
-            Pass "Python is available on PATH: $pythonVersion"
-        }
-        else {
-            Fail "Python command exists but did not run successfully."
-        }
-    }
-    else {
-        Fail "Python was not found on PATH and .venv\Scripts\python.exe is unavailable."
-    }
-}
 
 if (Test-Path -LiteralPath $VenvDir -PathType Container) {
-    Pass "Repo-local virtual environment exists: .venv"
-}
-else {
-    Fail "Repo-local virtual environment is missing: .venv"
-}
-
-if (Test-Path -LiteralPath $VenvPython -PathType Leaf) {
-    if ($venvPythonVersion) {
-        Pass ".venv\Scripts\python.exe exists and runs: $venvPythonVersion"
+    if (-not (Test-Path -LiteralPath $VenvPython -PathType Leaf)) {
+        Fail "The repo-local .venv exists but .venv\Scripts\python.exe is missing. Recreate it with Python 3.11 or newer."
+        Write-Host "Dependency check failed." -ForegroundColor Red
+        exit 1
     }
-    else {
-        Fail ".venv\Scripts\python.exe exists but did not run successfully."
+    $Python = $VenvPython
+    Pass "Using the repo-local virtual environment."
+}
+else {
+    $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $PythonCommand) {
+        Fail "Python was not found. Install Python 3.11 or newer, create .venv, then run: .venv\Scripts\python.exe -m pip install -e `".[dev]`""
+        Write-Host "Dependency check failed." -ForegroundColor Red
+        exit 1
     }
+    $Python = $PythonCommand.Source
+    Info "No repo-local .venv exists; checking Python from PATH: $Python"
+}
+
+$versionText = & $Python -c "import sys; print('.'.join(map(str, sys.version_info[:3]))); raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Pass "Python $versionText satisfies >=3.11."
 }
 else {
-    Fail ".venv\Scripts\python.exe is missing."
+    Fail "Python $versionText is unsupported; ScoreForm requires Python 3.11 or newer."
 }
 
-if (Test-Path -LiteralPath $PdsCoreDir -PathType Container) {
-    Pass "Sibling pds-core repo exists: ..\pds-core"
-}
-else {
-    Fail @"
-Missing sibling repo.
+Check-PythonImport "scoreform" "ScoreForm"
+Check-PythonImport "pds_core" "pds-core"
 
-Expected layout:
-Paper-Data-Suite/
-  pds-core/
-  pds-scoreform/
-
-Fix:
-Clone pds-core beside pds-scoreform, then rerun:
-
-.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-"@
-}
-
-if (Test-Path -LiteralPath $VenvPython -PathType Leaf) {
-    $pdsCoreOutput = & $VenvPython -c "import pds_core" 2>&1
+$coreVersion = & $Python -c "from importlib.metadata import version; print(version('pds-core'))" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Info "Installed pds-core distribution version: $coreVersion"
+    $coreRangeOutput = & $Python -c "from importlib.metadata import version; from pip._vendor.packaging.specifiers import SpecifierSet; value=version('pds-core'); raise SystemExit(0 if value in SpecifierSet('>=0.5,<0.6') else 1)" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Pass "pds_core is importable from .venv."
-    }
-    elseif (Test-Path -LiteralPath $PdsCoreDir -PathType Container) {
-        Fail @"
-pds-core exists but is not importable in this virtual environment.
-
-Fix:
-.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-"@
-        if ($pdsCoreOutput) {
-            Info ($pdsCoreOutput -join "`n")
-        }
+        Pass "pds-core $coreVersion satisfies >=0.5,<0.6."
     }
     else {
-        Fail "pds_core is not importable because the sibling ..\pds-core repo is missing."
+        Fail "pds-core $coreVersion is incompatible; install a version in >=0.5,<0.6."
     }
-
-    Check-PythonImport "scoreform" | Out-Null
-
-    Write-Host ""
-    Write-Host "Checking third-party Python imports..." -ForegroundColor Yellow
-    Check-PythonImport "cv2" | Out-Null
-    Check-PythonImport "numpy" | Out-Null
-    Check-PythonImport "reportlab" | Out-Null
-    Check-PythonImport "PIL" | Out-Null
-    Check-PythonImport "pdf2image" | Out-Null
 }
 else {
-    Fail "Skipped Python import checks because .venv\Scripts\python.exe is missing."
+    Fail "The pds-core distribution is not installed. Run: $Python -m pip install -e `".[dev]`""
+}
+
+Write-Host ""
+Write-Host "Checking third-party Python imports..." -ForegroundColor Yellow
+Check-PythonImport "cv2" "opencv-python (cv2)"
+Check-PythonImport "numpy"
+Check-PythonImport "reportlab"
+Check-PythonImport "PIL" "Pillow (PIL)"
+Check-PythonImport "pdf2image"
+
+$pipCheck = & $Python -m pip check 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Pass "pip reports a consistent installed dependency set."
+}
+else {
+    Fail "pip detected dependency conflicts. Run: $Python -m pip install -e `".[dev]`""
+    if ($pipCheck) { Info ($pipCheck -join "`n") }
 }
 
 Write-Host ""
@@ -183,4 +114,5 @@ if ($script:Failures -eq 0) {
 }
 
 Write-Host "Dependency check failed with $script:Failures required problem(s)." -ForegroundColor Red
+Write-Host "Remediation: install Python 3.11+, create .venv, and run .venv\Scripts\python.exe -m pip install -e `".[dev]`"" -ForegroundColor Yellow
 exit 1
