@@ -43,7 +43,6 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
-from scoreform.migration import migration_pending
 from scoreform.roster import _core_roster_to_legacy_dict, load_roster
 from scoreform.standards_workflows import (
     attach_standard_to_questions as attach_standard_to_questions,
@@ -58,6 +57,10 @@ from scoreform.standards_workflows import (
     parse_question_selection as parse_question_selection,
 )
 from scoreform.validation import validate_identifier
+from scoreform.work_paths import (
+    scoreform_work_collection_dir,
+    scoreform_work_paths,
+)
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
 GREEN_ANSI = "\033[32m"
@@ -240,71 +243,77 @@ def _discover_class_rosters_in_legacy_directory(classes_dir):
     return discovered
 
 
-def discover_class_assignments(class_id, classes_dir=None):
-    """Return valid assignments discovered under classes/<class_id>/assignments/*."""
-    migration_pending("Assignment discovery", "#139")
+def discover_class_assignments(
+    class_id,
+    classes_dir=None,
+    *,
+    workspace_root=None,
+):
+    """Discover valid direct children of one class's ScoreForm work collection."""
+    if classes_dir is not None and workspace_root is not None:
+        raise ValueError("Pass either classes_dir or workspace_root, not both.")
+    if workspace_root is not None:
+        root = Path(workspace_root)
+    elif classes_dir is None:
+        root = workspace.get_scoreform_workspace_root()
+    else:
+        supplied = Path(classes_dir)
+        root = supplied.parent if supplied.name == "classes" else supplied
 
+    collection_dir = scoreform_work_collection_dir(root, class_id)
+    if collection_dir.is_symlink() or not collection_dir.is_dir():
+        return []
 
-def _load_discovered_assignments(assignment_folders):
-    """Load ScoreForm assignment records from routed assignment folders."""
     discovered = []
-    for folder in assignment_folders:
-        assignment_path = folder.assignment_dir / "assignment.json"
-        if not assignment_path.exists():
+    for work_root in sorted(collection_dir.iterdir(), key=lambda entry: entry.name):
+        if work_root.is_symlink() or not work_root.is_dir():
             continue
 
-        assignment = load_assignment(assignment_path)
+        try:
+            paths = scoreform_work_paths(root, class_id, work_root.name)
+        except (TypeError, ValueError) as error:
+            print(f"Skipping unsafe ScoreForm work directory '{work_root}': {error}")
+            continue
+
+        if not paths.assignment_path.is_file():
+            if paths.assignment_path.exists():
+                print(
+                    "Skipping ScoreForm work whose assignment.json is not a file: "
+                    f"{paths.assignment_path}"
+                )
+            continue
+
+        assignment = load_assignment(paths.assignment_path)
         if assignment is None:
-            print(f"Skipping invalid assignment: {assignment_path}")
+            print(f"Skipping invalid assignment: {paths.assignment_path}")
             continue
 
         assignment_id = assignment.get("assignment_id")
-        if assignment_id != folder.assignment_id:
+        if assignment_id != paths.work_ref.work_id:
             print(
-                f"Skipping assignment with mismatched assignment_id: {assignment_path} "
-                f"(folder '{folder.assignment_id}', assignment '{assignment_id}')"
+                "Skipping assignment with mismatched assignment_id: "
+                f"{paths.assignment_path} (work '{paths.work_ref.work_id}', "
+                f"assignment '{assignment_id}')"
             )
             continue
 
         discovered.append({
+            "class_id": class_id,
             "assignment_id": assignment_id,
-            "assignment_path": os.fspath(assignment_path),
+            "work_ref": paths.work_ref,
+            "work_root": os.fspath(paths.work_root),
+            "assignment_path": os.fspath(paths.assignment_path),
+            "roster_path": os.fspath(paths.roster_path),
+            "templates_dir": os.fspath(paths.templates_dir),
+            "individual_templates_dir": os.fspath(paths.individual_templates_dir),
+            "class_packet_path": os.fspath(paths.class_packet_path),
+            "scans_dir": os.fspath(paths.scans_dir),
+            "results_path": os.fspath(paths.results_path),
+            "debug_dir": os.fspath(paths.debug_dir),
             "assignment": assignment,
         })
 
     return discovered
-
-
-def _discover_class_assignments_in_legacy_directory(class_id, classes_dir):
-    """Preserve explicit discovery for non-canonical class directories."""
-    assignments_dir = classes_dir / class_id / "assignments"
-    if not assignments_dir.is_dir():
-        return []
-
-    assignment_folders = []
-    for assignment_dir in sorted(
-        assignments_dir.iterdir(),
-        key=lambda entry: entry.name,
-    ):
-        if not assignment_dir.is_dir():
-            continue
-
-        assignment_folders.append(
-            _LegacyAssignmentFolder(
-                assignment_id=assignment_dir.name,
-                assignment_dir=assignment_dir,
-            )
-        )
-
-    return _load_discovered_assignments(assignment_folders)
-
-
-class _LegacyAssignmentFolder:
-    """Minimal folder record for non-canonical explicit classes directories."""
-
-    def __init__(self, assignment_id, assignment_dir):
-        self.assignment_id = assignment_id
-        self.assignment_dir = assignment_dir
 
 
 def parse_single_selection(selection_text, available_items, item_label):

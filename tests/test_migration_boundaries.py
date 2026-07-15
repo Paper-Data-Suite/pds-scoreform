@@ -17,11 +17,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize(
     "args, issue",
     [
-        (["generate", "assignment.json", "--rosters", "roster.csv"], "#139"),
-        (["regenerate-sheets", "--class-id", "class1", "--all-assignments"], "#139"),
+        (["generate", "assignment.json", "--rosters", "roster.csv"], "#140"),
+        (["regenerate-sheets", "--class-id", "class1", "--all-assignments"], "#140"),
         (["score", "scan.pdf"], "#143"),
         (["decode-qr", "scan.pdf"], "#143"),
-        (["setup-assignment", "assignment.json", "roster.csv"], "#139"),
         (["resolve-scan-review", "failure1", "--action", "defer"], "#145"),
     ],
 )
@@ -37,6 +36,20 @@ def test_migration_dependent_cli_commands_fail_cleanly_without_writes(
     assert "temporarily unavailable during the Core 0.5/PDS2 migration" in output
     assert issue in output
     assert "partial routing artifacts" in output
+    assert not workspace_root.exists()
+
+
+def test_setup_assignment_is_available_and_invalid_inputs_do_not_create_workspace(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    workspace_root = tmp_path / "workspace-must-not-exist"
+    monkeypatch.setenv("PDS_WORKSPACE_ROOT", os.fspath(workspace_root))
+
+    assert scoreform.cli.main(
+        ["setup-assignment", "assignment.json", "roster.csv"]
+    ) == 1
+
+    assert "not found" in capsys.readouterr().out
     assert not workspace_root.exists()
 
 

@@ -26,6 +26,7 @@ from scoreform.validation import (
     is_safe_identifier,
     validate_identifier,
 )
+from scoreform.work_paths import scoreform_work_paths
 
 CORNER_ZONE_FRACTION = 0.22
 MIN_REGISTRATION_SIZE_RATIO = 0.65
@@ -1238,7 +1239,23 @@ def _qr_output_paths_for_results(
     explicit_output_file=None,
     workspace_root=None,
 ):
-    migration_pending("QR-aware result routing", "#139 and #143")
+    if explicit_output_file:
+        return [os.fspath(explicit_output_file)]
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+    paths = []
+    for result in all_results:
+        class_id = result.get("class_id")
+        assignment_id = result.get("assignment_id")
+        if not class_id or not assignment_id:
+            continue
+        target = scoreform_work_paths(
+            workspace_root,
+            class_id,
+            assignment_id,
+        ).results_path
+        paths.append(os.fspath(target))
+    return list(dict.fromkeys(paths))
 
 
 def print_qr_batch_summary(summary):
@@ -1345,7 +1362,11 @@ def _score_page_qr_aware_assignment_path(
     assignment_id,
     workspace_root=None,
 ):
-    migration_pending("QR-aware assignment lookup", "#139 and #143")
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+    return os.fspath(
+        scoreform_work_paths(workspace_root, class_id, assignment_id).assignment_path
+    )
 
 
 def _load_qr_aware_assignment(assignment_path, page_num, summary):
@@ -1766,7 +1787,9 @@ def _score_page_qr_aware(
 
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-    debug_dir = migration_pending("QR-aware debug routing", "#139 and #143")
+    debug_dir = os.fspath(
+        scoreform_work_paths(workspace_root, class_id, assignment_id).debug_dir
+    )
     result = _score_qr_aware_image(
         img,
         answer_key,

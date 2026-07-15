@@ -39,7 +39,6 @@ from scoreform.menu_navigation import (
 )
 from scoreform.migration import (
     ScoreFormMigrationPendingError,
-    migration_pending,
     print_migration_error,
 )
 from scoreform.roster import load_roster
@@ -182,8 +181,6 @@ def run_setup_assignment(args):
     if len(args) != 2:
         print("Usage: scoreform setup-assignment <assignment_json> <roster_csv>")
         return 1
-
-    migration_pending("Assignment-folder setup", "#139")
 
     from scoreform.folders import setup_assignment_folder
 

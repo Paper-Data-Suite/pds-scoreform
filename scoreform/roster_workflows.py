@@ -48,14 +48,7 @@ from scoreform.workflows import (
 
 def _offer_sheet_regeneration_after_save(class_id):
     """Offer an explicit next step only when the saved class has assignments."""
-    try:
-        assignments = discover_class_assignments(class_id)
-    except ScoreFormMigrationPendingError:
-        print(
-            "Answer-sheet regeneration is temporarily unavailable during the "
-            "Core 0.5/PDS2 migration (#139 through #141)."
-        )
-        return 0
+    assignments = discover_class_assignments(class_id)
     if not assignments:
         print("No assignments found for this class yet.")
         return 0
@@ -69,9 +62,16 @@ def _offer_sheet_regeneration_after_save(class_id):
     if choice != "1":
         print("Answer sheets were not changed.")
         return 0
-    return generate_workflows.launch_regenerate_sheets_menu(
-        preselected_class_id=class_id
-    )
+    try:
+        return generate_workflows.launch_regenerate_sheets_menu(
+            preselected_class_id=class_id
+        )
+    except ScoreFormMigrationPendingError:
+        print(
+            "Answer-sheet regeneration is temporarily unavailable pending "
+            "page-record and route-registration work (#140 and #141)."
+        )
+        return 0
 
 
 def format_roster_for_display(class_record):

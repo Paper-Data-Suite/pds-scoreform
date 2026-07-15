@@ -143,7 +143,7 @@ def test_menu_help_can_return_to_menu_and_exit():
     output = combined_output(result)
     assert "ScoreForm\nHelp" in output
     assert "Typical workflow:" in output
-    assert "classes/<class_id>/assignments/<assignment_id>/results.csv" in output
+    assert "classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv" in output
     assert "Goodbye." in output
 
 

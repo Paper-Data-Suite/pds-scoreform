@@ -55,7 +55,7 @@ The project currently supports:
 * Result routing to assignment folders for QR-aware scoring
 * QR decode preprocessing fallbacks for phone-scan reliability, including grayscale,
   thresholding, upscaling, and generous upper-right QR-region crops
-* Routed result CSV output at `classes/<class_id>/assignments/<assignment_id>/results.csv`
+* Routed result CSV output at `classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`
 * Routed result CSV writes use same-directory temporary files and replacement so existing results remain intact if a write or replace fails
 * Routed result export validates existing CSV headers before preserving rows and appending new attempts
 * Routed CSV output containing page, class, assignment, student, roster, score, total, and answer columns
@@ -173,18 +173,20 @@ delete workspace data.
   classes/
     english9_p2/
       roster.csv
-      assignments/
-        rj_act1_quiz/
-          assignment.json
-          results.csv
-          templates/
-            class_packet.pdf
-            individual/
-              1001_doe_jane.pdf
-              1002_smith_marcus.pdf
-              1003_brown_alyssa.pdf
-          scans/
-          debug/
+      modules/
+        scoreform/
+          work/
+            rj_act1_quiz/
+              assignment.json
+              results.csv
+              templates/
+                class_packet.pdf
+                individual/
+                  1001_doe_jane.pdf
+                  1002_smith_marcus.pdf
+                  1003_brown_alyssa.pdf
+              scans/
+              debug/
   scans_inbox/
   local_outputs/
     templates/
@@ -205,7 +207,7 @@ delete workspace data.
 The `classes/` structure is the classroom assignment output model.
 `local_outputs/` is for generic templates, legacy/manual default results,
 manual debug images, and regression-test scratch files. Both live directly
-under the workspace root, without an added `scoreform/` namespace. User-provided
+under the workspace root; managed class work is module-qualified. User-provided
 explicit input and output paths are still honored.
 
 ---
@@ -327,13 +329,13 @@ python main.py score scanned_file.pdf
 Uses QR metadata to locate:
 
 ```text
-classes/<class_id>/assignments/<assignment_id>/assignment.json
+classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json
 ```
 
 Then scores each page using that assignment's answer key and routes results to:
 
 ```text
-classes/<class_id>/assignments/<assignment_id>/results.csv
+classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
 ```
 
 Routed results include roster fields when `classes/<class_id>/roster.csv` is available.
@@ -470,7 +472,7 @@ Keep scan files organized.
 * Workspace-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
 * `ensure_scan_inbox()` helper in `scoreform/folders.py`.
 * Interactive menu scoring can pick supported `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif` files directly from `scans_inbox/`.
-* After scan selection, the default recommended menu mode is QR-aware routed scoring, which uses QR metadata to route results to `classes/<class_id>/assignments/<assignment_id>/results.csv`.
+* After scan selection, the default recommended menu mode is QR-aware routed scoring, which uses QR metadata to route results to `classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`.
 * Manual menu scoring with an answer key remains available for non-QR sheets, generic templates, testing, and exceptional workflows.
 * Unsupported inbox files are ignored, and custom path entry remains available.
 * Source file tracking already enabled in routed results.
@@ -483,10 +485,12 @@ scans_inbox/
 
 classes/
   english9_p2/
-    assignments/
-      rj_act1_quiz/
-        scans/
-          mixed_scan_2026_09_15.pdf
+    modules/
+      scoreform/
+        work/
+          rj_act1_quiz/
+            scans/
+              mixed_scan_2026_09_15.pdf
 ```
 
 ## Decision Needed (Future Phase)
@@ -556,9 +560,11 @@ For QR-aware routed scoring, debug images should route to:
 ```text
 classes/
   english9_p2/
-    assignments/
-      rj_act1_quiz/
-        debug/
+    modules/
+      scoreform/
+        work/
+          rj_act1_quiz/
+            debug/
 ```
 
 ## Requirements
@@ -952,7 +958,7 @@ Assignment creation workflow:
 5. Enter an assignment title
 6. Accept or edit the suggested assignment_id
 7. Enter question count and answer key
-8. ScoreForm writes assignment JSON to `classes/<class_id>/assignments/<assignment_id>/assignment.json`
+8. ScoreForm writes assignment JSON to `classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json`
 
 Features:
 

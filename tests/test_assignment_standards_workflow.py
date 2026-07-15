@@ -1,11 +1,9 @@
-"""Interim boundary coverage for assignment creation migration issue #139."""
-
-import pytest
+"""Assignment creation is available on module-qualified storage."""
 
 from scoreform import assignment_workflows
-from scoreform.migration import ScoreFormMigrationPendingError
 
 
-def test_assignment_creation_stops_before_standards_or_storage_writes() -> None:
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139"):
-        assignment_workflows.prompt_create_assignment()
+def test_assignment_creation_reports_missing_rosters(monkeypatch) -> None:
+    monkeypatch.setattr(assignment_workflows, "discover_class_rosters", lambda: [])
+
+    assert assignment_workflows.prompt_create_assignment() == 1

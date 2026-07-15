@@ -29,7 +29,10 @@ def _write_results(path, rows, fieldnames=None):
 
 
 def test_load_assignment_results_reads_valid_results_csv(tmp_path):
-    path = tmp_path / "classes" / "english12_p3" / "assignments" / "final_exam" / "results.csv"
+    path = (
+        tmp_path / "classes" / "english12_p3" / "modules" / "scoreform"
+        / "work" / "final_exam" / "results.csv"
+    )
     _write_results(
         path,
         [

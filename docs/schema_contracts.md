@@ -221,8 +221,16 @@ scans needs a separate template-versioning and deprecation decision.
 PDS Core supplies the canonical route; ScoreForm writes:
 
 ```text
-<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv
+<PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
 ```
+
+For ScoreForm, `assignment_id` is the module-owned `work_id`; complete identity
+is `module_id="scoreform" + class_id + work_id`. The shared roster remains at
+`classes/<class_id>/roster.csv`. `assignment.json`, `templates/`, `scans/`,
+`results.csv`, and `debug/` are direct ScoreForm work descendants. Core owns any
+immutable `routes/` registrations. Active discovery is direct-child-only within
+the ScoreForm collection and has no recursive, sibling-module, or legacy-layout
+fallback.
 
 The exact header order is:
 

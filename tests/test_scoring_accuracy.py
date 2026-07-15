@@ -97,7 +97,10 @@ def test_non_overwriting_path_skips_existing_suffixes(tmp_path):
 
 
 def test_non_overwriting_path_preserves_extension_and_directory(tmp_path):
-    debug_dir = tmp_path / "classes" / "english9_p2" / "assignments" / "quiz" / "debug"
+    debug_dir = (
+        tmp_path / "classes" / "english9_p2" / "modules" / "scoreform"
+        / "work" / "quiz" / "debug"
+    )
     debug_dir.mkdir(parents=True)
     path = debug_dir / "debug_warped_page_2.jpeg"
     path.write_text("existing", encoding="utf-8")

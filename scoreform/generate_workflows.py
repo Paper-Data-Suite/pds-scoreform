@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from pds_core.routes import class_roster_path
+
 from scoreform import workspace
 from scoreform.assignment import load_assignment
 from scoreform.folders import setup_assignment_folder
@@ -23,6 +25,7 @@ from scoreform.templates import (
     student_pdf_filename,
 )
 from scoreform.validation import is_safe_identifier
+from scoreform.work_paths import scoreform_work_paths
 from scoreform.workflows import (
     clear_screen,
     discover_class_assignments,
@@ -49,7 +52,7 @@ class RegenerateSheetsResult:
 
 
 def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_root=None):
-    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+    migration_pending("Managed answer-sheet regeneration", "#140 and #141")
 
     """Regenerate one assignment from its current managed roster and assignment."""
     if not is_safe_identifier(class_id):
@@ -58,10 +61,9 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
         raise ValueError(f"Unsafe assignment_id: {assignment_id!r}")
 
     root = Path(workspace_root or workspace.get_scoreform_workspace_root())
-    class_dir = root / "classes" / class_id
-    roster_path = class_dir / "roster.csv"
-    assignment_dir = class_dir / "assignments" / assignment_id
-    assignment_path = assignment_dir / "assignment.json"
+    paths = scoreform_work_paths(root, class_id, assignment_id)
+    roster_path = paths.roster_path
+    assignment_path = paths.assignment_path
     if not roster_path.is_file():
         raise FileNotFoundError(f"Managed roster not found for class '{class_id}': {roster_path}")
     if not assignment_path.is_file():
@@ -84,8 +86,8 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
             "Managed assignment identifier does not match its assignment folder."
         )
 
-    templates_dir = assignment_dir / "templates"
-    individual_dir = templates_dir / "individual"
+    templates_dir = paths.templates_dir
+    individual_dir = paths.individual_templates_dir
     individual_dir.mkdir(parents=True, exist_ok=True)
     expected_names = {student_pdf_filename(student) for student in roster["students"]}
     existing_names = {
@@ -101,7 +103,7 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
                 f"in assignment '{assignment_id}'."
             )
 
-    packet_path = templates_dir / "class_packet.pdf"
+    packet_path = paths.class_packet_path
     templates_dir.mkdir(parents=True, exist_ok=True)
     if not generate_class_packet_pdf(os.fspath(packet_path), assignment, roster):
         raise RuntimeError(f"Failed to generate class packet for assignment '{assignment_id}'.")
@@ -123,19 +125,17 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
 
 
 def regenerate_answer_sheets_for_class(class_id, workspace_root=None):
-    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+    migration_pending("Managed answer-sheet regeneration", "#140 and #141")
 
     """Regenerate every managed assignment for a class, failing fast."""
     if not is_safe_identifier(class_id):
         raise ValueError(f"Unsafe class_id: {class_id!r}")
     root = Path(workspace_root or workspace.get_scoreform_workspace_root())
-    assignments_dir = root / "classes" / class_id / "assignments"
-    if not (root / "classes" / class_id / "roster.csv").is_file():
+    assignments = discover_class_assignments(class_id, workspace_root=root)
+    roster_path = class_roster_path(root, class_id)
+    if not roster_path.is_file():
         raise FileNotFoundError(f"Managed roster not found for class '{class_id}'.")
-    assignment_ids = sorted(
-        path.parent.name for path in assignments_dir.glob("*/assignment.json")
-        if is_safe_identifier(path.parent.name)
-    ) if assignments_dir.is_dir() else []
+    assignment_ids = [record["assignment_id"] for record in assignments]
     if not assignment_ids:
         raise FileNotFoundError(f"No managed assignments found for class '{class_id}'.")
     return tuple(
@@ -157,7 +157,7 @@ def _print_stale_note(result, *, include_examples=False):
 
 
 def run_regenerate_sheets(args):
-    migration_pending("Managed answer-sheet regeneration", "#139 through #141")
+    migration_pending("Managed answer-sheet regeneration", "#140 and #141")
 
     """Run the non-interactive managed answer-sheet regeneration command."""
     usage = (
@@ -362,7 +362,7 @@ def run_generate(args):
         generate_template()
         return 0
 
-    migration_pending("Personalized answer-sheet generation", "#139 through #141")
+    migration_pending("Personalized answer-sheet generation", "#140 and #141")
 
     assignment_file = args[0]
     if "--rosters" not in args[1:]:

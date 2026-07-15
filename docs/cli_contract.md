@@ -20,19 +20,19 @@ compatibility use.
 
 ### Core 0.5/PDS2 foundation state
 
-During the staged Core 0.5 migration, commands that require module-qualified
-assignment storage, authoritative answer-sheet page records, PDS2 route
-registrations, PDS2 scan dispatch, or scan-review schema v2 are deliberately
-gated. Personalized/class-packet generation, managed regeneration,
-assignment-folder setup and discovery, QR decoding/routed scoring, and
-scan-review mutation return a clear nonzero migration error before creating
-partial artifacts. Issues #139-#145 remove these narrow gates as their
-replacement contracts land.
+Module-qualified ScoreForm assignment storage is active. Managed assignment
+setup, direct ScoreForm discovery, creation, editing, plain-paper result entry,
+and result viewing operate on
+`classes/<class_id>/modules/scoreform/work/<assignment_id>/`. Personalized and
+class-packet generation plus managed regeneration remain gated on answer-sheet
+page records and route registration (#140/#141). PDS2 scan dispatch, QR-aware
+scoring, and scan-review mutation retain their narrower later gates.
 
-Help/version, assignment and roster validation, generic blank-template
-generation, workspace inspection, school-year operations, scan-filing setting
-inspection, and explicit-answer-key manual scoring remain available when they
-do not enter a gated storage or routing path.
+Discovery is exact and nonrecursive: it does not inspect sibling modules or
+fall back to the former unqualified assignment layout. Help/version, assignment
+and roster validation, generic blank-template generation, workspace inspection,
+school-year operations, scan-filing setting inspection, and explicit-answer-key
+manual scoring also remain available.
 
 ## Interaction Model
 
@@ -354,7 +354,7 @@ cleanup rule is displayed.
 
 The Assignment Management edit workflow is menu-only. It discovers existing
 classes and assignments, loads the selected canonical
-`classes/<class_id>/assignments/<assignment_id>/assignment.json`, stages edits
+`classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json`, stages edits
 in memory, validates the staged assignment, and writes only after explicit
 `SAVE` confirmation. Canceling without saving does not write. If staged changes
 exist, discard requires typing `DISCARD`.

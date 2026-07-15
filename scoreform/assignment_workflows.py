@@ -1,7 +1,6 @@
 """Interactive assignment workflow helpers."""
 
 import os
-from pathlib import Path
 
 from pds_core.menu_navigation import NavigationChoice
 from pds_core.standards import StandardsReadError, StandardsValidationError
@@ -28,7 +27,6 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
-from scoreform.migration import migration_pending
 from scoreform.results_viewer import (
     ResultsViewError,
     format_assignment_results_table,
@@ -42,6 +40,10 @@ from scoreform.standards_workflows import (
     parse_standard_selection,
 )
 from scoreform.validation import is_safe_identifier, validate_identifier
+from scoreform.work_paths import (
+    initialize_managed_work_layout,
+    scoreform_work_paths,
+)
 from scoreform.workflows import (
     clear_screen,
     discover_class_assignments,
@@ -744,7 +746,7 @@ def launch_view_assignment_results_menu():
         return 1
 
     assignment_id = assignment_record["assignment_id"]
-    results_csv_path = Path(assignment_record["assignment_path"]).parent / "results.csv"
+    results_csv_path = assignment_record["results_path"]
 
     clear_screen()
     print_menu_header("View Assignment Results")
@@ -824,8 +826,6 @@ def prompt_standards_alignment(workspace_root, question_count):
 
 
 def prompt_create_assignment():
-    migration_pending("Assignment creation", "#139")
-
     """Interactive prompt to create assignment JSON files for selected classes.
 
     Returns 0 on success, 1 on cancellation or error.
@@ -950,6 +950,10 @@ def prompt_create_assignment():
     }
     if standards_profile_id is not None:
         assignment["standards_profile_id"] = standards_profile_id
+    normalized_assignment = validate_assignment_data(assignment)
+    if normalized_assignment is None:
+        print("Error: Assignment validation failed before saving.")
+        return 1
 
     clear_screen()
     print_menu_header("Save Assignment")
@@ -960,16 +964,53 @@ def prompt_create_assignment():
     skipped_paths = []
     for class_record in selected_classes:
         class_id = class_record["class_id"]
-        folder = migration_pending("Assignment creation", "#139")
-        output_path = os.fspath(folder.assignment_dir / "assignment.json")
+        try:
+            paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
+        except (TypeError, ValueError) as error:
+            print(f"Error: Invalid managed-work identity for class '{class_id}': {error}")
+            skipped_paths.append(f"{class_id}/{assignment_id}")
+            continue
+        output_path = os.fspath(paths.assignment_path)
+
+        if paths.assignment_path.is_symlink():
+            print(f"Error: Existing assignment path is a symbolic link: {output_path}")
+            skipped_paths.append(output_path)
+            continue
+        if paths.assignment_path.exists():
+            existing_assignment = load_assignment(paths.assignment_path)
+            if existing_assignment is None:
+                print(f"Error: Existing assignment is invalid: {output_path}")
+                skipped_paths.append(output_path)
+                continue
+            immutable_fields = ("assignment_id", "question_count", "choices", "layout_id")
+            if any(
+                existing_assignment.get(field) != normalized_assignment.get(field)
+                for field in immutable_fields
+            ):
+                print(
+                    "Error: Existing assignment has different immutable identity "
+                    f"fields and was not overwritten: {output_path}"
+                )
+                skipped_paths.append(output_path)
+                continue
 
         if not confirm_assignment_overwrite(output_path, class_id):
             print(f"Skipped: {output_path}")
             skipped_paths.append(output_path)
             continue
 
+        try:
+            initialize_managed_work_layout(paths)
+        except OSError as error:
+            print(
+                f"Error: Could not initialize assignment storage for class "
+                f"'{class_id}': {error}"
+            )
+            skipped_paths.append(output_path)
+            continue
+
         print(f"Writing assignment to: {output_path}")
-        if not write_assignment_json(output_path, assignment):
+        if not write_assignment_json(output_path, normalized_assignment):
             print(f"Error: Failed to write assignment JSON for class '{class_id}'.")
             skipped_paths.append(output_path)
             continue

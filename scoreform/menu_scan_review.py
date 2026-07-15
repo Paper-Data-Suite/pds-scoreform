@@ -51,7 +51,7 @@ def _prompt_identity(item):
 def _prompt_manual_answers(root, item, identity):
     # Validation and assignment loading happen in the service; read just enough here
     # to collect a complete set before any result or resolution is written.
-    assignment = migration_pending("Manual scan-review entry", "#139 and #145")
+    assignment = migration_pending("Manual scan-review entry", "#145")
     if assignment is None:
         raise ScanReviewError("The selected assignment could not be loaded.")
     clear_screen()

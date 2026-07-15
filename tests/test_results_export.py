@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import csv
 
-import pytest
-
-from scoreform.migration import ScoreFormMigrationPendingError
 from scoreform.results import (
     export_routed_results,
     export_to_csv,
@@ -43,17 +40,20 @@ def test_privacy_safe_source_file_preserves_safe_workspace_relative_path(tmp_pat
     assert privacy_safe_source_file("../outside.pdf", tmp_path) == "outside.pdf"
 
 
-def test_routed_results_wait_for_module_qualified_storage(tmp_path) -> None:
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139 and #143"):
-        export_routed_results(
-            [
-                {
-                    "class_id": "class1",
-                    "assignment_id": "quiz",
-                    "student_id": "1001",
-                }
-            ],
-            tmp_path,
-        )
+def test_routed_results_require_existing_managed_work(tmp_path) -> None:
+    assert not export_routed_results(
+        [
+            {
+                "page_num": "manual",
+                "class_id": "class1",
+                "assignment_id": "quiz",
+                "student_id": "1001",
+                "score": 0,
+                "total_points": 1,
+                "answers": [],
+            }
+        ],
+        tmp_path,
+    )
 
     assert list(tmp_path.iterdir()) == []

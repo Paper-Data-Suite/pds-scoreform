@@ -246,7 +246,9 @@ def test_remove_student_save_does_not_touch_generated_or_historical_files(
         tmp_path
         / "classes"
         / "english_9_period_2"
-        / "assignments"
+        / "modules"
+        / "scoreform"
+        / "work"
         / "unit_1"
     )
     templates_dir = assignment_dir / "templates"

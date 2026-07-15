@@ -10,9 +10,10 @@ from pds_core.routes import (
 )
 
 from scoreform import workspace
+from scoreform.assignment import load_assignment
 from scoreform.folders import ensure_parent_dir
-from scoreform.migration import migration_pending
-from scoreform.scoring import validate_qr_identifier
+from scoreform.validation import validate_identifier
+from scoreform.work_paths import scoreform_work_paths
 
 
 def privacy_safe_source_file(source_file, workspace_root=None):
@@ -366,10 +367,11 @@ def _build_routed_result_target_plan(
     results,
     workspace_root,
 ):
-    output_dir = migration_pending("Routed result storage", "#139 and #143")
-    output_file = os.path.join(output_dir, "results.csv")
+    paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
+    output_dir = os.fspath(paths.work_root)
+    output_file = os.fspath(paths.results_path)
 
-    if not os.path.isdir(output_dir):
+    if paths.work_root.is_symlink() or not os.path.isdir(output_dir):
         print(
             f"Error: Could not prepare routed results target for class "
             f"'{class_id}', assignment '{assignment_id}':"
@@ -378,11 +380,36 @@ def _build_routed_result_target_plan(
         print(f"Assignment directory does not exist: {output_dir}")
         return None
 
+    if paths.assignment_path.is_symlink() or not paths.assignment_path.is_file():
+        print(
+            f"Error: Managed assignment file does not exist for class "
+            f"'{class_id}', assignment '{assignment_id}': {paths.assignment_path}"
+        )
+        return None
+    assignment = load_assignment(paths.assignment_path)
+    if assignment is None:
+        print(f"Error: Managed assignment is invalid: {paths.assignment_path}")
+        return None
+    if assignment.get("assignment_id") != assignment_id:
+        print(
+            "Error: Managed assignment identifier does not match its work ID: "
+            f"{paths.assignment_path}"
+        )
+        return None
+
+    work_root_abs = os.path.abspath(output_dir)
+    output_abs = os.path.abspath(output_file)
+    if os.path.normcase(os.path.commonpath([work_root_abs, output_abs])) != os.path.normcase(
+        work_root_abs
+    ):
+        print(f"Error: Results destination escapes managed work: {output_file}")
+        return None
+
     question_count = max(1, _get_max_question_count(results))
     existing_rows_raw = []
 
     if os.path.exists(output_file):
-        if not os.path.isfile(output_file):
+        if paths.results_path.is_symlink() or not os.path.isfile(output_file):
             print(
                 f"Error: Routed results destination is not a file for class "
                 f"'{class_id}', assignment '{assignment_id}': {output_file}"
@@ -480,7 +507,7 @@ def _build_routed_result_target_plan(
 
 def _build_routed_result_write_plan(groups, workspace_root):
     write_plan = []
-    for (class_id, assignment_id), target_results in groups.items():
+    for (class_id, assignment_id), target_results in sorted(groups.items()):
         try:
             target_plan = _build_routed_result_target_plan(
                 class_id,
@@ -489,10 +516,9 @@ def _build_routed_result_write_plan(groups, workspace_root):
                 workspace_root,
             )
         except (OSError, KeyError, TypeError, ValueError) as error:
-            output_file = migration_pending("Routed result storage", "#139 and #143")
             print(
                 f"Error: Could not preflight routed results for class "
-                f"'{class_id}', assignment '{assignment_id}': {output_file}"
+                f"'{class_id}', assignment '{assignment_id}'."
             )
             print(f"Technical detail: {error}")
             return None
@@ -505,20 +531,20 @@ def _build_routed_result_write_plan(groups, workspace_root):
 
 
 def export_routed_results(all_results, workspace_root=None):
-    """Route and export QR-aware scoring results to their assignment folders.
+    """Route and export scoring results to ScoreForm managed-work folders.
     
     Groups results by (class_id, assignment_id) and writes each group to:
-        classes/<class_id>/assignments/<assignment_id>/results.csv
+        classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
     
     Returns True on success, False on failure.
     """
-    migration_pending("Routed result export", "#139 and #143")
-
     if not all_results:
         print("No results to export.")
         return False
+    if workspace_root is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
 
-    # Validate that all results have required metadata and safe QR identifiers
+    # Validate all general result identifiers before loading or writing anything.
     groups = {}
     for res in all_results:
         class_id = res.get("class_id")
@@ -532,19 +558,15 @@ def export_routed_results(all_results, workspace_root=None):
             )
             return False
 
-        if not validate_qr_identifier("class_id", class_id):
+        try:
+            scoreform_work_paths(workspace_root, class_id, assignment_id)
+        except (TypeError, ValueError) as error:
             print(
-                f"Error: Unsafe class_id in routed result: '{class_id}'. "
-                "Rejecting export."
+                f"Error: Invalid managed result target for class '{class_id}', "
+                f"assignment '{assignment_id}': {error}"
             )
             return False
-        if not validate_qr_identifier("assignment_id", assignment_id):
-            print(
-                f"Error: Unsafe assignment_id in routed result: '{assignment_id}'. "
-                "Rejecting export."
-            )
-            return False
-        if not validate_qr_identifier("student_id", student_id):
+        if not validate_identifier("student_id", student_id, context="result"):
             print(
                 f"Error: Unsafe student_id in routed result: '{student_id}'. "
                 "Rejecting export."
@@ -564,9 +586,6 @@ def export_routed_results(all_results, workspace_root=None):
     if not enriched_ok:
         # Continue exporting even if some roster lookups failed; warnings printed by helper
         pass
-
-    if workspace_root is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
 
     # Preflight every target before modifying any routed results file.
     write_plan = _build_routed_result_write_plan(groups, workspace_root)
