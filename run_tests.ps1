@@ -113,16 +113,42 @@ try {
     Invoke-MigrationGate "Personalized generation" @(
         "generate", "examples\sample_assignment.json", "--rosters",
         "examples\sample_roster_english9_p2.csv"
-    ) "#139"
+    ) "#140"
     Invoke-MigrationGate "QR-aware scoring" @("score", "missing-scan.pdf") "#143"
     Invoke-MigrationGate "QR decoding" @("decode-qr", "missing-scan.pdf") "#143"
-    Invoke-MigrationGate "Assignment-folder setup" @(
-        "setup-assignment", "examples\sample_assignment.json",
-        "examples\sample_roster_english9_p2.csv"
-    ) "#139"
 
     if (Test-Path -LiteralPath $SmokeRoot) {
         throw "A migration-gated command created partial workspace artifacts: $SmokeRoot"
+    }
+
+    Invoke-Step "Set up module-qualified managed assignment" {
+        & $ScoreForm @(
+        "setup-assignment", "examples\sample_assignment.json",
+        "examples\sample_roster_english9_p2.csv"
+        )
+    }
+
+    $ManagedRoot = Join-Path $SmokeRoot (
+        "classes\english9_p2\modules\scoreform\work\rj_act1_quiz"
+    )
+    if (-not (Test-Path -LiteralPath (Join-Path $ManagedRoot "assignment.json") -PathType Leaf)) {
+        throw "Managed setup did not write canonical assignment.json: $ManagedRoot"
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $SmokeRoot "classes\english9_p2\roster.csv") -PathType Leaf)) {
+        throw "Managed setup did not write the shared class roster."
+    }
+    foreach ($relative in @("templates", "templates\individual", "scans", "debug")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $ManagedRoot $relative) -PathType Container)) {
+            throw "Managed setup did not create required directory: $relative"
+        }
+    }
+    foreach ($forbidden in @("results.csv", "templates\class_packet.pdf", "routes")) {
+        if (Test-Path -LiteralPath (Join-Path $ManagedRoot $forbidden)) {
+            throw "Managed setup created a forbidden later-migration artifact: $forbidden"
+        }
+    }
+    if (Test-Path -LiteralPath (Join-Path $SmokeRoot "classes\english9_p2\assignments")) {
+        throw "Managed setup recreated the former unqualified assignment layout."
     }
 }
 finally {
@@ -131,6 +157,26 @@ finally {
     }
     else {
         Remove-Item Env:PDS_WORKSPACE_ROOT -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -LiteralPath $SmokeRoot) {
+        $resolvedSmokeRoot = [System.IO.Path]::GetFullPath($SmokeRoot)
+        $resolvedTempRoot = [System.IO.Path]::GetFullPath(
+            [System.IO.Path]::GetTempPath()
+        )
+        $smokeLeaf = Split-Path -Leaf $resolvedSmokeRoot
+        if (
+            -not $resolvedSmokeRoot.StartsWith(
+                $resolvedTempRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            -not $smokeLeaf.StartsWith(
+                "scoreform-foundation-smoke-",
+                [System.StringComparison]::Ordinal
+            )
+        ) {
+            throw "Refusing to remove unexpected smoke workspace: $resolvedSmokeRoot"
+        }
+        Remove-Item -LiteralPath $resolvedSmokeRoot -Recurse -Force
     }
 }
 

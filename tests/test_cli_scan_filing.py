@@ -1,4 +1,4 @@
-"""Interim boundary coverage for QR-aware scan filing issues #139/#143."""
+"""QR-aware scoring remains gated before post-success scan filing (#143)."""
 
 import scoreform.cli
 

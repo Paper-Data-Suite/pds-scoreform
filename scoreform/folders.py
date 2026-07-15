@@ -1,11 +1,17 @@
 import json
 import os
 
+from pds_core.classes import load_class_roster, write_class_roster
+from pds_core.rosters import RosterError, create_roster
 from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
+from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.config import LOCAL_OUTPUTS_DIR
-from scoreform.migration import migration_pending
+from scoreform.work_paths import (
+    initialize_managed_work_layout,
+    scoreform_work_paths,
+)
 
 
 def ensure_parent_dir(path):
@@ -78,15 +84,140 @@ def ensure_scan_inbox():
             return None
     return inbox_path
 
-def setup_assignment_folder(roster_data, assignment_data, roster_path, assignment_path):
-    """Create class/assignment folder structure and copy roster/assignment files.
+def _roster_semantic_value(roster):
+    return (
+        roster.class_id,
+        tuple(
+            (
+                student.student_id,
+                student.last_name,
+                student.first_name,
+                student.period,
+                tuple(sorted(student.extra_fields.items())),
+            )
+            for student in roster.students
+        ),
+    )
 
-    Also ensures the project-level scan inbox directory exists.
-    
-    If the target assignment folder already exists and contains an assignment.json,
-    compares it with the incoming assignment file. If they differ, refuses to proceed
-    to prevent accidental data loss or assignment-ID collisions.
 
-    Returns a dictionary of created paths on success, or None on failure.
+def setup_assignment_folder(
+    roster_data,
+    assignment_data,
+    roster_path=None,
+    assignment_path=None,
+    *,
+    workspace_root=None,
+):
+    """Safely set up one canonical ScoreForm managed-work directory.
+
+    ``roster_path`` and ``assignment_path`` remain accepted for CLI compatibility,
+    but validated in-memory records are persisted to canonical Core/ScoreForm paths.
     """
-    migration_pending("Assignment-folder setup", "#139")
+    del roster_path, assignment_path
+
+    if not isinstance(roster_data, dict) or not isinstance(assignment_data, dict):
+        print("Error: Roster and assignment data must be objects.")
+        return None
+
+    class_id = roster_data.get("class_id")
+    assignment_id = assignment_data.get("assignment_id")
+
+    try:
+        students = roster_data.get("students", [])
+        incoming_roster = create_roster(class_id, students)
+        normalized_assignment = validate_assignment_data(assignment_data)
+        if normalized_assignment is None:
+            return None
+        if normalized_assignment["assignment_id"] != assignment_id:
+            print("Error: assignment_id changed unexpectedly during validation.")
+            return None
+
+        root = workspace_root or workspace.get_scoreform_workspace_root()
+        paths = scoreform_work_paths(root, class_id, assignment_id)
+    except (KeyError, RosterError, TypeError, ValueError) as error:
+        print(f"Error: Invalid managed assignment identity or input data: {error}")
+        return None
+
+    existing_roster = None
+    if paths.roster_path.exists() or paths.roster_path.is_symlink():
+        if paths.roster_path.is_symlink() or not paths.roster_path.is_file():
+            print(f"Error: Shared class roster path is not a file: {paths.roster_path}")
+            return None
+        try:
+            existing_roster = load_class_roster(root, class_id)
+        except RosterError as error:
+            print(f"Error: Existing shared class roster is invalid: {error}")
+            return None
+        if _roster_semantic_value(existing_roster) != _roster_semantic_value(
+            incoming_roster
+        ):
+            print(
+                f"Error: The shared roster for class '{class_id}' differs from the "
+                "incoming roster. Use the roster-management workflow to review or "
+                f"replace it: {paths.roster_path}"
+            )
+            return None
+
+    existing_assignment = None
+    if paths.assignment_path.exists() or paths.assignment_path.is_symlink():
+        if paths.assignment_path.is_symlink() or not paths.assignment_path.is_file():
+            print(
+                "Error: Managed assignment path is not a regular file: "
+                f"{paths.assignment_path}"
+            )
+            return None
+        existing_assignment = load_assignment(paths.assignment_path)
+        if existing_assignment is None:
+            print(
+                "Error: Existing managed assignment is invalid and was not "
+                f"overwritten: {paths.assignment_path}"
+            )
+            return None
+        if existing_assignment.get("assignment_id") != assignment_id:
+            print(
+                "Error: Existing managed assignment identifier does not match its "
+                f"work directory: {paths.assignment_path}"
+            )
+            return None
+        if existing_assignment != normalized_assignment:
+            print(
+                f"Error: Assignment '{assignment_id}' already exists with different "
+                "contents. Use the assignment-editing workflow or explicitly confirm "
+                f"an overwrite there: {paths.assignment_path}"
+            )
+            return None
+
+    try:
+        initialize_managed_work_layout(paths)
+        if existing_roster is None:
+            write_class_roster(root, incoming_roster, overwrite=False)
+        if existing_assignment is None:
+            with paths.assignment_path.open("x", encoding="utf-8") as output_file:
+                json.dump(
+                    normalized_assignment,
+                    output_file,
+                    indent=2,
+                    ensure_ascii=False,
+                )
+                output_file.write("\n")
+    except (OSError, RosterError) as error:
+        print(f"Error: Could not set up managed assignment storage: {error}")
+        return None
+
+    return {
+        "work_ref": paths.work_ref,
+        "paths": paths,
+        "class_dir": os.fspath(paths.roster_path.parent),
+        "assignment_dir": os.fspath(paths.work_root),
+        "work_root": os.fspath(paths.work_root),
+        "roster_copy": os.fspath(paths.roster_path),
+        "roster_path": os.fspath(paths.roster_path),
+        "assignment_copy": os.fspath(paths.assignment_path),
+        "assignment_path": os.fspath(paths.assignment_path),
+        "templates_dir": os.fspath(paths.templates_dir),
+        "individual_templates_dir": os.fspath(paths.individual_templates_dir),
+        "class_packet_path": os.fspath(paths.class_packet_path),
+        "scans_dir": os.fspath(paths.scans_dir),
+        "results_path": os.fspath(paths.results_path),
+        "debug_dir": os.fspath(paths.debug_dir),
+    }

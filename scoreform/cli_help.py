@@ -92,16 +92,16 @@ Commands:
   version               Show the installed ScoreForm version.
 
 Core 0.5/PDS2 migration notice:
-  Personalized/class-packet generation, assignment-folder setup and discovery,
-  QR decoding/routed scoring, sheet regeneration, and scan-review mutation are
-  temporarily unavailable. These commands fail cleanly before writing legacy
-  or partial routing data. Generic generation, validation, workspace,
-  school-year, help/version, and explicit-answer-key manual scoring remain usable.
+  Personalized/class-packet generation and sheet regeneration remain gated on
+  page records and route registration (#140/#141). QR decoding/routed scoring
+  and scan-review mutation remain gated on their later PDS2 work. Managed
+  assignment setup, discovery, creation, editing, plain-paper result entry, and
+  result viewing use module-qualified ScoreForm work storage and are available.
 
 Scoring modes:
   scoreform score scanned_file.pdf
       QR-aware scoring. Uses QR metadata to locate the assignment and routes results to
-      classes/<class_id>/assignments/<assignment_id>/results.csv.
+      classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv.
 
   scoreform score scanned_file.pdf output.csv
       QR-aware scoring with an explicit output CSV instead of routed results.
@@ -126,7 +126,7 @@ Examples:
   scoreform
   scoreform generate examples\\sample_assignment.json --rosters examples\\sample_roster_english9_p2.csv
   scoreform score scans_inbox\\class_packet.pdf
-  scoreform decode-qr classes\\english9_p2\\assignments\\rj_act1_quiz\\templates\\class_packet.pdf
+  scoreform decode-qr classes\\english9_p2\\modules\\scoreform\\work\\rj_act1_quiz\\templates\\class_packet.pdf
   scoreform validate-assignment examples\\sample_assignment.json
   scoreform validate-roster examples\\sample_roster_english9_p2.csv
   scoreform workspace show
@@ -161,8 +161,8 @@ def print_menu_help():
     print("  6. Inspect routed results.")
     print()
     print("QR-aware routed scoring writes to:")
-    print("  classes/<class_id>/assignments/<assignment_id>/results.csv")
-    print("  Temporarily unavailable during the Core 0.5/PDS2 migration.")
+    print("  classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv")
+    print("  QR-aware scoring remains unavailable pending later PDS2 routing work.")
     print()
     print("Routed results are an audit log, not a finalized gradebook export.")
     print("Manually verify scores before using them for grades.")

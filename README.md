@@ -249,29 +249,41 @@ The active school year will support future standards usage workflows. Assignment
 creation can attach standards to questions, but creating or attaching standards
 during assignment creation does not record standards usage.
 
-Generated classroom files preserve the existing layout under the workspace
-root:
+ScoreForm-managed assignments use Core 0.5 module-qualified work identity.
+For ScoreForm, `assignment_id` is the module-owned `work_id`; another module
+may safely reuse the same class/work IDs without collision:
 
 ```text
 <PDS workspace root>/
   classes/
     english9_p2/
+      class.json
       roster.csv
-      assignments/
-        rj_act1_quiz/
-          assignment.json
-          results.csv
-          templates/
-            class_packet.pdf
-            individual/
-              1001_doe_jane.pdf
-              1002_smith_marcus.pdf
-              1003_brown_alyssa.pdf
-          scans/
-          debug/
+      modules/
+        scoreform/
+          work/
+            rj_act1_quiz/
+              assignment.json
+              results.csv
+              templates/
+                class_packet.pdf
+                individual/
+                  1001_doe_jane.pdf
+                  1002_smith_marcus.pdf
+                  1003_brown_alyssa.pdf
+              scans/
+              debug/
   scans_inbox/
   local_outputs/
 ```
+
+Assignment discovery inspects only direct children of the exact
+`modules/scoreform/work/` collection. It does not recurse, inspect sibling
+modules, or fall back to the former unqualified `assignments/` layout. Managed
+assignment setup, creation, editing, plain-paper entry, and result viewing are
+available. Personalized/class-packet generation and regeneration remain gated
+until answer-sheet page records and route registration land in #140 and #141;
+QR dispatch/scoring and scan-review mutation retain their narrower later gates.
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
 Only a full-success QR-aware routed batch that resolves to exactly one class
@@ -498,7 +510,7 @@ ScoreForm now includes menu-driven assignment creation so you can create valid a
 9. The tool saves the assignment JSON to:
 
    ```text
-   classes/<class_id>/assignments/<assignment_id>/assignment.json
+   classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json
    ```
 
    and validates it automatically.
@@ -516,7 +528,7 @@ Notes:
 
 ### Edit an Assignment from the Menu
 
-Select **1. Assignment Management**, then **2. Edit an assignment** to choose an existing class and assignment. ScoreForm loads the selected canonical `classes/<class_id>/assignments/<assignment_id>/assignment.json`, displays a compact summary, and opens an edit menu.
+Select **1. Assignment Management**, then **2. Edit an assignment** to choose an existing class and assignment. ScoreForm loads the selected canonical `classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json`, displays a compact summary, and opens an edit menu.
 
 Assignment edits are safe by default:
 
@@ -851,7 +863,7 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`. Only a full-success batch that resolves to exactly one class and assignment files a copy of the source scan under `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/scans/`; the original remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`. Only a full-success batch that resolves to exactly one class and assignment files a copy of the source scan under that work root's `scans/`; the original remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
 
 The picker only selects the input file. It does not move, rename, or delete scan
 files. Partial-success, zero-success, export-failure, and multi-target batches
@@ -931,7 +943,7 @@ If scoring fails or results look suspicious, try:
 * inspecting generated debug images
 * manually verifying results before recording grades
 
-ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; QR-aware routed scoring writes them to `classes/<class_id>/assignments/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
+ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; managed QR-aware scoring writes them to `classes/<class_id>/modules/scoreform/work/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
 
 ScoreForm is local-first, but scans, diagnostic images, result CSVs, QR batch
 summaries, routed results, files under `local_outputs/`, and class assignment
@@ -997,7 +1009,7 @@ scoreform decode-qr path\to\file.pdf
 scoreform score path\to\scan.pdf
 ```
 
-QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/assignments/<assignment_id>/results.csv`.
+QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`.
 Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
 For a full-success QR-aware routed batch that resolves to exactly one
 `(class_id, assignment_id)` target, ScoreForm applies the persistent scan-filing

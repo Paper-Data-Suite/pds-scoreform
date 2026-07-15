@@ -1,16 +1,37 @@
-"""Interim assignment-local scan filing boundaries."""
+"""Assignment-local scan copies use ScoreForm managed work."""
 
-import pytest
+from pathlib import Path
 
-from scoreform.migration import ScoreFormMigrationPendingError
+from scoreform.folders import setup_assignment_folder
 from scoreform.scan_filing import file_resolution_scan_copy
+from scoreform.work_paths import scoreform_work_paths
 
 
-def test_resolution_copy_stops_before_creating_assignment_artifacts(tmp_path) -> None:
-    source = tmp_path / "scan.pdf"
+def test_resolution_copy_targets_canonical_assignment_scans(tmp_path) -> None:
+    roster = {
+        "class_id": "class1",
+        "students": [{
+            "student_id": "1001", "last_name": "Doe",
+            "first_name": "Jane", "period": "1",
+        }],
+    }
+    assignment = {
+        "assignment_id": "quiz", "title": "Quiz", "question_count": 1,
+        "choices": ["A", "B", "C", "D"],
+        "answer_key": {"1": "A"}, "standards": {"1": []},
+    }
+    assert setup_assignment_folder(
+        roster, assignment, workspace_root=tmp_path
+    ) is not None
+    source = tmp_path / "retained" / "scan.pdf"
+    source.parent.mkdir()
     source.write_bytes(b"scan")
 
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#139 and #145"):
-        file_resolution_scan_copy(tmp_path, "class1", "quiz", source, "deferred")
+    result = file_resolution_scan_copy(
+        tmp_path, "class1", "quiz", source, "manual_marks"
+    )
 
-    assert list(tmp_path.iterdir()) == [source]
+    scans_dir = scoreform_work_paths(tmp_path, "class1", "quiz").scans_dir
+    assert result.filed
+    assert Path(result.filed_path).parent == scans_dir
+    assert source.read_bytes() == b"scan"

@@ -29,6 +29,7 @@ from scoreform.results import export_routed_results
 from scoreform.roster import load_roster
 from scoreform.scan_filing import file_resolution_scan_copy
 from scoreform.validation import is_safe_identifier
+from scoreform.work_paths import scoreform_work_paths
 
 SCOREFORM_REVIEW_STAGE = "scoreform_qr_review"
 SCOREFORM_FAILURE_CATEGORY_MAP = {
@@ -397,9 +398,11 @@ def _validated_identity(
     if resolved_class and resolved_assignment and (
         require_destination or explicit_destination
     ):
-        assignment_path: str = migration_pending(
-            "Assignment-qualified scan-review lookup", "#139 and #145"
-        )
+        assignment_path = scoreform_work_paths(
+            root,
+            resolved_class,
+            resolved_assignment,
+        ).assignment_path
         assignment = load_assignment(assignment_path)
         if assignment is None:
             raise ScanReviewError(

@@ -8,11 +8,12 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from scoreform import workspace
-from scoreform.migration import migration_pending
+from scoreform.assignment import load_assignment
 from scoreform.scan_filing_settings import (
     DEFAULT_SCAN_FILING_MODE,
     SCAN_FILING_MODES,
 )
+from scoreform.work_paths import scoreform_work_paths
 
 
 @dataclass
@@ -134,8 +135,6 @@ def file_resolution_scan_copy(
     copy_func=shutil.copy2,
 ):
     """Copy retained review evidence without moving or overwriting its source."""
-    migration_pending("Assignment-local scan review filing", "#139 and #145")
-
     source = os.fspath(source_path)
     if not os.path.isfile(source):
         return ScanFilingResult(
@@ -143,10 +142,19 @@ def file_resolution_scan_copy(
             warning=f"Review evidence is missing or is not a file: {source}",
         )
     try:
-        scans_dir = migration_pending(
-            "Assignment-local scan review filing", "#139 and #145"
+        paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
+        scans_dir = paths.scans_dir
+        assignment = (
+            load_assignment(paths.assignment_path)
+            if (
+                not paths.work_root.is_symlink()
+                and paths.work_root.is_dir()
+                and not paths.assignment_path.is_symlink()
+                and paths.assignment_path.is_file()
+            )
+            else None
         )
-        if not scans_dir.parent.is_dir():
+        if assignment is None or assignment.get("assignment_id") != assignment_id:
             return ScanFilingResult(
                 source_path=source,
                 warning="The selected assignment folder does not exist.",
@@ -242,8 +250,6 @@ def file_original_scan_after_success(
             skipped_reason="scan filing mode is off",
         )
 
-    migration_pending("Assignment-local scan filing", "#139 and #143")
-
     if not results:
         return ScanFilingResult(
             mode=mode,
@@ -285,7 +291,24 @@ def file_original_scan_after_success(
     try:
         if workspace_root is None:
             workspace_root = workspace.get_scoreform_workspace_root()
-        scans_dir = migration_pending("Assignment-local scan filing", "#139 and #143")
+        paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
+        assignment = (
+            load_assignment(paths.assignment_path)
+            if (
+                not paths.work_root.is_symlink()
+                and paths.work_root.is_dir()
+                and not paths.assignment_path.is_symlink()
+                and paths.assignment_path.is_file()
+            )
+            else None
+        )
+        if assignment is None or assignment.get("assignment_id") != assignment_id:
+            return ScanFilingResult(
+                mode=mode,
+                source_path=source,
+                warning="The selected ScoreForm assignment does not exist.",
+            )
+        scans_dir = paths.scans_dir
         os.makedirs(scans_dir, exist_ok=True)
         filed_path = build_filed_scan_path(scans_dir, source, now=now)
         copy_func(source, filed_path)
