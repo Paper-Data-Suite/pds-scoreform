@@ -6,6 +6,10 @@
 
 The project currently supports:
 
+> Historical routed-result and PDS1 bullets in this inventory describe earlier
+> implementations, not the active #143 retained PDS2 path. Active PDS2 behavior
+> is defined in the dedicated #143 sections below.
+
 * CLI workflow helpers split from command dispatch into `scoreform/workflows.py`
 * Modular `scoreform/` package structure
 * Root-level `main.py` as CLI entry point
@@ -40,11 +44,8 @@ The project currently supports:
 * QR decoding from generated PDFs/images through `decode-qr`
 * QR decoding from a printed-and-scanned student sheet when scan quality is adequate
 * Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
-* QR-aware scoring metadata extraction
-* Automatic assignment lookup from QR metadata during scoring
-* QR payload field validation / path traversal protection
-* Shared identifier validation for `class_id`, `assignment_id`, and `student_id` before path use, QR payload generation, folder setup, and menu-created file writing
-* QR-aware score output with `class_id`, `assignment_id`, and `student_id`
+* Retained-source PDS2 page decoding and Core dispatch
+* Core-owned PDS2 identifier validation and route resolution
 * Legacy/manual scoring preserved when an explicit answer key is provided
 * Scoring uses assignment question count for QR-aware scoring and inferred answer-key count for legacy/manual scoring
 * Registration mark detection searches expected corner zones with tolerant dark-component selection so filled answer boxes near Q15 cannot be selected as perspective corners while imperfect true markers can still be recovered
@@ -116,7 +117,7 @@ The project currently supports:
 * Interactive menu clears between screens and pauses after important output
 * Roster management submenu supports read-only roster viewing
 * Menu scoring can select supported scans from `scans_inbox/`
-* QR-aware routed scoring is the recommended/default terminal-menu scoring workflow
+* Retained PDS2 Core page dispatch is the recommended terminal-menu scan workflow
 * QR-aware batch scoring reports failure summaries
 * Debug image filenames avoid overwriting earlier debug output from repeated runs
 * Fast development checks are available through `run_fast_tests.ps1`
@@ -129,7 +130,8 @@ The project currently supports:
 
 ### `v0.1.0` - QR-Aware Scoring With Routed Results
 
-This milestone is complete.
+This milestone is complete historical behavior. Its PDS1 metadata lookup and
+routed-result semantics are not used by the active #143 PDS2 path.
 
 Completed scope:
 
@@ -175,7 +177,15 @@ identity. Managed personalized and class-packet generation now adds one fresh
 Core PDS2 route per physical page, reloads every registration before rendering,
 and atomically installs each completed PDF. Managed regeneration preserves old
 records and routes and supersedes predecessors only after replacement install.
-PDS2 dispatch and QR-aware scoring remain later work.
+Retained-source PDS2 page dispatch is implemented in #143. Attempt assembly and
+routed export remain #144 work; failure/resolution persistence remains #145.
+
+The #143 boundary validates the source and application-owned installed registry,
+retains exactly once, enumerates only retained bytes, detects raw QR text, uses
+Core's strict PDS2 parser, constructs one request per valid source page, and
+uses Core ordered batch dispatch. Mixed installed modules are supported;
+ScoreForm interprets only its own immutable page result. No attempt assembly,
+routed CSV, assignment-local scan filing, or review metadata is created here.
 
 ```text
 <PDS workspace root>/
@@ -294,8 +304,8 @@ PDS2|m=scoreform|c=english9_p2|w=rj_act1_quiz|r=rt_0123456789abcdef0123456789abc
 Newly generated ScoreForm sheets use Core's canonical PDS2 locator-only
 serialization. The student, logical page, page ID, and issuance ID remain in the
 targeted immutable page/issuance records and visible page text, not in the QR.
-Legacy PDS1 parsing remains part of the currently gated QR-aware scoring path;
-PDS2 dispatch and scoring land in #143.
+The active retained-source scanner rejects PDS1 and parses only with Core's
+strict PDS2 parser. Page dispatch and ScoreForm handler scoring landed in #143.
 ### Current Routed Results CSV Format
 
 ```csv
@@ -334,33 +344,23 @@ Poppler is required by `pdf2image` for PDF conversion but is not installed by `p
 
 ## Current Scoring Modes
 
-### QR-Aware Scoring With Automatic Result Routing
+### Retained PDS2 Page Dispatch
 
 ```powershell
 python main.py score scanned_file.pdf
 ```
 
-Uses QR metadata to locate:
+Retains the source, parses locator-only PDS2 payloads, and dispatches valid pages
+through Core. ScoreForm's handler resolves authoritative page/issuance records
+and returns immutable page scores. This stage writes no routed results.
 
-```text
-classes/<class_id>/modules/scoreform/work/<assignment_id>/assignment.json
-```
-
-Then scores each page using that assignment's answer key and routes results to:
-
-```text
-classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
-```
-
-Routed results include roster fields when `classes/<class_id>/roster.csv` is available.
-
-### QR-Aware Scoring With Custom Output
+### QR-Aware Custom Output (pending #144)
 
 ```powershell
 python main.py score scanned_file.pdf qr_metadata_results.csv
 ```
 
-Uses QR-aware scoring and writes to the specified CSV file.
+This form is rejected before retention until attempt assembly and export land.
 
 ### Legacy / Manual Scoring
 
@@ -485,11 +485,11 @@ Keep scan files organized.
 
 * Workspace-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
 * `ensure_scan_inbox()` helper in `scoreform/folders.py`.
-* Interactive menu scoring can pick supported `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif` files directly from `scans_inbox/`.
-* After scan selection, the default recommended menu mode is QR-aware routed scoring, which uses QR metadata to route results to `classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`.
+* Interactive PDS2 scoring can pick `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, and `.tif` files directly from `scans_inbox/`; BMP remains manual-only.
+* After scan selection, the recommended mode retains and dispatches PDS2 pages through Core without writing routed results.
 * Manual menu scoring with an answer key remains available for non-QR sheets, generic templates, testing, and exceptional workflows.
 * Unsupported inbox files are ignored, and custom path entry remains available.
-* Source file tracking already enabled in routed results.
+* Retained provenance is preserved in every page request and outcome.
 
 ## Possible Structure
 
@@ -519,14 +519,14 @@ Initial preference:
 
 * Keep original scans in `scans_inbox/`.
 * Let the menu select scans from `scans_inbox/` without moving, copying, renaming, or deleting them.
-* Record source filename in `results.csv`.
+* Preserve retained provenance for #144 result assembly.
 * Optionally copy scans later if needed.
 
 ## Future Requirements
 
 * Support copying or moving scans into assignment folders (not yet implemented).
 * Avoid accidental deletion of scans.
-* Preserve enough source information in result rows to connect scores back to original scans (already implemented via `source_file`).
+* Preserve enough retained-source information for later #144 result rows.
 
 ## Suggested GitHub Issue
 
@@ -555,7 +555,8 @@ v0.2.0
 
 ## Status
 
-Completed.
+Historical design notes. Active handler-owned diagnostics are resolved from
+authoritative Core routes, never from QR-carried assignment metadata.
 
 ## Goal
 
@@ -569,7 +570,7 @@ Legacy/manual debug images are saved under:
 local_outputs/debug/
 ```
 
-For QR-aware routed scoring, debug images should route to:
+Historically, routed-scoring diagnostics targeted:
 
 ```text
 classes/
@@ -584,7 +585,7 @@ classes/
 ## Requirements
 
 * Keep legacy/manual debug output available under `local_outputs/debug/`.
-* For QR-aware scoring, use QR metadata to identify the assignment debug folder.
+* For PDS2 ScoreForm pages, use the Core-resolved handler context for diagnostics.
 * Avoid overwriting useful debug output where practical.
 * Consider including page number, student ID, or timestamp in debug filenames.
 
@@ -616,7 +617,7 @@ v0.2.0
 
 ## Status
 
-Completed.
+Historical routed-results design; active PDS2 attempt assembly is pending #144.
 
 ## Goal
 
@@ -1661,5 +1662,5 @@ The current managed answer key is authoritative, but title-only drift is not a
 physical-form incompatibility. Diagnostic-write failures are typed scoring
 failures rather than silent warnings.
 
-The teacher-facing QR workflow remains #143 work: QR decoding, production batch
-dispatch, attempt assembly, results export, and review persistence stay gated.
+Teacher-facing retained QR decoding and production page dispatch are active.
+Attempt assembly/results export and review persistence stay gated on #144/#145.

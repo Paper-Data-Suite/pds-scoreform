@@ -81,7 +81,7 @@ Commands:
   score                 Score scanned responses.
   list-scan-review      List unresolved and deferred ScoreForm scan review items.
   resolve-scan-review   Resolve or defer one ScoreForm scan review item.
-  decode-qr             Decode QR metadata from a PDF or image.
+  decode-qr             Retain a PDF/image and decode Core PDS2 locators.
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
@@ -91,28 +91,28 @@ Commands:
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
-Core 0.5/PDS2 migration notice:
+Core 0.5/PDS2 scan intake:
   Personalized PDFs, class packets, and managed regeneration use immutable page
   records and Core PDS2 route registrations. The installed one-page module
-  handler is available to Core, while teacher-facing QR decoding, batch scoring,
-  assembly, and export remain gated on #143. Managed assignment
+  handler is available to Core. Active scans are retained before QR detection,
+  parsed only as PDS2, and dispatched one source page at a time through a fresh
+  installed-module registry. Attempt assembly and export remain pending #144.
+  Failure/resolution persistence remains pending #145. Managed assignment
   setup, discovery, creation, editing, plain-paper result entry, and result
   viewing use module-qualified ScoreForm work storage and are available.
 
 Scoring modes:
+  QR-aware scoring now means retained PDS2 page dispatch through Core.
   scoreform score scanned_file.pdf
-      QR-aware scoring. Uses QR metadata to locate the assignment and routes results to
-      classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv.
+      Retains the source and dispatches each Core-valid PDS2 page. ScoreForm
+      pages are scored by its module handler; other-module results remain opaque.
 
   scoreform score scanned_file.pdf output.csv
-      QR-aware scoring with an explicit output CSV instead of routed results.
+      Fails before retention because routed export remains pending #144.
 
-  QR-aware full and partial success exit 0; zero success and export failure exit 1.
-  The saved QR batch summary is the source of truth for completeness.
-  Automatic scan filing occurs only for full-success, single-target routed batches.
-  Partial, failed, multi-target, explicit-output, and manual batches are not filed.
-  The persistent mode is copy (default), move, or off. Move removes an original
-  only when it is a direct child of the active workspace scans_inbox.
+  Complete page dispatch exits 0. Partial/zero success and file/registry failure
+  exit nonzero. This stage writes no routed CSV, assignment-local scan copy, or
+  scan-review metadata.
 
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
@@ -159,12 +159,15 @@ def print_menu_help():
     print("  3. Generate answer sheets.")
     print("  4. Scan completed sheets.")
     print("  5. Score scanned responses.")
-    print("  6. Inspect routed results.")
+    print("  6. Review the page-dispatch summary.")
     print()
-    print("QR-aware routed scoring writes to:")
+    print("PDS2 scan intake:")
+    print("  Sources are retained before QR detection and dispatched through Core.")
+    print("  ScoreForm pages are scored independently; source page is not logical page.")
+    print("  Attempt assembly/export and review persistence remain #144/#145 work.")
+    print("  Future routed result destination after #144 assembly:")
     print("  classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv")
-    print("  QR-aware scoring remains unavailable pending #143.")
     print()
-    print("Routed results are an audit log, not a finalized gradebook export.")
-    print("Manually verify scores before using them for grades.")
+    print("No routed results are written until #144 assembly/export is implemented.")
+    print("Manually verify page scores before using them for grades.")
     print()

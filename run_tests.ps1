@@ -65,6 +65,14 @@ Invoke-Step "Compile ScoreForm" {
 Invoke-Step "Import ScoreForm, PDS contract, CLI, and Core" {
     & $Python -c "import pds_core; import scoreform; import scoreform.pds_contract; import scoreform.cli"
 }
+Invoke-Step "Run focused retained PDS2 boundary tests" {
+    & $Python -m pytest @(
+        "tests/test_pds2_scan_dispatch.py",
+        "tests/test_pds2_cli_boundaries.py",
+        "tests/test_qr_validation.py",
+        "tests/test_path_input_normalization.py"
+    ) -q
+}
 Invoke-Step "Run pytest suite" {
     & $Python -m pytest tests -q
 }
@@ -108,13 +116,6 @@ try {
 
     if (Test-Path -LiteralPath $SmokeRoot) {
         throw "Imports/help/version/validation created workspace data: $SmokeRoot"
-    }
-
-    Invoke-MigrationGate "QR-aware scoring" @("score", "missing-scan.pdf") "#143"
-    Invoke-MigrationGate "QR decoding" @("decode-qr", "missing-scan.pdf") "#143"
-
-    if (Test-Path -LiteralPath $SmokeRoot) {
-        throw "A migration-gated command created partial workspace artifacts: $SmokeRoot"
     }
 
     Invoke-Step "Set up module-qualified managed assignment" {
@@ -164,6 +165,27 @@ try {
     )
     if ($PageRecords.Count -eq 0 -or $PageRecords.Count -ne $RouteRecords.Count) {
         throw "Managed generation page/route cardinality mismatch: pages=$($PageRecords.Count), routes=$($RouteRecords.Count)"
+    }
+
+    $ClassPacket = Join-Path $ManagedRoot "templates\class_packet.pdf"
+    Invoke-Step "Decode retained PDS2 pages through Core grammar" {
+        & $ScoreForm decode-qr $ClassPacket
+    }
+    Invoke-Step "Dispatch and score retained PDS2 pages through Core" {
+        & $ScoreForm score $ClassPacket
+    }
+    if (Test-Path -LiteralPath (Join-Path $ManagedRoot "results.csv")) {
+        throw "#143 page dispatch unexpectedly wrote routed results.csv."
+    }
+    if (Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "scans") -File) {
+        throw "#143 page dispatch unexpectedly filed an assignment-local scan."
+    }
+    $ReviewRoot = Join-Path $SmokeRoot "scans\review"
+    if (
+        (Test-Path -LiteralPath $ReviewRoot -PathType Container) -and
+        (Get-ChildItem -LiteralPath $ReviewRoot -File -Recurse)
+    ) {
+        throw "#143 page dispatch unexpectedly persisted scan-review metadata."
     }
 }
 finally {

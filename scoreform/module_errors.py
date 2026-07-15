@@ -40,3 +40,27 @@ class ScoreFormPageScoringError(ScoreFormModuleError):
     ) -> None:
         super().__init__(message)
         self.diagnostic_paths = tuple(diagnostic_paths)
+
+
+class ScoreFormScanDispatchError(ScoreFormModuleError):
+    """Base class for retained PDS2 scan-intake orchestration failures."""
+
+
+class ScoreFormScanPreflightError(ScoreFormScanDispatchError, ValueError):
+    """The workspace, source file, or injected registry failed preflight."""
+
+
+class ScoreFormRegistryError(ScoreFormScanDispatchError):
+    """The application-owned installed module registry could not be built."""
+
+
+class ScoreFormQrDetectionError(ScoreFormScanDispatchError):
+    """A retained page did not yield raw QR payload text."""
+
+
+class ScoreFormQrDiagnosticWriteError(ScoreFormScanDispatchError):
+    """A privacy-conscious QR diagnostic could not be written."""
+
+
+class ScoreFormDispatchIntegrationError(ScoreFormScanDispatchError):
+    """A module success violated ScoreForm's application integration contract."""

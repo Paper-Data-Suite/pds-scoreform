@@ -63,6 +63,7 @@ from scoreform.work_paths import (
 )
 
 SUPPORTED_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif")
+PDS2_SCAN_EXTENSIONS = (".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff")
 GREEN_ANSI = "\033[32m"
 RESET_ANSI = "\033[0m"
 
@@ -142,6 +143,27 @@ def discover_scans_in_inbox(scans_dir=None):
     for entry in sorted(os.listdir(scans_dir), key=lambda value: value.lower()):
         path = os.path.join(scans_dir, entry)
         if os.path.isfile(path) and is_supported_scan_file(path):
+            scans.append(path)
+    return scans
+
+
+def discover_pds2_scans_in_inbox(scans_dir=None):
+    """Return only source types accepted by retained PDS2 preflight."""
+    if scans_dir is None:
+        workspace_root = workspace.get_scoreform_workspace_root()
+        scans_dir = os.fspath(scans_inbox_dir(workspace_root))
+    if not os.path.isdir(scans_dir):
+        return []
+    scans = []
+    for entry in sorted(os.listdir(scans_dir), key=lambda value: value.lower()):
+        path = os.path.join(scans_dir, entry)
+        filename = os.path.basename(path)
+        supported = (
+            bool(filename)
+            and not filename.startswith(".")
+            and os.path.splitext(filename)[1].lower() in PDS2_SCAN_EXTENSIONS
+        )
+        if os.path.isfile(path) and supported:
             scans.append(path)
     return scans
 

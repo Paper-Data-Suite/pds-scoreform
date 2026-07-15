@@ -32,10 +32,11 @@ whose authoritative issuance is `issued`, checks the current assignment and
 physical layout, and returns one immutable page score. Current answer-key edits
 apply at scoring time, while title-only edits do not invalidate a sheet.
 
-This callable boundary does not enable the teacher-facing workflow. PDS2 QR
-decoding, retained-source batch dispatch, attempt assembly, result export, and
-scan-review mutation remain gated on #143. The handler never decodes PDS2 and a
-retained PDF page number is independent of the sheet's logical page.
+The teacher-facing workflow retains a selected source before QR detection,
+parses only Core PDS2 locators, and dispatches valid requests in source-page
+order through a fresh installed-module registry. The handler never decodes PDS2
+and a retained PDF page number is independent of the sheet's logical page.
+Attempt assembly/export and review persistence remain pending #144/#145.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or
 fall back to the former unqualified assignment layout. Help/version, assignment
@@ -301,9 +302,9 @@ Current mode inference is:
 
 | Arguments after `score` | Current behavior |
 | --- | --- |
-| `<input>` | QR-aware scoring with routed results |
+| `<input>` | retained PDS2 page dispatch; no routed export |
 | `<input> <value ending in .json>` | manual scoring with that answer key and the managed default results CSV |
-| `<input> <other value>` | QR-aware scoring with that value as the explicit output CSV |
+| `<input> <other value>` | rejected before retention pending routed export in #144 |
 | `<input> <output> <answer-key>` | manual scoring with explicit output and answer key |
 
 The current three-argument manual form places the output CSV before the answer
@@ -312,20 +313,9 @@ key. The proposed form
 implementation and must not be documented as working unless code support is
 added in a separate compatibility-conscious change.
 
-When `scoreform score <scan.pdf-or-image>` uses QR-aware routed scoring without
-an explicit output CSV, a full-success export may apply the configured
-assignment-local scan-filing mode. The mode is stored in
-`<workspace>/.pds/scoreform.json` under `scan_filing_mode` and defaults to
-`copy`: `copy` files a readable timestamped `_scored` copy and preserves the
-original; `move` verifies the filed copy with SHA-256 and removes the original
-only if its resolved parent is exactly the active workspace `scans_inbox/`;
-`off` files no automatic scored-copy. Existing filed scans are never
-overwritten.
-
-Automatic scan filing does not apply to QR-aware scoring with an explicit
-output CSV or to manual scoring with an answer key. If a successful QR-aware
-routed batch contains multiple assignment targets, ScoreForm skips scan filing
-instead of guessing a destination.
+The #143 retained PDS2 path never applies assignment-local scan filing. The
+existing `scan-filing` preference remains inspectable for later workflows, but
+page dispatch does not copy, move, rename, or delete the selected original.
 
 The direct settings commands are:
 
@@ -355,9 +345,10 @@ scoreform validate-roster <roster.csv>
 scoreform setup-assignment <assignment.json> <roster.csv>
 ```
 
-* `decode-qr` accepts a supported PDF or image path and reports routing
-  identifiers decoded from a ScoreForm PDS1 payload. Other payload schemas are
-  rejected as invalid.
+* `decode-qr` retains a supported PDF or image, parses every decoded payload
+  through Core's strict PDS2 parser, and reports source page, module, class,
+  work, route, and Core-serialized canonical payload. It does not require the
+  module to be installed and never prints student or logical-page fields.
 * `validate-assignment` validates one assignment JSON file.
 * `validate-roster` validates one roster CSV file.
 * `setup-assignment` validates both inputs, creates managed class and assignment
@@ -474,7 +465,7 @@ The menu may:
 * guide the user through selecting managed classes, assignments, and scans;
 * normalize paths entered at prompts;
 * clear screens and pause after important output;
-* recommend QR-aware routed scoring;
+* recommend retained PDS2 Core page dispatch;
 * omit developer-oriented direct commands.
 
 The menu must not be treated as a replacement for the direct CLI. Packaging and
@@ -883,6 +874,6 @@ document does not implement:
 
 Existing `generate`, `regenerate-sheets`, and `score` commands require no new
 flags. Assignments may contain 1-75 questions and are automatically paged at 15
-questions per physical sheet. QR-aware scoring requires all pages for a student
-attempt in the same input batch and writes one routed results row per complete
-attempt.
+questions per physical sheet. The active PDS2 scanner dispatches physical pages
+independently and preserves source order. It does not yet assemble student
+attempts or write routed result rows (#144).

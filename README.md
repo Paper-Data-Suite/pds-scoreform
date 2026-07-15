@@ -46,20 +46,19 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Legacy/manual scoring with explicit answer keys
 * Legacy scoring of printed, filled, phone-scanned student sheets when scan quality is adequate
 
-### QR Metadata and Routing
+### PDS2 QR Intake and Page Dispatch
 
 * QR code generation on individual student PDFs
 * QR code generation on class packet pages
-* QR payload parsing and validation
-* QR decoding from generated PDFs/images
+* Strict Core PDS2 locator parsing and canonical serialization
+* Retained-source QR decoding from generated PDFs/images
 * QR decoding from printed-and-scanned sheets when scan quality is adequate
-* QR-aware scoring metadata extraction
-* Automatic assignment lookup from QR payloads
-* Mixed-scan QR-aware scoring for multi-page class packets
-* Result routing into class/assignment folders
-* Configurable same-assignment QR-aware scan filing (`copy`, `move`, or `off`)
+* Fresh installed-module registry per top-level scoring operation
+* Ordered independent Core dispatch for mixed-module source pages
+* Immutable ScoreForm page results and opaque foreign-module results
+* Page-level terminal summaries without attempt assembly or routed export
 
-### Results and Auditability
+### Legacy/manual Results and Future #144 Auditability
 
 * CSV result export
 * Roster-enriched routed results
@@ -91,7 +90,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Terminal menu help for common workflows and routed-results guidance
 * Terminal menu screen clearing between workflows and pauses after important output
 * Menu scoring picker for supported files in `scans_inbox/`, with custom path fallback
-* QR-aware routed scoring as the recommended/default terminal-menu scoring workflow
+* Retained PDS2 Core page dispatch as the recommended terminal-menu scan workflow
 
 ### Project Structure and Development Support
 
@@ -108,20 +107,16 @@ ScoreForm is still under active development.
 
 Current limitations include:
 
-* During the Core 0.5/PDS2 migration, personalized or class-packet answer-sheet
-  generation, assignment-folder storage, QR decoding/routed scoring, managed
-  sheet regeneration, and scan-review mutation deliberately exit nonzero with
-  a migration message. Generic blank-template generation, package/help/version
-  imports, assignment and roster validation, workspace inspection, school-year
-  operations, and manual scoring with an explicit answer key remain available.
+* Retained PDS2 decoding and page dispatch are active. Attempt assembly and
+  routed result export remain pending #144; failure and resolution persistence
+  remain pending #145. Manual scoring with an explicit answer key remains available.
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
   scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
   small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
-* Result routing works for QR-aware scoring. Duplicate/attempt handling is
-  implemented, and configurable automatic scan filing is limited to
-  full-success, single-target routed batches.
+* The active PDS2 path does not write routed results, choose duplicates, file
+  assignment-local scans, or persist review records.
 * Question count support is 1-75, paged automatically at 15 questions per sheet.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
@@ -146,7 +141,7 @@ Do not commit:
 
 ScoreForm is intended to run locally, but local-first does not mean that its
 artifacts are non-sensitive. Scans, diagnostic images, result CSVs and their
-`source_file` values, QR batch summaries, routed results, `local_outputs/`,
+`source_file` values, routed results, `local_outputs/`,
 and class assignment output folders may contain student or assessment records.
 Treat those locations as sensitive and do not share generated artifacts
 publicly. Teachers using this project are responsible for following their
@@ -288,13 +283,11 @@ modules, or fall back to the former unqualified `assignments/` layout. Managed
 assignment setup, creation, editing, plain-paper entry, result viewing,
 personalized/class-packet generation, and managed regeneration are available.
 Generated pages use immutable ScoreForm page records and immutable Core PDS2
-route registrations. QR dispatch/scoring and scan-review mutation retain their
-narrower later gates.
+route registrations. Retained PDS2 page dispatch is active; assembly/export and
+scan-review persistence retain their narrower #144/#145 gates.
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
-Only a full-success QR-aware routed batch that resolves to exactly one class
-and assignment is filed automatically. ScoreForm copies the source scan under
-that assignment's `scans/` folder while preserving the original source scan.
+The #143 page-dispatch path never files an assignment-local scan copy.
 
 Generic/manual development outputs are organized under `<PDS workspace root>/local_outputs/` when ScoreForm chooses the default path:
 
@@ -530,7 +523,7 @@ Notes:
 * When `standards_profile_id` is present, shared-library validation checks that the profile exists and that question-level standard IDs belong to that profile.
 * Creating or attaching standards during assignment creation does not record standards usage. Usage recording remains future work.
 * Overwrite protection requires `y` or `yes` to overwrite existing assignment files.
-* Assignment Management also edits and validates assignment JSON files, generates answer sheets, scores scanned responses, displays read-only assignment results, and decodes QR metadata.
+* Assignment Management also edits and validates assignment JSON files, generates answer sheets, dispatches retained PDS2 pages, displays read-only assignment results, and decodes PDS2 locators.
 
 ### Edit an Assignment from the Menu
 
@@ -567,7 +560,9 @@ authoritative compatibility reference.
 
 ## Data Model
 
-Identifiers used in paths and QR metadata must contain only letters, numbers, underscores, and hyphens. This applies to `class_id`, `assignment_id`, and `student_id`.
+Core validates the `module_id`, `class_id`, `work_id`, and `route_id` carried by
+PDS2 locators. Student identity is authoritative record data and is never QR
+metadata. ScoreForm separately validates roster and workspace path identifiers.
 
 ### Roster CSV Format
 
@@ -668,9 +663,9 @@ ID, and full route ID are printed visibly outside the QR.
 Every physical page receives a fresh `pg_...` page ID and independent fresh
 `rt_...` route ID. ScoreForm persists the page first, writes and reloads the
 immutable Core registration second, and draws Core's canonical serialized
-locator only after registration verification. PDS2 scan dispatch and QR-aware
-scoring remain disabled until #143; existing legacy PDS1 scoring behavior is not
-the routing authority for newly generated sheets.
+locator only after registration verification. Active scan intake now retains the
+source before decoding, parses only Core PDS2 locators, and dispatches each
+source page independently through an application-owned installed-module registry.
 
 ## Requirements
 
@@ -875,26 +870,19 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can list supported files directly inside it and let you choose one by number. After you select a scan, the recommended menu mode is QR-aware routed scoring: ScoreForm reads the QR metadata, finds the matching assignment, and writes routed results to `<PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`. Only a full-success batch that resolves to exactly one class and assignment files a copy of the source scan under that work root's `scans/`; the original remains in place. Supported picker file types are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, and `.tif`; unsupported files are ignored.
+The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can select a scan for retained PDS2 page dispatch. The active dispatch workflow accepts `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tif`, and `.tiff` (not BMP), retains the source once, and processes only retained bytes. It does not yet assemble attempts, export routed results, file assignment-local copies, or persist scan-review failures.
 
-The picker only selects the input file. It does not move, rename, or delete scan
-files. Partial-success, zero-success, export-failure, and multi-target batches
-are not filed automatically. Explicit-output CSV scoring and manual scoring
-also do not file scan copies. Review the saved QR batch summary and handle the
-source scan manually whenever automatic filing is skipped. Manual scoring with
-an answer key remains available from the menu for non-QR sheets or exceptional
-workflows. You can still enter a custom path from Downloads, Desktop, or
-another scanner export folder, and direct CLI scoring continues to accept
-explicit paths such as `scoreform score path\to\scan.pdf`.
+The picker only selects active PDS2 source types and never moves, renames, or
+deletes them. Core creates one canonical retained copy for each invocation.
+Partial and zero-success batches return nonzero and remain in memory; there is
+no saved QR batch summary, result CSV, assignment-local scan copy, or review
+record at this stage. Manual scoring remains available and may accept BMP by
+custom path even though the PDS2 inbox picker excludes BMP.
 
-Results include a privacy-minimized source reference in the `source_file` column
-for audit and verification. Sources inside the workspace are stored as
-workspace-relative paths; sources outside it are stored as basenames. Full
-absolute local paths are not written by default.
-
-Legacy/manual default results and debug images are written under the workspace
-`local_outputs/results/` and `local_outputs/debug/` folders. QR-aware routed
-scoring writes results and debug images into the workspace assignment folder.
+ScoreForm module handlers may write their documented module-owned diagnostic
+images. Missing-QR diagnostics use collision-safe retained provenance names;
+successful paths and diagnostic-write warnings are preserved in the immutable
+page outcome. Legacy/manual output remains under `local_outputs/`.
 
 ### Scan Quality Guidance
 
@@ -910,13 +898,12 @@ ScoreForm depends on clear scans for QR detection, corner registration, and answ
 * no heavy stray marks near answer boxes
 * enough resolution for QR and box detection
 
-Supported input file types are:
+Supported retained PDS2 input file types are:
 
 ```text
 PDF
 PNG
 JPG/JPEG
-BMP
 TIFF/TIF
 ```
 
@@ -924,7 +911,7 @@ Recommended workflow:
 
 1. Place scanned files in `scans_inbox/`.
 2. Use generated class packets or individual student PDFs when possible.
-3. Prefer QR-aware routed scoring for generated sheets.
+3. Prefer retained PDS2 page dispatch for generated sheets.
 4. Review debug images when scoring fails.
 5. Manually verify results before using them for grades.
 
@@ -955,10 +942,13 @@ If scoring fails or results look suspicious, try:
 * inspecting generated debug images
 * manually verifying results before recording grades
 
-ScoreForm saves debug images during scoring. Legacy/manual scoring writes debug images to `local_outputs/debug/`; managed QR-aware scoring writes them to `classes/<class_id>/modules/scoreform/work/<assignment_id>/debug/`. Corner debug images help show whether registration marks were detected. Warped debug images show the normalized page used for scoring. Repeated scoring runs preserve existing debug images by adding numeric suffixes such as `_2` or `_3` when a filename already exists.
+ScoreForm saves module-owned debug images during page handling. Legacy/manual
+scoring writes under `local_outputs/debug/`; the ScoreForm PDS2 handler may
+write scoring diagnostics under its authoritative work `debug/` directory.
+This does not imply that routed results were exported.
 
-ScoreForm is local-first, but scans, diagnostic images, result CSVs, QR batch
-summaries, routed results, files under `local_outputs/`, and class assignment
+ScoreForm is local-first, but scans, diagnostic images, result CSVs, files under
+`local_outputs/`, and class assignment
 output folders may still contain student records and should not be shared
 publicly. QR failure diagnostics default to cropped QR-region images rather
 than full-page scans. Developers can explicitly enable a full-page failure
@@ -1015,52 +1005,52 @@ scoreform generate
 scoreform decode-qr path\to\file.pdf
 ```
 
+The command retains the source first, enumerates retained pages, and parses raw
+QR text only with Core's strict PDS2 parser. It reports module, class, work, and
+route plus Core's canonical serialization. PDS2 carries no student, logical
+page, question range, layout, answer key, or result destination. A locator for
+an uninstalled module is still a valid decode because this command does not
+build a registry or dispatch.
+
+For scoring, the application builds a fresh installed-module registry and
+requires the ScoreForm profile before retention. Every valid locator becomes an
+exact Core `RouteDispatchRequest`; Core dispatches them in source-page order.
+ScoreForm preserves its immutable page results, while successes belonging to
+other installed modules remain opaque. Unknown modules remain normal Core
+dispatch failures and do not stop later valid pages.
+
 ### Score a Scanned File
 
 ```powershell
 scoreform score path\to\scan.pdf
 ```
 
-QR-aware scoring without an output CSV routes results to `<PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`.
-Routed result writes preserve existing rows and use a temporary file before replacing `results.csv`.
-For a full-success QR-aware routed batch that resolves to exactly one
-`(class_id, assignment_id)` target, ScoreForm applies the persistent scan-filing
-mode from `<PDS workspace root>/.pds/scoreform.json` using the JSON key
-`scan_filing_mode`. The default is `copy` when the file or key is absent.
-
-* `copy` files a timestamped, non-overwriting `_scored` assignment-local copy
-  and preserves the teacher-selected original.
-* `move` files and SHA-256 verifies that copy, then removes the original only
-  when it is a direct child of the active workspace `scans_inbox/`. Custom
-  paths and nested inbox folders are always preserved.
-* `off` disables only this automatic assignment-local scored-copy.
-
-Inspect or change the preference with `scoreform scan-filing show`, `scoreform
-scan-filing set copy|move|off`, or `scoreform scan-filing reset`. Core retained
-source scans under `scans/source/YYYY-MM-DD/` are unaffected in every mode.
-Results, QR summaries, diagnostics, failure metadata, and scan-review resolution
-evidence are also unaffected. Partial-success, zero-success, export-failure,
-multi-target, explicit-output, manual, and unavailable-source batches are not
-automatically filed or cleaned up.
+QR-aware one-argument scoring currently performs retained-source PDS2 page
+dispatch only. It writes no routed CSV; attempt assembly and export are #144 work.
+The #143 page-dispatch stage does not apply the scan-filing preference and never
+creates assignment-local scan copies. Core retained sources remain under
+`scans/source/YYYY-MM-DD/` for later #144/#145 processing.
 
 QR-aware scoring uses these batch outcomes and exit codes:
 
-* **Full success** means all pages scored and results were written; it exits
-  `0`.
-* **Partial success** exits `0` when at least one page scored and results were
-  written, but the terminal and saved QR batch summary show `PARTIAL SUCCESS`
-  and list the failures.
-* **Zero success** means no pages scored; it exits `1`.
-* **Export failure** means pages may have scored, but results were not written
-  successfully; it exits `1`.
+* **Complete success** means every discovered source page produced a successful
+  Core dispatch (including foreign-module success); it exits `0`.
+* **Partial success** means at least one but not all pages dispatched
+  successfully; it exits nonzero.
+* **Zero success** means no page dispatched successfully; it exits `1`.
+* **Integration failure** means Core returned outcomes that contradicted their
+  requests or ScoreForm returned the wrong result type; it exits `1`.
+* **File or registry failure** exits `1`; after retention, exact retained
+  provenance remains present in the immutable result.
 
-For QR-aware batches, exit code `0` means usable results were produced and
-written; it does not guarantee that every page succeeded. The saved QR batch
-summary is the source of truth for completeness.
+For retained PDS2 batches, exit code `0` means complete page dispatch only; it
+does not claim that attempts were assembled or results written. The terminal
+summary is an in-memory dispatch report, not persisted review metadata.
 
-Routed `results.csv` is an audit log, not a finalized gradebook export. If a student sheet is scanned more than once, ScoreForm preserves each successful scan as a separate row instead of overwriting earlier results. The `attempt_number` column increments for repeated scans of the same student and assignment, while `scan_timestamp` and `source_file` identify when the row was created and which scan, PDF, or image produced it. Makeup or separate scans append to the existing class-assignment results file when the QR metadata matches. ScoreForm does not yet decide which attempt is the official grade, so teachers should manually verify which row to use until gradebook export rules are implemented.
+The routed `results.csv` audit-log contract is reserved for the #144 assembly
+and export stage and is not written by active #143 page dispatch.
 
-QR-aware scoring with an explicit output CSV writes the QR-aware results to that file instead of routing:
+QR-aware scoring with an explicit output CSV is rejected before retention until #144:
 
 ```powershell
 scoreform score scanned_file.pdf qr_metadata_results.csv
@@ -1268,13 +1258,13 @@ key is scoring authority; assignment-title-only changes are allowed.
 
 Each dispatch extracts only the requested retained image or PDF source page and
 returns one immutable page result. A retained source page number is independent
-of the answer sheet's logical page. Teacher-facing QR batch scoring, attempt
-assembly, export, and review persistence remain gated on #143.
+of the answer sheet's logical page. PDS2 batch page dispatch is active; attempt
+assembly/export and review persistence remain pending #144 and #145.
 # Multi-page assessments
 
 ScoreForm generates 1-75-question assignments with the registered 15-question
 standard or 25-question compact physical layout. Student PDFs and class packets
 contain as many pages as needed, in student-then-page order. Each generated PDS2
 QR identifies a fresh route to an immutable page record whose `logical_page` and
-question range provide page context. PDS2 multi-page scan dispatch and scoring
-remain gated until #143.
+question range provide page context. Multi-page scans are dispatched in
+source-page order without assembling attempts.

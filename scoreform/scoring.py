@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
+from pds_core.routing_models import RouteLocator
 from pds_core.scan_retention import SourceRetentionError, retain_source_scan
 
 from scoreform import workspace
@@ -16,7 +17,10 @@ from scoreform.config import (
 )
 from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.migration import migration_pending
-from scoreform.module_errors import ScoreFormPageScoringError
+from scoreform.module_errors import (
+    ScoreFormPageScoringError,
+    ScoreFormQrDiagnosticWriteError,
+)
 from scoreform.paging import (
     page_count_for_question_count,
     question_count_for_page,
@@ -295,12 +299,30 @@ class QRBatchResults(list):
         self.retained_source = retained_source
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class QRDecodeResult:
-    metadata: dict | None
+    locator: RouteLocator | None
     failure_category: str | None = None
     failure_reason: str | None = None
-    diagnostic_paths: list[str] = field(default_factory=list)
+    diagnostic_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class QrDiagnosticWriteResult:
+    paths: tuple[str, ...] = ()
+    errors: tuple[Exception, ...] = ()
+
+    def __post_init__(self):
+        if not isinstance(self.paths, tuple) or any(
+            not isinstance(path, str) or not path for path in self.paths
+        ):
+            raise TypeError("paths must contain only nonempty strings.")
+        if len(self.paths) != len(set(self.paths)):
+            raise ValueError("paths must not contain duplicates.")
+        if not isinstance(self.errors, tuple) or any(
+            not isinstance(error, Exception) for error in self.errors
+        ):
+            raise TypeError("errors must contain only Exception values.")
 
 
 def order_points(pts):
@@ -823,8 +845,10 @@ def validate_qr_metadata(qr_metadata):
 
 
 def parse_qr_payload(payload):
-    """Reject scan payload parsing until PDS2 dispatch is implemented."""
-    migration_pending("QR payload parsing", "#143")
+    """Parse an active QR payload exclusively through Core's strict PDS2 parser."""
+    from pds_core.pds2 import parse_pds2_payload
+
+    return parse_pds2_payload(payload)
 
 
 def _try_decode_qr(detector, img):
@@ -1051,11 +1075,27 @@ def _dated_local_output_dir(category, now=None, workspace_root=None):
 
 
 def _write_diagnostic_image(path, image):
+    output_path, error = _write_diagnostic_image_with_status(path, image)
+    if error is not None:
+        print(f"Warning: {error}")
+    return output_path
+
+
+def _write_diagnostic_image_with_status(path, image):
     output_path = non_overwriting_path(path)
-    if cv2.imwrite(output_path, image):
-        return output_path
-    print(f"Warning: Could not save QR failure diagnostic image: {output_path}")
-    return None
+    try:
+        written = cv2.imwrite(output_path, image)
+    except Exception as error:
+        failure = ScoreFormQrDiagnosticWriteError(
+            f"Could not save QR failure diagnostic image {output_path}: {error}"
+        )
+        failure.__cause__ = error
+        return None, failure
+    if written:
+        return output_path, None
+    return None, ScoreFormQrDiagnosticWriteError(
+        f"Could not save QR failure diagnostic image: {output_path}"
+    )
 
 
 def _full_page_diagnostics_enabled():
@@ -1071,8 +1111,28 @@ def save_qr_failure_diagnostics(
     workspace_root=None,
 ):
     """Save privacy-minimized QR failure images and return their paths."""
+    result = save_qr_failure_diagnostics_with_status(
+        img,
+        file_path,
+        page_num,
+        now=now,
+        workspace_root=workspace_root,
+    )
+    for error in result.errors:
+        print(f"Warning: {error}")
+    return list(result.paths)
+
+
+def save_qr_failure_diagnostics_with_status(
+    img,
+    file_path,
+    page_num,
+    now=None,
+    workspace_root=None,
+):
+    """Write QR diagnostics and preserve immutable paths and write failures."""
     if img is None:
-        return []
+        return QrDiagnosticWriteResult()
 
     try:
         output_dir = _dated_local_output_dir(
@@ -1081,8 +1141,11 @@ def save_qr_failure_diagnostics(
             workspace_root=workspace_root,
         )
     except OSError as error:
-        print(f"Warning: Could not create QR failure diagnostic folder: {error}")
-        return []
+        failure = ScoreFormQrDiagnosticWriteError(
+            f"Could not create QR failure diagnostic folder: {error}"
+        )
+        failure.__cause__ = error
+        return QrDiagnosticWriteResult(errors=(failure,))
     stem = f"{_sanitize_output_stem(file_path)}_page_{page_num}"
     images = []
     crops = dict(_expected_qr_crop_candidates(img))
@@ -1121,17 +1184,20 @@ def save_qr_failure_diagnostics(
         images.append((f"{stem}_full_page_debug.png", img))
 
     saved_paths = []
+    write_errors = []
     for filename, image in images:
-        saved_path = _write_diagnostic_image(
+        saved_path, write_error = _write_diagnostic_image_with_status(
             os.path.join(output_dir, filename),
             image,
         )
         if saved_path:
             saved_paths.append(saved_path)
+        if write_error is not None:
+            write_errors.append(write_error)
 
     if saved_paths:
         print(f"Saved QR failure diagnostics to {output_dir}")
-    return saved_paths
+    return QrDiagnosticWriteResult(tuple(saved_paths), tuple(write_errors))
 
 
 def _decode_qr_from_image_with_status(
@@ -1180,30 +1246,27 @@ def _decode_qr_from_image_with_status(
             None,
             "missing_qr",
             "missing QR code",
-            diagnostic_paths,
+            tuple(diagnostic_paths),
         )
 
-    parsed = parse_qr_payload(data)
-    if parsed is None:
+    try:
+        locator = parse_qr_payload(data)
+    except Exception:
         print(f"QR code detected but payload invalid: '{data}'")
         return QRDecodeResult(None, "malformed_qr", "invalid QR payload")
-
-    if not validate_qr_metadata(parsed):
-        print(f"QR code payload failed validation: '{data}'")
-        return QRDecodeResult(None, "unsafe_qr", "unsafe QR payload")
 
     if success_label != "raw":
         print(f"QR decoded using {success_label} fallback.")
 
-    return QRDecodeResult(parsed)
+    return QRDecodeResult(locator)
 
 
 def decode_qr_from_image(img):
-    """Decode a QR code from an OpenCV image and parse its ScoreForm payload.
+    """Decode a QR code from an OpenCV image into a Core PDS2 RouteLocator.
 
-    Returns parsed metadata dict or None on failure.
+    Returns the validated locator, or None for missing/malformed payloads.
     """
-    return _decode_qr_from_image_with_status(img).metadata
+    return _decode_qr_from_image_with_status(img).locator
 
 
 def _default_qr_failure_reason(category):
@@ -1376,7 +1439,7 @@ def _score_page_qr_aware_decode_metadata(
         page_num=page_num,
         workspace_root=workspace_root,
     )
-    if decoded.metadata is None:
+    if decoded.locator is None:
         _record_qr_failure(
             summary,
             page_num,
@@ -1385,7 +1448,7 @@ def _score_page_qr_aware_decode_metadata(
         )
         if summary is not None and decoded.diagnostic_paths:
             summary.record_diagnostics(decoded.diagnostic_paths)
-    return decoded.metadata
+    return decoded.locator
 
 
 def _score_page_qr_aware_assignment_path(
@@ -1583,71 +1646,17 @@ def _process_qr_image(file_path, all_results, summary, workspace_root=None):
         all_results.append(res)
 
 
-def process_file_qr_aware(file_path, workspace_root=None):
-    """Process a file with QR-aware scoring.
-    
-    Decodes QR metadata from each page, loads the corresponding assignment.json,
-    scores using the assignment's answer key, and includes metadata in results.
-    
-    Returns a list of structured results for each successfully scored page,
-    or an empty list if no pages were scored successfully.
-    """
-    migration_pending("QR-aware scan scoring", "#143")
-
-    summary = QRBatchSummary()
-    all_results = QRBatchResults(summary=summary)
-
-    if not os.path.exists(file_path):
-        print(f"Error: File {file_path} does not exist.")
-        _record_qr_file_failure(
-            summary,
-            "input_file_missing",
-            f"Input file not found: {file_path}",
-        )
-        return all_results
-
-    ext = os.path.splitext(file_path)[1].lower()
-    supported = ext == ".pdf" or ext in _qr_retained_image_extensions()
-    if not supported:
-        print(
-            f"Error: Unsupported file extension '{ext}'. "
-            "Please provide a PDF or an image."
-        )
-        _record_qr_file_failure(
-            summary,
-            "unsupported_input_type",
-            f"Unsupported input type: {ext or '(no extension)'}",
-        )
-        return all_results
+def process_file_qr_aware(file_path, workspace_root=None, *, registry=None):
+    """Run retained PDS2 page dispatch; retained name for call-site migration."""
+    from scoreform.pds2_scan_dispatch import process_pds2_scan
 
     if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-
-    retained_source = _retain_qr_source_scan(file_path, workspace_root, summary)
-    if retained_source is None:
-        return all_results
-    all_results.retained_source = retained_source
-    retained_path = os.fspath(retained_source.retained_source_path)
-
-    if ext == ".pdf":
-        _process_qr_pdf(
-            retained_path,
-            all_results,
-            summary,
-            workspace_root=workspace_root,
-        )
-    else:
-        _process_qr_image(
-            retained_path,
-            all_results,
-            summary,
-            workspace_root=workspace_root,
-        )
-
-    assembled = _assemble_qr_attempts(all_results, summary)
-    all_results.clear()
-    all_results.extend(assembled)
-    return all_results
+    return process_pds2_scan(
+        file_path,
+        workspace_root=workspace_root,
+        registry=registry,
+    )
 
 
 def _assemble_qr_attempts(page_results, summary):

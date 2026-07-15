@@ -4,11 +4,12 @@ from scoreform import cli, cli_score
 from scoreform.scoring import ManualScoringResults, ManualScoringSummary
 
 
-def test_qr_aware_scoring_fails_cleanly_at_issue_143(capsys) -> None:
+def test_qr_aware_scoring_is_enabled_and_missing_source_fails_cleanly(capsys) -> None:
     assert cli.main(["score", "scan.pdf"]) == 1
     output = capsys.readouterr().out
-    assert "#143" in output
-    assert "temporarily unavailable" in output
+    assert "retained PDS2 Core dispatch mode" in output
+    assert "Source file does not exist" in output
+    assert "No routed results were written" in output
 
 
 def test_manual_explicit_answer_key_scoring_remains_available(monkeypatch, tmp_path) -> None:
