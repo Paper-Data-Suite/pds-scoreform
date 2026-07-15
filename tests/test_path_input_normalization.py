@@ -2,6 +2,8 @@ from pathlib import Path
 
 from scoreform import workflows
 from scoreform.workflows import (
+    PDS2_SCAN_EXTENSIONS,
+    discover_pds2_scans_in_inbox,
     discover_scans_in_inbox,
     is_supported_scan_file,
     normalize_path_input,
@@ -32,6 +34,7 @@ def test_is_supported_scan_file_accepts_pdf_and_images():
     assert is_supported_scan_file("scan.PNG")
     assert is_supported_scan_file("scan.jpeg")
     assert is_supported_scan_file("scan.tif")
+    assert is_supported_scan_file("manual.bmp")
 
 
 def test_is_supported_scan_file_rejects_unsupported_and_hidden_files():
@@ -86,3 +89,15 @@ def test_discover_scans_in_inbox_uses_core_route_by_default(tmp_path, monkeypatc
     assert discover_scans_in_inbox() == [str(scans_dir / "scan.pdf")]
     assert route_calls == [tmp_path]
     assert scan_path.exists()
+
+
+def test_pds2_inbox_discovery_excludes_bmp_and_includes_exact_active_types(tmp_path):
+    scans_dir = tmp_path / "scans_inbox"
+    scans_dir.mkdir()
+    for extension in (*PDS2_SCAN_EXTENSIONS, ".bmp"):
+        (scans_dir / f"scan{extension}").write_bytes(b"scan")
+    discovered = discover_pds2_scans_in_inbox(scans_dir)
+    assert str(scans_dir / "scan.bmp") not in discovered
+    assert {Path(path).suffix.lower() for path in discovered} == set(
+        PDS2_SCAN_EXTENSIONS
+    )

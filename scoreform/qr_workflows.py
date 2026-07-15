@@ -1,85 +1,73 @@
-"""QR decode command and menu workflow actions."""
+"""Retained-source PDS2 QR decode command."""
 
-import os
+from pathlib import Path
 
-import cv2
-import numpy as np
+from pds_core.pds2 import parse_pds2_payload, serialize_pds2_payload
+from pds_core.scan_retention import retain_source_scan
 
-from scoreform.migration import migration_pending
-from scoreform.scoring import decode_qr_from_image
+from scoreform import workspace
+from scoreform.pds2_scan_dispatch import (
+    detect_qr_payload_text,
+    validate_pds2_scan_source,
+)
+from scoreform.retained_page import (
+    load_retained_page_for_qr,
+    retained_source_page_count,
+    validate_retained_source,
+)
 
 
 def run_decode_qr(args):
-    """Decode QR metadata from a PDF or image."""
-    migration_pending("ScoreForm QR decoding", "#143")
-
+    """Retain a source and decode only Core-valid PDS2 locator fields."""
     if len(args) != 1:
         print("Usage: scoreform decode-qr <input_file>")
         return 1
-
-    input_file = args[0]
-
-    if not os.path.exists(input_file):
-        print(f"Error: File {input_file} does not exist.")
+    try:
+        source = validate_pds2_scan_source(args[0])
+        workspace_root = workspace.get_scoreform_workspace_root()
+        if not isinstance(workspace_root, Path):
+            raise TypeError("workspace root must be a Path")
+        retained = retain_source_scan(workspace_root, source)
+        validate_retained_source(retained, workspace_root=workspace_root)
+        page_count = retained_source_page_count(
+            retained, workspace_root=workspace_root
+        )
+    except Exception as error:
+        print(f"Error: Could not retain or enumerate source: {error}")
         return 1
 
-    ext = os.path.splitext(input_file)[1].lower()
-    found_any = False
-    bad_found = False
-
-    if ext == ".pdf":
+    print(f"Source scan ID: {retained.source_scan_id}")
+    print(f"Retained source path: {retained.retained_source_relative_path}")
+    print(f"Source SHA-256: {retained.source_sha256}")
+    valid = 0
+    failed = False
+    for number in range(1, page_count + 1):
         try:
-            from pdf2image import convert_from_path
-        except ImportError:
-            print("Error: The 'pdf2image' module is not installed.\nPlease run: pip install pdf2image")
-            return 1
-
-        try:
-            pages = convert_from_path(input_file)
-        except Exception as e:
-            print(f"Error while converting PDF: {e}")
-            return 1
-
-        for page_num, page in enumerate(pages, start=1):
-            open_cv_image = cv2.cvtColor(np.array(page), cv2.COLOR_RGB2BGR)
-            print(f"Page {page_num} QR:")
-            parsed = decode_qr_from_image(open_cv_image)
-            if parsed:
-                found_any = True
-                print(f"  class_id: {parsed.get('class_id')}")
-                print(f"  assignment_id: {parsed.get('assignment_id')}")
-                print(f"  student_id: {parsed.get('student_id')}")
-            else:
-                bad_found = True
-                print(f"  No valid QR decoded on page {page_num}.")
-
-    elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"]:
-        img = cv2.imread(input_file)
-        if img is None:
-            print(f"Error: Could not read image {input_file}")
-            return 1
-
-        parsed = decode_qr_from_image(img)
-        if parsed:
-            found_any = True
-            print("Decoded QR:")
-            print(f"  class_id: {parsed.get('class_id')}")
-            print(f"  assignment_id: {parsed.get('assignment_id')}")
-            print(f"  student_id: {parsed.get('student_id')}")
-        else:
-            print("No valid QR decoded from image.")
-            return 1
-
-    else:
-        print(f"Error: Unsupported file extension '{ext}'. Please provide a PDF or an image.")
-        return 1
-
-    if not found_any:
-        print("Error: No QR code could be decoded from any page or image.")
-        return 1
-
-    if bad_found:
-        print("Error: At least one page contained an unreadable or malformed QR payload.")
-        return 1
-
-    return 0
+            image = load_retained_page_for_qr(
+                retained, number, workspace_root=workspace_root
+            )
+            detection = detect_qr_payload_text(
+                image,
+                retained_source=retained,
+                source_page_number=number,
+                workspace_root=workspace_root,
+            )
+            for diagnostic_error in detection.diagnostic_errors:
+                print(f"Diagnostic warning: {diagnostic_error}")
+            if detection.raw_payload_text is None:
+                raise detection.error or ValueError("No QR payload was detected.")
+            locator = parse_pds2_payload(detection.raw_payload_text)
+        except Exception as error:
+            failed = True
+            print(f"Page: {number}")
+            print(f"Error: {error}")
+            continue
+        valid += 1
+        print(f"Page: {number}")
+        print("Schema: PDS2")
+        print(f"Module: {locator.module_id}")
+        print(f"Class: {locator.class_id}")
+        print(f"Work: {locator.work_id}")
+        print(f"Route: {locator.route_id}")
+        print(f"Canonical payload: {serialize_pds2_payload(locator)}")
+    return 0 if valid == page_count and not failed else 1

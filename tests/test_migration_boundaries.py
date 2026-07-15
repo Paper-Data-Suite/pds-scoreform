@@ -17,8 +17,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize(
     "args, issue",
     [
-        (["score", "scan.pdf"], "#143"),
-        (["decode-qr", "scan.pdf"], "#143"),
         (["resolve-scan-review", "failure1", "--action", "defer"], "#145"),
     ],
 )

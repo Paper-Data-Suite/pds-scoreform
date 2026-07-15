@@ -530,7 +530,7 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     assert "2. mixed_scan.pdf" in output
     assert "z_unsupported.txt" not in output
     assert "Selected scan:" in output
-    assert "QR-aware routed scoring (recommended)" in output
+    assert "Retained PDS2 Core page dispatch (recommended)" in output
     assert "Output CSV path (blank for routed QR-aware default):" not in output
     assert run_score_calls == [[str(scans_dir / "mixed_scan.pdf")]]
 
@@ -680,7 +680,7 @@ def test_prompt_select_scan_from_inbox_uses_core_route_by_default(
     )
     monkeypatch.setattr(
         menu_scoring,
-        "discover_scans_in_inbox",
+        "discover_pds2_scans_in_inbox",
         lambda scans_dir: discovery_calls.append(scans_dir) or [],
     )
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)

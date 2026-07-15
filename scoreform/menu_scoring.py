@@ -13,7 +13,7 @@ from scoreform.menu_navigation import (
 )
 from scoreform.workflows import (
     clear_screen,
-    discover_scans_in_inbox,
+    discover_pds2_scans_in_inbox,
     normalize_path_input,
     parse_single_selection,
     pause_for_user,
@@ -29,7 +29,7 @@ def prompt_select_scan_from_inbox(scans_dir=None):
 
     clear_screen()
     print_menu_header("Select a Scan")
-    scans = discover_scans_in_inbox(scans_dir)
+    scans = discover_pds2_scans_in_inbox(scans_dir)
     if not scans:
         print(f"No scans found in {scans_dir}.")
         print(f"Place scanned PDFs or images in {scans_dir}, then try again.")
@@ -98,11 +98,12 @@ def prompt_scoring_input_file():
 
 
 def run_menu_qr_aware_routed_scoring(input_file):
-    """Run the menu's recommended QR-aware routed scoring workflow."""
+    """Run the menu's recommended retained PDS2 page-dispatch workflow."""
     clear_screen()
-    print_menu_header("QR-Aware Routed Scoring")
-    print("Using QR-aware routed scoring.")
-    print("Results will be routed using QR metadata.")
+    print_menu_header("PDS2 Core Page Dispatch")
+    print("Pages will be retained and dispatched through Core using PDS2 routes.")
+    print("ScoreForm pages will be scored individually.")
+    print("Attempt assembly and routed result export remain pending #144.")
     print()
     run_score([input_file])
     print()
@@ -141,7 +142,7 @@ def run_menu_manual_scoring(input_file):
 
 
 def prompt_scoring_mode(input_file):
-    """Prompt for QR-aware routed or manual scoring after a scan is selected."""
+    """Prompt for retained PDS2 page dispatch or manual scoring."""
     while True:
         clear_screen()
         print_menu_header("Select Scoring Mode")
@@ -150,7 +151,7 @@ def prompt_scoring_mode(input_file):
         print()
         print("Scoring mode:")
         print()
-        print("1. QR-aware routed scoring (recommended)")
+        print("1. Retained PDS2 Core page dispatch (recommended)")
         print("2. Manual scoring with answer key")
         print_scoreform_navigation_options()
         print()

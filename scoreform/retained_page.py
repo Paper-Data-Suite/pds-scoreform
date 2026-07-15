@@ -233,6 +233,48 @@ def _load_pdf_page(path: Path, page_number: int) -> np.ndarray:
         ) from error
 
 
+def retained_source_page_count(
+    retained_source: RetainedSourceScan,
+    *,
+    workspace_root: Path,
+) -> int:
+    """Return the positive page count of the exact retained source."""
+    path = validate_retained_source(retained_source, workspace_root=workspace_root)
+    if path.suffix.lower() != ".pdf":
+        return 1
+    try:
+        from pdf2image import pdfinfo_from_path
+        from pdf2image.exceptions import (
+            PDFInfoNotInstalledError,
+            PDFPageCountError,
+            PDFSyntaxError,
+        )
+    except ImportError as error:
+        raise ScoreFormRetainedPageError(
+            "PDF page enumeration requires the pdf2image package."
+        ) from error
+    try:
+        info = pdfinfo_from_path(os.fspath(path))
+    except PDFInfoNotInstalledError as error:
+        raise ScoreFormRetainedPageError(
+            "PDF page enumeration requires an available Poppler installation."
+        ) from error
+    except PDFPageCountError as error:
+        raise ScoreFormRetainedPageError(
+            "The retained PDF page count could not be determined."
+        ) from error
+    except PDFSyntaxError as error:
+        raise ScoreFormRetainedPageError("The retained PDF is malformed.") from error
+    except Exception as error:
+        raise ScoreFormRetainedPageError("Retained PDF page enumeration failed.") from error
+    pages = info.get("Pages") if isinstance(info, dict) else None
+    if isinstance(pages, bool) or not isinstance(pages, int) or pages < 1:
+        raise ScoreFormRetainedPageError(
+            "The retained PDF must contain a positive page count."
+        )
+    return pages
+
+
 def load_retained_source_page(
     retained_source: RetainedSourceScan,
     source_page_number: int,
@@ -267,3 +309,17 @@ def load_retained_source_page(
         width=width,
         height=height,
     )
+
+
+def load_retained_page_for_qr(
+    retained_source: RetainedSourceScan,
+    source_page_number: int,
+    *,
+    workspace_root: Path,
+) -> np.ndarray:
+    """Load one retained page as nonempty uint8 OpenCV BGR data for QR detection."""
+    return load_retained_source_page(
+        retained_source,
+        source_page_number,
+        workspace_root=workspace_root,
+    ).image
