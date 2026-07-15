@@ -93,8 +93,9 @@ Commands:
 
 Core 0.5/PDS2 migration notice:
   Personalized PDFs, class packets, and managed regeneration use immutable page
-  records and Core PDS2 route registrations. QR decoding/routed scoring and
-  scan-review mutation remain gated on their later PDS2 work. Managed assignment
+  records and Core PDS2 route registrations. The installed one-page module
+  handler is available to Core, while teacher-facing QR decoding, batch scoring,
+  assembly, and export remain gated on #143. Managed assignment
   setup, discovery, creation, editing, plain-paper result entry, and result
   viewing use module-qualified ScoreForm work storage and are available.
 
@@ -162,7 +163,7 @@ def print_menu_help():
     print()
     print("QR-aware routed scoring writes to:")
     print("  classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv")
-    print("  QR-aware scoring remains unavailable pending later PDS2 routing work.")
+    print("  QR-aware scoring remains unavailable pending #143.")
     print()
     print("Routed results are an audit log, not a finalized gradebook export.")
     print("Manually verify scores before using them for grades.")

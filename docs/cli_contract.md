@@ -25,8 +25,17 @@ setup, direct ScoreForm discovery, creation, editing, plain-paper result entry,
 and result viewing operate on
 `classes/<class_id>/modules/scoreform/work/<assignment_id>/`. Personalized and
 class-packet generation plus managed regeneration create immutable page records,
-register Core PDS2 routes, and render locator-only QR codes. PDS2 scan dispatch,
-QR-aware scoring, and scan-review mutation retain their narrower later gates.
+register Core PDS2 routes, and render locator-only QR codes. The installed
+ScoreForm module profile can now validate and dispatch one already-resolved
+retained-source page through Core. It authorizes only `active` registrations
+whose authoritative issuance is `issued`, checks the current assignment and
+physical layout, and returns one immutable page score. Current answer-key edits
+apply at scoring time, while title-only edits do not invalidate a sheet.
+
+This callable boundary does not enable the teacher-facing workflow. PDS2 QR
+decoding, retained-source batch dispatch, attempt assembly, result export, and
+scan-review mutation remain gated on #143. The handler never decodes PDS2 and a
+retained PDF page number is independent of the sheet's logical page.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or
 fall back to the former unqualified assignment layout. Help/version, assignment

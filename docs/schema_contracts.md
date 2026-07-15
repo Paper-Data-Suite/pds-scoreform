@@ -581,6 +581,43 @@ never overwrite an existing file. Source evidence is copied, never moved.
 Manual entry keeps the routed-results header in section 8 unchanged. Its row is
 distinguished by a `source_file` path containing `_manual_entry` and by the
 linked Core resolution record; no result-source or resolution columns are added.
+
+## Core 0.5 ScoreForm module dispatch contract
+
+Installed discovery uses `paper_data_suite.modules` with entry-point name
+`scoreform`. The profile supports exactly Core routing contract `1`, `PDS2`,
+route-registration schema `1`, and dispatchable status `active`.
+
+A valid ScoreForm registration targets module `scoreform`, record kind
+`answer_sheet_page`, contract version `1`, and a valid `pg_` page ID. Its
+`module_details` object has exactly `issuance_id`, `logical_page`, and
+`total_pages`; page numbers are positive non-Boolean integers and logical page
+does not exceed total pages. The fallback grammar is exactly:
+
+```text
+ScoreForm | class=<class_id> | assignment=<assignment_id> | student=<student_id> | page=<logical_page>/<total_pages> | page_id=<page_id>
+```
+
+The structural validator is pure. The handler owns target reads and compares
+all diagnostics to the immutable page and complete issuance. An active Core
+route is not sufficient authorization: issuance lifecycle must be `issued`.
+The current assignment must preserve question count, layout, and choices, while
+its current answer key remains authoritative; title drift alone is accepted.
+
+Runtime output is one immutable physical-page score with authoritative record
+identities, exact question range, ordered immutable answers, retained-source
+provenance, and diagnostic paths. It contains no answer key. Source page number
+selects a page in the retained scan and is not the logical answer-sheet page.
+
+Retained-source validation reconstructs Core's exact canonical
+`scans/source/<intake_date>/<retained_filename>` path. `intake_date` is an
+independent Core routing value and may differ from the timezone-aware intake
+timestamp's calendar date; the canonical date bucket must match `intake_date`.
+The original source filename is validated only as trimmed, control-free
+provenance with a supported extension matching the retained file. It is never
+used as path material. Numeric page-result fields reject Booleans explicitly.
+If strict OMR fails after creating managed diagnostics, the typed scoring error
+carries their immutable paths for later review without directory searching.
 # Multi-page ScoreForm sheets
 
 Sheets may span multiple pages. `question_count` is an integer from 1 through 75,

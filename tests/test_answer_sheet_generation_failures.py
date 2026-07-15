@@ -539,10 +539,11 @@ def test_two_issued_predecessors_are_ambiguous_before_new_records_or_routes(tmp_
             generation_id=f"gen_{digit * 32}",
             artifact_id=f"art_{digit * 32}",
             output_kind="individual_pdf",
-            reason="initial",
-            issuance_id=f"iss_{digit * 32}",
-            page_ids=(f"pg_{digit * 32}",),
-        )
+                reason="initial",
+                issuance_id=f"iss_{digit * 32}",
+                page_ids=(f"pg_{digit * 32}",),
+                clock=lambda: "2026-07-15T14:59:00+00:00",
+            )
         write_answer_sheet_record_set(tmp_path, paths.work_ref, records)
         transition_answer_sheet_issuance(
             tmp_path,

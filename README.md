@@ -1248,6 +1248,28 @@ Contributions should follow these expectations:
 ## License
 
 This project is licensed under the MIT License.
+
+## Installed Core 0.5 module boundary
+
+The distribution contributes the zero-argument entry point
+`paper_data_suite.modules: scoreform = scoreform.pds_module:get_module_profile`.
+Its immutable profile advertises Core routing contract `1`, QR schema `PDS2`,
+route-registration schema `1`, and only the `active` route status. Discovery
+does not resolve a workspace, build a global registry, or import sibling PDS
+modules.
+
+The profile's pure registration validator requires an `answer_sheet_page` v1
+target, exact `issuance_id`/`logical_page`/`total_pages` module details, and the
+exact ScoreForm human-fallback line. It performs no record or filesystem reads.
+The handler separately verifies canonical Core roots, loads the authoritative
+page and complete issuance, permits only lifecycle status `issued`, and checks
+the current managed assignment against the printed layout. The current answer
+key is scoring authority; assignment-title-only changes are allowed.
+
+Each dispatch extracts only the requested retained image or PDF source page and
+returns one immutable page result. A retained source page number is independent
+of the answer sheet's logical page. Teacher-facing QR batch scoring, attempt
+assembly, export, and review persistence remain gated on #143.
 # Multi-page assessments
 
 ScoreForm generates 1-75-question assignments with the registered 15-question
