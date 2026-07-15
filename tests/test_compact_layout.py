@@ -43,7 +43,7 @@ def test_compact_second_page_renders_global_question_labels(monkeypatch):
     canvas = RecordingCanvas()
     student = {"class_id": "class1", "student_id": "1001"}
 
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#140 and #141"):
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#141"):
         templates.draw_student_answer_sheet_page(
             canvas, _compact_assignment(), student, 2
         )

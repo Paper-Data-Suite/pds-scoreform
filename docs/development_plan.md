@@ -168,6 +168,13 @@ validation, persistence, and reset behavior to `pds-core`. Setting a new root
 does not migrate existing files, and resetting the saved preference does not
 delete workspace data.
 
+ScoreForm now owns strict v1 answer-sheet issuance records and immutable
+physical-page records under each managed assignment's `answer_sheets/` folder.
+These APIs plan, exclusively persist, load, and lifecycle-manage physical copy
+identity without creating routes, QR payloads, or PDFs. Personalized and class-
+packet generation and managed regeneration remain gated until #141 registers
+Core PDS2 routes and renders the corresponding artifacts.
+
 ```text
 <PDS workspace root>/
   classes/
@@ -178,6 +185,9 @@ delete workspace data.
           work/
             rj_act1_quiz/
               assignment.json
+              answer_sheets/
+                issuances/
+                pages/
               results.csv
               templates/
                 class_packet.pdf

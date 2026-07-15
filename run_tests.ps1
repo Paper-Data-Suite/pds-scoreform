@@ -113,7 +113,7 @@ try {
     Invoke-MigrationGate "Personalized generation" @(
         "generate", "examples\sample_assignment.json", "--rosters",
         "examples\sample_roster_english9_p2.csv"
-    ) "#140"
+    ) "#141"
     Invoke-MigrationGate "QR-aware scoring" @("score", "missing-scan.pdf") "#143"
     Invoke-MigrationGate "QR decoding" @("decode-qr", "missing-scan.pdf") "#143"
 

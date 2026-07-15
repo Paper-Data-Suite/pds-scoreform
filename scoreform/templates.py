@@ -182,7 +182,7 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
     Returns True on success, False on failure.
     """
-    migration_pending("Personalized answer-sheet generation", "#140 and #141")
+    migration_pending("Personalized answer-sheet generation", "#141")
 
     try:
         import qrcode  # noqa: F401 - dependency availability check
@@ -222,7 +222,7 @@ def generate_student_pdf(output_path, assignment_data, student_data):
 
 def build_qr_payload(assignment_data, student_data, page_number=1):
     """Reject QR generation until authoritative PDS2 records exist."""
-    migration_pending("Answer-sheet QR payload generation", "#140 and #141")
+    migration_pending("Answer-sheet QR payload generation", "#141")
 
 
 def make_qr_image(payload):
@@ -344,7 +344,7 @@ def generate_class_packet_pdf(output_path, assignment_data, roster_data):
 
     Returns True on success, False on failure.
     """
-    migration_pending("Class-packet QR generation", "#140 and #141")
+    migration_pending("Class-packet QR generation", "#141")
 
     try:
         import qrcode  # noqa: F401 - dependency availability check
