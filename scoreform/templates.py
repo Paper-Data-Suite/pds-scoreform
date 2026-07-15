@@ -4,17 +4,21 @@ import sys
 
 import cv2
 import numpy as np
+from pds_core.pds2 import parse_pds2_payload, serialize_pds2_payload
+from pds_core.routing_models import RouteLocator
 
 from scoreform import workspace
+from scoreform.answer_sheet_routes import (
+    RegisteredAnswerSheetPageRoute,
+    validate_answer_sheet_page_route,
+)
 from scoreform.config import (
     LOCAL_TEMPLATE_PDF,
     LOCAL_TEMPLATE_PNG,
-    MAX_ASSIGNMENT_QUESTION_COUNT,
 )
 from scoreform.folders import ensure_parent_dir
 from scoreform.layouts import get_layout
-from scoreform.migration import migration_pending
-from scoreform.paging import page_count_for_question_count, question_range_for_page
+from scoreform.paging import question_range_for_page
 
 
 def _pdf_coord(x, y, layout=None):
@@ -177,52 +181,11 @@ def student_pdf_filename(student_data):
     return safe_filename(base) + ".pdf"
 
 
-def generate_student_pdf(output_path, assignment_data, student_data):
-    """Generate a personalized student PDF answer sheet compatible with the scorer.
-
-    Returns True on success, False on failure.
-    """
-    migration_pending("Personalized answer-sheet generation", "#141")
-
-    try:
-        import qrcode  # noqa: F401 - dependency availability check
-    except ImportError:
-        print("Error: The 'qrcode' package is required to generate QR codes.")
-        print('Please run: python -m pip install "qrcode[pil]"')
-        return False
-
-    try:
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
-    except Exception:
-        print("Error: The 'reportlab' package is required to generate student PDFs.")
-        return False
-
-    try:
-        c = canvas.Canvas(output_path, pagesize=letter)
-        c.setFillColorRGB(0, 0, 0)
-        c.setStrokeColorRGB(0, 0, 0)
-
-        layout = get_layout(assignment_data.get("layout_id"))
-        page_count = page_count_for_question_count(assignment_data["question_count"], layout)
-        for assessment_page in range(1, page_count + 1):
-            if not draw_student_answer_sheet_page(
-                c, assignment_data, student_data, assessment_page, layout
-            ):
-                print(f"Error: Failed to draw student answer sheet page for '{output_path}'")
-                return False
-            c.showPage()
-        c.save()
-        return True
-
-    except Exception as e:
-        print(f"Error generating student PDF '{output_path}': {e}")
-        return False
-
-
-def build_qr_payload(assignment_data, student_data, page_number=1):
-    """Reject QR generation until authoritative PDS2 records exist."""
-    migration_pending("Answer-sheet QR payload generation", "#141")
+def build_qr_payload(locator: RouteLocator) -> str:
+    """Return Core's canonical locator-only PDS2 serialization."""
+    if not isinstance(locator, RouteLocator):
+        raise TypeError("build_qr_payload requires a RouteLocator.")
+    return serialize_pds2_payload(locator)
 
 
 def make_qr_image(payload):
@@ -250,14 +213,16 @@ def make_qr_image(payload):
     return ImageReader(img_io)
 
 
-def draw_qr_code(c, assignment_data, student_data, page_number=1, layout=None):
-    """Build the QR payload, generate the QR image, and draw it onto the ReportLab canvas."""
-    payload = build_qr_payload(assignment_data, student_data, page_number)
-    if payload is None:
-        return False
-
-    # Coordinates specified by requirements
-    layout = get_layout(assignment_data.get("layout_id")) if layout is None else layout
+def draw_qr_code(c, route, layout):
+    """Draw only an already verified page route's canonical payload."""
+    if not isinstance(route, RegisteredAnswerSheetPageRoute):
+        raise TypeError("QR drawing requires a registered answer-sheet page route.")
+    validate_answer_sheet_page_route(route.route)
+    if parse_pds2_payload(route.payload_text) != route.locator:
+        raise ValueError("Registered route payload does not reproduce its locator.")
+    payload = build_qr_payload(route.locator)
+    if payload != route.payload_text:
+        raise ValueError("Registered route payload is not canonical.")
 
     # Convert template coordinates to PDF points
     pd_x, pd_y = _pdf_coord(layout.qr_x, layout.qr_y, layout)
@@ -267,13 +232,42 @@ def draw_qr_code(c, assignment_data, student_data, page_number=1, layout=None):
     try:
         qr_img = make_qr_image(payload)
         c.drawImage(qr_img, pd_x, pd_y - pd_h, pd_w, pd_h)
-        return True
+        return None
     except Exception as e:
-        print(f"Error drawing QR code: {e}")
-        return False
+        raise RuntimeError(f"Error drawing QR code: {e}") from e
 
 
-def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number=1, layout=None):
+def _validate_render_context(assignment_data, student_data, route, layout):
+    if not isinstance(route, RegisteredAnswerSheetPageRoute):
+        raise TypeError("Page rendering requires a registered page route.")
+    validate_answer_sheet_page_route(route.route)
+    page = route.page
+    expected_assignment = (
+        assignment_data.get("assignment_id"),
+        assignment_data.get("question_count"),
+        assignment_data.get("layout_id"),
+        tuple(assignment_data.get("choices", ())),
+    )
+    if expected_assignment != (
+        page.assignment_id,
+        page.assignment_question_count,
+        page.layout_id,
+        tuple(layout.choices),
+    ):
+        raise ValueError("Page structure does not match the managed assignment.")
+    if student_data.get("student_id") != page.student_id:
+        raise ValueError("Page student does not match the selected student.")
+    if layout.layout_id != page.layout_id:
+        raise ValueError("Page layout does not match the resolved layout.")
+    expected_range = question_range_for_page(
+        page.logical_page, page.assignment_question_count, layout
+    )
+    if expected_range != (page.question_start, page.question_end):
+        raise ValueError("Page question range does not match layout paging.")
+    return page
+
+
+def draw_student_answer_sheet_page(c, assignment_data, student_data, route, layout=None):
     """Draw a single personalized answer-sheet page onto an existing ReportLab canvas.
 
     This function uses the assignment's question_count to render the correct number
@@ -281,6 +275,7 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
     """
     # Draw registration marks
     layout = get_layout(assignment_data.get("layout_id")) if layout is None else layout
+    page = _validate_render_context(assignment_data, student_data, route, layout)
     for (x, y) in layout.registration_marks:
         _pdf_rect(c, x, y, layout.registration_size, layout.registration_size, fill=True, layout=layout)
 
@@ -300,20 +295,19 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
     meta_y -= 14
     c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
 
-    question_count = assignment_data.get("question_count", 10)
-    if not isinstance(question_count, int) or question_count < 1 or question_count > MAX_ASSIGNMENT_QUESTION_COUNT:
-        question_count = 10
-
-    page_count = page_count_for_question_count(question_count, layout)
-    try:
-        question_start, question_end = question_range_for_page(page_number, question_count, layout)
-    except ValueError as error:
-        print(f"Error: {error}")
-        return False
+    page_count = page.total_pages
+    question_start, question_end = page.question_start, page.question_end
     context_x, context_y = _pdf_coord(layout.page_context_x, layout.page_context_y, layout)
     c.setFont("Helvetica", 10)
-    c.drawString(context_x, context_y, f"Page {page_number} of {page_count}")
-    c.drawString(context_x, context_y - 13, f"Questions {question_start}-{question_end}")
+    c.drawString(context_x, context_y, f"Page {page.logical_page} of {page_count}")
+    c.drawString(context_x, context_y - 13, f"Questions {question_start}\N{EN DASH}{question_end}")
+
+    identity_x, identity_y = _pdf_coord(
+        layout.identity_context_x, layout.identity_context_y, layout
+    )
+    c.setFont("Helvetica", 7)
+    c.drawString(identity_x, identity_y, f"Sheet ID: {page.page_id}")
+    c.drawString(identity_x, identity_y - 10, f"Route ID: {route.locator.route_id}")
 
     # Draw question boxes based on assignment question_count
     c.setLineWidth(1)
@@ -333,54 +327,47 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, page_number
             c.setFont("Helvetica", layout.question_font_size)
 
     # Draw QR code
-    if not draw_qr_code(c, assignment_data, student_data, page_number, layout):
-        return False
+    draw_qr_code(c, route, layout)
+    return None
 
+
+def render_registered_answer_sheet_pdf(
+    output_path, assignment_data, student_route_sets
+):
+    """Render ordered students/pages from registrations already verified on disk."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    c = canvas.Canvas(os.fspath(output_path), pagesize=letter)
+    c.setFillColorRGB(0, 0, 0)
+    c.setStrokeColorRGB(0, 0, 0)
+    layout = get_layout(assignment_data.get("layout_id"))
+    for student, routes in student_route_sets:
+        for route in routes:
+            draw_student_answer_sheet_page(
+                c, assignment_data, student, route, layout
+            )
+            c.showPage()
+    c.save()
+
+
+def generate_student_pdf(output_path, assignment_data, student_data, routes):
+    """Low-level compatibility wrapper requiring pre-registered page routes."""
+    render_registered_answer_sheet_pdf(
+        output_path, assignment_data, ((student_data, tuple(routes)),)
+    )
     return True
 
 
-def generate_class_packet_pdf(output_path, assignment_data, roster_data):
-    """Generate a single PDF containing one personalized page per student (roster order).
-
-    Returns True on success, False on failure.
-    """
-    migration_pending("Class-packet QR generation", "#141")
-
-    try:
-        import qrcode  # noqa: F401 - dependency availability check
-    except ImportError:
-        print("Error: The 'qrcode' package is required to generate QR codes.")
-        print('Please run: python -m pip install "qrcode[pil]"')
-        return False
-
-    try:
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
-    except Exception:
-        print("Error: The 'reportlab' package is required to generate PDFs.")
-        return False
-
-    try:
-        c = canvas.Canvas(output_path, pagesize=letter)
-        c.setFillColorRGB(0, 0, 0)
-        c.setStrokeColorRGB(0, 0, 0)
-
-        students = roster_data.get('students', [])
-        layout = get_layout(assignment_data.get("layout_id"))
-        page_count = page_count_for_question_count(assignment_data["question_count"], layout)
-        for student in students:
-            for assessment_page in range(1, page_count + 1):
-                if not draw_student_answer_sheet_page(
-                    c, assignment_data, student, assessment_page, layout
-                ):
-                    student_id = student.get('student_id', '<unknown>')
-                    print(f"Error: Failed to draw class packet page for student_id='{student_id}'")
-                    return False
-                c.showPage()
-
-        c.save()
-        return True
-
-    except Exception as e:
-        print(f"Error generating class packet PDF '{output_path}': {e}")
-        return False
+def generate_class_packet_pdf(output_path, assignment_data, roster_data, route_sets):
+    """Low-level packet renderer requiring one registered route set per student."""
+    students = tuple(roster_data.get("students", ()))
+    routes = tuple(route_sets)
+    if len(students) != len(routes):
+        raise ValueError("Packet route-set count must match roster student count.")
+    render_registered_answer_sheet_pdf(
+        output_path,
+        assignment_data,
+        tuple(zip(students, routes, strict=True)),
+    )
+    return True

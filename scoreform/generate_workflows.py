@@ -7,6 +7,12 @@ from pathlib import Path
 from pds_core.routes import class_roster_path
 
 from scoreform import workspace
+from scoreform.answer_sheet_generation import (
+    AnswerSheetGenerationPreflightError,
+    AnswerSheetGenerationResult,
+    generate_managed_answer_sheets,
+)
+from scoreform.answer_sheet_records import generate_generation_id
 from scoreform.assignment import load_assignment
 from scoreform.folders import setup_assignment_folder
 from scoreform.layouts import get_layout
@@ -15,15 +21,9 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
-from scoreform.migration import migration_pending
 from scoreform.paging import page_count_for_question_count
 from scoreform.roster import load_roster
-from scoreform.templates import (
-    generate_class_packet_pdf,
-    generate_student_pdf,
-    generate_template,
-    student_pdf_filename,
-)
+from scoreform.templates import generate_template, student_pdf_filename
 from scoreform.validation import is_safe_identifier
 from scoreform.work_paths import scoreform_work_paths
 from scoreform.workflows import (
@@ -49,11 +49,67 @@ class RegenerateSheetsResult:
     pages_per_student: int = 1
     stale_extra_count: int = 0
     stale_extra_examples: tuple[str, ...] = ()
+    generation_result: AnswerSheetGenerationResult | None = None
 
 
-def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_root=None):
-    migration_pending("Managed answer-sheet regeneration", "#141")
+class ManagedAnswerSheetGenerationFailure(RuntimeError):
+    """Carry structured generation state through regeneration entry points."""
 
+    def __init__(self, generation_result: AnswerSheetGenerationResult):
+        self.generation_result = generation_result
+        super().__init__("\n".join(_generation_failure_lines(generation_result)))
+
+
+def _generation_failure_lines(
+    result: AnswerSheetGenerationResult,
+    *,
+    earlier_installed: int = 0,
+    earlier_clean: int = 0,
+    earlier_partial: int = 0,
+) -> tuple[str, ...]:
+    failed = result.artifacts[-1]
+    lines: list[str] = []
+    if failed.partial_success:
+        lines.extend(
+            (
+                "The new PDF was installed and its new issuances are issued, but "
+                "one or more previous issuances could not be superseded.",
+                f"Output: {failed.output_path}",
+            )
+        )
+    else:
+        lines.append(
+            f"Generation failed at {failed.failure_stage} for "
+            f"{failed.output_path}: {failed.error}"
+        )
+    installed = earlier_installed + result.installed_artifact_count
+    clean = earlier_clean + result.clean_success_count
+    partial = earlier_partial + result.partial_artifact_count
+    completed_earlier = installed - (1 if failed.installed else 0)
+    lines.extend(
+        (
+            f"Installed artifacts: {installed}",
+            f"Clean-success artifacts: {clean}",
+            f"Partial artifacts: {partial}",
+            f"Completed earlier artifacts: {completed_earlier}",
+            f"Routes planned/created/verified: {failed.planned_route_count}/"
+            f"{failed.created_route_count}/{failed.verified_route_count}",
+        )
+    )
+    if failed.failed_predecessor_ids:
+        lines.append(
+            "Predecessors not superseded: "
+            + ", ".join(failed.failed_predecessor_ids)
+        )
+    if failed.partial_success and failed.error:
+        lines.append(f"Lifecycle finalization error: {failed.error}")
+    lines.extend(f"Warning: {warning}" for warning in failed.warnings)
+    return tuple(lines)
+
+
+def regenerate_answer_sheets_for_assignment(
+    class_id, assignment_id, workspace_root=None, *, generation_id=None
+):
     """Regenerate one assignment from its current managed roster and assignment."""
     if not is_safe_identifier(class_id):
         raise ValueError(f"Unsafe class_id: {class_id!r}")
@@ -88,25 +144,29 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
 
     templates_dir = paths.templates_dir
     individual_dir = paths.individual_templates_dir
-    individual_dir.mkdir(parents=True, exist_ok=True)
+    for directory in (templates_dir, individual_dir):
+        if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
+            raise ValueError(f"Managed template path is not a directory: {directory}")
+        directory.mkdir(parents=True, exist_ok=True)
     expected_names = {student_pdf_filename(student) for student in roster["students"]}
     existing_names = {
         path.name for path in individual_dir.iterdir()
         if path.is_file() and path.suffix.lower() == ".pdf"
     }
 
-    for student in roster["students"]:
-        output_path = individual_dir / student_pdf_filename(student)
-        if not generate_student_pdf(os.fspath(output_path), assignment, student):
-            raise RuntimeError(
-                f"Failed to generate student PDF for {student.get('student_id')} "
-                f"in assignment '{assignment_id}'."
-            )
-
     packet_path = paths.class_packet_path
-    templates_dir.mkdir(parents=True, exist_ok=True)
-    if not generate_class_packet_pdf(os.fspath(packet_path), assignment, roster):
-        raise RuntimeError(f"Failed to generate class packet for assignment '{assignment_id}'.")
+    generation_result = generate_managed_answer_sheets(
+        root,
+        paths.work_ref,
+        assignment,
+        roster,
+        individual_dir=individual_dir,
+        class_packet_path=packet_path,
+        student_filename=student_pdf_filename,
+        generation_id=generation_id,
+    )
+    if not generation_result.success:
+        raise ManagedAnswerSheetGenerationFailure(generation_result)
 
     stale = sorted(existing_names - expected_names, key=str.lower)
     return RegenerateSheetsResult(
@@ -121,13 +181,12 @@ def regenerate_answer_sheets_for_assignment(class_id, assignment_id, workspace_r
         ),
         stale_extra_count=len(stale),
         stale_extra_examples=tuple(stale[:3]),
+        generation_result=generation_result,
     )
 
 
 def regenerate_answer_sheets_for_class(class_id, workspace_root=None):
-    migration_pending("Managed answer-sheet regeneration", "#141")
-
-    """Regenerate every managed assignment for a class, failing fast."""
+    """Regenerate every managed assignment while preserving earlier successes."""
     if not is_safe_identifier(class_id):
         raise ValueError(f"Unsafe class_id: {class_id!r}")
     root = Path(workspace_root or workspace.get_scoreform_workspace_root())
@@ -138,10 +197,47 @@ def regenerate_answer_sheets_for_class(class_id, workspace_root=None):
     assignment_ids = [record["assignment_id"] for record in assignments]
     if not assignment_ids:
         raise FileNotFoundError(f"No managed assignments found for class '{class_id}'.")
-    return tuple(
-        regenerate_answer_sheets_for_assignment(class_id, assignment_id, root)
-        for assignment_id in assignment_ids
-    )
+    generation_id = generate_generation_id()
+    results = []
+    for assignment_id in assignment_ids:
+        try:
+            results.append(
+                regenerate_answer_sheets_for_assignment(
+                    class_id, assignment_id, root, generation_id=generation_id
+                )
+            )
+        except ManagedAnswerSheetGenerationFailure as error:
+            previous_generation_results = tuple(
+                item.generation_result
+                for item in results
+                if item.generation_result is not None
+            )
+            lines = _generation_failure_lines(
+                error.generation_result,
+                earlier_installed=sum(
+                    item.installed_artifact_count
+                    for item in previous_generation_results
+                ),
+                earlier_clean=sum(
+                    item.clean_success_count for item in previous_generation_results
+                ),
+                earlier_partial=sum(
+                    item.partial_artifact_count
+                    for item in previous_generation_results
+                ),
+            )
+            raise RuntimeError(
+                f"Regeneration failed for assignment '{assignment_id}' after "
+                f"{len(results)} assignment(s) completed; completed outputs were "
+                "preserved.\n" + "\n".join(lines)
+            ) from error
+        except Exception as error:
+            raise RuntimeError(
+                f"Regeneration failed for assignment '{assignment_id}' after "
+                f"{len(results)} assignment(s) completed; completed outputs were "
+                f"preserved: {error}"
+            ) from error
+    return tuple(results)
 
 
 def _print_stale_note(result, *, include_examples=False):
@@ -157,8 +253,6 @@ def _print_stale_note(result, *, include_examples=False):
 
 
 def run_regenerate_sheets(args):
-    migration_pending("Managed answer-sheet regeneration", "#141")
-
     """Run the non-interactive managed answer-sheet regeneration command."""
     usage = (
         "Usage: scoreform regenerate-sheets --class-id <class_id> "
@@ -235,7 +329,12 @@ def run_regenerate_sheets(args):
                 print()
                 print(f"Note: {stale_count} older individual PDFs were not changed.")
                 print("Review the individual templates folders before printing individual sheets.")
-    except (FileNotFoundError, ValueError, RuntimeError) as error:
+    except (
+        AnswerSheetGenerationPreflightError,
+        FileNotFoundError,
+        ValueError,
+        RuntimeError,
+    ) as error:
         print(f"Error: {error}")
         return 1
     return 0
@@ -317,7 +416,12 @@ def launch_regenerate_sheets_menu(preselected_class_id=None):
             return 0
         try:
             result = regenerate_answer_sheets_for_assignment(class_id, assignment_id)
-        except (FileNotFoundError, ValueError, RuntimeError) as error:
+        except (
+            AnswerSheetGenerationPreflightError,
+            FileNotFoundError,
+            ValueError,
+            RuntimeError,
+        ) as error:
             print(f"Error: {error}")
             return 1
         clear_screen()
@@ -342,7 +446,12 @@ def launch_regenerate_sheets_menu(preselected_class_id=None):
         return 0
     try:
         results = regenerate_answer_sheets_for_class(class_id)
-    except (FileNotFoundError, ValueError, RuntimeError) as error:
+    except (
+        AnswerSheetGenerationPreflightError,
+        FileNotFoundError,
+        ValueError,
+        RuntimeError,
+    ) as error:
         print(f"Error: {error}")
         return 1
     clear_screen()
@@ -362,8 +471,6 @@ def run_generate(args):
         generate_template()
         return 0
 
-    migration_pending("Personalized answer-sheet generation", "#141")
-
     assignment_file = args[0]
     if "--rosters" not in args[1:]:
         print("Error: Missing --rosters.\nUsage: scoreform generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
@@ -381,6 +488,10 @@ def run_generate(args):
     if assignment is None:
         return 1
 
+    command_generation_id = generate_generation_id()
+    installed_artifacts = 0
+    clean_artifacts = 0
+    partial_artifacts = 0
     for roster_path in roster_files:
         roster = load_roster(roster_path)
         if roster is None:
@@ -399,41 +510,60 @@ def run_generate(args):
         print(f"  Roster copy: {setup_paths['roster_copy']}")
         print(f"  Assignment copy: {setup_paths['assignment_copy']}")
 
-        individual_dir = setup_paths.get('individual_templates_dir')
-        if not individual_dir:
-            print("Error: Individual templates directory is missing in setup paths.")
+        paths = setup_paths["paths"]
+        managed_assignment = load_assignment(paths.assignment_path)
+        managed_roster = load_roster(paths.roster_path)
+        if managed_assignment is None or managed_roster is None:
+            print("Error: Canonical managed assignment or roster could not be reloaded.")
             return 1
 
-        students = roster.get('students', [])
-        generated_count = 0
-        for student in students:
-            out_name = student_pdf_filename(student)
-            out_path = os.path.join(individual_dir, out_name)
-            ok = generate_student_pdf(out_path, assignment, student)
-            if not ok:
-                print(f"Error: Failed to generate student PDF for {student.get('student_id')}")
-                return 1
-            generated_count += 1
+        try:
+            generation_result = generate_managed_answer_sheets(
+                workspace.get_scoreform_workspace_root(),
+                paths.work_ref,
+                managed_assignment,
+                managed_roster,
+                individual_dir=paths.individual_templates_dir,
+                class_packet_path=paths.class_packet_path,
+                student_filename=student_pdf_filename,
+                generation_id=command_generation_id,
+            )
+        except AnswerSheetGenerationPreflightError as error:
+            print(f"Error: Managed answer-sheet preflight failed: {error}")
+            for note in getattr(error, "__notes__", ()):
+                print(f"Warning: {note}")
+            return 1
+        except Exception as error:
+            print(f"Error: Managed answer-sheet orchestration failed: {error}")
+            return 1
+        if not generation_result.success:
+            for index, line in enumerate(
+                _generation_failure_lines(
+                    generation_result,
+                    earlier_installed=installed_artifacts,
+                    earlier_clean=clean_artifacts,
+                    earlier_partial=partial_artifacts,
+                )
+            ):
+                print(("Error: " if index == 0 else "") + line)
+            return 1
 
-        print(f"Generated {generated_count} individual student PDFs in:")
+        installed_artifacts += generation_result.installed_artifact_count
+        clean_artifacts += generation_result.clean_success_count
+        partial_artifacts += generation_result.partial_artifact_count
+
+        print(f"Generated {len(managed_roster['students'])} individual student PDFs in:")
         print(
             "Pages per student: "
-            f"{page_count_for_question_count(assignment['question_count'], get_layout(assignment['layout_id']))}"
+            f"{page_count_for_question_count(managed_assignment['question_count'], get_layout(managed_assignment['layout_id']))}"
         )
-        print(individual_dir)
-
-        templates_dir = setup_paths.get('templates_dir')
-        if not templates_dir:
-            print("Error: Templates directory is missing in setup paths.")
-            return 1
-
-        packet_path = os.path.join(templates_dir, 'class_packet.pdf')
-        ok_packet = generate_class_packet_pdf(packet_path, assignment, roster)
-        if not ok_packet:
-            print(f"Error: Failed to generate class packet PDF: {packet_path}")
-            return 1
+        print(paths.individual_templates_dir)
         print("Generated class packet PDF:")
-        print(packet_path)
+        print(paths.class_packet_path)
+        print(
+            f"Verified PDS2 routes: {generation_result.installed_route_count}; "
+            f"physical pages: {generation_result.physical_page_count}"
+        )
 
     return 0
 

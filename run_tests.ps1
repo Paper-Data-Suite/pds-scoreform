@@ -110,10 +110,6 @@ try {
         throw "Imports/help/version/validation created workspace data: $SmokeRoot"
     }
 
-    Invoke-MigrationGate "Personalized generation" @(
-        "generate", "examples\sample_assignment.json", "--rosters",
-        "examples\sample_roster_english9_p2.csv"
-    ) "#141"
     Invoke-MigrationGate "QR-aware scoring" @("score", "missing-scan.pdf") "#143"
     Invoke-MigrationGate "QR decoding" @("decode-qr", "missing-scan.pdf") "#143"
 
@@ -149,6 +145,25 @@ try {
     }
     if (Test-Path -LiteralPath (Join-Path $SmokeRoot "classes\english9_p2\assignments")) {
         throw "Managed setup recreated the former unqualified assignment layout."
+    }
+
+    Invoke-Step "Generate managed PDS2 answer sheets" {
+        & $ScoreForm @(
+            "generate", "examples\sample_assignment.json", "--rosters",
+            "examples\sample_roster_english9_p2.csv"
+        )
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $ManagedRoot "templates\class_packet.pdf") -PathType Leaf)) {
+        throw "Managed generation did not create the class packet."
+    }
+    $PageRecords = @(
+        Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "answer_sheets\pages") -Filter "*.json" -File
+    )
+    $RouteRecords = @(
+        Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "routes") -Filter "*.json" -File -Recurse
+    )
+    if ($PageRecords.Count -eq 0 -or $PageRecords.Count -ne $RouteRecords.Count) {
+        throw "Managed generation page/route cardinality mismatch: pages=$($PageRecords.Count), routes=$($RouteRecords.Count)"
     }
 }
 finally {

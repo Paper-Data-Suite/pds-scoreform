@@ -1,9 +1,9 @@
-"""Regeneration remains gated on page and route records."""
+"""Regeneration is operational and reports ordinary managed-source errors."""
 
 import scoreform.cli
 
 
-def test_regeneration_command_fails_cleanly(capsys) -> None:
+def test_regeneration_command_reports_missing_managed_roster(capsys) -> None:
     assert (
         scoreform.cli.main(
             ["regenerate-sheets", "--class-id", "class1", "--all-assignments"]
@@ -12,6 +12,5 @@ def test_regeneration_command_fails_cleanly(capsys) -> None:
     )
 
     output = capsys.readouterr().out
-    assert "#141" in output
-    assert "#140" not in output
-    assert "temporarily unavailable" in output
+    assert "Managed roster not found" in output
+    assert "#141" not in output

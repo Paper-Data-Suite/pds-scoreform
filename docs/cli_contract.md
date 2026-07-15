@@ -24,9 +24,9 @@ Module-qualified ScoreForm assignment storage is active. Managed assignment
 setup, direct ScoreForm discovery, creation, editing, plain-paper result entry,
 and result viewing operate on
 `classes/<class_id>/modules/scoreform/work/<assignment_id>/`. Personalized and
-class-packet generation plus managed regeneration remain gated on answer-sheet
-route registration and PDS2 rendering (#141). PDS2 scan dispatch, QR-aware
-scoring, and scan-review mutation retain their narrower later gates.
+class-packet generation plus managed regeneration create immutable page records,
+register Core PDS2 routes, and render locator-only QR codes. PDS2 scan dispatch,
+QR-aware scoring, and scan-review mutation retain their narrower later gates.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or
 fall back to the former unqualified assignment layout. Help/version, assignment
@@ -240,6 +240,32 @@ change rosters or assignments, rescore scans, rewrite results, or delete old
 individual PDFs. Teachers can use **Roster Management > Update generated answer
 sheets** for the equivalent confirmed menu workflow after roster changes.
 
+Assignment-based `generate` validates external inputs, establishes or reuses the
+canonical managed assignment, reloads the canonical assignment and shared
+roster, then generates from those managed sources. Each PDF is an independent
+artifact transaction: page and issuance records are persisted, all Core routes
+for that PDF are written and reloaded, a same-directory temporary PDF is
+rendered, new issuances become `issued`, and the PDF is atomically installed.
+Regeneration supersedes an unambiguous issued predecessor only after successful
+installation. Earlier successful artifacts remain installed if a later artifact
+fails, and the command reports partial completion as failure.
+
+Generation reporting distinguishes planning from durable evidence:
+`planned_route_count` is the intended page-route count,
+`created_route_count` is the number of Core registration files observed after
+writes, and `verified_route_count` is the number reloaded and matched exactly.
+An artifact is `installed` only after successful canonical replacement. If the
+PDF is installed but predecessor supersession fails, the artifact is an
+installed partial success: it counts as completed/installed, its new issuances
+remain `issued`, and the command reports the failed predecessor IDs and exits
+nonzero. Clean-success, installed-partial, and failed-before-install counts are
+reported separately.
+
+Temporary PDF cleanup is best-effort on every planning and execution failure.
+Cleanup failure never replaces the primary generation error: execution results
+carry a warning with the temporary path and cleanup exception, while planning
+exceptions retain the same information as an exception note.
+
 Actual current behavior differs from the shorthand
 `scoreform generate <assignment.json> <roster.csv>` sometimes proposed in
 planning notes:
@@ -385,7 +411,7 @@ Plain-paper entry calls the existing routed-results exporter with `Page` set to
 `manual` and `source_file` set to `plain_paper_manual_entry`. The exporter owns
 preflight, roster enrichment, append-preserving writes, and attempt numbering.
 This workflow is not scan review and creates no scan artifacts, evidence, or
-generated PDFs. It does not change assignment JSON, PDS1 payloads, or the
+generated PDFs. It does not change assignment JSON, QR payloads, or the
 `results.csv` header contract. No bulk-import direct CLI is provided.
 
 The Assignment Management results viewer is menu-only and read-only. It

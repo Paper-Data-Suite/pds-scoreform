@@ -1,7 +1,7 @@
 import pytest
+from pds_core.routing_models import PDS2_SCHEMA, ModuleWorkRef, RouteLocator
 
 from scoreform import templates
-from scoreform.migration import ScoreFormMigrationPendingError
 
 VALID_ASSIGNMENT = {"assignment_id": "rj_act1_quiz"}
 VALID_STUDENT = {
@@ -47,9 +47,18 @@ def test_safe_filename_none():
     assert templates.safe_filename(None) == ""
 
 
-def test_build_qr_payload_waits_for_pds2_page_records():
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#141"):
-        templates.build_qr_payload(VALID_ASSIGNMENT, VALID_STUDENT)
+def test_build_qr_payload_serializes_only_a_pds2_locator():
+    locator = RouteLocator(
+        PDS2_SCHEMA,
+        ModuleWorkRef("scoreform", "english9_p2", "rj_act1_quiz"),
+        "rt_10000000000000000000000000000000",
+    )
+    assert templates.build_qr_payload(locator) == (
+        "PDS2|m=scoreform|c=english9_p2|w=rj_act1_quiz|"
+        "r=rt_10000000000000000000000000000000"
+    )
+    with pytest.raises(TypeError):
+        templates.build_qr_payload(VALID_ASSIGNMENT)
 
 
 def legacy_student_and_class_packet_pages_use_pds1_payloads(monkeypatch):

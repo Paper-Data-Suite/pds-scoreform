@@ -285,10 +285,11 @@ may safely reuse the same class/work IDs without collision:
 Assignment discovery inspects only direct children of the exact
 `modules/scoreform/work/` collection. It does not recurse, inspect sibling
 modules, or fall back to the former unqualified `assignments/` layout. Managed
-assignment setup, creation, editing, plain-paper entry, and result viewing are
-available. Personalized/class-packet generation and regeneration remain gated
-until route registration and PDS2 rendering land in #141;
-QR dispatch/scoring and scan-review mutation retain their narrower later gates.
+assignment setup, creation, editing, plain-paper entry, result viewing,
+personalized/class-packet generation, and managed regeneration are available.
+Generated pages use immutable ScoreForm page records and immutable Core PDS2
+route registrations. QR dispatch/scoring and scan-review mutation retain their
+narrower later gates.
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
 Only a full-success QR-aware routed batch that resolves to exactly one class
@@ -630,8 +631,9 @@ Registered layouts are `standard_15q_abcd_v1` (15 questions per page) and the
 supported `compact_25q_abcd_v1` (25 questions per page in 13-left/12-right
 columns). Existing assignments without `layout_id` normalize to the standard
 default. The layout controls page capacity, registration marks, QR placement,
-question boxes, rendering details, and scoring geometry. PDS1 remains unchanged
-and does not carry the layout ID; assignment JSON is the source of truth.
+question boxes, rendering details, and scoring geometry. The generated PDS2
+locator does not carry the layout ID; the targeted page record and managed
+assignment are the source of truth.
 
 Physical scan validation was completed with a compact 50-question test and a
 standard 15-question regression test. Assignment creation offers both layouts
@@ -645,25 +647,30 @@ Standards metadata is preserved when assignments are loaded, but it is not writt
 
 ### QR Payload Format
 
-New ScoreForm answer sheets use the shared Paper Data Suite PDS1 payload format:
+New ScoreForm answer sheets use the shared Paper Data Suite PDS2 locator format:
 
 ```text
-PDS1|module=scoreform|class=english9_p2|aid=rj_act1_quiz|sid=1001|page=1
+PDS2|m=scoreform|c=english9_p2|w=rj_act1_quiz|r=rt_0123456789abcdef0123456789abcdef
 ```
 
-This identifies:
+The QR identifies only:
 
 * the Paper Data Suite module
 * the class
-* the assignment
-* the student
-* the answer-sheet page
+* the module-owned work (the ScoreForm assignment)
+* one fresh, nonsemantic Core route
 
-The QR code is intended to allow ScoreForm to automatically connect a scanned answer sheet to the correct class, assignment, roster entry, and answer key.
+Student, logical-page, issuance, page-record, layout, and answer-key data are not
+encoded. They remain in the immutable ScoreForm page record targeted by the Core
+registration. Student name/ID, assignment title, page/question range, full page
+ID, and full route ID are printed visibly outside the QR.
 
-PDS1 is the only supported ScoreForm QR payload format. ScoreForm validates QR
-payload fields before using them to build file paths, rejects malformed or unsafe
-QR metadata, and rejects PDS1 payloads for modules other than `scoreform`.
+Every physical page receives a fresh `pg_...` page ID and independent fresh
+`rt_...` route ID. ScoreForm persists the page first, writes and reloads the
+immutable Core registration second, and draws Core's canonical serialized
+locator only after registration verification. PDS2 scan dispatch and QR-aware
+scoring remain disabled until #143; existing legacy PDS1 scoring behavior is not
+the routing authority for newly generated sheets.
 
 ## Requirements
 
@@ -1243,9 +1250,9 @@ Contributions should follow these expectations:
 This project is licensed under the MIT License.
 # Multi-page assessments
 
-ScoreForm supports QR-aware assignments with 1-75 questions using the existing
-15-question physical page layout. Student PDFs and class packets contain as many
-pages as needed, in student-then-page order. The PDS1 `page` field identifies the
-physical assessment page. A routed result is written only after every page for a
-student attempt is present in the same scan batch; complete attempts produce one
-CSV row. The compact 25-question layout remains separate future work.
+ScoreForm generates 1-75-question assignments with the registered 15-question
+standard or 25-question compact physical layout. Student PDFs and class packets
+contain as many pages as needed, in student-then-page order. Each generated PDS2
+QR identifies a fresh route to an immutable page record whose `logical_page` and
+question range provide page context. PDS2 multi-page scan dispatch and scoring
+remain gated until #143.

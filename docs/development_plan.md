@@ -171,9 +171,11 @@ delete workspace data.
 ScoreForm now owns strict v1 answer-sheet issuance records and immutable
 physical-page records under each managed assignment's `answer_sheets/` folder.
 These APIs plan, exclusively persist, load, and lifecycle-manage physical copy
-identity without creating routes, QR payloads, or PDFs. Personalized and class-
-packet generation and managed regeneration remain gated until #141 registers
-Core PDS2 routes and renders the corresponding artifacts.
+identity. Managed personalized and class-packet generation now adds one fresh
+Core PDS2 route per physical page, reloads every registration before rendering,
+and atomically installs each completed PDF. Managed regeneration preserves old
+records and routes and supersedes predecessors only after replacement install.
+PDS2 dispatch and QR-aware scoring remain later work.
 
 ```text
 <PDS workspace root>/
@@ -245,8 +247,8 @@ The current/default layout is `standard_15q_abcd_v1`; older assignments without
 13-left/12-right A-D geometry, supports 25 questions per physical page, and is
 supported in normal assignment creation after compact 50-question physical scan
 validation and a standard 15-question regression test. Standard remains the
-default. PDS1 does not carry `layout_id`; assignment JSON remains the source of
-truth. PDS1 and `results.csv` are unchanged. Layout remains immutable after
+default. The generated PDS2 locator does not carry `layout_id`; the page record
+and assignment JSON remain the source of truth. `results.csv` is unchanged. Layout remains immutable after
 assignment creation. Local `.scan-test-workspace/` and `scan_test/` folders are
 ignored and must not be committed.
 
@@ -286,12 +288,14 @@ The `standards` object is optional assignment metadata. When present, its keys a
 ### Current QR Payload Format
 
 ```text
-PDS1|module=scoreform|class=english9_p2|aid=rj_act1_quiz|sid=1001|page=1
+PDS2|m=scoreform|c=english9_p2|w=rj_act1_quiz|r=rt_0123456789abcdef0123456789abcdef
 ```
 
-Newly generated ScoreForm sheets use the shared PDS1 contract with
-`module=scoreform` and `page=1`. PDS1 is the only supported ScoreForm QR payload
-format.
+Newly generated ScoreForm sheets use Core's canonical PDS2 locator-only
+serialization. The student, logical page, page ID, and issuance ID remain in the
+targeted immutable page/issuance records and visible page text, not in the QR.
+Legacy PDS1 parsing remains part of the currently gated QR-aware scoring path;
+PDS2 dispatch and scoring land in #143.
 ### Current Routed Results CSV Format
 
 ```csv
