@@ -264,6 +264,11 @@ may safely reuse the same class/work IDs without collision:
           work/
             rj_act1_quiz/
               assignment.json
+              answer_sheets/
+                issuances/
+                  iss_<32-lowercase-hex>.json
+                pages/
+                  pg_<32-lowercase-hex>.json
               results.csv
               templates/
                 class_packet.pdf
@@ -282,7 +287,7 @@ Assignment discovery inspects only direct children of the exact
 modules, or fall back to the former unqualified `assignments/` layout. Managed
 assignment setup, creation, editing, plain-paper entry, and result viewing are
 available. Personalized/class-packet generation and regeneration remain gated
-until answer-sheet page records and route registration land in #140 and #141;
+until route registration and PDS2 rendering land in #141;
 QR dispatch/scoring and scan-review mutation retain their narrower later gates.
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.

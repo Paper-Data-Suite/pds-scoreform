@@ -148,7 +148,155 @@ standard is attached, standards-aware validation requires a profile, and every
 attached ID must belong to it. Standards metadata does not affect scoring, QR
 payloads, sheet generation, result routing or headers, or roster CSVs.
 
-## 6. QR payload versioning contract
+## 6. Answer-sheet issuance and physical-page records
+
+**Status: Stable, versioned ScoreForm-owned v1 contract.**
+
+A **generation** is one user-invoked operation. An **artifact** is one intended
+PDF file. An **issuance** is one printable copy for one class, assignment, and
+student. A **page** is one physical page within that issuance. Their independent,
+nonsemantic identifiers are:
+
+```text
+generation_id: gen_<32 lowercase hexadecimal characters>
+artifact_id:   art_<32 lowercase hexadecimal characters>
+issuance_id:   iss_<32 lowercase hexadecimal characters>
+page_id:       pg_<32 lowercase hexadecimal characters>
+```
+
+Each suffix contains 128 bits of cryptographically secure random material. IDs
+encode no names, timestamps, filenames, or logical page numbers and are never
+reused. Existing destinations are collisions even when their contents match.
+
+Records are direct descendants of the exact module-qualified work root:
+
+```text
+classes/<class_id>/modules/scoreform/work/<assignment_id>/answer_sheets/
+  issuances/<issuance_id>.json
+  pages/<page_id>.json
+```
+
+Core owns `routes/`; ScoreForm page records never live there.
+
+The exact issuance v1 shape is:
+
+```json
+{
+  "schema_version": "1",
+  "issuance_id": "iss_0123456789abcdef0123456789abcdef",
+  "generation_id": "gen_0123456789abcdef0123456789abcdef",
+  "artifact_id": "art_0123456789abcdef0123456789abcdef",
+  "class_id": "english9_p2",
+  "assignment_id": "rj_act1_quiz",
+  "student_id": "1001",
+  "generation_context": {
+    "output_kind": "individual_pdf",
+    "reason": "initial",
+    "predecessor_issuance_id": null
+  },
+  "assignment_snapshot": {
+    "title": "Romeo and Juliet Act 1 Quiz",
+    "question_count": 20,
+    "layout_id": "standard_15q_abcd_v1",
+    "choices": ["A", "B", "C", "D"]
+  },
+  "student_snapshot": {
+    "last_name": "Doe",
+    "first_name": "Jane",
+    "period": "2"
+  },
+  "page_count": 2,
+  "page_ids": [
+    "pg_0123456789abcdef0123456789abcdef",
+    "pg_fedcba9876543210fedcba9876543210"
+  ],
+  "lifecycle": {
+    "status": "prepared",
+    "revision": 1,
+    "created_at": "2026-07-15T01:30:00+00:00",
+    "updated_at": "2026-07-15T01:30:00+00:00",
+    "issued_at": null,
+    "ended_at": null,
+    "reason": null,
+    "replacement_issuance_id": null
+  }
+}
+```
+
+`output_kind` is `individual_pdf` or `class_packet_pdf`. Generation reason is
+`initial`, `additional_copy`, or `regeneration`. Only regeneration names a
+different predecessor issuance. Preparing a regeneration does not mutate or
+supersede its predecessor.
+
+The exact immutable page v1 shape is:
+
+```json
+{
+  "schema_version": "1",
+  "page_id": "pg_0123456789abcdef0123456789abcdef",
+  "issuance_id": "iss_0123456789abcdef0123456789abcdef",
+  "generation_id": "gen_0123456789abcdef0123456789abcdef",
+  "artifact_id": "art_0123456789abcdef0123456789abcdef",
+  "class_id": "english9_p2",
+  "assignment_id": "rj_act1_quiz",
+  "student_id": "1001",
+  "logical_page": 1,
+  "total_pages": 2,
+  "question_start": 1,
+  "question_end": 15,
+  "assignment_question_count": 20,
+  "layout_id": "standard_15q_abcd_v1",
+  "created_at": "2026-07-15T01:30:00+00:00"
+}
+```
+
+The issuance orders unique page IDs by 1-based logical page. Page count and
+question ranges are derived from the versioned layout. All duplicated identity
+and structural context must match across the complete record set. Timestamps
+include an offset. Strict loading rejects missing or unknown fields, duplicate
+JSON keys, non-standard numbers, wrong versions, path/identity mismatches, and
+incomplete or inconsistent aggregates.
+
+Pages are exclusively created and never updated. The issuance lifecycle is the
+single mutable authority for every member page. It starts as `prepared` at
+revision 1. The only transitions are:
+
+```text
+prepared -> issued
+prepared -> cancelled
+prepared -> invalidated
+issued   -> superseded
+issued   -> invalidated
+```
+
+Every transition increments the revision and uses an expected-revision guard.
+Entering `issued` sets `issued_at`. Terminal states set `ended_at` and require a
+reason. `superseded` additionally requires a different, already-issued
+replacement for the same class, assignment, and student. Issuance updates are
+same-directory atomic replacements; page files do not change.
+
+Individual and packet copies for the same student may share a generation but
+have different artifacts, issuances, and pages. All students in one class packet
+may share an artifact. An additional copy gets fresh issuance and page IDs and
+does not supersede an earlier copy. Regeneration gets fresh generation, artifact,
+issuance, and page IDs, links its predecessor, and preserves every old record.
+
+The future Core route target for a validated page is exactly:
+
+```python
+ModuleRecordRef(
+    module_id="scoreform",
+    record_kind="answer_sheet_page",
+    record_id=page_id,
+    contract_version="1",
+)
+```
+
+These records contain no route IDs, locators, route registrations, QR payloads,
+PDF data, answer keys, standards or profile data, results, or attempts. End-user
+generation stays gated until #141 registers routes and renders PDS2 artifacts.
+
+## 7. QR payload versioning contract
 
 ### PDS1
 
@@ -176,7 +324,7 @@ Neither payload currently carries standards, answer-key data, roster names,
 result paths, attempt numbers, school year, or template version. Adding any of
 these requires a separate QR-versioning decision.
 
-## 7. Generated template and answer-sheet layout contract
+## 8. Generated template and answer-sheet layout contract
 
 **Status: Core scoring assumptions are stable-enough; exact visual layout and
 generic output paths are provisional pre-1.0.**
@@ -214,7 +362,7 @@ PDFs do not embed a separate layout marker: PDS1 is unchanged and QR-aware
 scoring loads assignment JSON to resolve its layout. A change that can break old
 scans needs a separate template-versioning and deprecation decision.
 
-## 8. Routed results CSV contract
+## 9. Routed results CSV contract
 
 **Status: Stable-enough current audit-log contract.**
 
@@ -263,7 +411,7 @@ fields are present. A-D responses match the assignment key normally, while
 fields and the next attempt number. No columns are added, PDS1 is unchanged,
 and the workflow creates no scan artifacts or review evidence.
 
-## 9. Manual and explicit-output results CSV contract
+## 10. Manual and explicit-output results CSV contract
 
 **Status: Provisional pre-1.0.**
 
@@ -276,7 +424,7 @@ depends on the available result records and scoring mode.
 The routed results CSV is the primary ScoreForm audit-log contract. Manual and
 explicit-output CSVs are useful current outputs but remain more provisional.
 
-## 10. `source_file` semantics
+## 11. `source_file` semantics
 
 **Status: Stable-enough current privacy contract.**
 
@@ -295,7 +443,7 @@ from the teacher-selected original. Its `move` mode may remove that selected
 original only when it is a direct child of the active workspace `scans_inbox/`.
 It never moves or removes the canonical retained source.
 
-## 11. Attempt metadata
+## 12. Attempt metadata
 
 **Status: Stable-enough current routed-results contract.**
 
@@ -305,7 +453,7 @@ preserved legacy row has no valid attempt number, ScoreForm conservatively treat
 it as attempt 1. `scan_timestamp` records when the routed batch was prepared, so
 rows in one batch may share it. Attempt number does not select an official grade.
 
-## 12. Scan filing contract
+## 13. Scan filing contract
 
 **Status: Provisional operational behavior.**
 
@@ -330,7 +478,7 @@ ScoreForm scan-review resolution evidence such as `_manual_entry`,
 `_manual_marks`, or `_rescan_needed`. Routed results and QR batch summaries
 remain the audit trail.
 
-## 13. QR batch summaries and diagnostics
+## 14. QR batch summaries and diagnostics
 
 **Status: Internal/current operational outputs, not stable interoperability
 schemas.**
@@ -341,7 +489,7 @@ not depend on exact wording or diagnostic names unless a later issue formalizes
 them. Debug image names, helper names, terminal prose, and temporary write files
 are likewise internal implementation details.
 
-## 14. Compatibility and versioning policy
+## 15. Compatibility and versioning policy
 
 Before v1.0, ScoreForm contracts may evolve, but compatibility-sensitive changes
 must be documented before or alongside implementation. Breaking changes to
@@ -353,7 +501,7 @@ Formal assignment `schema_version`, embedded template/layout versioning, QR
 versions beyond PDS1, and results schema versioning or migrations are **future /
 not yet implemented**. This document does not introduce them.
 
-## 15. Active ScoreForm scan review metadata
+## 16. Active ScoreForm scan review metadata
 
 QR-aware ScoreForm failures are preserved through the shared Core
 `RoutingFailureMetadata` schema at:

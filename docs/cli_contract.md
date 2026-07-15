@@ -25,7 +25,7 @@ setup, direct ScoreForm discovery, creation, editing, plain-paper result entry,
 and result viewing operate on
 `classes/<class_id>/modules/scoreform/work/<assignment_id>/`. Personalized and
 class-packet generation plus managed regeneration remain gated on answer-sheet
-page records and route registration (#140/#141). PDS2 scan dispatch, QR-aware
+route registration and PDS2 rendering (#141). PDS2 scan dispatch, QR-aware
 scoring, and scan-review mutation retain their narrower later gates.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or

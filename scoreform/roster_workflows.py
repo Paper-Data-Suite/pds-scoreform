@@ -69,7 +69,7 @@ def _offer_sheet_regeneration_after_save(class_id):
     except ScoreFormMigrationPendingError:
         print(
             "Answer-sheet regeneration is temporarily unavailable pending "
-            "page-record and route-registration work (#140 and #141)."
+            "route-registration and PDS2-rendering work (#141)."
         )
         return 0
 

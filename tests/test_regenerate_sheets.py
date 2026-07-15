@@ -12,5 +12,6 @@ def test_regeneration_command_fails_cleanly(capsys) -> None:
     )
 
     output = capsys.readouterr().out
-    assert "#140 and #141" in output
+    assert "#141" in output
+    assert "#140" not in output
     assert "temporarily unavailable" in output

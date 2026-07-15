@@ -48,7 +48,7 @@ def test_safe_filename_none():
 
 
 def test_build_qr_payload_waits_for_pds2_page_records():
-    with pytest.raises(ScoreFormMigrationPendingError, match=r"#140 and #141"):
+    with pytest.raises(ScoreFormMigrationPendingError, match=r"#141"):
         templates.build_qr_payload(VALID_ASSIGNMENT, VALID_STUDENT)
 
 

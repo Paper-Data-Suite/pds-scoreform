@@ -11,9 +11,47 @@ from pds_core.routes import (
     module_work_dir,
     safe_module_work_descendant,
 )
-from pds_core.routing_models import ModuleWorkRef
+from pds_core.routing_models import ModuleWorkRef, validate_module_work_ref
 
 from scoreform.pds_contract import SCOREFORM_MODULE_ID
+
+
+def answer_sheet_issuance_path(
+    workspace_root: str | Path,
+    work_ref: ModuleWorkRef,
+    issuance_id: str,
+) -> Path:
+    """Return one exact issuance path without touching the filesystem."""
+    from scoreform.answer_sheet_records import validate_issuance_id
+
+    work_ref = validate_module_work_ref(work_ref)
+    if work_ref.module_id != SCOREFORM_MODULE_ID:
+        raise ValueError('work_ref.module_id must be "scoreform".')
+    validated_id = validate_issuance_id(issuance_id)
+    return safe_module_work_descendant(
+        workspace_root,
+        work_ref,
+        f"answer_sheets/issuances/{validated_id}.json",
+    )
+
+
+def answer_sheet_page_path(
+    workspace_root: str | Path,
+    work_ref: ModuleWorkRef,
+    page_id: str,
+) -> Path:
+    """Return one exact immutable page path without touching the filesystem."""
+    from scoreform.answer_sheet_records import validate_page_id
+
+    work_ref = validate_module_work_ref(work_ref)
+    if work_ref.module_id != SCOREFORM_MODULE_ID:
+        raise ValueError('work_ref.module_id must be "scoreform".')
+    validated_id = validate_page_id(page_id)
+    return safe_module_work_descendant(
+        workspace_root,
+        work_ref,
+        f"answer_sheets/pages/{validated_id}.json",
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +62,9 @@ class ScoreFormWorkPaths:
     roster_path: Path
     work_root: Path
     assignment_path: Path
+    answer_sheets_dir: Path
+    answer_sheet_issuances_dir: Path
+    answer_sheet_pages_dir: Path
     templates_dir: Path
     individual_templates_dir: Path
     class_packet_path: Path
@@ -70,6 +111,9 @@ def scoreform_work_paths(
         roster_path=class_roster_path(workspace_root, class_id),
         work_root=module_work_dir(workspace_root, work_ref),
         assignment_path=descendant("assignment.json"),
+        answer_sheets_dir=descendant("answer_sheets"),
+        answer_sheet_issuances_dir=descendant("answer_sheets/issuances"),
+        answer_sheet_pages_dir=descendant("answer_sheets/pages"),
         templates_dir=descendant("templates"),
         individual_templates_dir=descendant("templates/individual"),
         class_packet_path=descendant("templates/class_packet.pdf"),

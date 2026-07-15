@@ -93,7 +93,7 @@ Commands:
 
 Core 0.5/PDS2 migration notice:
   Personalized/class-packet generation and sheet regeneration remain gated on
-  page records and route registration (#140/#141). QR decoding/routed scoring
+  route registration and PDS2 rendering (#141). QR decoding/routed scoring
   and scan-review mutation remain gated on their later PDS2 work. Managed
   assignment setup, discovery, creation, editing, plain-paper result entry, and
   result viewing use module-qualified ScoreForm work storage and are available.
