@@ -1643,3 +1643,23 @@ The current layout is fixed at 15 questions per physical page, with assignments
 bounded at 75 questions (five pages). Multi-page QR attempts are assembled only
 within one scan batch. Template versioning, mixed layouts, and the compact
 25-question-per-page layout are separate future work.
+
+## Core 0.5 installed module integration
+
+ScoreForm now contributes its profile through the standard
+`paper_data_suite.modules` entry-point group. The zero-argument provider and
+registration validator are side-effect free and import no sibling modules. The
+profile supports Core contract `1`, `PDS2`, registration schema `1`, and only
+the `active` registration status.
+
+Core dispatch may call the defensive one-page handler after generic route
+resolution. ScoreForm then verifies canonical roots; loads and cross-checks the
+exact page and complete issuance; requires lifecycle `issued`; validates the
+current assignment, layout, page count, and question range; extracts only the
+requested retained source page; and returns an immutable one-page OMR result.
+The current managed answer key is authoritative, but title-only drift is not a
+physical-form incompatibility. Diagnostic-write failures are typed scoring
+failures rather than silent warnings.
+
+The teacher-facing QR workflow remains #143 work: QR decoding, production batch
+dispatch, attempt assembly, results export, and review persistence stay gated.

@@ -16,6 +16,7 @@ from scoreform.config import (
 )
 from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.migration import migration_pending
+from scoreform.module_errors import ScoreFormPageScoringError
 from scoreform.paging import (
     page_count_for_question_count,
     question_count_for_page,
@@ -511,9 +512,13 @@ def score_image(
     question_count=None,
     question_start=1,
     layout: AnswerSheetLayout | None = None,
+    *,
+    diagnostic_stem=None,
+    write_diagnostics=True,
+    raise_on_failure=False,
 ):
     """Scores a single pre-loaded OpenCV image and returns structured data."""
-    if debug_dir is None:
+    if debug_dir is None and write_diagnostics:
         debug_dir = os.fspath(
             workspace.get_scoreform_workspace_root() / LOCAL_DEBUG_DIR
         )
@@ -553,19 +558,35 @@ def score_image(
     for cX, cY in corner_centers:
         cv2.circle(debug_img, (cX, cY), 20, (0, 255, 0), 4)  # Selected corners in green
 
-    debug_corners_filename = f"debug_corners_page_{page_num}.png"
-    if debug_dir:
-        os.makedirs(debug_dir, exist_ok=True)
-        debug_corners_filename = os.path.join(debug_dir, debug_corners_filename)
-    debug_corners_filename = non_overwriting_path(debug_corners_filename)
-    cv2.imwrite(debug_corners_filename, debug_img)
-    print(f"Saved {debug_corners_filename}")
+    diagnostic_paths: list[str] = []
+    stem = page_num if diagnostic_stem is None else diagnostic_stem
+    if write_diagnostics:
+        debug_corners_filename = f"debug_corners_page_{stem}.png"
+        if debug_dir:
+            os.makedirs(debug_dir, exist_ok=True)
+            debug_corners_filename = os.path.join(debug_dir, debug_corners_filename)
+        debug_corners_filename = non_overwriting_path(debug_corners_filename)
+        if not cv2.imwrite(debug_corners_filename, debug_img):
+            error = OSError("Could not write registration-mark diagnostic image.")
+            if raise_on_failure:
+                raise ScoreFormPageScoringError(
+                    "Could not write registration-mark diagnostic image.",
+                    diagnostic_paths=tuple(diagnostic_paths),
+                ) from error
+            raise error
+        diagnostic_paths.append(debug_corners_filename)
+        print(f"Saved {debug_corners_filename}")
 
     if len(corner_centers) != 4:
         print(
             f"Error: Could not confidently detect 4 registration marks on page {page_num}.\n"
             f"Found {len(corner_centers)} marks out of {len(candidates)} candidates."
         )
+        if raise_on_failure:
+            raise ScoreFormPageScoringError(
+                "Could not detect the four required registration marks.",
+                diagnostic_paths=tuple(diagnostic_paths),
+            )
         return None
 
     print(f"Page {page_num} Selected Corner Centers: {corner_centers}")
@@ -629,19 +650,29 @@ def score_image(
         print(f"Q{r['Q']}: {r['Answer']} ({'Correct' if r['Correct'] else 'Wrong'})")
 
     # Save a debug image
-    debug_filename = f"debug_warped_page_{page_num}.png"
-    if debug_dir:
-        os.makedirs(debug_dir, exist_ok=True)
-        debug_filename = os.path.join(debug_dir, debug_filename)
-    debug_filename = non_overwriting_path(debug_filename)
-    cv2.imwrite(debug_filename, warped)
-    print(f"Saved {debug_filename} for visual verification.\n")
+    if write_diagnostics:
+        debug_filename = f"debug_warped_page_{stem}.png"
+        if debug_dir:
+            os.makedirs(debug_dir, exist_ok=True)
+            debug_filename = os.path.join(debug_dir, debug_filename)
+        debug_filename = non_overwriting_path(debug_filename)
+        if not cv2.imwrite(debug_filename, warped):
+            error = OSError("Could not write warped-page diagnostic image.")
+            if raise_on_failure:
+                raise ScoreFormPageScoringError(
+                    "Could not write warped-page diagnostic image.",
+                    diagnostic_paths=tuple(diagnostic_paths),
+                ) from error
+            raise error
+        diagnostic_paths.append(debug_filename)
+        print(f"Saved {debug_filename} for visual verification.\n")
 
     return {
         "page_num": page_num,
         "score": score,
         "total_points": question_count,
         "answers": results,
+        "diagnostic_paths": tuple(diagnostic_paths),
     }
 
 

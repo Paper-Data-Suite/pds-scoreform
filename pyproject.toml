@@ -31,6 +31,9 @@ dev = [
 [project.scripts]
 scoreform = "scoreform.cli:main"
 
+[project.entry-points."paper_data_suite.modules"]
+scoreform = "scoreform.pds_module:get_module_profile"
+
 [tool.setuptools]
 packages = ["scoreform"]
 
