@@ -6,9 +6,11 @@
 
 The project currently supports:
 
-> Historical routed-result and PDS1 bullets in this inventory describe earlier
-> implementations. Active PDS2 dispatch, #144 assembly/export, and the #145
-> persistence boundary are described in their dedicated sections below.
+> Final current-only policy: ScoreForm discovers module-qualified work only,
+> generates and parses PDS2 only, and accepts managed routed-results schema v2
+> only. It offers no historical workspace, sheet, or results migration. PDS1
+> and OMR1 are unsupported and cannot create routed identity. Manual scoring
+> remains separate and does not fabricate provenance.
 
 * CLI workflow helpers split from command dispatch into `scoreform/workflows.py`
 * Modular `scoreform/` package structure
@@ -24,7 +26,7 @@ The project currently supports:
 * Corner registration detection
 * Blank detection
 * Ambiguous/double-mark detection
-* Legacy top-level CSV export
+* Separate local CSV export for explicit answer-key manual scoring
 * External bare `answer_key.json` validation
 * Assignment JSON validation through `validate-assignment`
 * Assignment validation supports `question_count` from 1 to 15
@@ -43,11 +45,10 @@ The project currently supports:
 * QR payload parsing
 * QR decoding from generated PDFs/images through `decode-qr`
 * QR decoding from a printed-and-scanned student sheet when scan quality is adequate
-* Legacy scoring of a printed, filled, phone-scanned student sheet with QR code present
 * Retained-source PDS2 page decoding and Core dispatch
 * Core-owned PDS2 identifier validation and route resolution
-* Legacy/manual scoring preserved when an explicit answer key is provided
-* Scoring uses assignment question count for QR-aware scoring and inferred answer-key count for legacy/manual scoring
+* Manual scoring remains available when an explicit answer key is provided
+* Scoring uses authoritative assignment structure for routed PDS2 scoring and inferred answer-key count for manual scoring
 * Registration mark detection searches expected corner zones with tolerant dark-component selection so filled answer boxes near Q15 cannot be selected as perspective corners while imperfect true markers can still be recovered
 * 15-question synthetic scoring, Q15 corner-conflict, and imperfect bottom-left marker regression coverage
 * `score` command exits nonzero when no pages are scored successfully
@@ -66,7 +67,7 @@ The project currently supports:
 * Menu-driven plain-paper A-D response entry for students who did not use generated ScoreForm sheets
 * Plain-paper entries reuse routed-results preflight, roster enrichment, append-preserving writes, and attempt numbering
 * Plain-paper response entry supports explicit blank and ambiguous values, confirmation before write, and repeated student entry for one class and assignment
-* Plain-paper entries use `Page=manual` and `source_file=plain_paper_manual_entry` without changing results headers, PDS1, scan review, or generating scan/PDF artifacts
+* Plain-paper entries use `Page=manual` and `source_file=plain_paper_manual_entry` without changing result headers or generating scan/PDF artifacts
 * CSV export functions return success/failure status
 * Regression coverage for QR decoding, QR-aware scoring, mixed-scan scoring, routed results, and roster-enriched routed results
 * Scan source file tracking in all result rows
@@ -128,10 +129,10 @@ The project currently supports:
 
 ## Completed Milestone
 
-### `v0.1.0` - QR-Aware Scoring With Routed Results
+### `v0.1.0` - Historical milestone (superseded)
 
-This milestone is complete historical behavior. Its PDS1 metadata lookup and
-routed-result semantics are not used by the active #143 PDS2 path.
+The implementation from this milestone has been removed. Git history is the
+archive; no metadata-carried QR lookup or compatibility path remains.
 
 Completed scope:
 
@@ -143,7 +144,7 @@ Completed scope:
 * Automatic assignment lookup from QR metadata
 * Routed assignment-level results
 * Roster-enriched routed results
-* Legacy/manual scoring preserved
+* Manual answer-key scoring preserved
 * Regression test coverage through `run_tests.ps1`
 
 ---
@@ -227,7 +228,7 @@ routed CSV, assignment-local scan filing, or review metadata is created here.
 ```
 
 The `classes/` structure is the classroom assignment output model.
-`local_outputs/` is for generic templates, legacy/manual default results,
+`local_outputs/` is for generic templates, manual answer-key default results,
 manual debug images, and regression-test scratch files. Both live directly
 under the workspace root; managed class work is module-qualified. User-provided
 explicit input and output paths are still honored.
@@ -362,15 +363,15 @@ python main.py score scanned_file.pdf qr_metadata_results.csv
 
 This form is rejected before retention until attempt assembly and export land.
 
-### Legacy / Manual Scoring
+### Manual Scoring
 
 ```powershell
 python main.py score scanned_file.pdf results.csv examples\answer_key.json
 ```
 
-Uses the explicitly supplied answer key and preserves the legacy/manual scoring workflow.
+Uses the explicitly supplied answer key and preserves the manual scoring workflow.
 
-### Legacy / Manual Scoring With Answer Key Only
+### Manual Scoring With Answer Key Only
 
 ```powershell
 python main.py score scanned_file.pdf examples\answer_key.json
@@ -382,7 +383,7 @@ Uses the explicitly supplied answer key and writes to the default local results 
 local_outputs/results/results.csv
 ```
 
-Legacy/manual debug images are written to:
+Manual answer-key debug images are written to:
 
 ```text
 local_outputs/debug/
@@ -441,7 +442,7 @@ Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,S
 * When scoring a PDF/image, include the source file path or filename in each result row.
 * Routed results should preserve this source file value.
 * QR-aware custom-output CSVs may also include source file if available.
-* Legacy/manual scoring may optionally include source file if available, but primary focus is routed QR-aware results.
+* Manual answer-key scoring may include a privacy-safe source filename but never routed identity.
 * Do not move or copy scans yet.
 
 ## Notes
@@ -556,7 +557,7 @@ Move debug image output out of the project root and into assignment-specific deb
 
 ## Current Behavior
 
-Legacy/manual debug images are saved under:
+Manual answer-key debug images are saved under:
 
 ```text
 local_outputs/debug/
@@ -576,7 +577,7 @@ classes/
 
 ## Requirements
 
-* Keep legacy/manual debug output available under `local_outputs/debug/`.
+* Keep manual answer-key debug output available under `local_outputs/debug/`.
 * For PDS2 ScoreForm pages, use the Core-resolved handler context for diagnostics.
 * Avoid overwriting useful debug output where practical.
 * Consider including page number, student ID, or timestamp in debug filenames.
@@ -1051,7 +1052,7 @@ Support **1-75 questions**, paged at 15 questions per physical sheet.
 * Student PDFs draw only the required number of question rows.
 * Class packet PDFs draw only the required number of question rows.
 * QR-aware scoring scores only the assignment's configured question count.
-* Legacy/manual scoring infers question count from a contiguous bare answer key when possible.
+* Manual answer-key scoring infers question count from a contiguous bare answer key when possible.
 * CSV export creates columns only for the required number of questions.
 * Validation checks answer keys against `question_count`.
 * Extra answer key entries beyond `question_count` are rejected.
@@ -1330,7 +1331,7 @@ Keep the codebase maintainable as features expand.
 
 * Renamed PowerShell regression helpers from `Run-Test` to `Invoke-Test` and from `Run-TestExpectFailure` to `Invoke-TestExpectFailure`.
 * Updated all `run_tests.ps1` helper call sites to use the approved-verb names.
-* Clarified `score` command usage text for QR-aware routed scoring, QR-aware explicit-output scoring, legacy/manual default-output scoring, and legacy/manual explicit-output scoring.
+* Clarified `score` command usage for routed PDS2 and separate manual answer-key output.
 * Removed confirmed unused `CORNERS` and `CORNER_SIZE` imports from `scoreform/scoring.py`.
 
 ## Cleanup Items

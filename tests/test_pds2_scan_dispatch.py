@@ -203,11 +203,19 @@ def test_foreign_success_remains_opaque_and_counts_as_success(
     assert result.exit_code() == 0
 
 
-def test_malformed_payload_is_preserved_without_locator_or_request(
+@pytest.mark.parametrize(
+    "payload",
+    (
+        "PDS1|module=scoreform|class=class1",
+        "OMR1|class=class1|student=1001",
+        "OTHER|opaque=payload",
+    ),
+)
+def test_unsupported_payload_is_preserved_without_locator_or_request(
     tmp_path: Path,
+    payload: str,
 ) -> None:
-    payload = "PDS1|module=scoreform|class=class1"
-    source = _qr(tmp_path / "legacy.png", payload)
+    source = _qr(tmp_path / "unsupported.png", payload)
     registry = ModuleRegistry((get_module_profile(),))
 
     result = process_pds2_scan(source, workspace_root=tmp_path, registry=registry)
@@ -218,6 +226,8 @@ def test_malformed_payload_is_preserved_without_locator_or_request(
     assert page.dispatch_request is None
     assert page.dispatch_outcome is None
     assert page.failure_stage == "payload_parsing"
+    assert not (tmp_path / "classes").exists()
+    assert not tuple(tmp_path.rglob("results.csv"))
 
 
 def test_explicit_registry_failure_happens_before_retention(tmp_path: Path) -> None:

@@ -15,7 +15,7 @@ ScoreForm currently works for controlled testing and development use, but it is 
 The project is currently focused on:
 
 * printable answer-sheet generation
-* QR-coded student/assignment metadata
+* registered PDS2 page routing
 * scanned PDF/image scoring
 * assignment-based answer keys
 * class roster integration
@@ -43,8 +43,7 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Corner registration detection
 * Blank answer detection
 * Ambiguous/double-mark detection
-* Legacy/manual scoring with explicit answer keys
-* Legacy scoring of printed, filled, phone-scanned student sheets when scan quality is adequate
+* Manual scoring with explicit answer keys
 
 ### PDS2 QR Intake and Page Dispatch
 
@@ -371,6 +370,16 @@ ScoreForm supports two interaction layers:
 
 The layers intentionally do not have one-to-one command parity. Path-oriented setup operations such as `setup-assignment` remain available through `scoreform setup-assignment ...` and `python main.py setup-assignment ...`, but are not shown in the normal teacher-facing menu.
 
+ScoreForm has no historical workspace or result-import feature. Managed work is
+discovered only at
+`classes/<class_id>/modules/scoreform/work/<assignment_id>/`, and managed
+`results.csv` files must already satisfy the exact schema-version-2 contract.
+Generation emits PDS2 only; routed scanning parses PDS2 only. PDS1 and OMR1 are
+unsupported and cannot produce route identity, page or issuance records, route
+registrations, or result rows. Previously printed unsupported sheets must be
+replaced with newly generated PDS2 sheets or scored through the separate manual
+workflow, which never fabricates route identity.
+
 Select **4. Help** from the menu for a concise workflow guide, routed-results location, and grading-verification reminder.
 The interactive menu clears between screens and pauses after important output so generated file paths, validation messages, and scoring summaries remain readable before the next menu redraw.
 
@@ -385,9 +394,9 @@ only after `y` or `yes` confirmation; cancellation writes nothing.
 Confirmed entries use the assignment answer key and the normal routed
 `results.csv`. They receive roster enrichment and the next attempt number from
 the existing routed exporter, so scanned and manual attempts can coexist. This
-workflow does not create scan evidence, scan artifacts, or PDFs; it is separate
-from scan review. It does not change PDS1, assignment metadata, or the routed
-results header.
+workflow does not create scan evidence, scan artifacts, PDFs, or fabricated
+route identity; it is separate from scan review and leaves assignment metadata
+and the routed-results header unchanged.
 
 ### Resolve QR-Aware Scan Review Items
 
@@ -904,7 +913,7 @@ path even though the PDS2 inbox picker excludes BMP.
 ScoreForm module handlers may write their documented module-owned diagnostic
 images. Missing-QR diagnostics use collision-safe retained provenance names;
 successful paths and diagnostic-write warnings are preserved in the immutable
-page outcome. Legacy/manual output remains under `local_outputs/`.
+page outcome. Manual answer-key output remains under `local_outputs/`.
 
 ### Scan Quality Guidance
 
@@ -964,7 +973,7 @@ If scoring fails or results look suspicious, try:
 * inspecting generated debug images
 * manually verifying results before recording grades
 
-ScoreForm saves module-owned debug images during page handling. Legacy/manual
+ScoreForm saves module-owned debug images during page handling. Manual answer-key
 scoring writes under `local_outputs/debug/`; the ScoreForm PDS2 handler may
 write scoring diagnostics under its authoritative work `debug/` directory.
 This does not imply that routed results were exported.
@@ -1077,7 +1086,7 @@ QR-aware scoring supports an explicit schema-v2 output history:
 scoreform score scanned_file.pdf qr_metadata_results.csv
 ```
 
-Legacy/manual scoring can use the default local results path when only an answer key is supplied:
+Manual answer-key scoring can use the default local results path:
 
 ```powershell
 scoreform score scanned_file.pdf examples\answer_key.json
@@ -1089,7 +1098,7 @@ Explicit output paths are honored:
 scoreform score scanned_file.pdf results.csv examples\answer_key.json
 ```
 
-Manual/legacy scoring reports pages processed, pages scored, and pages
+Manual scoring reports pages processed, pages scored, and pages
 failed/skipped when failures occur or a multi-page batch is processed. A
 partial manual batch may export successful rows, but ScoreForm warns that the
 results may be incomplete. A zero-success manual batch fails clearly. Manual
@@ -1206,7 +1215,7 @@ Future test improvements may include:
 * Poor scan quality may still prevent QR detection, though ScoreForm now retries
   with QR preprocessing fallbacks before giving up.
 * The current optical layout remains fixed at 15 questions per physical page; compact 25-question pages are not implemented.
-* Legacy/manual scoring writes default debug images to `local_outputs/debug/`, while QR-aware scoring routes debug images into assignment debug folders.
+* Manual answer-key scoring writes default debug images to `local_outputs/debug/`, while routed PDS2 scoring uses assignment debug folders.
 * Duplicate/attempt handling preserves repeated routed scans, but gradebook export rules for latest/highest/selected attempts are not implemented yet.
 * Overwrite/collision protection prevents mismatched assignment JSON files from overwriting existing assignment folders, but an explicit replacement workflow has not been implemented yet.
 * QR preprocessing improves many real-world phone scans, but severe blur, glare,
@@ -1220,7 +1229,7 @@ ScoreForm is being designed around the following principles:
 * Avoid requiring paid services.
 * Keep classroom data under the teacher's control.
 * Make generated files predictable and organized.
-* Preserve legacy/manual scoring while newer QR-aware workflows are developed.
+* Keep explicit manual scoring separate from registered PDS2 routing identity.
 * Prefer simple, inspectable file formats such as CSV and JSON.
 * Build toward a teacher-friendly workflow without adding unnecessary complexity too early.
 * Avoid hardcoded assumptions that would prevent future multi-page forms.

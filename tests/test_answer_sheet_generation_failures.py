@@ -399,10 +399,9 @@ def test_run_generate_reports_installed_partial_counts_and_nonzero(
     aggregate = AnswerSheetGenerationResult(partial.generation_id, (partial,))
     setup_paths = {
         "paths": paths,
-        "class_dir": str(paths.roster_path.parent),
-        "assignment_dir": str(paths.work_root),
-        "roster_copy": str(paths.roster_path),
-        "assignment_copy": str(paths.assignment_path),
+        "work_root": str(paths.work_root),
+        "roster_path": str(paths.roster_path),
+        "assignment_path": str(paths.assignment_path),
     }
     monkeypatch.setattr(generate_workflows, "load_assignment", lambda _path: assignment)
     monkeypatch.setattr(generate_workflows, "load_roster", lambda _path: roster)

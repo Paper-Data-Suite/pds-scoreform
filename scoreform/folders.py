@@ -103,17 +103,10 @@ def _roster_semantic_value(roster):
 def setup_assignment_folder(
     roster_data,
     assignment_data,
-    roster_path=None,
-    assignment_path=None,
     *,
     workspace_root=None,
 ):
-    """Safely set up one canonical ScoreForm managed-work directory.
-
-    ``roster_path`` and ``assignment_path`` remain accepted for CLI compatibility,
-    but validated in-memory records are persisted to canonical Core/ScoreForm paths.
-    """
-    del roster_path, assignment_path
+    """Safely set up one canonical ScoreForm managed-work directory."""
 
     if not isinstance(roster_data, dict) or not isinstance(assignment_data, dict):
         print("Error: Roster and assignment data must be objects.")
@@ -207,12 +200,8 @@ def setup_assignment_folder(
     return {
         "work_ref": paths.work_ref,
         "paths": paths,
-        "class_dir": os.fspath(paths.roster_path.parent),
-        "assignment_dir": os.fspath(paths.work_root),
         "work_root": os.fspath(paths.work_root),
-        "roster_copy": os.fspath(paths.roster_path),
         "roster_path": os.fspath(paths.roster_path),
-        "assignment_copy": os.fspath(paths.assignment_path),
         "assignment_path": os.fspath(paths.assignment_path),
         "templates_dir": os.fspath(paths.templates_dir),
         "individual_templates_dir": os.fspath(paths.individual_templates_dir),

@@ -94,7 +94,7 @@ preserved.
 
 ## 3. Answer key JSON contract
 
-**Status: Stable-enough current contract for manual/legacy scoring.**
+**Status: Stable-enough current contract for manual answer-key scoring.**
 
 ```json
 {
@@ -109,8 +109,8 @@ preserved.
 The file must contain a JSON object. Keys are question numbers contiguous from 1
 through the highest question (no gaps), with no more than 15 questions. Values
 are trimmed, normalized to uppercase, and must be A, B, C, or D. This format has
-no assignment metadata. It primarily supports manual/legacy scoring; assignment
-JSON is preferred for routed, QR-aware workflows.
+no assignment metadata. It supports the separate manual scorer; validated
+assignment JSON is authoritative for routed PDS2 workflows.
 
 ## 4. Roster CSV contract
 
@@ -344,43 +344,24 @@ planned route is never counted as created merely because its ID was allocated.
 Temporary-file cleanup warnings are additive diagnostics and never mask the
 primary planning, persistence, rendering, finalization, or installation error.
 
-### PDS1 historical scoring payload (inactive)
+### PDS2-only payload policy
 
-**Status: Rejected by the active scanner and decode command. No compatibility
-parser is used by retained-source intake.**
-
-The active locator grammar is exclusively:
+ScoreForm generates and parses only canonical Core PDS2 locators:
 
 ```text
 PDS2|m=<module_id>|c=<class_id>|w=<work_id>|r=<route_id>
 ```
 
-Only Core parses and serializes this locator. It contains no student identity,
-logical assessment page, question range, layout, key, attempt identity, or
-result destination. Source-page number is retained-scan provenance and must not
-be interpreted as the authoritative logical page resolved by a module handler.
-Each valid page preserves its exact Core dispatch request and success/failure
-outcome. Foreign-module results remain opaque to ScoreForm.
+PDS1 and OMR1 are unsupported: they are not parsed, generated, migrated, or
+converted. A non-PDS2 decoded string remains available as raw review evidence,
+but produces no locator, dispatch request, route lookup, page or issuance
+record, route registration, or result row. Previously printed historical sheets
+cannot enter routed scoring; teachers must generate new managed PDS2 sheets or
+use the separate manual workflow without fabricated route identity.
 
-```text
-PDS1|module=scoreform|class=<class_id>|aid=<assignment_id>|sid=<student_id>|page=<page_number>
-```
-
-Legacy ScoreForm scoring requires
-`module=scoreform`; `class`, `aid`, and `sid` must pass safe identifier validation;
-and `page` is the 1-based physical assessment page. After assignment lookup,
-ScoreForm rejects pages outside that assignment's computed page count.
-
-### OMR1
-
-**Status: Removed legacy ScoreForm payload.**
-
-OMR1 was ScoreForm's initial QR payload format during early development. It has
-been superseded by PDS2 and is not accepted by ScoreForm scanning or QR decoding.
-
-Neither payload currently carries standards, answer-key data, roster names,
-result paths, attempt numbers, school year, or template version. Adding any of
-these requires a separate QR-versioning decision.
+Only Core parses and serializes PDS2. Its locator carries no student identity,
+logical page, question range, answer key, or result destination. Those values
+come only from the registered route and immutable authoritative records.
 
 ## 8. Generated template and answer-sheet layout contract
 
@@ -425,7 +406,7 @@ scans needs a separate template-versioning and deprecation decision.
 
 **Status: Routed-results schema version 2 is active for PDS2 and manual attempts.**
 
-The historical/manual exporter targets:
+The current routed exporter targets:
 
 ```text
 <PDS workspace root>/classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
@@ -436,8 +417,8 @@ is `module_id="scoreform" + class_id + work_id`. The shared roster remains at
 `classes/<class_id>/roster.csv`. `assignment.json`, `templates/`, `scans/`,
 `results.csv`, and `debug/` are direct ScoreForm work descendants. Core owns any
 immutable `routes/` registrations. Active discovery is direct-child-only within
-the ScoreForm collection and has no recursive, sibling-module, or legacy-layout
-fallback.
+the ScoreForm collection. An unqualified `classes/<class_id>/assignments/` tree
+is outside the managed contract and is neither inspected nor modified.
 
 Schema v2 uses this exact base header, followed by `Qn`, `Qn_Correct` pairs:
 
@@ -475,8 +456,8 @@ provisional explicit-output contract in section 9. They set `Page` to `manual`
 and `source_file` to `plain_paper_manual_entry`; all `Qn` and `Qn_Correct`
 fields are present. A-D responses match the assignment key normally, while
 `BLANK` and `AMBIGUOUS` are incorrect. The existing exporter supplies roster
-fields and the next attempt number. No columns are added, PDS1 is unchanged,
-and the workflow creates no scan artifacts or review evidence.
+fields and the next attempt number. No columns are added, and the workflow
+creates no scan artifacts, review evidence, or routed identity.
 
 ## 10. Manual and explicit-output results CSV contract
 
@@ -506,20 +487,19 @@ For active PDS2 processing, retained provenance is preserved from immutable
 runtime requests through schema-v2 result rows. `source_file` is the validated
 original filename; `retained_source_path` is the safe workspace-relative Core
 copy. The canonical copy under `scans/source/YYYY-MM-DD/` is never altered.
-Legacy rows may retain an empty `source_file` when no historical value exists.
+Every supported schema-v2 row must satisfy the current source-field contract.
 
 ## 12. Attempt metadata
 
 **Status: Active shared attempt numbering.**
 
 Attempts are keyed by (`class_id`, `assignment_id`, `student_id`). The first row
-is attempt 1, and each additional routed row for that key increments it. When a
-preserved legacy row has no valid positive canonical attempt number, migration
-aborts. Numeric text is canonical decimal (`1`, not `01`) and is otherwise
-rejected rather than silently normalized. New `pds2_scan` rows require nonempty,
-timezone-aware ISO 8601 timestamps. Migrated `legacy_scan` and
-`plain_paper_manual` rows may retain the exact historical
-`YYYY-MM-DD HH:MM:SS` form and remain readable on later appends.
+is attempt 1, and each additional routed row for that key increments it. Numeric
+text is canonical decimal (`1`, not `01`) and is otherwise rejected rather than
+silently normalized. Every supported origin (`pds2_scan`,
+`plain_paper_manual`, and `scan_review_manual`) requires a nonempty,
+timezone-aware ISO 8601 timestamp. Schema-v1 histories and naive timestamps are
+incompatible and are rejected without mutation.
 `scan_timestamp` records when the routed batch was prepared, so
 rows in one batch may share it. Attempt number does not select an official grade.
 
@@ -746,8 +726,8 @@ carries their immutable paths for later review without directory searching.
 Sheets may span multiple pages. `question_count` is an integer from 1 through 75,
 and the current optical layout supports up to 15 questions per physical page.
 Visible question labels and exported answer fields use global assignment question
-numbers. Historically, PDS1 `page` was a positive, 1-based physical assessment
-page number; the active PDS2 locator has no page field.
+numbers. The active PDS2 locator has no page field; logical page identity comes
+only from the registered target and immutable page record.
 
 The active PDS2 workflow preserves independent physical-page outcomes, then
 assembles only complete authoritative issuances. It never chooses among

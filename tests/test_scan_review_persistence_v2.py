@@ -9,6 +9,7 @@ from pds_core.module_dispatch import (
     ModuleContractCompatibilityError,
     RouteDispatchSuccess,
 )
+from pds_core.pds2 import Pds2PayloadError, parse_pds2_payload
 from pds_core.routing_models import (
     ModuleRecordRef,
     ModuleWorkRef,
@@ -35,7 +36,10 @@ from scoreform.module_errors import (
     ScoreFormSourceTypeUnsupportedError,
 )
 from scoreform.pds2_scan_dispatch import Pds2ScanPageOutcome
-from scoreform.scan_review_details import scoreform_failure_details
+from scoreform.scan_review_details import (
+    scoreform_failure_details,
+    validate_scoreform_failure_details,
+)
 from scoreform.scan_review_models import (
     ScoreFormFailurePersistenceBatch,
     ScoreFormFailurePersistenceError,
@@ -172,6 +176,52 @@ def test_exact_core_shape_and_strict_reload(tmp_path, monkeypatch) -> None:
         == persisted.metadata
     )
     assert persisted.metadata_path.read_bytes().endswith(b"\n")
+
+
+def test_unsupported_payload_persists_strict_null_identity_details(tmp_path) -> None:
+    payload = "PDS1|module=scoreform|class=class1"
+    with pytest.raises(Pds2PayloadError) as captured:
+        parse_pds2_payload(payload)
+    page = Pds2ScanPageOutcome(
+        1,
+        raw_payload_text=payload,
+        decode_method="raw",
+        failure_stage="payload_parsing",
+        error=captured.value,
+    )
+    metadata = persistence._page_metadata(
+        page,
+        (
+            "unsupported.png",
+            "scan_synthetic",
+            "a" * 64,
+            "scans/source/2026-01-01/unsupported.png",
+        ),
+        "failure1",
+        NOW.isoformat(),
+        tmp_path,
+    )
+    write_routing_failure_metadata(tmp_path, metadata)
+
+    loaded = load_routing_failure_metadata(tmp_path, "failure1")
+    details = validate_scoreform_failure_details(loaded.module_details)
+    expected_null_fields = {
+        "page_locator",
+        "request_locator",
+        "resolution_locator",
+        "registration_locator",
+        "registration_target",
+        "profile_module_id",
+    }
+
+    assert loaded.detected_payload == payload
+    assert loaded.route_locator is None
+    assert loaded.target is None
+    assert details.failure_origin == "page_decode"
+    assert details.scoreform_category == "payload_schema_unsupported"
+    assert expected_null_fields.issubset(details.context)
+    assert all(details.context[field] is None for field in expected_null_fields)
+    assert details.context["decode_method"] == "raw"
 
 
 def test_persistence_models_require_canonical_paths_and_occurrence_uniqueness(

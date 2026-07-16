@@ -27,26 +27,6 @@ function Invoke-Step {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-function Invoke-MigrationGate {
-    param([string]$Name, [string[]]$Arguments, [string]$Issue)
-
-    Write-Host ""
-    Write-Host "Running expected migration gate: $Name" -ForegroundColor Yellow
-    $output = & $ScoreForm @Arguments 2>&1
-    $code = $LASTEXITCODE
-    if ($code -eq 0) {
-        throw "FAILED: $Name unexpectedly succeeded."
-    }
-    $text = $output -join "`n"
-    if ($text -notmatch "temporarily unavailable" -or $text -notmatch [regex]::Escape($Issue)) {
-        throw "FAILED: $Name did not report the expected actionable $Issue migration message.`n$text"
-    }
-    if ($text -match "Traceback") {
-        throw "FAILED: $Name exposed a traceback.`n$text"
-    }
-    Write-Host "PASSED EXPECTED MIGRATION GATE: $Name" -ForegroundColor Green
-}
-
 Write-Host "=== ScoreForm Core 0.5 Foundation Validation ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
@@ -69,8 +49,18 @@ Invoke-Step "Run focused retained PDS2 boundary tests" {
     & $Python -m pytest @(
         "tests/test_pds2_scan_dispatch.py",
         "tests/test_pds2_cli_boundaries.py",
-        "tests/test_qr_validation.py",
+        "tests/test_removed_legacy_surfaces.py",
         "tests/test_path_input_normalization.py"
+    ) -q
+}
+Invoke-Step "Run current-only workspace, payload, history, and viewer tests" {
+    & $Python -m pytest @(
+        "tests/test_work_paths.py",
+        "tests/test_pds2_scan_dispatch.py::test_unsupported_payload_is_preserved_without_locator_or_request",
+        "tests/test_results_export.py::test_v1_history_is_rejected_without_mutation",
+        "tests/test_results_v2_strict.py",
+        "tests/test_results_viewer.py",
+        "tests/test_removed_legacy_surfaces.py"
     ) -q
 }
 Invoke-Step "Run pytest suite" {
@@ -118,6 +108,184 @@ try {
         throw "Imports/help/version/validation created workspace data: $SmokeRoot"
     }
 
+    $UnsupportedRoot = Join-Path $SmokeRoot "unsupported-workspace"
+    $UnsupportedArtifact = Join-Path $SmokeRoot "fixtures\unsupported-pds1.png"
+    Invoke-Step "Build deterministic unsupported-schema QR artifact" {
+        & $Python scripts\build_unsupported_qr_smoke.py $UnsupportedArtifact
+    }
+    $env:PDS_WORKSPACE_ROOT = $UnsupportedRoot
+
+    Write-Host ""
+    Write-Host "Running expected nonzero installed decode-qr unsupported-schema smoke" -ForegroundColor Yellow
+    $UnsupportedDecodeOutput = & $ScoreForm decode-qr $UnsupportedArtifact 2>&1
+    $UnsupportedDecodeCode = $LASTEXITCODE
+    $UnsupportedDecodeText = $UnsupportedDecodeOutput -join "`n"
+    if ($UnsupportedDecodeCode -eq 0) {
+        throw "Unsupported-schema decode unexpectedly succeeded.`n$UnsupportedDecodeText"
+    }
+    if (
+        $UnsupportedDecodeText -match "Traceback" -or
+        $UnsupportedDecodeText -match "(?m)^(Schema: PDS2|Module:|Class:|Work:|Route:|Canonical payload:)"
+    ) {
+        throw "Unsupported-schema decode printed routed identity or a traceback.`n$UnsupportedDecodeText"
+    }
+    Write-Host "PASSED EXPECTED NONZERO: installed decode-qr unsupported schema" -ForegroundColor Green
+
+    Write-Host ""
+    Write-Host "Running expected nonzero installed score unsupported-schema smoke" -ForegroundColor Yellow
+    $UnsupportedScoreOutput = & $ScoreForm score $UnsupportedArtifact 2>&1
+    $UnsupportedScoreCode = $LASTEXITCODE
+    $UnsupportedScoreText = $UnsupportedScoreOutput -join "`n"
+    if ($UnsupportedScoreCode -eq 0) {
+        throw "Unsupported-schema score unexpectedly succeeded.`n$UnsupportedScoreText"
+    }
+    if ($UnsupportedScoreText -match "Traceback") {
+        throw "Unsupported-schema score exposed a traceback.`n$UnsupportedScoreText"
+    }
+    $UnsupportedReviewRoot = Join-Path $UnsupportedRoot "scans\review"
+    $UnsupportedFailures = @(
+        Get-ChildItem -LiteralPath $UnsupportedReviewRoot -Filter "*.json" -File
+    )
+    if ($UnsupportedFailures.Count -ne 1) {
+        throw "Unsupported-schema score persisted $($UnsupportedFailures.Count) review records instead of one."
+    }
+    $UnsupportedFailure = Get-Content -Raw -LiteralPath $UnsupportedFailures[0].FullName | ConvertFrom-Json
+    $UnsupportedDetails = $UnsupportedFailure.module_details.scoreform
+    if ($null -eq $UnsupportedDetails) {
+        throw "Unsupported-schema review record is missing module_details.scoreform."
+    }
+    if (
+        $UnsupportedDetails.record_kind -ne "failure" -or
+        $UnsupportedDetails.failure_origin -ne "page_decode" -or
+        $UnsupportedDetails.scoreform_category -ne "payload_schema_unsupported"
+    ) {
+        throw "Unsupported-schema review record has incorrect ScoreForm failure details."
+    }
+    $UnsupportedContext = $UnsupportedDetails.context
+    if ($null -eq $UnsupportedContext) {
+        throw "Unsupported-schema review record is missing ScoreForm context."
+    }
+    if (
+        $UnsupportedFailure.detected_payload -ne "PDS1|module=scoreform|class=class1" -or
+        $null -ne $UnsupportedFailure.route_locator -or
+        $null -ne $UnsupportedFailure.target
+    ) {
+        throw "Unsupported-schema review record fabricated routed identity."
+    }
+    $ExpectedNullContextFields = @(
+        "page_locator",
+        "request_locator",
+        "resolution_locator",
+        "registration_locator",
+        "registration_target",
+        "profile_module_id"
+    )
+    $ActualContextFields = @($UnsupportedContext.PSObject.Properties.Name)
+    foreach ($Field in $ExpectedNullContextFields) {
+        if ($Field -notin $ActualContextFields) {
+            throw "Unsupported-schema review context is missing '$Field'."
+        }
+        $Value = $UnsupportedContext.PSObject.Properties[$Field].Value
+        if ($null -ne $Value) {
+            throw "Unsupported-schema review context fabricated '$Field'."
+        }
+    }
+    if (
+        "decode_method" -notin $ActualContextFields -or
+        -not ($UnsupportedContext.decode_method -is [string]) -or
+        [string]::IsNullOrWhiteSpace($UnsupportedContext.decode_method)
+    ) {
+        throw "Unsupported-schema review context has no decode_method."
+    }
+    $ForbiddenUnsupportedFiles = @(
+        Get-ChildItem -LiteralPath $UnsupportedRoot -Recurse -File |
+            Where-Object { $_.Name -eq "results.csv" }
+    )
+    $ForbiddenUnsupportedDirs = @(
+        Get-ChildItem -LiteralPath $UnsupportedRoot -Recurse -Directory |
+            Where-Object { $_.Name -in @("answer_sheets", "issuances", "routes", "assignments") }
+    )
+    if ($ForbiddenUnsupportedFiles.Count -ne 0 -or $ForbiddenUnsupportedDirs.Count -ne 0) {
+        throw "Unsupported-schema score created results, page, issuance, route, or unqualified assignment storage."
+    }
+    Write-Host "PASSED EXPECTED NONZERO: installed score unsupported schema with null identity" -ForegroundColor Green
+
+    $V1Root = Join-Path $SmokeRoot "schema-v1-workspace"
+    $env:PDS_WORKSPACE_ROOT = $V1Root
+    Invoke-Step "Set up isolated schema-v1 rejection assignment" {
+        & $ScoreForm @(
+            "setup-assignment", "examples\sample_assignment.json",
+            "examples\sample_roster_english9_p2.csv"
+        )
+    }
+    Invoke-Step "Generate isolated current PDS2 sheet for schema-v1 rejection" {
+        & $ScoreForm @(
+            "generate", "examples\sample_assignment.json", "--rosters",
+            "examples\sample_roster_english9_p2.csv"
+        )
+    }
+    $V1ManagedRoot = Join-Path $V1Root (
+        "classes\english9_p2\modules\scoreform\work\rj_act1_quiz"
+    )
+    $V1Individual = Get-ChildItem -LiteralPath (Join-Path $V1ManagedRoot "templates\individual") -Filter "*.pdf" -File | Select-Object -First 1
+    if (-not $V1Individual) {
+        throw "Schema-v1 rejection smoke did not generate a current PDS2 artifact."
+    }
+    $V1ResultsPath = Join-Path $V1ManagedRoot "results.csv"
+    $V1Headers = @(
+        "Page", "class_id", "assignment_id", "student_id", "last_name",
+        "first_name", "period", "source_file", "attempt_number",
+        "scan_timestamp", "Score", "Total"
+    )
+    foreach ($number in 1..10) {
+        $V1Headers += "Q$number"
+        $V1Headers += "Q${number}_Correct"
+    }
+    [System.IO.File]::WriteAllText(
+        $V1ResultsPath,
+        (($V1Headers -join ",") + "`r`n"),
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    $V1HashBefore = (Get-FileHash -LiteralPath $V1ResultsPath -Algorithm SHA256).Hash
+
+    Write-Host ""
+    Write-Host "Running expected nonzero installed score against schema-v1 history" -ForegroundColor Yellow
+    $V1ScoreOutput = & $ScoreForm score $V1Individual.FullName 2>&1
+    $V1ScoreCode = $LASTEXITCODE
+    $V1ScoreText = $V1ScoreOutput -join "`n"
+    if ($V1ScoreCode -eq 0) {
+        throw "Scoring against schema-v1 history unexpectedly succeeded.`n$V1ScoreText"
+    }
+    if ($V1ScoreText -match "Traceback") {
+        throw "Schema-v1 rejection exposed a traceback.`n$V1ScoreText"
+    }
+    $V1HashAfter = (Get-FileHash -LiteralPath $V1ResultsPath -Algorithm SHA256).Hash
+    if ($V1HashAfter -ne $V1HashBefore) {
+        throw "Schema-v1 results history changed during rejected export."
+    }
+    if (@(Import-Csv -LiteralPath $V1ResultsPath).Count -ne 0) {
+        throw "Schema-v1 rejection appended a routed result row."
+    }
+    if (@(Get-ChildItem -LiteralPath $V1ManagedRoot -Filter ".results.*.tmp" -File).Count -ne 0) {
+        throw "Schema-v1 rejection left a temporary results replacement."
+    }
+    $V1ReviewFiles = @(
+        Get-ChildItem -LiteralPath (Join-Path $V1Root "scans\review") -Filter "*.json" -File
+    )
+    if ($V1ReviewFiles.Count -lt 1) {
+        throw "Schema-v1 export failure was not represented in scan review."
+    }
+    $V1ReviewText = @($V1ReviewFiles | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "`n"
+    if ($V1ReviewText -notmatch '"stage"\s*:\s*"evidence"') {
+        throw "Schema-v1 export failure did not use the current evidence/review boundary."
+    }
+    if ((Get-Content -Raw -LiteralPath $V1ResultsPath) -match "result_schema_version|legacy_scan") {
+        throw "Schema-v1 rejection installed schema-v2 or legacy-origin content."
+    }
+    Write-Host "PASSED EXPECTED NONZERO: schema-v1 history remained byte-identical" -ForegroundColor Green
+
+    $env:PDS_WORKSPACE_ROOT = $SmokeRoot
+
     Invoke-Step "Set up module-qualified managed assignment" {
         & $ScoreForm @(
         "setup-assignment", "examples\sample_assignment.json",
@@ -141,7 +309,7 @@ try {
     }
     foreach ($forbidden in @("results.csv", "templates\class_packet.pdf", "routes")) {
         if (Test-Path -LiteralPath (Join-Path $ManagedRoot $forbidden)) {
-            throw "Managed setup created a forbidden later-migration artifact: $forbidden"
+            throw "Managed setup created an artifact outside the setup contract: $forbidden"
         }
     }
     if (Test-Path -LiteralPath (Join-Path $SmokeRoot "classes\english9_p2\assignments")) {
@@ -184,6 +352,9 @@ try {
     $FullRows = @(Import-Csv -LiteralPath $ResultsPath)
     if ($FullRows.Count -ne 1 -or $FullRows[0].result_schema_version -ne "2" -or $FullRows[0].result_origin -ne "pds2_scan") {
         throw "Real CLI scoring did not export one schema-v2 PDS2 attempt."
+    }
+    if (@($FullRows | Where-Object { $_.result_origin -notin @("pds2_scan", "plain_paper_manual", "scan_review_manual") }).Count -ne 0) {
+        throw "Real CLI scoring wrote an unsupported result origin."
     }
     $ReviewRoot = Join-Path $SmokeRoot "scans\review"
     if (Test-Path -LiteralPath $ReviewRoot) {

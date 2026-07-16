@@ -3,213 +3,142 @@ import csv
 import pytest
 
 from scoreform import results_viewer
+from scoreform.page_scoring import ScoredAnswer
+from scoreform.results import (
+    ScoreFormRoutedResult,
+    ScoreFormRoutedResultHistoryRow,
+    _export_result_models,
+)
 
 
-def _write_results(path, rows, fieldnames=None):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if fieldnames is None:
-        fieldnames = [
-            "Page",
-            "class_id",
-            "assignment_id",
-            "student_id",
-            "last_name",
-            "first_name",
-            "period",
-            "source_file",
-            "attempt_number",
-            "scan_timestamp",
-            "Score",
-            "Total",
-        ]
-    with path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def test_load_assignment_results_reads_valid_results_csv(tmp_path):
-    path = (
-        tmp_path / "classes" / "english12_p3" / "modules" / "scoreform"
-        / "work" / "final_exam" / "results.csv"
+def _manual(*, score=1, student_id="1001"):
+    selected = "A" if score else "B"
+    return ScoreFormRoutedResult(
+        "plain_paper_manual",
+        "class1",
+        "quiz1",
+        student_id,
+        "Doe",
+        "Jane",
+        "1",
+        "manual",
+        score,
+        1,
+        (ScoredAnswer(1, selected, bool(score)),),
+        source_file="plain_paper_manual_entry",
     )
-    _write_results(
-        path,
-        [
-            {
-                "Page": "1",
-                "class_id": "english12_p3",
-                "assignment_id": "final_exam",
-                "student_id": "1001",
-                "last_name": "Doe",
-                "first_name": "Jane",
-                "Score": "13",
-                "Total": "15",
-            },
-        ],
+
+
+def _write_current_history(path):
+    first = _export_result_models(
+        (_manual(score=0),),
+        workspace_root=path.parent,
+        explicit_output_file=path,
     )
+    second = _export_result_models(
+        (_manual(score=1),),
+        workspace_root=path.parent,
+        explicit_output_file=path,
+    )
+    assert first.succeeded and second.succeeded
+
+
+def test_viewer_loads_strict_v2_and_summarizes_current_attempts(tmp_path):
+    path = tmp_path / "results.csv"
+    _write_current_history(path)
 
     rows = results_viewer.load_assignment_results(path)
-
-    assert rows[0]["student_id"] == "1001"
-    assert rows[0]["Score"] == "13"
-
-
-def test_format_assignment_results_table_includes_required_columns():
-    summary = [
-        results_viewer.AssignmentResultSummary(
-            student_id="1001",
-            name="Doe, Jane",
-            recent="13",
-            total="15",
-            attempts=1,
-        ),
-    ]
-
-    output = results_viewer.format_assignment_results_table(summary)
-
-    assert "Student ID" in output
-    assert "Name" in output
-    assert "Recent" in output
-    assert "Total" in output
-    assert "Attempts" in output
-    assert "1001" in output
-    assert "Doe, Jane" in output
-    assert "13" in output
-    assert "15" in output
-
-
-def test_summarize_groups_attempts_and_uses_latest_parseable_scan_timestamp():
-    rows = [
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "2026-06-17 08:00:00",
-            "Score": "11",
-            "Total": "15",
-        },
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "2026-06-17 09:30:00",
-            "Score": "13",
-            "Total": "15",
-        },
-        {
-            "student_id": "1002",
-            "last_name": "Smith",
-            "first_name": "John",
-            "scan_timestamp": "2026-06-17 08:15:00",
-            "Score": "12",
-            "Total": "15",
-        },
-    ]
-
-    summary = results_viewer.summarize_assignment_results(rows)
-
-    assert [(row.student_id, row.recent, row.total, row.attempts) for row in summary] == [
-        ("1001", "13", "15", 2),
-        ("1002", "12", "15", 1),
-    ]
-
-
-def test_summarize_falls_back_to_last_row_when_timestamp_is_unreliable():
-    rows = [
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "not a timestamp",
-            "Score": "9",
-            "Total": "15",
-        },
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "",
-            "Score": "12",
-            "Total": "15",
-        },
-    ]
-
+    assert all(isinstance(row, ScoreFormRoutedResultHistoryRow) for row in rows)
     summary = results_viewer.summarize_assignment_results(rows)
 
     assert len(summary) == 1
-    assert summary[0].recent == "12"
-    assert summary[0].attempts == 2
+    assert summary[0] == results_viewer.AssignmentResultSummary(
+        "1001", "Doe, Jane", "1", "1", 2
+    )
+    assert results_viewer.MULTIPLE_ATTEMPTS_NOTE in (
+        results_viewer.format_assignment_results_table(summary)
+    )
 
 
-def test_summarize_falls_back_to_last_row_when_timestamp_reliability_is_mixed():
-    rows = [
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "2026-06-17 08:00:00",
-            "Score": "10",
-            "Total": "15",
-        },
-        {
-            "student_id": "1001",
-            "last_name": "Doe",
-            "first_name": "Jane",
-            "scan_timestamp": "",
-            "Score": "13",
-            "Total": "15",
-        },
-    ]
+def test_viewer_uses_shared_strict_history_loader(tmp_path, monkeypatch):
+    path = tmp_path / "results.csv"
+    _write_current_history(path)
+    calls = []
+    actual = results_viewer.load_routed_results_history
 
-    summary = results_viewer.summarize_assignment_results(rows)
+    def tracked(selected):
+        calls.append(selected)
+        return actual(selected)
 
-    assert len(summary) == 1
-    assert summary[0].recent == "13"
-    assert summary[0].attempts == 2
+    monkeypatch.setattr(results_viewer, "load_routed_results_history", tracked)
+    results_viewer.load_assignment_results(path)
+    assert calls == [path]
 
 
-def test_summarize_compares_timezone_aware_and_historical_timestamps():
-    rows = [
-        {"student_id": "1001", "scan_timestamp": "2026-06-17 09:00:00", "Score": "9", "Total": "10"},
-        {"student_id": "1001", "scan_timestamp": "2026-06-17T10:00:00+00:00", "Score": "10", "Total": "10"},
-    ]
-    assert results_viewer.summarize_assignment_results(rows)[0].recent == "10"
+@pytest.mark.parametrize(
+    "contents",
+    (
+        "student_id,Score,Total\n1001,1,1\n",
+        "Student ID,Last Name,First Name,score,Total Points,timestamp\n"
+        "1001,Doe,Jane,1,1,2026-07-15 12:00:00\n",
+        "Page,class_id,assignment_id,student_id,last_name,first_name,period,"
+        "source_file,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct\n"
+        "1,class1,quiz1,1001,Doe,Jane,1,old.pdf,1,"
+        "2026-07-15 12:00:00,1,1,A,True\n",
+    ),
+)
+def test_viewer_rejects_historical_headers_without_mutation(tmp_path, contents):
+    path = tmp_path / "results.csv"
+    path.write_text(contents, encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(results_viewer.ResultsViewError):
+        results_viewer.load_assignment_results(path)
+    assert path.read_bytes() == before
 
 
-def test_format_includes_multiple_attempt_note_when_any_student_has_duplicates():
-    output = results_viewer.format_assignment_results_table([
-        results_viewer.AssignmentResultSummary("1001", "Doe, Jane", "12", "15", 2),
-    ])
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("scan_timestamp", "2026-07-15 12:00:00"),
+        ("result_origin", "legacy_scan"),
+        ("result_schema_version", "1"),
+    ),
+)
+def test_viewer_rejects_invalid_current_rows_without_mutation(tmp_path, field, value):
+    path = tmp_path / "results.csv"
+    _write_current_history(path)
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        names = reader.fieldnames
+    assert names is not None
+    rows[0][field] = value
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=names)
+        writer.writeheader()
+        writer.writerows(rows)
+    before = path.read_bytes()
 
-    assert results_viewer.MULTIPLE_ATTEMPTS_NOTE in output
-    assert "ScoreForm does not decide which attempt counts as the grade." in output
+    with pytest.raises(results_viewer.ResultsViewError):
+        results_viewer.load_assignment_results(path)
+    assert path.read_bytes() == before
 
 
-def test_load_assignment_results_reports_missing_empty_and_malformed_files(tmp_path):
-    missing = tmp_path / "missing.csv"
+def test_viewer_reports_missing_empty_and_malformed_files(tmp_path):
     with pytest.raises(FileNotFoundError):
-        results_viewer.load_assignment_results(missing)
+        results_viewer.load_assignment_results(tmp_path / "missing.csv")
 
     empty = tmp_path / "empty.csv"
     empty.write_text("", encoding="utf-8")
-    assert results_viewer.load_assignment_results(empty) == []
+    with pytest.raises(results_viewer.ResultsViewError):
+        results_viewer.load_assignment_results(empty)
 
     malformed = tmp_path / "malformed.csv"
-    malformed.write_text("student_id,Score\n1001,12,extra\n", encoding="utf-8")
+    malformed.write_text("student_id,Score\n1001,1,extra\n", encoding="utf-8")
     with pytest.raises(results_viewer.ResultsViewError):
         results_viewer.load_assignment_results(malformed)
 
 
-def test_summarize_skips_rows_missing_student_id_without_crashing():
-    rows = [
-        {"Score": "10", "Total": "15"},
-        {"student_id": "1001", "name": "Jane Doe", "score": "12", "total_points": "15"},
-    ]
-
-    summary = results_viewer.summarize_assignment_results(rows)
-
-    assert len(summary) == 1
-    assert summary[0].student_id == "1001"
-    assert summary[0].name == "Jane Doe"
-    assert summary[0].recent == "12"
+def test_summarizer_rejects_unvalidated_mapping_rows():
+    with pytest.raises(results_viewer.ResultsViewError):
+        results_viewer.summarize_assignment_results([{"student_id": "1001"}])

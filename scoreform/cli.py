@@ -37,14 +37,8 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
-from scoreform.migration import (
-    ScoreFormMigrationPendingError,
-    print_migration_error,
-)
 from scoreform.roster import load_roster
 from scoreform.workflows import (
-    discover_class_assignments,  # noqa: F401 - compatibility re-export
-    discover_class_rosters,  # noqa: F401 - compatibility re-export
     discover_scans_in_inbox,  # noqa: F401 - compatibility re-export
     normalize_path_input,
     parse_single_selection,  # noqa: F401 - compatibility re-export
@@ -78,13 +72,6 @@ def prompt_scoring_input_file():
     from scoreform import menu_scoring
 
     return menu_scoring.prompt_scoring_input_file()
-
-
-def run_menu_qr_aware_routed_scoring(input_file):
-    """Compatibility wrapper for QR-aware menu scoring."""
-    from scoreform import menu_scoring
-
-    return menu_scoring.run_menu_qr_aware_routed_scoring(input_file)
 
 
 def run_menu_manual_scoring(input_file):
@@ -195,15 +182,14 @@ def run_setup_assignment(args):
     if roster is None:
         return 1
 
-    setup_paths = setup_assignment_folder(roster, assignment, roster_file, assignment_file)
+    setup_paths = setup_assignment_folder(roster, assignment)
     if setup_paths is None:
         return 1
 
     print("Assignment folder setup complete.")
-    print(f"Class dir: {setup_paths['class_dir']}")
-    print(f"Assignment dir: {setup_paths['assignment_dir']}")
-    print(f"Roster copy: {setup_paths['roster_copy']}")
-    print(f"Assignment copy: {setup_paths['assignment_copy']}")
+    print(f"Work root: {setup_paths['work_root']}")
+    print(f"Roster path: {setup_paths['roster_path']}")
+    print(f"Assignment path: {setup_paths['assignment_path']}")
     return 0
 
 
@@ -548,11 +534,8 @@ def _main(argv=None, default_to_menu=True):
 
 
 def main(argv=None, default_to_menu=True):
-    """Run the CLI and render known migration gates without a traceback."""
-    try:
-        return _main(argv, default_to_menu=default_to_menu)
-    except ScoreFormMigrationPendingError as error:
-        return print_migration_error(error)
+    """Run the ScoreForm command-line interface."""
+    return _main(argv, default_to_menu=default_to_menu)
 
 
 if __name__ == "__main__":

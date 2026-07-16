@@ -57,8 +57,6 @@ def test_setup_assignment_folder_rejects_unsafe_identifiers_before_creating_dirs
     assert folders.setup_assignment_folder(
         {"class_id": "../secret", "students": []},
         {"assignment_id": "rj_act1_quiz"},
-        str(roster_path),
-        str(assignment_path),
         workspace_root=tmp_path,
     ) is None
 
@@ -92,8 +90,6 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
     created = folders.setup_assignment_folder(
         roster,
         assignment,
-        str(roster_path),
-        str(assignment_path),
         workspace_root=tmp_path,
     )
 
@@ -105,4 +101,8 @@ def test_setup_assignment_folder_preserves_core_route_layout(tmp_path, monkeypat
     assert Path(created["roster_path"]) == (
         tmp_path / "classes" / "english9_p2" / "roster.csv"
     )
+    assert set(created).isdisjoint(
+        {"class_dir", "assignment_dir", "roster_copy", "assignment_copy"}
+    )
+    assert not (tmp_path / "classes" / "english9_p2" / "assignments").exists()
     assert not (tmp_path / "scans_inbox").exists()

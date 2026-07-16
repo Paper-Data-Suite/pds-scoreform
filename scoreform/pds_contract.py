@@ -1,8 +1,7 @@
 """Stable ScoreForm-owned constants for the PDS2 integration boundary.
 
-This module is intentionally side-effect free. Later migration issues will use
-these values to define module profiles, page records, route registrations, and
-dispatch behavior.
+This side-effect-free module defines the current module profile, PDS2 page,
+route-registration, and dispatch boundary.
 """
 
 from pds_core.module_profiles import CORE_ROUTING_CONTRACT_VERSION

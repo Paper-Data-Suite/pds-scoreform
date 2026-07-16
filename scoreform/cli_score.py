@@ -14,6 +14,7 @@ from scoreform.config import LOCAL_RESULTS_CSV
 from scoreform.pds2_scan_dispatch import (
     Pds2ScanDispatchResult,
     format_pds2_dispatch_summary,
+    process_pds2_scan,
 )
 from scoreform.results import export_scoreform_attempts, export_to_csv
 from scoreform.scan_filing import (
@@ -28,7 +29,6 @@ from scoreform.scan_review_persistence import (
 from scoreform.scoring import (
     ManualScoringSummary,
     process_file,
-    process_file_qr_aware,
 )
 
 
@@ -67,7 +67,7 @@ def _eligible_for_scan_filing(batch: ScoreFormRoutedScoringBatch, output_file) -
 
 
 def _run_routed_scoring(input_file, *, workspace_root: Path, output_file=None):
-    dispatch = process_file_qr_aware(input_file, workspace_root=workspace_root)
+    dispatch = process_pds2_scan(input_file, workspace_root=workspace_root)
     if not isinstance(dispatch, Pds2ScanDispatchResult):
         print("Error: PDS2 scan processing returned an invalid batch result.")
         return 1
@@ -140,7 +140,7 @@ def run_score(args):
     workspace_root = workspace.get_scoreform_workspace_root()
     if output_file is None:
         output_file = os.fspath(workspace_root / LOCAL_RESULTS_CSV)
-    print("Using legacy/manual scoring mode...")
+    print("Using explicit answer-key manual scoring mode...")
     key = load_answer_key(answer_key_file)
     if key is None:
         return 1
