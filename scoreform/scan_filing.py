@@ -60,14 +60,19 @@ def skipped_scan_filing_for_batch_outcome(outcome):
 
 
 def _single_assignment_target(results):
+    def value(result, name):
+        if hasattr(result, name):
+            return getattr(result, name)
+        return result.get(name)
+
     if any(
-        not result.get("class_id") or not result.get("assignment_id")
+        not value(result, "class_id") or not value(result, "assignment_id")
         for result in results
     ):
         return None
 
     targets = {
-        (result.get("class_id"), result.get("assignment_id"))
+        (value(result, "class_id"), value(result, "assignment_id"))
         for result in results
     }
     if not targets:

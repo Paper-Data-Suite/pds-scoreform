@@ -169,6 +169,14 @@ def test_summarize_falls_back_to_last_row_when_timestamp_reliability_is_mixed():
     assert summary[0].attempts == 2
 
 
+def test_summarize_compares_timezone_aware_and_historical_timestamps():
+    rows = [
+        {"student_id": "1001", "scan_timestamp": "2026-06-17 09:00:00", "Score": "9", "Total": "10"},
+        {"student_id": "1001", "scan_timestamp": "2026-06-17T10:00:00+00:00", "Score": "10", "Total": "10"},
+    ]
+    assert results_viewer.summarize_assignment_results(rows)[0].recent == "10"
+
+
 def test_format_includes_multiple_attempt_note_when_any_student_has_duplicates():
     output = results_viewer.format_assignment_results_table([
         results_viewer.AssignmentResultSummary("1001", "Doe, Jane", "12", "15", 2),

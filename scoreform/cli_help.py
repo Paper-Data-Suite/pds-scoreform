@@ -96,23 +96,24 @@ Core 0.5/PDS2 scan intake:
   records and Core PDS2 route registrations. The installed one-page module
   handler is available to Core. Active scans are retained before QR detection,
   parsed only as PDS2, and dispatched one source page at a time through a fresh
-  installed-module registry. Attempt assembly and export remain pending #144.
+  installed-module registry. Complete ScoreForm pages are assembled by immutable
+  issuance identity and exported through routed-results schema version 2.
   Failure/resolution persistence remains pending #145. Managed assignment
   setup, discovery, creation, editing, plain-paper result entry, and result
   viewing use module-qualified ScoreForm work storage and are available.
 
 Scoring modes:
-  QR-aware scoring now means retained PDS2 page dispatch through Core.
+  QR-aware scoring means retained PDS2 dispatch, issuance assembly, and export.
   scoreform score scanned_file.pdf
-      Retains the source and dispatches each Core-valid PDS2 page. ScoreForm
-      pages are scored by its module handler; other-module results remain opaque.
+      Retains and dispatches each Core-valid PDS2 page, then appends one attempt
+      for every complete, unambiguous ScoreForm issuance. Foreign results remain opaque.
 
   scoreform score scanned_file.pdf output.csv
-      Fails before retention because routed export remains pending #144.
+      Runs the same assembly and writes schema-v2 history to the explicit CSV.
 
-  Complete page dispatch exits 0. Partial/zero success and file/registry failure
-  exit nonzero. This stage writes no routed CSV, assignment-local scan copy, or
-  scan-review metadata.
+  Full and foreign-only success exit 0. Partial, zero-success, export, file, and
+  integration failures exit nonzero. Missing or duplicate page sets write no
+  partial attempt. This stage creates no scan-review metadata.
 
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
@@ -164,10 +165,11 @@ def print_menu_help():
     print("PDS2 scan intake:")
     print("  Sources are retained before QR detection and dispatched through Core.")
     print("  ScoreForm pages are scored independently; source page is not logical page.")
-    print("  Attempt assembly/export and review persistence remain #144/#145 work.")
-    print("  Future routed result destination after #144 assembly:")
+    print("  Complete print copies are assembled only by issuance identity.")
+    print("  Missing, duplicate, or conflicting page sets are not exported.")
+    print("  Routed result destination:")
     print("  classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv")
     print()
-    print("No routed results are written until #144 assembly/export is implemented.")
+    print("  Review persistence remains separate #145 work.")
     print("Manually verify page scores before using them for grades.")
     print()

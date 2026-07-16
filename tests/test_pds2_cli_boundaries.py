@@ -19,7 +19,7 @@ class _Batch:
         return self._code
 
 
-def test_score_cli_uses_dispatch_exit_status_without_later_stage_calls(
+def test_score_cli_rejects_forged_dispatch_batches(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     batches = (
@@ -42,31 +42,20 @@ def test_score_cli_uses_dispatch_exit_status_without_later_stage_calls(
     )
     for batch in batches:
         monkeypatch.setattr(cli_score, "process_file_qr_aware", lambda *_args, **_kwargs: batch)
-        assert cli_score.run_score(["scan.pdf"]) == batch.exit_code()
+        assert cli_score.run_score(["scan.pdf"]) == 1
     output = capsys.readouterr().out
-    assert "Batch status: complete_success" in output
-    assert "Batch status: partial_success" in output
-    assert "Batch status: zero_success" in output
-    assert "No routed results were written" in output
+    assert output.count("invalid batch result") == 3
 
 
-def test_explicit_qr_csv_rejected_before_workspace_or_processing(
+def test_explicit_qr_csv_routes_through_new_pipeline(
     monkeypatch, capsys
 ) -> None:
-    monkeypatch.setattr(
-        cli_score.workspace,
-        "get_scoreform_workspace_root",
-        lambda: (_ for _ in ()).throw(AssertionError("workspace must not resolve")),
-    )
-    monkeypatch.setattr(
-        cli_score,
-        "process_file_qr_aware",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("retention must not run")
-        ),
-    )
-    assert cli_score.run_score(["scan.pdf", "results.csv"]) == 1
-    assert "pending #144" in capsys.readouterr().out
+    calls = []
+    monkeypatch.setattr(cli_score.workspace, "get_scoreform_workspace_root", lambda: Path("workspace"))
+    monkeypatch.setattr(cli_score, "_run_routed_scoring", lambda source, **kwargs: calls.append((source, kwargs)) or 0)
+    assert cli_score.run_score(["scan.pdf", "results.csv"]) == 0
+    assert calls[0][1]["output_file"] == "results.csv"
+    assert "explicit output" in capsys.readouterr().out.lower()
 
 
 def test_decode_unknown_module_uses_retained_bytes_without_dispatch(

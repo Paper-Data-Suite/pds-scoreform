@@ -7,8 +7,8 @@
 The project currently supports:
 
 > Historical routed-result and PDS1 bullets in this inventory describe earlier
-> implementations, not the active #143 retained PDS2 path. Active PDS2 behavior
-> is defined in the dedicated #143 sections below.
+> implementations. Active PDS2 dispatch, #144 assembly/export, and the #145
+> persistence boundary are described in their dedicated sections below.
 
 * CLI workflow helpers split from command dispatch into `scoreform/workflows.py`
 * Modular `scoreform/` package structure
@@ -52,7 +52,7 @@ The project currently supports:
 * 15-question synthetic scoring, Q15 corner-conflict, and imperfect bottom-left marker regression coverage
 * `score` command exits nonzero when no pages are scored successfully
 * QR-based mixed-scan scoring for multi-page PDFs
-* QR-aware class packet scoring with one row per student page
+* QR-aware class packet scoring with one row per complete issuance observation
 * Result routing to assignment folders for QR-aware scoring
 * QR decode preprocessing fallbacks for phone-scan reliability, including grayscale,
   thresholding, upscaling, and generous upper-right QR-region crops
@@ -178,7 +178,7 @@ Core PDS2 route per physical page, reloads every registration before rendering,
 and atomically installs each completed PDF. Managed regeneration preserves old
 records and routes and supersedes predecessors only after replacement install.
 Retained-source PDS2 page dispatch is implemented in #143. Attempt assembly and
-routed export remain #144 work; failure/resolution persistence remains #145.
+routed issuance assembly/export is active; failure/resolution persistence remains #145.
 
 The #143 boundary validates the source and application-owned installed registry,
 retains exactly once, enumerates only retained bytes, detects raw QR text, uses
@@ -352,9 +352,9 @@ python main.py score scanned_file.pdf
 
 Retains the source, parses locator-only PDS2 payloads, and dispatches valid pages
 through Core. ScoreForm's handler resolves authoritative page/issuance records
-and returns immutable page scores. This stage writes no routed results.
+and returns immutable page scores for the subsequent issuance assembly stage.
 
-### QR-Aware Custom Output (pending #144)
+### QR-Aware Custom Output
 
 ```powershell
 python main.py score scanned_file.pdf qr_metadata_results.csv
@@ -475,7 +475,8 @@ v0.2.0
 
 ## Status
 
-Implemented for the current picker workflow: workspace-level scan inbox setup is implemented, and the terminal menu can select supported scans from `<PDS workspace root>/scans_inbox/`. Other scan storage behaviors such as moving, copying, archiving, or deleting scans are not implemented yet.
+Implemented: the workspace scan inbox picker, Core retention, and conservative
+post-success assignment-local `copy`, `move`, or `off` filing.
 
 ## Goal
 
@@ -486,7 +487,8 @@ Keep scan files organized.
 * Workspace-level `scans_inbox/` folder auto-created when assignment setup/generation runs.
 * `ensure_scan_inbox()` helper in `scoreform/folders.py`.
 * Interactive PDS2 scoring can pick `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, and `.tif` files directly from `scans_inbox/`; BMP remains manual-only.
-* After scan selection, the recommended mode retains and dispatches PDS2 pages through Core without writing routed results.
+* After scan selection, the recommended mode retains and dispatches PDS2 pages,
+  assembles complete issuances, and writes schema-v2 routed results.
 * Manual menu scoring with an answer key remains available for non-QR sheets, generic templates, testing, and exceptional workflows.
 * Unsupported inbox files are ignored, and custom path entry remains available.
 * Retained provenance is preserved in every page request and outcome.
@@ -507,26 +509,16 @@ classes/
               mixed_scan_2026_09_15.pdf
 ```
 
-## Decision Needed (Future Phase)
+## Filing Decision
 
-Decide whether to:
-
-* move scans from inbox,
-* copy scans into assignment folders,
-* or leave scans in inbox and record source filename in results.
-
-Initial preference:
-
-* Keep original scans in `scans_inbox/`.
-* Let the menu select scans from `scans_inbox/` without moving, copying, renaming, or deleting them.
-* Preserve retained provenance for #144 result assembly.
-* Optionally copy scans later if needed.
+Core's retained source is immutable. Eligible managed full-success batches may
+create an assignment-local copy. `move` removes only a verified original that is
+a direct child of `scans_inbox`; all ineligible batches preserve the original.
 
 ## Future Requirements
 
-* Support copying or moving scans into assignment folders (not yet implemented).
 * Avoid accidental deletion of scans.
-* Preserve enough retained-source information for later #144 result rows.
+* Preserve enough retained-source information for provenance-rich result rows.
 
 ## Suggested GitHub Issue
 
@@ -617,7 +609,7 @@ v0.2.0
 
 ## Status
 
-Historical routed-results design; active PDS2 attempt assembly is pending #144.
+Historical routed-results design below is superseded by active PDS2 issuance assembly.
 
 ## Goal
 
@@ -1663,4 +1655,4 @@ physical-form incompatibility. Diagnostic-write failures are typed scoring
 failures rather than silent warnings.
 
 Teacher-facing retained QR decoding and production page dispatch are active.
-Attempt assembly/results export and review persistence stay gated on #144/#145.
+Attempt assembly/results export is active; review persistence stays gated on #145.

@@ -423,7 +423,7 @@ scans needs a separate template-versioning and deprecation decision.
 
 ## 9. Routed results CSV contract
 
-**Status: Historical/manual exporter contract; PDS2 scan export pending #144.**
+**Status: Routed-results schema version 2 is active for PDS2 and manual attempts.**
 
 The historical/manual exporter targets:
 
@@ -439,26 +439,36 @@ immutable `routes/` registrations. Active discovery is direct-child-only within
 the ScoreForm collection and has no recursive, sibling-module, or legacy-layout
 fallback.
 
-The following is the historical routed-results header reserved for #144; active
-#143 page dispatch does not write it:
+Schema v2 uses this exact base header, followed by `Qn`, `Qn_Correct` pairs:
 
 ```csv
-Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
+Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,result_schema_version,result_origin,issuance_id,generation_id,artifact_id,page_ids,route_ids,logical_pages,source_scan_id,source_pages,retained_source_path,source_sha256,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
 ```
 
-The fixed fields are `Page`, `class_id`, `assignment_id`, `student_id`,
-`last_name`, `first_name`, `period`, `source_file`, `attempt_number`,
-`scan_timestamp`, `Score`, and `Total`, followed by `Qn`, `Qn_Correct` pairs.
+The collection fields are compact canonical JSON arrays in authoritative logical
+page order. `Page` displays retained source-page numbers and is not authoritative
+logical-page identity. PDS2 pages assemble only by `issuance_id`; every expected
+page must occur exactly once in the current intake. ScoreForm never groups by
+student or filename, merges print copies, or reconciles across retained scans.
+Missing, duplicate, conflicting, and inconsistent sets produce no partial row.
 
-Plain-paper/manual entry may still use this exporter. Historical scanned rows
-used legacy metadata; PDS2 does not carry student identity or logical page, and
-#143 does not create routed rows. #144 will define assembly and export semantics.
-
-Historical routed results are append-preserving and audit-log oriented. Existing rows are
+Routed results are append-preserving and audit-log oriented. Existing rows are
 preserved and new attempts appended; ScoreForm does not choose which attempt is
-the grade. Before any target is changed, existing files and headers are validated.
-Incompatible headers abort export. Writes use a same-directory temporary file and
-replace operation.
+the grade. Before any target is changed, every existing file, header, row,
+timestamp, origin, identifier, answer, score, total, attempt number, and canonical
+JSON array is validated. Managed rows must match their exact class, assignment,
+and question total. Incompatible history aborts export without changing bytes.
+
+All target images are written and fsynced to same-directory temporary files
+before any replacement begins. A staging failure replaces no target. Replacements
+then proceed sequentially; a later failure can leave earlier targets committed,
+and the export result distinguishes persisted, failed, and not-attempted targets.
+Cleanup failures retain the temporary path, target path, and cleanup exception.
+An attempt is reported appended only after its target replacement succeeds.
+
+PDS2 export identity is `source_scan_id + issuance_id`. Exact incoming duplicates
+are coalesced, contradictory duplicates fail, and existing history may contain at
+most one row for the identity. A new source scan ID is a later rescan and appends.
 
 Teacher-entered plain-paper results use this same routed contract, not the
 provisional explicit-output contract in section 9. They set `Page` to `manual`
@@ -472,15 +482,14 @@ and the workflow creates no scan artifacts or review evidence.
 
 **Status: Provisional pre-1.0.**
 
-The active form of this contract is manual scoring only. QR-aware explicit
-output is rejected before retention pending #144. Manual output contains `Page`, `Score`,
+Manual answer-key scoring remains separate. QR-aware explicit output runs the
+same PDS2 assembly and schema-v2 serializer. Manual output contains `Page`, `Score`,
 `Total`, and repeated `Qn`, `Qn_Correct` fields. If any result contains routing
 metadata, it also contains `class_id`, `assignment_id`, and `student_id`; if any
 result contains source metadata, it contains `source_file`. Column presence thus
 depends on the available result records and scoring mode.
 
-The routed-results contract remains reserved for #144. Manual explicit-output
-CSV remains available and provisional.
+Manual explicit-output CSV remains available and provisional.
 
 ## 11. `source_file` semantics
 
@@ -493,28 +502,36 @@ preserved with forward slashes, while one containing `..` falls back to its
 basename. Blank or invalid values become an empty string. Arbitrary external
 absolute paths must not be written to results.
 
-For active #143 PDS2 processing, retained provenance exists only in immutable
-runtime requests/outcomes and page results. No `source_file` CSV field is
-written. The canonical copy lives under `scans/source/YYYY-MM-DD/` and is never
-moved or removed by page dispatch.
+For active PDS2 processing, retained provenance is preserved from immutable
+runtime requests through schema-v2 result rows. `source_file` is the validated
+original filename; `retained_source_path` is the safe workspace-relative Core
+copy. The canonical copy under `scans/source/YYYY-MM-DD/` is never altered.
+Legacy rows may retain an empty `source_file` when no historical value exists.
 
 ## 12. Attempt metadata
 
-**Status: Historical routed-results contract; active PDS2 assembly pending #144.**
+**Status: Active shared attempt numbering.**
 
 Attempts are keyed by (`class_id`, `assignment_id`, `student_id`). The first row
 is attempt 1, and each additional routed row for that key increments it. When a
-preserved legacy row has no valid attempt number, ScoreForm conservatively treats
-it as attempt 1. `scan_timestamp` records when the routed batch was prepared, so
+preserved legacy row has no valid positive canonical attempt number, migration
+aborts. Numeric text is canonical decimal (`1`, not `01`) and is otherwise
+rejected rather than silently normalized. New `pds2_scan` rows require nonempty,
+timezone-aware ISO 8601 timestamps. Migrated `legacy_scan` and
+`plain_paper_manual` rows may retain the exact historical
+`YYYY-MM-DD HH:MM:SS` form and remain readable on later appends.
+`scan_timestamp` records when the routed batch was prepared, so
 rows in one batch may share it. Attempt number does not select an official grade.
 
 ## 13. Scan filing contract
 
-**Status: Historical behavior; inactive for #143 PDS2 page dispatch.**
+**Status: Active only after eligible managed full success.**
 
-Canonical retained sources live under `scans/source/YYYY-MM-DD/`. The #143 path
-creates no assignment-local copy and does not consult the historical scan-filing
-setting. Any future filing behavior depends on #144 assembly policy.
+Canonical retained sources live under `scans/source/YYYY-MM-DD/` and are never
+altered. Assignment-local filing is limited to managed, full-success,
+ScoreForm-only, single-target batches with no assembly or export failure.
+Explicit, mixed-module, multi-target, incomplete, duplicate, and partial batches
+skip filing. The `copy`, `move`, and `off` setting remains in force.
 
 ## 14. In-memory PDS2 dispatch summaries and diagnostics
 
@@ -536,9 +553,9 @@ assignment fields, standards structure, QR version, routed header order, attempt
 semantics, `source_file` privacy, roster required columns, or scoring-sensitive
 layout assumptions require an explicit compatibility issue.
 
-Formal assignment `schema_version`, embedded template/layout versioning, QR
-versions beyond PDS2, and results schema versioning or migrations are **future /
-not yet implemented**. This document does not introduce them.
+Formal assignment `schema_version`, embedded template/layout versioning, and QR
+versions beyond PDS2 remain future work. Routed results use schema version 2 and
+strictly migrate compatible v1 histories on first append.
 
 ## 16. Historical ScoreForm scan review metadata and #145 boundary
 
@@ -571,13 +588,14 @@ Canonical sources remain under `scans/source/YYYY-MM-DD/`. Assignment-local
 manual-marks, and rescan-needed evidence names carry readable status tags and
 never overwrite an existing file. Source evidence is copied, never moved.
 
-The #143 PDS2 retained-source workflow writes none of these failure or resolution
+The active PDS2 assembly/export workflow writes none of these failure or resolution
 records and does not translate Core dispatch errors into the legacy schema.
 Core schema-version-2 failure and resolution persistence belongs to #145.
 
-Manual entry keeps the routed-results header in section 8 unchanged. Its row is
-distinguished by a `source_file` path containing `_manual_entry` and by the
-linked Core resolution record; no result-source or resolution columns are added.
+Manual entry uses the schema-v2 routed-results header with
+`result_origin=plain_paper_manual`, `Page=manual`, and
+`source_file=plain_paper_manual_entry`. It fabricates no PDS2 provenance and
+creates no Core resolution record.
 
 ## Core 0.5 ScoreForm module dispatch contract
 
@@ -623,6 +641,6 @@ Visible question labels and exported answer fields use global assignment questio
 numbers. Historically, PDS1 `page` was a positive, 1-based physical assessment
 page number; the active PDS2 locator has no page field.
 
-The #143 PDS2 workflow preserves independent physical-page outcomes only. It
-does not assemble expected pages, choose duplicates, persist review data, or
-export student assessment attempts; those contracts belong to #144/#145.
+The active PDS2 workflow preserves independent physical-page outcomes, then
+assembles only complete authoritative issuances. It never chooses among
+duplicates and does not persist review data; review persistence belongs to #145.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 import numpy as np
 from pds_core.identifiers import IdentifierValidationError, validate_identifier
@@ -29,6 +29,7 @@ from scoreform.module_errors import (
     ScoreFormPageScoringError,
 )
 from scoreform.paging import page_count_for_question_count, question_range_for_page
+from scoreform.retained_page import validate_canonical_retained_source_relative_path
 from scoreform.scoring import score_image
 
 _SPECIAL_ANSWERS = frozenset({"BLANK", "AMBIGUOUS"})
@@ -244,25 +245,14 @@ def validate_page_dispatch_result(
         raise ScoreFormPageScoringError(
             "Result source_sha256 must be 64 lowercase hexadecimal characters."
         )
-    relative = result.retained_source_relative_path
-    if not isinstance(relative, str) or not relative:
-        raise ScoreFormPageScoringError(
-            "Result retained_source_relative_path must be nonempty."
+    try:
+        validate_canonical_retained_source_relative_path(
+            result.retained_source_relative_path
         )
-    windows = PureWindowsPath(relative)
-    posix = PurePosixPath(relative)
-    parts = tuple(relative.split("/"))
-    if (
-        "\\" in relative
-        or windows.is_absolute()
-        or windows.drive
-        or windows.root
-        or posix.is_absolute()
-        or any(part in {"", ".", ".."} for part in parts)
-    ):
+    except (TypeError, ValueError) as error:
         raise ScoreFormPageScoringError(
-            "Result retained_source_relative_path is unsafe."
-        )
+            "Result retained_source_relative_path is not canonical."
+        ) from error
     if not isinstance(result.answers, tuple) or any(
         not isinstance(answer, ScoredAnswer) for answer in result.answers
     ):

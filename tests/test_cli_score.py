@@ -9,7 +9,8 @@ def test_qr_aware_scoring_is_enabled_and_missing_source_fails_cleanly(capsys) ->
     output = capsys.readouterr().out
     assert "retained PDS2 Core dispatch mode" in output
     assert "Source file does not exist" in output
-    assert "No routed results were written" in output
+    assert "Status: file_failure" in output
+    assert "pending #144" not in output
 
 
 def test_manual_explicit_answer_key_scoring_remains_available(monkeypatch, tmp_path) -> None:
