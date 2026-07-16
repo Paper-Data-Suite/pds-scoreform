@@ -40,13 +40,17 @@ from scoreform.validation import validate_identifier
 from scoreform.work_paths import scoreform_work_paths
 
 ROUTED_RESULTS_SCHEMA_VERSION = "2"
-RESULT_ORIGINS = frozenset({"pds2_scan", "plain_paper_manual", "legacy_scan"})
+RESULT_ORIGINS = frozenset(
+    {"pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"}
+)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
 class ScoreFormRoutedResult:
-    result_origin: Literal["pds2_scan", "plain_paper_manual", "legacy_scan"]
+    result_origin: Literal[
+        "pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"
+    ]
     class_id: str
     assignment_id: str
     student_id: str
@@ -91,18 +95,33 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
         validate_core_identifier(result.assignment_id, "assignment_id")
         validate_core_identifier(result.student_id, "student_id")
     except Exception as error:
-        raise ScoreFormRoutedResultValidationError("Invalid routed identity.") from error
-    if any(not _single_line(value) for value in (result.last_name, result.first_name, result.period)):
-        raise ScoreFormRoutedResultValidationError("Student display fields must be control-free single-line strings.")
-    if not _single_line(result.page_display, nonempty=True) or not _single_line(result.source_file):
-        raise ScoreFormRoutedResultValidationError("Page and source display fields are invalid.")
+        raise ScoreFormRoutedResultValidationError(
+            "Invalid routed identity."
+        ) from error
+    if any(
+        not _single_line(value)
+        for value in (result.last_name, result.first_name, result.period)
+    ):
+        raise ScoreFormRoutedResultValidationError(
+            "Student display fields must be control-free single-line strings."
+        )
+    if not _single_line(result.page_display, nonempty=True) or not _single_line(
+        result.source_file
+    ):
+        raise ScoreFormRoutedResultValidationError(
+            "Page and source display fields are invalid."
+        )
     for name, value in (("score", result.score), ("total_points", result.total_points)):
         if isinstance(value, bool) or not isinstance(value, int):
             raise ScoreFormRoutedResultValidationError(f"{name} must be an integer.")
     if result.total_points < 1 or not 0 <= result.score <= result.total_points:
         raise ScoreFormRoutedResultValidationError("Score or total is out of range.")
-    if not isinstance(result.answers, tuple) or any(not isinstance(answer, ScoredAnswer) for answer in result.answers):
-        raise ScoreFormRoutedResultValidationError("answers must be immutable ScoredAnswer values.")
+    if not isinstance(result.answers, tuple) or any(
+        not isinstance(answer, ScoredAnswer) for answer in result.answers
+    ):
+        raise ScoreFormRoutedResultValidationError(
+            "answers must be immutable ScoredAnswer values."
+        )
     if any(
         isinstance(answer.question_number, bool)
         or not isinstance(answer.question_number, int)
@@ -111,15 +130,30 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
         or not isinstance(answer.correct, bool)
         for answer in result.answers
     ):
-        raise ScoreFormRoutedResultValidationError("answers contain invalid typed values.")
+        raise ScoreFormRoutedResultValidationError(
+            "answers contain invalid typed values."
+        )
     numbers = tuple(answer.question_number for answer in result.answers)
     if numbers != tuple(range(1, result.total_points + 1)):
-        raise ScoreFormRoutedResultValidationError("answers must cover the result total exactly in order.")
-    if any(not isinstance(answer.correct, bool) for answer in result.answers) or result.score != sum(answer.correct for answer in result.answers):
-        raise ScoreFormRoutedResultValidationError("Score and answer correctness disagree.")
-    tuple_fields = (result.page_ids, result.route_ids, result.logical_pages, result.source_page_numbers)
+        raise ScoreFormRoutedResultValidationError(
+            "answers must cover the result total exactly in order."
+        )
+    if any(
+        not isinstance(answer.correct, bool) for answer in result.answers
+    ) or result.score != sum(answer.correct for answer in result.answers):
+        raise ScoreFormRoutedResultValidationError(
+            "Score and answer correctness disagree."
+        )
+    tuple_fields = (
+        result.page_ids,
+        result.route_ids,
+        result.logical_pages,
+        result.source_page_numbers,
+    )
     if any(not isinstance(value, tuple) for value in tuple_fields):
-        raise ScoreFormRoutedResultValidationError("Provenance collections must be tuples.")
+        raise ScoreFormRoutedResultValidationError(
+            "Provenance collections must be tuples."
+        )
     if result.result_origin == "pds2_scan":
         try:
             validate_issuance_id(result.issuance_id)
@@ -131,18 +165,42 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
             for route_id in result.route_ids:
                 validate_route_id(route_id)
         except Exception as error:
-            raise ScoreFormRoutedResultValidationError("Invalid PDS2 provenance identity.") from error
+            raise ScoreFormRoutedResultValidationError(
+                "Invalid PDS2 provenance identity."
+            ) from error
         length = len(result.page_ids)
-        if length < 1 or not (length == len(result.route_ids) == len(result.logical_pages) == len(result.source_page_numbers)):
-            raise ScoreFormRoutedResultValidationError("PDS2 provenance collections must be nonempty and aligned.")
-        if len(set(result.page_ids)) != length or len(set(result.route_ids)) != length or len(set(result.source_page_numbers)) != length:
-            raise ScoreFormRoutedResultValidationError("PDS2 provenance collections must not contain duplicates.")
+        if length < 1 or not (
+            length
+            == len(result.route_ids)
+            == len(result.logical_pages)
+            == len(result.source_page_numbers)
+        ):
+            raise ScoreFormRoutedResultValidationError(
+                "PDS2 provenance collections must be nonempty and aligned."
+            )
+        if (
+            len(set(result.page_ids)) != length
+            or len(set(result.route_ids)) != length
+            or len(set(result.source_page_numbers)) != length
+        ):
+            raise ScoreFormRoutedResultValidationError(
+                "PDS2 provenance collections must not contain duplicates."
+            )
         if result.logical_pages != tuple(range(1, length + 1)):
-            raise ScoreFormRoutedResultValidationError("PDS2 logical pages must be complete and ordered.")
-        if any(isinstance(number, bool) or not isinstance(number, int) or number < 1 for number in result.source_page_numbers):
-            raise ScoreFormRoutedResultValidationError("Source page numbers must be positive integers.")
+            raise ScoreFormRoutedResultValidationError(
+                "PDS2 logical pages must be complete and ordered."
+            )
+        if any(
+            isinstance(number, bool) or not isinstance(number, int) or number < 1
+            for number in result.source_page_numbers
+        ):
+            raise ScoreFormRoutedResultValidationError(
+                "Source page numbers must be positive integers."
+            )
         retained_path = result.retained_source_relative_path or ""
-        if not isinstance(result.source_sha256, str) or not _SHA256.fullmatch(result.source_sha256):
+        if not isinstance(result.source_sha256, str) or not _SHA256.fullmatch(
+            result.source_sha256
+        ):
             raise ScoreFormRoutedResultValidationError("source_sha256 is invalid.")
         if (
             not result.source_file
@@ -150,9 +208,12 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
             or ntpath.basename(result.source_file) != result.source_file
             or "/" in result.source_file
             or "\\" in result.source_file
-            or Path(result.source_file).suffix.lower() not in SUPPORTED_RETAINED_SOURCE_EXTENSIONS
+            or Path(result.source_file).suffix.lower()
+            not in SUPPORTED_RETAINED_SOURCE_EXTENSIONS
         ):
-            raise ScoreFormRoutedResultValidationError("PDS2 source_file must be a filename only.")
+            raise ScoreFormRoutedResultValidationError(
+                "PDS2 source_file must be a filename only."
+            )
         try:
             validate_canonical_retained_source_relative_path(
                 retained_path,
@@ -162,14 +223,46 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
             raise ScoreFormRoutedResultValidationError(
                 "Retained source path must use canonical scans/source/YYYY-MM-DD/<filename>."
             ) from error
-        if result.page_display != ",".join(str(number) for number in result.source_page_numbers):
+        if result.page_display != ",".join(
+            str(number) for number in result.source_page_numbers
+        ):
             raise ScoreFormRoutedResultValidationError(
                 "PDS2 page_display must exactly summarize source pages."
             )
-    elif any((result.issuance_id, result.generation_id, result.artifact_id, result.page_ids, result.route_ids, result.logical_pages, result.source_scan_id, result.source_page_numbers, result.retained_source_relative_path, result.source_sha256)):
-        raise ScoreFormRoutedResultValidationError("Manual and legacy results cannot fabricate PDS2 provenance.")
-    if result.result_origin == "plain_paper_manual" and (result.page_display != "manual" or result.source_file != "plain_paper_manual_entry"):
+    elif any(
+        (
+            result.issuance_id,
+            result.generation_id,
+            result.artifact_id,
+            result.page_ids,
+            result.route_ids,
+            result.logical_pages,
+            result.source_scan_id,
+            result.source_page_numbers,
+            result.retained_source_relative_path,
+            result.source_sha256,
+        )
+    ):
+        raise ScoreFormRoutedResultValidationError(
+            "Manual and legacy results cannot fabricate PDS2 provenance."
+        )
+    if result.result_origin == "plain_paper_manual" and (
+        result.page_display != "manual"
+        or result.source_file != "plain_paper_manual_entry"
+    ):
         raise ScoreFormRoutedResultValidationError("Manual result markers are invalid.")
+    if result.result_origin == "scan_review_manual":
+        prefix = "scan_review_manual:"
+        if result.page_display != "review" or not result.source_file.startswith(prefix):
+            raise ScoreFormRoutedResultValidationError(
+                "Scan-review result markers are invalid."
+            )
+        try:
+            validate_core_identifier(result.source_file[len(prefix) :], "failure_id")
+        except Exception as error:
+            raise ScoreFormRoutedResultValidationError(
+                "Scan-review failure link is invalid."
+            ) from error
     if result.result_origin == "legacy_scan" and result.source_file:
         windows_source = PureWindowsPath(result.source_file)
         if (
@@ -322,7 +415,9 @@ def _read_existing_routed_results(output_file):
         _print_routed_results_permission_error(output_file, "read", e)
         return None, None
     except csv.Error as e:
-        print(f"Error: Existing routed results file is not valid CSV {output_file}: {e}")
+        print(
+            f"Error: Existing routed results file is not valid CSV {output_file}: {e}"
+        )
         return None, None
     except Exception as e:
         print(f"Error: Could not read existing routed results file {output_file}: {e}")
@@ -373,10 +468,10 @@ def _write_routed_results_safely(output_file, headers, rows):
 
 def export_to_csv(all_results, output_file, workspace_root=None):
     """Exports structured scoring data to a CSV file.
-    
+
     Includes metadata columns (class_id, assignment_id, student_id) when present
     in the result data.
-    
+
     Returns True on success, False on failure.
     """
     if not all_results:
@@ -387,7 +482,7 @@ def export_to_csv(all_results, output_file, workspace_root=None):
 
     # Define the CSV headers - start with Page
     headers = ["Page"]
-    
+
     # Check if any results have metadata; if so, include metadata columns
     has_metadata = any(
         "class_id" in res or "assignment_id" in res or "student_id" in res
@@ -395,15 +490,15 @@ def export_to_csv(all_results, output_file, workspace_root=None):
     )
     # Check if any results include source_file
     has_source = any("source_file" in res for res in all_results)
-    
+
     if has_metadata:
         headers.extend(["class_id", "assignment_id", "student_id"])
     if has_source:
         headers.append("source_file")
-    
+
     # Add score fields
     headers.extend(["Score", "Total"])
-    
+
     # Add question fields
     question_count = _get_max_question_count(all_results)
     for i in range(1, question_count + 1):
@@ -423,7 +518,7 @@ def export_to_csv(all_results, output_file, workspace_root=None):
                     "Score": res["score"],
                     "Total": res["total_points"],
                 }
-                
+
                 # Add metadata if present
                 if has_metadata:
                     row["class_id"] = res.get("class_id", "")
@@ -435,7 +530,7 @@ def export_to_csv(all_results, output_file, workspace_root=None):
                         res.get("source_file", ""),
                         workspace_root=workspace_root,
                     )
-                
+
                 # Add answer details
                 for ans in res["answers"]:
                     q_num = ans["Q"]
@@ -493,7 +588,9 @@ def _enrich_results_with_roster(all_results, workspace_root=None):
             continue
 
         if not os.path.exists(roster_path):
-            print(f"Warning: Roster file not found for class '{class_id}': {roster_path}")
+            print(
+                f"Warning: Roster file not found for class '{class_id}': {roster_path}"
+            )
             for r in results:
                 r.setdefault("last_name", "")
                 r.setdefault("first_name", "")
@@ -502,7 +599,9 @@ def _enrich_results_with_roster(all_results, workspace_root=None):
 
         roster = load_roster(roster_path)
         if roster is None:
-            print(f"Warning: Failed to load roster for class '{class_id}': {roster_path}")
+            print(
+                f"Warning: Failed to load roster for class '{class_id}': {roster_path}"
+            )
             for r in results:
                 r.setdefault("last_name", "")
                 r.setdefault("first_name", "")
@@ -568,9 +667,9 @@ def _build_routed_result_target_plan(
 
     work_root_abs = os.path.abspath(output_dir)
     output_abs = os.path.abspath(output_file)
-    if os.path.normcase(os.path.commonpath([work_root_abs, output_abs])) != os.path.normcase(
-        work_root_abs
-    ):
+    if os.path.normcase(
+        os.path.commonpath([work_root_abs, output_abs])
+    ) != os.path.normcase(work_root_abs):
         print(f"Error: Results destination escapes managed work: {output_file}")
         return None
 
@@ -701,10 +800,10 @@ def _build_routed_result_write_plan(groups, workspace_root):
 
 def _legacy_export_routed_results(all_results, workspace_root=None):
     """Route and export scoring results to ScoreForm managed-work folders.
-    
+
     Groups results by (class_id, assignment_id) and writes each group to:
         classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
-    
+
     Returns True on success, False on failure.
     """
     if not all_results:
@@ -783,12 +882,30 @@ del _legacy_export_routed_results
 # Durable routed-results schema v2. The generic ``export_to_csv`` above remains
 # intentionally separate for manual image scoring with an explicit answer key.
 _V2_BASE_HEADERS = [
-    "Page", "class_id", "assignment_id", "student_id", "last_name",
-    "first_name", "period", "source_file", "result_schema_version",
-    "result_origin", "issuance_id", "generation_id", "artifact_id",
-    "page_ids", "route_ids", "logical_pages", "source_scan_id",
-    "source_pages", "retained_source_path", "source_sha256",
-    "attempt_number", "scan_timestamp", "Score", "Total",
+    "Page",
+    "class_id",
+    "assignment_id",
+    "student_id",
+    "last_name",
+    "first_name",
+    "period",
+    "source_file",
+    "result_schema_version",
+    "result_origin",
+    "issuance_id",
+    "generation_id",
+    "artifact_id",
+    "page_ids",
+    "route_ids",
+    "logical_pages",
+    "source_scan_id",
+    "source_pages",
+    "retained_source_path",
+    "source_sha256",
+    "attempt_number",
+    "scan_timestamp",
+    "Score",
+    "Total",
 ]
 
 
@@ -825,7 +942,9 @@ class ScoreFormTemporaryCleanupFailure:
     error: OSError
 
     def __post_init__(self) -> None:
-        if not isinstance(self.temporary_path, Path) or not isinstance(self.target_path, Path):
+        if not isinstance(self.temporary_path, Path) or not isinstance(
+            self.target_path, Path
+        ):
             raise TypeError("Cleanup paths must be Path values.")
         if not isinstance(self.error, OSError):
             raise TypeError("Cleanup error must be an OSError.")
@@ -838,18 +957,30 @@ class ScoreFormAttemptExportFailure:
     output_path: Path
     reason: str
     error: Exception
-    stage: Literal["preflight", "integrity", "staging", "replacement", "not_attempted"] = "preflight"
+    stage: Literal[
+        "preflight", "integrity", "staging", "replacement", "not_attempted"
+    ] = "preflight"
     affected_targets: tuple[tuple[str, str], ...] = ()
     cleanup_failures: tuple[ScoreFormTemporaryCleanupFailure, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.stage not in {"preflight", "integrity", "staging", "replacement", "not_attempted"}:
+        if self.stage not in {
+            "preflight",
+            "integrity",
+            "staging",
+            "replacement",
+            "not_attempted",
+        }:
             raise ValueError("Unsupported export failure stage.")
-        if not isinstance(self.output_path, Path) or not isinstance(self.error, Exception):
+        if not isinstance(self.output_path, Path) or not isinstance(
+            self.error, Exception
+        ):
             raise TypeError("Export failure path or error has the wrong type.")
         if not isinstance(self.reason, str) or not self.reason.strip():
             raise ValueError("Export failure reason must be nonempty.")
-        if not isinstance(self.affected_targets, tuple) or not isinstance(self.cleanup_failures, tuple):
+        if not isinstance(self.affected_targets, tuple) or not isinstance(
+            self.cleanup_failures, tuple
+        ):
             raise TypeError("Export failure collections must be tuples.")
 
 
@@ -861,27 +992,45 @@ class ScoreFormAttemptExportBatch:
     output_paths: tuple[Path, ...] = ()
 
     def __post_init__(self) -> None:
-        for name in ("appended_attempts", "already_present_attempts", "failures", "output_paths"):
+        for name in (
+            "appended_attempts",
+            "already_present_attempts",
+            "failures",
+            "output_paths",
+        ):
             if not isinstance(getattr(self, name), tuple):
                 raise TypeError(f"{name} must be a tuple.")
-        if any(not isinstance(item, ScoreFormExportedAttempt) for item in (*self.appended_attempts, *self.already_present_attempts)):
+        if any(
+            not isinstance(item, ScoreFormExportedAttempt)
+            for item in (*self.appended_attempts, *self.already_present_attempts)
+        ):
             raise TypeError("Attempt collections contain the wrong model type.")
-        if any(not isinstance(item, ScoreFormAttemptExportFailure) for item in self.failures):
+        if any(
+            not isinstance(item, ScoreFormAttemptExportFailure)
+            for item in self.failures
+        ):
             raise TypeError("failures contains the wrong model type.")
         if any(not isinstance(path, Path) for path in self.output_paths):
             raise TypeError("output_paths must contain Path values.")
         if len(self.output_paths) != len(set(self.output_paths)):
             raise ValueError("output_paths must not repeat.")
-        confirmed_paths = {item.output_path for item in (*self.appended_attempts, *self.already_present_attempts)}
+        confirmed_paths = {
+            item.output_path
+            for item in (*self.appended_attempts, *self.already_present_attempts)
+        }
         if not confirmed_paths.issubset(self.output_paths):
-            raise ValueError("Every confirmed attempt path must appear in output_paths.")
+            raise ValueError(
+                "Every confirmed attempt path must appear in output_paths."
+            )
         append_ids = tuple(
             (item.result.source_scan_id, item.result.issuance_id)
-            for item in self.appended_attempts if item.result.result_origin == "pds2_scan"
+            for item in self.appended_attempts
+            if item.result.result_origin == "pds2_scan"
         )
         present_ids = tuple(
             (item.result.source_scan_id, item.result.issuance_id)
-            for item in self.already_present_attempts if item.result.result_origin == "pds2_scan"
+            for item in self.already_present_attempts
+            if item.result.result_origin == "pds2_scan"
         )
         if len((*append_ids, *present_ids)) != len(set((*append_ids, *present_ids))):
             raise ValueError("Exported identities must not repeat.")
@@ -905,12 +1054,18 @@ def _answer_columns(result: ScoreFormRoutedResult, width: int) -> dict[str, obje
     return values
 
 
-def _result_row(result: ScoreFormRoutedResult, width: int, attempt: int, timestamp: str) -> dict[str, object]:
+def _result_row(
+    result: ScoreFormRoutedResult, width: int, attempt: int, timestamp: str
+) -> dict[str, object]:
     row: dict[str, object] = {
-        "Page": result.page_display, "class_id": result.class_id,
-        "assignment_id": result.assignment_id, "student_id": result.student_id,
-        "last_name": result.last_name, "first_name": result.first_name,
-        "period": result.period, "source_file": result.source_file,
+        "Page": result.page_display,
+        "class_id": result.class_id,
+        "assignment_id": result.assignment_id,
+        "student_id": result.student_id,
+        "last_name": result.last_name,
+        "first_name": result.first_name,
+        "period": result.period,
+        "source_file": result.source_file,
         "result_schema_version": ROUTED_RESULTS_SCHEMA_VERSION,
         "result_origin": result.result_origin,
         "issuance_id": result.issuance_id or "",
@@ -923,8 +1078,10 @@ def _result_row(result: ScoreFormRoutedResult, width: int, attempt: int, timesta
         "source_pages": _json_array(result.source_page_numbers),
         "retained_source_path": result.retained_source_relative_path or "",
         "source_sha256": result.source_sha256 or "",
-        "attempt_number": str(attempt), "scan_timestamp": timestamp,
-        "Score": str(result.score), "Total": str(result.total_points),
+        "attempt_number": str(attempt),
+        "scan_timestamp": timestamp,
+        "Score": str(result.score),
+        "Total": str(result.total_points),
     }
     row.update(_answer_columns(result, width))
     return row
@@ -932,7 +1089,9 @@ def _result_row(result: ScoreFormRoutedResult, width: int, attempt: int, timesta
 
 def _parse_positive(value: str, label: str) -> int:
     if not value.isdigit() or int(value) < 1 or str(int(value)) != value:
-        raise ScoreFormRoutedResultReadError(f"Existing {label} must be a positive integer.")
+        raise ScoreFormRoutedResultReadError(
+            f"Existing {label} must be a positive integer."
+        )
     return int(value)
 
 
@@ -940,16 +1099,18 @@ def _parse_score(value: str, label: str, *, minimum=0) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError) as error:
-        raise ScoreFormRoutedResultReadError(f"Existing {label} must be an integer.") from error
+        raise ScoreFormRoutedResultReadError(
+            f"Existing {label} must be an integer."
+        ) from error
     if parsed < minimum or str(parsed) != value:
         raise ScoreFormRoutedResultReadError(f"Existing {label} is out of range.")
     return parsed
 
 
 def _question_width(fieldnames: Sequence[str], base: list[str]) -> int | None:
-    if fieldnames[:len(base)] != base:
+    if fieldnames[: len(base)] != base:
         return None
-    tail = fieldnames[len(base):]
+    tail = fieldnames[len(base) :]
     if len(tail) % 2:
         return None
     width = len(tail) // 2
@@ -965,7 +1126,9 @@ def _answers_from_row(row: dict[str, str], total: int) -> tuple[ScoredAnswer, ..
         selected = row.get(f"Q{number}", "")
         correct_text = row.get(f"Q{number}_Correct", "")
         if not selected or correct_text not in {"True", "False"}:
-            raise ScoreFormRoutedResultReadError("Existing question cells are incomplete or invalid.")
+            raise ScoreFormRoutedResultReadError(
+                "Existing question cells are incomplete or invalid."
+            )
         answers.append(ScoredAnswer(number, selected, correct_text == "True"))
     return tuple(answers)
 
@@ -973,10 +1136,14 @@ def _answers_from_row(row: dict[str, str], total: int) -> tuple[ScoredAnswer, ..
 def _validated_existing_timestamp(
     value: str,
     *,
-    result_origin: Literal["pds2_scan", "plain_paper_manual", "legacy_scan"],
+    result_origin: Literal[
+        "pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"
+    ],
 ) -> str:
     if not isinstance(value, str) or not value:
-        raise ScoreFormRoutedResultReadError("Existing scan_timestamp must be nonempty.")
+        raise ScoreFormRoutedResultReadError(
+            "Existing scan_timestamp must be nonempty."
+        )
     try:
         parsed = datetime.datetime.fromisoformat(value)
     except ValueError as iso_error:
@@ -988,8 +1155,10 @@ def _validated_existing_timestamp(
         if result_origin != "pds2_scan":
             try:
                 historical = (
-                    datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                    .strftime("%Y-%m-%d %H:%M:%S") == value
+                    datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S").strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    == value
                 )
             except ValueError:
                 historical = False
@@ -1007,8 +1176,12 @@ def _arrays(row: dict[str, str], field: str, item_type):
     try:
         value = json.loads(row[field])
     except (KeyError, json.JSONDecodeError, TypeError) as error:
-        raise ScoreFormRoutedResultReadError(f"Existing {field} is not canonical JSON.") from error
-    if not isinstance(value, list) or any(isinstance(item, bool) or not isinstance(item, item_type) for item in value):
+        raise ScoreFormRoutedResultReadError(
+            f"Existing {field} is not canonical JSON."
+        ) from error
+    if not isinstance(value, list) or any(
+        isinstance(item, bool) or not isinstance(item, item_type) for item in value
+    ):
         raise ScoreFormRoutedResultReadError(f"Existing {field} has invalid values.")
     if row[field] != _json_array(value):
         raise ScoreFormRoutedResultReadError(f"Existing {field} is not canonical JSON.")
@@ -1018,20 +1191,39 @@ def _arrays(row: dict[str, str], field: str, item_type):
 def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
     total = _parse_positive(row["Total"], "Total")
     score = _parse_score(row["Score"], "Score")
+
     def optional(name):
         return row[name] or None
+
     try:
         return ScoreFormRoutedResult(
-            result_origin=cast(Literal["pds2_scan", "plain_paper_manual", "legacy_scan"], row["result_origin"]), class_id=row["class_id"],
-            assignment_id=row["assignment_id"], student_id=row["student_id"],
-            last_name=row["last_name"], first_name=row["first_name"],
-            period=row["period"], page_display=row["Page"], score=score,
-            total_points=total, answers=_answers_from_row(row, total),
-            issuance_id=optional("issuance_id"), generation_id=optional("generation_id"),
-            artifact_id=optional("artifact_id"), page_ids=_arrays(row, "page_ids", str),
+            result_origin=cast(
+                Literal[
+                    "pds2_scan",
+                    "plain_paper_manual",
+                    "scan_review_manual",
+                    "legacy_scan",
+                ],
+                row["result_origin"],
+            ),
+            class_id=row["class_id"],
+            assignment_id=row["assignment_id"],
+            student_id=row["student_id"],
+            last_name=row["last_name"],
+            first_name=row["first_name"],
+            period=row["period"],
+            page_display=row["Page"],
+            score=score,
+            total_points=total,
+            answers=_answers_from_row(row, total),
+            issuance_id=optional("issuance_id"),
+            generation_id=optional("generation_id"),
+            artifact_id=optional("artifact_id"),
+            page_ids=_arrays(row, "page_ids", str),
             route_ids=_arrays(row, "route_ids", str),
             logical_pages=_arrays(row, "logical_pages", int),
-            source_file=row["source_file"], source_scan_id=optional("source_scan_id"),
+            source_file=row["source_file"],
+            source_scan_id=optional("source_scan_id"),
             source_page_numbers=_arrays(row, "source_pages", int),
             retained_source_relative_path=optional("retained_source_path"),
             source_sha256=optional("source_sha256"),
@@ -1039,14 +1231,18 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
     except ScoreFormRoutedResultValidationError:
         raise
     except Exception as error:
-        raise ScoreFormRoutedResultReadError("Existing v2 result is invalid.") from error
+        raise ScoreFormRoutedResultReadError(
+            "Existing v2 result is invalid."
+        ) from error
 
 
 def _read_history(path: Path):
     if not path.exists():
         return [], 0
     if path.is_symlink() or not path.is_file():
-        raise ScoreFormRoutedResultReadError("Routed results destination is not a regular file.")
+        raise ScoreFormRoutedResultReadError(
+            "Routed results destination is not a regular file."
+        )
     try:
         with path.open(newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle, strict=True)
@@ -1054,12 +1250,20 @@ def _read_history(path: Path):
             v2_width = _question_width(fieldnames, _V2_BASE_HEADERS)
             v1_width = _question_width(fieldnames, _routed_headers(0))
             if v2_width is None and v1_width is None:
-                raise ScoreFormRoutedResultReadError("Existing routed results header is incompatible.")
+                raise ScoreFormRoutedResultReadError(
+                    "Existing routed results header is incompatible."
+                )
             raw_rows = list(reader)
     except (OSError, UnicodeError, csv.Error) as error:
-        raise ScoreFormRoutedResultReadError(f"Could not read routed results: {error}") from error
-    if any(None in row or any(value is None for value in row.values()) for row in raw_rows):
-        raise ScoreFormRoutedResultReadError("Existing routed results contain malformed rows.")
+        raise ScoreFormRoutedResultReadError(
+            f"Could not read routed results: {error}"
+        ) from error
+    if any(
+        None in row or any(value is None for value in row.values()) for row in raw_rows
+    ):
+        raise ScoreFormRoutedResultReadError(
+            "Existing routed results contain malformed rows."
+        )
     width = v2_width if v2_width is not None else v1_width
     assert width is not None
     rows = []
@@ -1067,20 +1271,32 @@ def _read_history(path: Path):
         attempt = _parse_positive(raw.get("attempt_number", ""), "attempt_number")
         if v2_width is not None:
             if raw.get("result_schema_version") != ROUTED_RESULTS_SCHEMA_VERSION:
-                raise ScoreFormRoutedResultReadError("Existing result_schema_version is unsupported.")
+                raise ScoreFormRoutedResultReadError(
+                    "Existing result_schema_version is unsupported."
+                )
             model = _model_from_v2(raw)
         else:
             total = _parse_positive(raw.get("Total", ""), "Total")
             score = _parse_score(raw.get("Score", ""), "Score")
-            manual = raw.get("Page") == "manual" or raw.get("source_file") == "plain_paper_manual_entry"
+            manual = (
+                raw.get("Page") == "manual"
+                or raw.get("source_file") == "plain_paper_manual_entry"
+            )
             model = ScoreFormRoutedResult(
                 result_origin="plain_paper_manual" if manual else "legacy_scan",
-                class_id=raw.get("class_id", ""), assignment_id=raw.get("assignment_id", ""),
-                student_id=raw.get("student_id", ""), last_name=raw.get("last_name", ""),
-                first_name=raw.get("first_name", ""), period=raw.get("period", ""),
+                class_id=raw.get("class_id", ""),
+                assignment_id=raw.get("assignment_id", ""),
+                student_id=raw.get("student_id", ""),
+                last_name=raw.get("last_name", ""),
+                first_name=raw.get("first_name", ""),
+                period=raw.get("period", ""),
                 page_display="manual" if manual else raw.get("Page", ""),
-                score=score, total_points=total, answers=_answers_from_row(raw, total),
-                source_file="plain_paper_manual_entry" if manual else raw.get("source_file", ""),
+                score=score,
+                total_points=total,
+                answers=_answers_from_row(raw, total),
+                source_file="plain_paper_manual_entry"
+                if manual
+                else raw.get("source_file", ""),
             )
         timestamp = _validated_existing_timestamp(
             raw.get("scan_timestamp", ""), result_origin=model.result_origin
@@ -1094,8 +1310,133 @@ def _read_history(path: Path):
     return rows, width
 
 
-def _same_exported_content(left: ScoreFormRoutedResult, right: ScoreFormRoutedResult) -> bool:
+def _same_exported_content(
+    left: ScoreFormRoutedResult, right: ScoreFormRoutedResult
+) -> bool:
     return left == right
+
+
+def _managed_review_result_links(workspace_root: Path):
+    """Read review-linked rows only from canonical managed ScoreForm histories."""
+    workspace_root = workspace_root.resolve(strict=True)
+    links: dict[str, list[tuple[ScoreFormRoutedResult, int, Path]]] = {}
+    classes_root = workspace_root / "classes"
+    if not classes_root.exists():
+        return links
+    if classes_root.is_symlink() or not classes_root.is_dir():
+        raise ScoreFormRoutedResultIntegrityError(
+            "Managed classes root is not a real directory."
+        )
+    resolved_classes = classes_root.resolve(strict=True)
+    for class_path in sorted(classes_root.iterdir(), key=lambda item: item.name):
+        if class_path.is_symlink() or not class_path.is_dir():
+            continue
+        try:
+            validate_core_identifier(class_path.name, "class_id")
+        except Exception:
+            continue
+        resolved_class = class_path.resolve(strict=True)
+        if resolved_class.parent != resolved_classes:
+            raise ScoreFormRoutedResultIntegrityError(
+                "Managed class directory escapes the classes root."
+            )
+        modules_root = class_path / "modules"
+        if not modules_root.exists():
+            continue
+        if modules_root.is_symlink() or not modules_root.is_dir():
+            raise ScoreFormRoutedResultIntegrityError(
+                "Managed modules root is not a real directory."
+            )
+        scoreform_root = modules_root / "scoreform"
+        if not scoreform_root.exists():
+            continue
+        if scoreform_root.is_symlink() or not scoreform_root.is_dir():
+            raise ScoreFormRoutedResultIntegrityError(
+                "Managed ScoreForm module root is not a real directory."
+            )
+        work_root = scoreform_root / "work"
+        if not work_root.exists():
+            continue
+        if work_root.is_symlink() or not work_root.is_dir():
+            raise ScoreFormRoutedResultIntegrityError(
+                "Managed ScoreForm work root is not a real directory."
+            )
+        resolved_work = work_root.resolve(strict=True)
+        if (
+            modules_root.resolve(strict=True).parent != resolved_class
+            or scoreform_root.resolve(strict=True).parent
+            != modules_root.resolve(strict=True)
+            or resolved_work.parent != scoreform_root.resolve(strict=True)
+        ):
+            raise ScoreFormRoutedResultIntegrityError(
+                "Managed ScoreForm work ancestry is not canonical."
+            )
+        for assignment_path in sorted(
+            work_root.iterdir(), key=lambda item: item.name
+        ):
+            if assignment_path.is_symlink() or not assignment_path.is_dir():
+                continue
+            try:
+                validate_core_identifier(assignment_path.name, "assignment_id")
+            except Exception:
+                continue
+            resolved_assignment = assignment_path.resolve(strict=True)
+            if resolved_assignment.parent != resolved_work:
+                raise ScoreFormRoutedResultIntegrityError(
+                    "Managed assignment directory escapes the work root."
+                )
+            definition = assignment_path / "assignment.json"
+            if definition.is_symlink() or not definition.is_file():
+                raise ScoreFormRoutedResultIntegrityError(
+                    "Managed assignment definition is not a non-symlink file."
+                )
+            assignment = load_assignment(definition)
+            if (
+                assignment is None
+                or assignment.get("assignment_id") != assignment_path.name
+            ):
+                raise ScoreFormRoutedResultIntegrityError(
+                    "Managed assignment definition disagrees with its directory."
+                )
+            results_path = assignment_path / "results.csv"
+            if not results_path.exists():
+                continue
+            if results_path.is_symlink() or not results_path.is_file():
+                raise ScoreFormRoutedResultIntegrityError(
+                    "Managed results history must be a non-symlink regular file."
+                )
+            if results_path.resolve(strict=True).parent != resolved_assignment:
+                raise ScoreFormRoutedResultIntegrityError(
+                    "Managed results history escapes its assignment directory."
+                )
+            existing, _width = _read_history(results_path)
+            for model, attempt, _stamp in existing:
+                if (
+                    model.class_id != class_path.name
+                    or model.assignment_id != assignment_path.name
+                ):
+                    raise ScoreFormRoutedResultIntegrityError(
+                        "Managed result row identity disagrees with its history path."
+                    )
+                if model.result_origin == "scan_review_manual":
+                    expected_path = (
+                        workspace_root
+                        / "classes"
+                        / model.class_id
+                        / "modules"
+                        / "scoreform"
+                        / "work"
+                        / model.assignment_id
+                        / "results.csv"
+                    )
+                    if results_path != expected_path:
+                        raise ScoreFormRoutedResultIntegrityError(
+                            "Review-linked result row is not in its canonical history."
+                        )
+                    links.setdefault(model.source_file, []).append(
+                        (model, attempt, results_path)
+                    )
+    return links
 
 
 class _HistoryStageError(ScoreFormRoutedResultWriteError):
@@ -1105,11 +1446,21 @@ class _HistoryStageError(ScoreFormRoutedResultWriteError):
         self.cleanup_failures = cleanup_failures
 
 
-def _stage_history(path: Path, headers: list[str], rows: list[dict[str, object]]) -> Path:
+def _stage_history(
+    path: Path, headers: list[str], rows: list[dict[str, object]]
+) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", newline="", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as handle:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            newline="",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
             temp_path = Path(handle.name)
             writer = csv.DictWriter(handle, fieldnames=headers)
             writer.writeheader()
@@ -1123,11 +1474,12 @@ def _stage_history(path: Path, headers: list[str], rows: list[dict[str, object]]
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError as cleanup_error:
-                cleanup_failures.append(ScoreFormTemporaryCleanupFailure(
-                    temp_path, path, cleanup_error
-                ))
+                cleanup_failures.append(
+                    ScoreFormTemporaryCleanupFailure(temp_path, path, cleanup_error)
+                )
         staged_error = _HistoryStageError(
-            f"Could not stage {path}: {error}", temporary_path=temp_path,
+            f"Could not stage {path}: {error}",
+            temporary_path=temp_path,
             cleanup_failures=tuple(cleanup_failures),
         )
         staged_error.__cause__ = error
@@ -1140,46 +1492,116 @@ def _cleanup_staged(staged) -> tuple[ScoreFormTemporaryCleanupFailure, ...]:
         try:
             temporary_path.unlink(missing_ok=True)
         except OSError as error:
-            failures.append(ScoreFormTemporaryCleanupFailure(
-                temporary_path, target_path, error
-            ))
+            failures.append(
+                ScoreFormTemporaryCleanupFailure(temporary_path, target_path, error)
+            )
     return tuple(failures)
 
 
 def _adapt_legacy_mapping(value, workspace_root) -> ScoreFormRoutedResult:
     if isinstance(value, ScoreFormRoutedResult):
         return value
-    answers = tuple(ScoredAnswer(answer["Q"], answer["Answer"], answer["Correct"]) for answer in value["answers"])
-    manual = value.get("page_num") == "manual" or value.get("source_file") == "plain_paper_manual_entry"
+    answers = tuple(
+        ScoredAnswer(answer["Q"], answer["Answer"], answer["Correct"])
+        for answer in value["answers"]
+    )
+    manual = (
+        value.get("page_num") == "manual"
+        or value.get("source_file") == "plain_paper_manual_entry"
+    )
     if not manual:
-        raise ScoreFormRoutedResultValidationError("Mutable mappings are supported only for plain-paper manual compatibility.")
+        raise ScoreFormRoutedResultValidationError(
+            "Mutable mappings are supported only for plain-paper manual compatibility."
+        )
     class_id, student_id = value["class_id"], value["student_id"]
-    last_name, first_name, period = value.get("last_name", ""), value.get("first_name", ""), value.get("period", "")
+    last_name, first_name, period = (
+        value.get("last_name", ""),
+        value.get("first_name", ""),
+        value.get("period", ""),
+    )
     if not (last_name or first_name or period):
         try:
             from scoreform.roster import load_roster
+
             roster = load_roster(core_class_roster_path(workspace_root, class_id))
             if roster is None:
                 raise ValueError("Roster is unavailable.")
-            student = next(item for item in roster["students"] if item["student_id"] == student_id)
-            last_name, first_name, period = student["last_name"], student["first_name"], student["period"]
+            student = next(
+                item for item in roster["students"] if item["student_id"] == student_id
+            )
+            last_name, first_name, period = (
+                student["last_name"],
+                student["first_name"],
+                student["period"],
+            )
         except Exception:
             pass
     return ScoreFormRoutedResult(
-        result_origin="plain_paper_manual", class_id=class_id,
-        assignment_id=value["assignment_id"], student_id=student_id,
-        last_name=last_name, first_name=first_name, period=period,
-        page_display="manual", score=value["score"], total_points=value["total_points"],
-        answers=answers, source_file="plain_paper_manual_entry",
+        result_origin="plain_paper_manual",
+        class_id=class_id,
+        assignment_id=value["assignment_id"],
+        student_id=student_id,
+        last_name=last_name,
+        first_name=first_name,
+        period=period,
+        page_display="manual",
+        score=value["score"],
+        total_points=value["total_points"],
+        answers=answers,
+        source_file="plain_paper_manual_entry",
     )
 
 
-def _export_result_models(results, *, workspace_root: Path, explicit_output_file: Path | None = None) -> ScoreFormAttemptExportBatch:
+def _export_result_models(
+    results, *, workspace_root: Path, explicit_output_file: Path | None = None
+) -> ScoreFormAttemptExportBatch:
     validated = tuple(_adapt_legacy_mapping(value, workspace_root) for value in results)
-    groups = {("explicit", "explicit"): list(validated)} if explicit_output_file is not None else {}
+    review_results = tuple(
+        result for result in validated if result.result_origin == "scan_review_manual"
+    )
+    if review_results and explicit_output_file is None:
+        try:
+            global_links = _managed_review_result_links(workspace_root)
+            for result in review_results:
+                matches = global_links.get(result.source_file, [])
+                if len(matches) > 1:
+                    raise ScoreFormRoutedResultIntegrityError(
+                        "Managed histories contain duplicate scan-review failure links."
+                    )
+                if matches and not _same_exported_content(matches[0][0], result):
+                    raise ScoreFormRoutedResultIntegrityError(
+                        "Contradictory global reuse of a scan-review failure link."
+                    )
+        except Exception as error:
+            affected = tuple(
+                sorted({(item.class_id, item.assignment_id) for item in review_results})
+            )
+            first = review_results[0]
+            return ScoreFormAttemptExportBatch(
+                failures=(
+                    ScoreFormAttemptExportFailure(
+                        first.class_id,
+                        first.assignment_id,
+                        scoreform_work_paths(
+                            workspace_root, first.class_id, first.assignment_id
+                        ).results_path,
+                        str(error),
+                        error,
+                        stage="integrity",
+                        affected_targets=affected,
+                    ),
+                )
+            )
+    groups = (
+        {("explicit", "explicit"): list(validated)}
+        if explicit_output_file is not None
+        else {}
+    )
     if explicit_output_file is None:
         for result in validated:
-            groups.setdefault((result.class_id, result.assignment_id), []).append(result)
+            groups.setdefault((result.class_id, result.assignment_id), []).append(
+                result
+            )
     plans = []
     failures = []
     for key, target_results in sorted(groups.items()):
@@ -1189,21 +1611,37 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
         try:
             if path is None:
                 paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
-                if paths.work_root.is_symlink() or not paths.work_root.is_dir() or paths.assignment_path.is_symlink() or not paths.assignment_path.is_file():
-                    raise ScoreFormRoutedResultReadError("Managed assignment target does not exist.")
+                if (
+                    paths.work_root.is_symlink()
+                    or not paths.work_root.is_dir()
+                    or paths.assignment_path.is_symlink()
+                    or not paths.assignment_path.is_file()
+                ):
+                    raise ScoreFormRoutedResultReadError(
+                        "Managed assignment target does not exist."
+                    )
                 assignment = load_assignment(paths.assignment_path)
-                if assignment is None or assignment.get("assignment_id") != assignment_id:
-                    raise ScoreFormRoutedResultReadError("Managed assignment is invalid.")
+                if (
+                    assignment is None
+                    or assignment.get("assignment_id") != assignment_id
+                ):
+                    raise ScoreFormRoutedResultReadError(
+                        "Managed assignment is invalid."
+                    )
                 managed_width = assignment["question_count"]
                 path = paths.results_path
             assert path is not None
             if path.exists() and path.is_symlink():
-                raise ScoreFormRoutedResultReadError("Routed results destination cannot be a symlink.")
+                raise ScoreFormRoutedResultReadError(
+                    "Routed results destination cannot be a symlink."
+                )
             existing, old_width = _read_history(path)
             if managed_width is not None:
                 if (
                     old_width not in {0, managed_width}
-                    or any(item.total_points != managed_width for item in target_results)
+                    or any(
+                        item.total_points != managed_width for item in target_results
+                    )
                     or any(
                         model.class_id != class_id
                         or model.assignment_id != assignment_id
@@ -1211,18 +1649,32 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
                         for model, _attempt, _stamp in existing
                     )
                 ):
-                    raise ScoreFormRoutedResultIntegrityError("Managed result question width disagrees with the assignment.")
+                    raise ScoreFormRoutedResultIntegrityError(
+                        "Managed result question width disagrees with the assignment."
+                    )
                 width = managed_width
             else:
-                width = max([old_width, *(item.total_points for item in target_results)], default=0)
+                width = max(
+                    [old_width, *(item.total_points for item in target_results)],
+                    default=0,
+                )
             plans.append((key, path, target_results, existing, width))
         except Exception as error:
             target = path or Path(".")
-            affected = tuple(sorted({(item.class_id, item.assignment_id) for item in target_results}))
-            failures.append(ScoreFormAttemptExportFailure(
-                class_id, assignment_id, target, str(error), error,
-                stage="preflight", affected_targets=affected,
-            ))
+            affected = tuple(
+                sorted({(item.class_id, item.assignment_id) for item in target_results})
+            )
+            failures.append(
+                ScoreFormAttemptExportFailure(
+                    class_id,
+                    assignment_id,
+                    target,
+                    str(error),
+                    error,
+                    stage="preflight",
+                    affected_targets=affected,
+                )
+            )
     if failures:
         return ScoreFormAttemptExportBatch(failures=tuple(failures))
 
@@ -1230,11 +1682,37 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
     prepared = []
     present = []
     for key, path, target_results, existing, width in plans:
-        affected = tuple(sorted({(item.class_id, item.assignment_id) for item in target_results}))
-        failure_class = affected[0][0] if len({item[0] for item in affected}) == 1 else "multiple"
-        failure_assignment = affected[0][1] if len({item[1] for item in affected}) == 1 else "multiple"
+        affected = tuple(
+            sorted({(item.class_id, item.assignment_id) for item in target_results})
+        )
+        failure_class = (
+            affected[0][0] if len({item[0] for item in affected}) == 1 else "multiple"
+        )
+        failure_assignment = (
+            affected[0][1] if len({item[1] for item in affected}) == 1 else "multiple"
+        )
         existing_export_ids = {}
+        existing_review_ids = {}
         for model, attempt, _stamp in existing:
+            if model.result_origin == "scan_review_manual":
+                if model.source_file in existing_review_ids:
+                    integrity_error = ScoreFormRoutedResultIntegrityError(
+                        "Existing history contains a duplicate scan-review failure link."
+                    )
+                    failures.append(
+                        ScoreFormAttemptExportFailure(
+                            failure_class,
+                            failure_assignment,
+                            path,
+                            str(integrity_error),
+                            integrity_error,
+                            stage="integrity",
+                            affected_targets=affected,
+                        )
+                    )
+                    break
+                existing_review_ids[model.source_file] = (model, attempt)
+                continue
             if model.result_origin != "pds2_scan":
                 continue
             export_id = (model.source_scan_id, model.issuance_id)
@@ -1242,17 +1720,46 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
                 integrity_error = ScoreFormRoutedResultIntegrityError(
                     "Existing history contains a duplicate source_scan_id + issuance_id."
                 )
-                failures.append(ScoreFormAttemptExportFailure(
-                    failure_class, failure_assignment, path, str(integrity_error),
-                    integrity_error, stage="integrity", affected_targets=affected,
-                ))
+                failures.append(
+                    ScoreFormAttemptExportFailure(
+                        failure_class,
+                        failure_assignment,
+                        path,
+                        str(integrity_error),
+                        integrity_error,
+                        stage="integrity",
+                        affected_targets=affected,
+                    )
+                )
                 break
             existing_export_ids[export_id] = (model, attempt)
         if failures:
             break
         unique_incoming = []
         incoming_ids: dict[tuple[str | None, str | None], ScoreFormRoutedResult] = {}
+        incoming_review_ids: dict[str, ScoreFormRoutedResult] = {}
         for result in target_results:
+            if result.result_origin == "scan_review_manual":
+                prior_review = incoming_review_ids.get(result.source_file)
+                if prior_review is None:
+                    incoming_review_ids[result.source_file] = result
+                    unique_incoming.append(result)
+                elif prior_review != result:
+                    integrity_error = ScoreFormRoutedResultIntegrityError(
+                        "Incoming transaction contradicts a scan-review failure link."
+                    )
+                    failures.append(
+                        ScoreFormAttemptExportFailure(
+                            failure_class,
+                            failure_assignment,
+                            path,
+                            str(integrity_error),
+                            integrity_error,
+                            stage="integrity",
+                            affected_targets=affected,
+                        )
+                    )
+                continue
             if result.result_origin != "pds2_scan":
                 unique_incoming.append(result)
                 continue
@@ -1265,10 +1772,17 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
                 integrity_error = ScoreFormRoutedResultIntegrityError(
                     "Incoming transaction contradicts source_scan_id + issuance_id."
                 )
-                failures.append(ScoreFormAttemptExportFailure(
-                    failure_class, failure_assignment, path, str(integrity_error),
-                    integrity_error, stage="integrity", affected_targets=affected,
-                ))
+                failures.append(
+                    ScoreFormAttemptExportFailure(
+                        failure_class,
+                        failure_assignment,
+                        path,
+                        str(integrity_error),
+                        integrity_error,
+                        stage="integrity",
+                        affected_targets=affected,
+                    )
+                )
                 break
         if failures:
             break
@@ -1276,18 +1790,36 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
         for model, attempt, _stamp in existing:
             attempt_key = (model.class_id, model.assignment_id, model.student_id)
             counts[attempt_key] = max(counts.get(attempt_key, 0), attempt)
-        rows = [_result_row(model, width, attempt, stamp) for model, attempt, stamp in existing]
+        rows = [
+            _result_row(model, width, attempt, stamp)
+            for model, attempt, stamp in existing
+        ]
         pending = []
         for result in unique_incoming:
-            match = existing_export_ids.get((result.source_scan_id, result.issuance_id)) if result.result_origin == "pds2_scan" else None
+            if result.result_origin == "pds2_scan":
+                match = existing_export_ids.get(
+                    (result.source_scan_id, result.issuance_id)
+                )
+            elif result.result_origin == "scan_review_manual":
+                match = existing_review_ids.get(result.source_file)
+            else:
+                match = None
             if match is not None:
                 if not _same_exported_content(match[0], result):
-                    integrity_error = ScoreFormRoutedResultIntegrityError("Contradictory reuse of source_scan_id + issuance_id.")
-                    failures.append(ScoreFormAttemptExportFailure(
-                        failure_class, failure_assignment, path,
-                        str(integrity_error), integrity_error, stage="integrity",
-                        affected_targets=affected,
-                    ))
+                    integrity_error = ScoreFormRoutedResultIntegrityError(
+                        "Contradictory reuse of source_scan_id + issuance_id."
+                    )
+                    failures.append(
+                        ScoreFormAttemptExportFailure(
+                            failure_class,
+                            failure_assignment,
+                            path,
+                            str(integrity_error),
+                            integrity_error,
+                            stage="integrity",
+                            affected_targets=affected,
+                        )
+                    )
                     break
                 present.append(ScoreFormExportedAttempt(result, path, match[1]))
                 continue
@@ -1296,16 +1828,37 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
             counts[attempt_key] = attempt
             rows.append(_result_row(result, width, attempt, timestamp))
             pending.append(ScoreFormExportedAttempt(result, path, attempt))
-        prepared.append((key, path, routed_results_v2_headers(width), rows, tuple(pending), affected, failure_class, failure_assignment))
+        prepared.append(
+            (
+                key,
+                path,
+                routed_results_v2_headers(width),
+                rows,
+                tuple(pending),
+                affected,
+                failure_class,
+                failure_assignment,
+            )
+        )
     if failures:
         return ScoreFormAttemptExportBatch(
-            already_present_attempts=tuple(present), failures=tuple(failures),
+            already_present_attempts=tuple(present),
+            failures=tuple(failures),
             output_paths=tuple(dict.fromkeys(item.output_path for item in present)),
         )
 
     staged = []
     for prepared_target in prepared:
-        _key, path, headers, rows, pending_attempts, affected, failure_class, failure_assignment = prepared_target
+        (
+            _key,
+            path,
+            headers,
+            rows,
+            pending_attempts,
+            affected,
+            failure_class,
+            failure_assignment,
+        ) = prepared_target
         if not pending_attempts:
             continue
         try:
@@ -1313,35 +1866,60 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
             staged.append((temporary_path, prepared_target))
         except Exception as error:
             stage_cleanup = getattr(error, "cleanup_failures", ())
-            cleanup = (*stage_cleanup, *_cleanup_staged(
-                (item[0], item[1][1]) for item in staged
-            ))
-            failures.append(ScoreFormAttemptExportFailure(
-                failure_class, failure_assignment, path, str(error), error,
-                stage="staging", affected_targets=affected,
-                cleanup_failures=tuple(cleanup),
-            ))
+            cleanup = (
+                *stage_cleanup,
+                *_cleanup_staged((item[0], item[1][1]) for item in staged),
+            )
+            failures.append(
+                ScoreFormAttemptExportFailure(
+                    failure_class,
+                    failure_assignment,
+                    path,
+                    str(error),
+                    error,
+                    stage="staging",
+                    affected_targets=affected,
+                    cleanup_failures=tuple(cleanup),
+                )
+            )
             for other in prepared:
                 if other is prepared_target or not other[4]:
                     continue
                 not_attempted = ScoreFormRoutedResultWriteError(
                     "Target was not attempted because transaction staging failed."
                 )
-                failures.append(ScoreFormAttemptExportFailure(
-                    other[6], other[7], other[1], str(not_attempted), not_attempted,
-                    stage="not_attempted", affected_targets=other[5],
-                ))
+                failures.append(
+                    ScoreFormAttemptExportFailure(
+                        other[6],
+                        other[7],
+                        other[1],
+                        str(not_attempted),
+                        not_attempted,
+                        stage="not_attempted",
+                        affected_targets=other[5],
+                    )
+                )
             break
     if failures:
         return ScoreFormAttemptExportBatch(
-            already_present_attempts=tuple(present), failures=tuple(failures),
+            already_present_attempts=tuple(present),
+            failures=tuple(failures),
             output_paths=tuple(dict.fromkeys(item.output_path for item in present)),
         )
 
     appended: list[ScoreFormExportedAttempt] = []
     written = []
     for index, (temporary_path, prepared_target) in enumerate(staged):
-        _key, path, _headers, _rows, pending_attempts, affected, failure_class, failure_assignment = prepared_target
+        (
+            _key,
+            path,
+            _headers,
+            _rows,
+            pending_attempts,
+            affected,
+            failure_class,
+            failure_assignment,
+        ) = prepared_target
         try:
             os.replace(temporary_path, path)
         except OSError as error:
@@ -1349,39 +1927,66 @@ def _export_result_models(results, *, workspace_root: Path, explicit_output_file
                 f"Could not replace {path}: {error}"
             )
             write_error.__cause__ = error
-            cleanup = _cleanup_staged(
-                (item[0], item[1][1]) for item in staged[index:]
+            cleanup = _cleanup_staged((item[0], item[1][1]) for item in staged[index:])
+            failures.append(
+                ScoreFormAttemptExportFailure(
+                    failure_class,
+                    failure_assignment,
+                    path,
+                    str(write_error),
+                    write_error,
+                    stage="replacement",
+                    affected_targets=affected,
+                    cleanup_failures=cleanup,
+                )
             )
-            failures.append(ScoreFormAttemptExportFailure(
-                failure_class, failure_assignment, path, str(write_error),
-                write_error, stage="replacement", affected_targets=affected,
-                cleanup_failures=cleanup,
-            ))
-            for _later_temp, later in staged[index + 1:]:
+            for _later_temp, later in staged[index + 1 :]:
                 not_attempted = ScoreFormRoutedResultWriteError(
                     "Target was not attempted because an earlier replacement failed."
                 )
-                failures.append(ScoreFormAttemptExportFailure(
-                    later[6], later[7], later[1], str(not_attempted), not_attempted,
-                    stage="not_attempted", affected_targets=later[5],
-                ))
+                failures.append(
+                    ScoreFormAttemptExportFailure(
+                        later[6],
+                        later[7],
+                        later[1],
+                        str(not_attempted),
+                        not_attempted,
+                        stage="not_attempted",
+                        affected_targets=later[5],
+                    )
+                )
             break
         appended.extend(pending_attempts)
         written.append(path)
-    output_paths = tuple(dict.fromkeys(
-        [*written, *(item.output_path for item in present)]
-    ))
+    output_paths = tuple(
+        dict.fromkeys([*written, *(item.output_path for item in present)])
+    )
     return ScoreFormAttemptExportBatch(
         tuple(appended), tuple(present), tuple(failures), output_paths
     )
 
 
-def export_scoreform_attempts(assembly, *, workspace_root: Path, explicit_output_file: Path | None = None) -> ScoreFormAttemptExportBatch:
+def export_scoreform_attempts(
+    assembly, *, workspace_root: Path, explicit_output_file: Path | None = None
+) -> ScoreFormAttemptExportBatch:
     """Export a typed assembly batch without interpreting dispatch outcomes."""
     results = tuple(attempt.routed_result for attempt in assembly.completed_attempts)
     if not results:
         return ScoreFormAttemptExportBatch()
-    return _export_result_models(results, workspace_root=Path(workspace_root), explicit_output_file=Path(explicit_output_file) if explicit_output_file is not None else None)
+    return _export_result_models(
+        results,
+        workspace_root=Path(workspace_root),
+        explicit_output_file=Path(explicit_output_file)
+        if explicit_output_file is not None
+        else None,
+    )
+
+
+def export_scoreform_result_models(
+    results: Sequence[ScoreFormRoutedResult], *, workspace_root: Path
+) -> ScoreFormAttemptExportBatch:
+    """Export validated typed results through the shared schema-v2 writer."""
+    return _export_result_models(tuple(results), workspace_root=Path(workspace_root))
 
 
 def export_routed_results(all_results, workspace_root=None):
@@ -1389,7 +1994,11 @@ def export_routed_results(all_results, workspace_root=None):
     if not all_results:
         print("No results to export.")
         return False
-    root = Path(workspace_root) if workspace_root is not None else workspace.get_scoreform_workspace_root()
+    root = (
+        Path(workspace_root)
+        if workspace_root is not None
+        else workspace.get_scoreform_workspace_root()
+    )
     try:
         batch = _export_result_models(all_results, workspace_root=root)
     except Exception as error:

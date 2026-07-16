@@ -50,12 +50,28 @@ class ScoreFormScanPreflightError(ScoreFormScanDispatchError, ValueError):
     """The workspace, source file, or injected registry failed preflight."""
 
 
+class ScoreFormSourceMissingError(ScoreFormScanPreflightError):
+    """The selected scan source does not exist."""
+
+
+class ScoreFormSourceTypeUnsupportedError(ScoreFormScanPreflightError):
+    """The selected scan source uses an unsupported file type."""
+
+
 class ScoreFormRegistryError(ScoreFormScanDispatchError):
     """The application-owned installed module registry could not be built."""
 
 
 class ScoreFormQrDetectionError(ScoreFormScanDispatchError):
     """A retained page did not yield raw QR payload text."""
+
+
+class ScoreFormQrMissingError(ScoreFormQrDetectionError):
+    """No QR symbol was detected on a usable retained page."""
+
+
+class ScoreFormQrUnreadableError(ScoreFormQrDetectionError):
+    """QR detection could not produce usable decoded text."""
 
 
 class ScoreFormQrDiagnosticWriteError(ScoreFormScanDispatchError):

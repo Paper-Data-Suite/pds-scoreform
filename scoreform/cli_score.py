@@ -21,6 +21,10 @@ from scoreform.scan_filing import (
     print_scan_filing_result,
 )
 from scoreform.scan_filing_settings import get_scan_filing_mode
+from scoreform.scan_review_persistence import (
+    format_failure_persistence_summary,
+    persist_routed_scoring_failures,
+)
 from scoreform.scoring import (
     ManualScoringSummary,
     process_file,
@@ -45,13 +49,19 @@ def _eligible_for_scan_filing(batch: ScoreFormRoutedScoringBatch, output_file) -
     assembly = batch.assembly_result
     export = batch.export_result
     return (
-        output_file is None and batch.status == "full_success" and export is not None
-        and not export.failures and dispatch.other_module_success_count == 0
+        output_file is None
+        and batch.status == "full_success"
+        and export is not None
+        and not export.failures
+        and dispatch.other_module_success_count == 0
         and dispatch.scoreform_page_score_count == dispatch.total_source_pages
-        and len({
-            (item.routed_result.class_id, item.routed_result.assignment_id)
-            for item in assembly.completed_attempts
-        }) == 1
+        and len(
+            {
+                (item.routed_result.class_id, item.routed_result.assignment_id)
+                for item in assembly.completed_attempts
+            }
+        )
+        == 1
         and bool(export.appended_attempts or export.already_present_attempts)
     )
 
@@ -66,19 +76,26 @@ def _run_routed_scoring(input_file, *, workspace_root: Path, output_file=None):
     export = None
     if assembly.completed_attempts:
         export = export_scoreform_attempts(
-            assembly, workspace_root=workspace_root,
+            assembly,
+            workspace_root=workspace_root,
             explicit_output_file=Path(output_file) if output_file is not None else None,
         )
     batch = ScoreFormRoutedScoringBatch(dispatch, assembly, export)
     print(format_routed_scoring_summary(batch))
 
+    review = persist_routed_scoring_failures(batch, input_file, workspace_root)
+    if review.persisted or review.failures:
+        print(format_failure_persistence_summary(review))
+
     if _eligible_for_scan_filing(batch, output_file):
         result = file_original_scan_after_success(
-            [item.routed_result for item in assembly.completed_attempts], input_file,
-            mode=get_scan_filing_mode(workspace_root), workspace_root=workspace_root,
+            [item.routed_result for item in assembly.completed_attempts],
+            input_file,
+            mode=get_scan_filing_mode(workspace_root),
+            workspace_root=workspace_root,
         )
         print_scan_filing_result(result)
-    return batch.exit_code()
+    return 1 if review.failures else batch.exit_code()
 
 
 def run_score(args):

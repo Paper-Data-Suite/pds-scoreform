@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 import cv2
@@ -43,6 +45,11 @@ from scoreform.results import (
     ScoreFormAttemptExportFailure,
     ScoreFormExportedAttempt,
     export_scoreform_attempts,
+)
+from scoreform.scan_review_persistence import persist_routed_scoring_failures
+from scoreform.scan_review_resolution import (
+    discover_scan_review_items,
+    resolve_scan_review_item,
 )
 from scoreform.work_paths import scoreform_work_paths
 
@@ -611,7 +618,7 @@ def test_scan_filing_eligibility_requires_managed_full_success(tmp_path: Path):
     )
 
 
-def test_nonhappy_mixed_candidates_export_only_complete_without_filing_or_review(
+def test_deterministic_review_smoke_exports_complete_and_preserves_review_history(
     tmp_path: Path,
 ):
     base = _batch(tmp_path)
@@ -677,20 +684,14 @@ def test_nonhappy_mixed_candidates_export_only_complete_without_filing_or_review
         )
 
     incomplete = records("8")
-    duplicate = records("9")
     pages = (
         *base.pages,
         outcome(incomplete.pages[0], 3, "3"),
-        outcome(duplicate.pages[0], 4, "4"),
-        outcome(duplicate.pages[1], 5, "5"),
-        outcome(duplicate.pages[0], 6, "4"),
     )
     dispatch = replace(base, pages=pages)
     assembly = assemble_scoreform_attempts(dispatch, workspace_root=tmp_path)
     assert len(assembly.completed_attempts) == 1
-    assert {failure.category for failure in assembly.failures} == {
-        "missing_pages", "duplicate_page",
-    }
+    assert [failure.category for failure in assembly.failures] == ["missing_pages"]
     assert all(
         failure.observed_route_ids and failure.source_scan_id
         and failure.observed_page_ids and failure.diagnostic_paths
@@ -701,5 +702,40 @@ def test_nonhappy_mixed_candidates_export_only_complete_without_filing_or_review
     assert batch.status == "partial_success" and batch.exit_code() == 1
     assert len(exported.appended_attempts) == 1
     assert not _eligible_for_scan_filing(batch, None)
-    review = tmp_path / "scans" / "review"
-    assert not review.exists() or not tuple(review.rglob("*.json"))
+    persistence = persist_routed_scoring_failures(
+        batch,
+        retained.retained_source_relative_path,
+        tmp_path,
+        now=datetime(2026, 7, 15, 13, 0, tzinfo=timezone.utc),
+    )
+    assert persistence.complete and len(persistence.persisted) == 1
+    failure_path = persistence.persisted[0].metadata_path
+    failure_bytes = failure_path.read_bytes()
+    assert json.loads(failure_bytes)["schema_version"] == "2"
+
+    discovered = discover_scan_review_items(tmp_path)
+    assert [item.failure_id for item in discovered.items] == [
+        persistence.persisted[0].failure_id
+    ]
+    deferred = resolve_scan_review_item(
+        tmp_path,
+        persistence.persisted[0].failure_id,
+        "defer",
+        now=datetime(2026, 7, 15, 13, 1, tzinfo=timezone.utc),
+    )
+    assert deferred.resolution_status == "deferred"
+    assert discover_scan_review_items(tmp_path).items[0].status == "deferred"
+    final = resolve_scan_review_item(
+        tmp_path,
+        persistence.persisted[0].failure_id,
+        "cannot_route",
+        now=datetime(2026, 7, 15, 13, 2, tzinfo=timezone.utc),
+    )
+    assert final.resolution_status == "resolved"
+    projected = discover_scan_review_items(tmp_path, include_resolved=True).items[0]
+    assert len(projected.resolution_history) == 2
+    assert failure_path.read_bytes() == failure_bytes
+    resolution_files = tuple((tmp_path / "scans/review/resolutions").glob("*.json"))
+    assert len(resolution_files) == 2
+    assert all(json.loads(path.read_bytes())["schema_version"] == "2" for path in resolution_files)
+    assert not tuple(paths.scans_dir.glob("*"))

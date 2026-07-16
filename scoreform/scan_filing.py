@@ -6,6 +6,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
@@ -13,6 +14,7 @@ from scoreform.scan_filing_settings import (
     DEFAULT_SCAN_FILING_MODE,
     SCAN_FILING_MODES,
 )
+from scoreform.validation import is_safe_identifier
 from scoreform.work_paths import scoreform_work_paths
 
 
@@ -29,6 +31,63 @@ class ScanFilingResult:
     @property
     def filed(self):
         return self.filed_path is not None
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewEvidenceFilingResult:
+    source_relative_path: str
+    filed_relative_path: str | None
+    status_tag: str
+    sha256: str | None
+    error: Exception | None = None
+    cleanup_error: Exception | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("source_relative_path", "filed_relative_path"):
+            value = getattr(self, name)
+            if value is None and name == "filed_relative_path":
+                continue
+            if not isinstance(value, str) or not value or value == "unavailable":
+                if name == "source_relative_path" and value == "unavailable":
+                    continue
+                raise ValueError(f"{name} must be a safe relative path.")
+            if "\\" in value:
+                raise ValueError(f"{name} must use forward slashes.")
+            windows, posix = PureWindowsPath(value), PurePosixPath(value)
+            parts = value.split("/")
+            if (
+                windows.is_absolute()
+                or windows.drive
+                or posix.is_absolute()
+                or any(part in {"", ".", ".."} for part in parts)
+            ):
+                raise ValueError(f"{name} must be a safe relative path.")
+        if self.status_tag not in {
+            "manual_entry", "manual_marks", "rescan_needed", "scoring_failed"
+        }:
+            raise ValueError("status_tag is unsupported.")
+        if self.sha256 is not None and re.fullmatch(r"[0-9a-f]{64}", self.sha256) is None:
+            raise ValueError("sha256 must be a full hexadecimal digest or null.")
+        if self.error is not None and not isinstance(self.error, Exception):
+            raise TypeError("error must be an Exception or null.")
+        if self.cleanup_error is not None and not isinstance(self.cleanup_error, Exception):
+            raise TypeError("cleanup_error must be an Exception or null.")
+        if self.cleanup_error is not None and self.error is None:
+            raise ValueError("cleanup_error requires a copy or verification error.")
+        if self.source_relative_path == "unavailable" and (
+            self.error is None or self.filed_relative_path is not None
+        ):
+            raise ValueError(
+                "unavailable source is valid only for failed prevalidation."
+            )
+
+    @property
+    def filed(self) -> bool:
+        return (
+            self.filed_relative_path is not None
+            and self.error is None
+            and self.cleanup_error is None
+        )
 
 
 def skipped_scan_filing_for_batch_outcome(outcome):
@@ -130,6 +189,19 @@ def build_resolution_scan_path(scans_dir, source_path, status_tag, now=None):
     return _non_overwriting_path(os.path.join(os.fspath(scans_dir), filename))
 
 
+def _reject_symlink_components(root: Path, candidate: Path) -> None:
+    """Reject any existing symlink from root through the lexical candidate path."""
+    try:
+        relative = candidate.absolute().relative_to(root)
+    except ValueError as error:
+        raise ValueError("Evidence source must stay inside the workspace.") from error
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("Evidence path cannot contain a symlink component.")
+
+
 def file_resolution_scan_copy(
     workspace_root,
     class_id,
@@ -138,43 +210,130 @@ def file_resolution_scan_copy(
     status_tag,
     now=None,
     copy_func=shutil.copy2,
+    failure_id=None,
+    unlink_func=Path.unlink,
 ):
-    """Copy retained review evidence without moving or overwriting its source."""
-    source = os.fspath(source_path)
-    if not os.path.isfile(source):
-        return ScanFilingResult(
-            source_path=source,
-            warning=f"Review evidence is missing or is not a file: {source}",
+    """Copy and digest-verify assignment evidence; never alter its source."""
+    raw_root = Path(workspace_root)
+    if raw_root.is_symlink():
+        return ReviewEvidenceFilingResult(
+            "unavailable", None, status_tag, None,
+            ValueError("Review evidence workspace root cannot be a symlink."),
         )
+    root = raw_root.resolve(strict=True)
+    candidate = Path(source_path)
+    if not candidate.is_absolute():
+        candidate = root / candidate
     try:
-        paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
-        scans_dir = paths.scans_dir
-        assignment = (
-            load_assignment(paths.assignment_path)
-            if (
-                not paths.work_root.is_symlink()
-                and paths.work_root.is_dir()
-                and not paths.assignment_path.is_symlink()
-                and paths.assignment_path.is_file()
-            )
-            else None
-        )
+        _reject_symlink_components(root, candidate)
+        source = candidate.resolve(strict=True)
+        source_relative = source.relative_to(root).as_posix()
+        if not source.is_file():
+            raise ValueError("Review evidence source must be a regular file.")
+        if not is_safe_identifier(class_id) or not is_safe_identifier(assignment_id):
+            raise ValueError("Managed class or assignment identity is invalid.")
+        if failure_id is not None and not is_safe_identifier(failure_id):
+            raise ValueError("Review failure identity is invalid.")
+        paths = scoreform_work_paths(root, class_id, assignment_id)
+        assignment = None
+        if (
+            not paths.work_root.is_symlink()
+            and paths.work_root.is_dir()
+            and not paths.assignment_path.is_symlink()
+            and paths.assignment_path.is_file()
+        ):
+            assignment = load_assignment(paths.assignment_path)
         if assignment is None or assignment.get("assignment_id") != assignment_id:
-            return ScanFilingResult(
-                source_path=source,
-                warning="The selected assignment folder does not exist.",
+            raise ValueError("The selected managed ScoreForm assignment is invalid.")
+        managed_root = paths.work_root.resolve(strict=True)
+        if managed_root != paths.work_root.absolute():
+            raise ValueError("Managed ScoreForm work root resolves unexpectedly.")
+        if paths.scans_dir.exists():
+            if paths.scans_dir.is_symlink() or not paths.scans_dir.is_dir():
+                raise ValueError("Managed scans directory must be a real directory.")
+        else:
+            paths.scans_dir.mkdir()
+        scans_root = paths.scans_dir.resolve(strict=True)
+        if scans_root.parent != managed_root:
+            raise ValueError("Managed scans directory escapes the exact work root.")
+        source_digest = _sha256(source)
+        if failure_id is None:
+            filed_path = Path(
+                build_resolution_scan_path(paths.scans_dir, source, status_tag, now=now)
             )
-        os.makedirs(scans_dir, exist_ok=True)
-        filed_path = build_resolution_scan_path(
-            scans_dir, source, status_tag, now=now
+        else:
+            extension = source.suffix
+            filed_path = paths.scans_dir / f"review_{failure_id}_{status_tag}{extension}"
+        if filed_path.exists() or filed_path.is_symlink():
+            if filed_path.is_symlink() or not filed_path.is_file():
+                raise FileExistsError(filed_path)
+            if failure_id is None or _sha256(filed_path) != source_digest:
+                raise ValueError("Contradictory reuse of review evidence identity.")
+            return ReviewEvidenceFilingResult(
+                source_relative,
+                filed_path.relative_to(root).as_posix(),
+                status_tag,
+                source_digest,
+            )
+        created = False
+        copy_error = None
+        cleanup_error = None
+        try:
+            if copy_func is shutil.copy2:
+                with source.open("rb") as input_file, filed_path.open(
+                    "xb"
+                ) as output_file:
+                    created = True
+                    shutil.copyfileobj(input_file, output_file, 1024 * 1024)
+                    output_file.flush()
+                    os.fsync(output_file.fileno())
+            else:
+                copy_func(source, filed_path)
+                created = filed_path.exists()
+                with filed_path.open("r+b") as output_file:
+                    output_file.flush()
+                    os.fsync(output_file.fileno())
+            destination_digest = _sha256(filed_path)
+            if source_digest != destination_digest:
+                raise OSError("Review evidence digest verification failed.")
+        except Exception as error:
+            copy_error = error
+            if created:
+                try:
+                    unlink_func(filed_path, missing_ok=True)
+                except Exception as cleanup:
+                    cleanup_error = cleanup
+            filed_relative = (
+                filed_path.relative_to(root).as_posix()
+                if filed_path.exists() or filed_path.is_symlink()
+                else None
+            )
+            return ReviewEvidenceFilingResult(
+                source_relative,
+                filed_relative,
+                status_tag,
+                source_digest,
+                copy_error,
+                cleanup_error,
+            )
+        return ReviewEvidenceFilingResult(
+            source_relative,
+            filed_path.relative_to(root).as_posix(),
+            status_tag,
+            source_digest,
         )
-        copy_func(source, filed_path)
     except Exception as error:
-        return ScanFilingResult(
-            source_path=source,
-            warning=f"Could not file scan review evidence: {error}",
-        )
-    return ScanFilingResult(filed_path=os.fspath(filed_path), source_path=source)
+        try:
+            relative = candidate.resolve(strict=False).relative_to(root).as_posix()
+        except (OSError, RuntimeError, ValueError):
+            relative = "unavailable"
+        digest = None
+        try:
+            if not candidate.is_symlink() and candidate.is_file():
+                digest = _sha256(candidate)
+        except OSError:
+            pass
+        return ReviewEvidenceFilingResult(relative, None, status_tag, digest, error)
 
 
 def file_original_scan_copy(

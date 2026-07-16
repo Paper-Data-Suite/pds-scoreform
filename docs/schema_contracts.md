@@ -557,7 +557,7 @@ Formal assignment `schema_version`, embedded template/layout versioning, and QR
 versions beyond PDS2 remain future work. Routed results use schema version 2 and
 strictly migrate compatible v1 histories on first append.
 
-## 16. Historical ScoreForm scan review metadata and #145 boundary
+## 16. Core-v2 ScoreForm scan review metadata
 
 Legacy ScoreForm failures may exist in the shared Core
 `RoutingFailureMetadata` schema at:
@@ -566,14 +566,15 @@ Legacy ScoreForm failures may exist in the shared Core
 <PDS workspace root>/scans/review/<failure_id>.json
 ```
 
-The shared failure category is stored in `failure_category`; the original
-ScoreForm category and reason remain in `module_details`. Records use
-`module="scoreform"` and `stage="scoreform_qr_review"`. When retention succeeded,
+Active records use Core's exact 17-key `RoutingFailureMetadata` schema version
+`"2"`. The shared category and stage remain generic; ScoreForm ownership and
+diagnostics are nested under versioned `module_details.scoreform`. When retention succeeded,
 the record includes the source scan ID, SHA-256 digest, original filename,
 workspace-relative retained path, and page number. Safe QR identity is included
 only when it was actually decoded. Failure records are immutable.
 
-Legacy teacher decisions may use Core `ScanResolutionMetadata` records at:
+Teacher decisions use Core's exact 18-key `ScanResolutionMetadata` schema version
+`"2"` at:
 
 ```text
 <PDS workspace root>/scans/review/resolutions/<resolution_id>.json
@@ -584,18 +585,125 @@ current view: resolved items are hidden by default, while deferred items stay
 visible. Older records remain part of the review trail.
 
 Canonical sources remain under `scans/source/YYYY-MM-DD/`. Assignment-local
-`scans/` files are routed scoring or resolution evidence copies. Manual-entry,
-manual-marks, and rescan-needed evidence names carry readable status tags and
-never overwrite an existing file. Source evidence is copied, never moved.
+`scans/` files are routed scoring or resolution evidence copies. Manual-entry
+and manual-marks evidence names carry readable status tags and never overwrite
+an existing file. The source must be a non-symlink regular file inside the
+workspace and the destination must belong to a validated managed assignment.
+The copy is flushed, closed, SHA-256 verified, and removed if verification
+fails; the source is always preserved. Actions with no Core evidence contract
+reject an evidence argument.
 
-The active PDS2 assembly/export workflow writes none of these failure or resolution
-records and does not translate Core dispatch errors into the legacy schema.
-Core schema-version-2 failure and resolution persistence belongs to #145.
+The routed-scoring workflow writes one immutable occurrence record for each
+actionable intake, page, dispatch, ScoreForm validation, assembly, and export
+failure after export is known. Actual `RouteDispatchFailure` values use Core's
+mapper. Raw decoded payload text is preserved exactly; locators and targets are
+stored only when validated at the occurrence. Historical v1 files are left
+untouched and excluded by strict discovery. Discovery reports separate counts
+for invalid failures, invalid resolutions, unsupported-v1 failures,
+unsupported-v1 resolutions, orphan resolutions, provenance mismatches,
+malformed ScoreForm details, and foreign records.
 
 Manual entry uses the schema-v2 routed-results header with
 `result_origin=plain_paper_manual`, `Page=manual`, and
 `source_file=plain_paper_manual_entry`. It fabricates no PDS2 provenance and
 creates no Core resolution record.
+
+### Exact ScoreForm module-detail contracts
+
+Failure `module_details` has exactly one `scoreform` object with exactly these
+keys: `details_schema_version="1"`, `record_kind="failure"`, one closed
+`failure_origin`, `scoreform_category`, ordered unique `diagnostic_paths`,
+ordered `diagnostic_errors`, and deeply immutable JSON-native `context`.
+`failure_origin` is one of `scan_intake`, `page_decode`, `core_dispatch`,
+`scoreform_handling`, `invalid_page_observation`, `attempt_assembly`, or
+`result_export`. Paths are safe workspace-relative strings and numbers are
+finite. Strings, nulls, Booleans, integers, finite floats, mappings with safe
+string keys, and list/tuple sequences are preserved (with mappings and
+sequences stored immutably). Non-finite floats and invalid mapping keys are
+rejected. Other context values—including path objects, exceptions, and
+dataclasses—become a bounded `{value_type, display}` record without invoking
+their `repr` or `str`. Diagnostic paths remain a separate strict string-only
+field and reject path objects.
+
+Resolution `module_details` has exactly one `scoreform` object containing
+exactly `details_schema_version="1"`, `record_kind="resolution"`,
+`resolution_origin="scoreform_scan_review"`, `teacher_action`,
+`identity_source`, validated `identity`, validated nullable `result`, and
+validated nullable `evidence`. A malformed marker is not ownership: discovery
+counts it as malformed and leaves the valid Core record unchanged.
+
+`identity_source=none` requires an empty identity. `validated_locator` contains
+exactly class, assignment/work, and route identity. `validated_target` contains
+the complete class, assignment, student, route, page, issuance, logical-page,
+and total-page identity with positive ordered page numbers. `teacher_verified`
+contains the identifiers consumed by the action; manual entry requires class,
+assignment, and student. A manual result is allowed only for `manual_entry`,
+uses the exact `scan_review_manual` shape, has bounded integer score/total and a
+positive attempt, and names the canonical managed `results.csv` for the same
+identity. Evidence is allowed only for manual entry, manual marks, and
+evidence-filed actions, carries exact safe paths/status/full SHA-256 fields, and
+must satisfy the action's source/destination relationship. Nested identity,
+result, evidence, context, and diagnostic-error state is deeply immutable.
+
+ScoreForm owns a failure when a validated locator names module `scoreform`, a
+validated target names module `scoreform`, or valid ScoreForm failure details
+identify a pre/post-route occurrence. Foreign records remain separate. A
+resolution must match the canonical failure metadata path and all of
+`source_filename`, `source_scan_id`, `source_sha256`, `retained_source_path`,
+`review_copy_path`, and `source_page_number`. A mismatch cannot change status.
+Valid history is ordered by aware timestamps normalized to UTC and then by
+resolution ID.
+
+Identity projection is immutable and labeled `validated_target`,
+`validated_locator`, `scoreform_diagnostic`, or `none`. A validated answer-sheet
+target is reloaded and cross-checked against its route registration, page, and
+issuance before authoritative fields are exposed. Locator-only identity exposes
+class, assignment/work, and route only. Diagnostic values remain separately
+labeled as observed; teacher-verified identity lives in resolution history.
+
+### Pipeline mappings
+
+| Pipeline layer | Core stage/category |
+| --- | --- |
+| missing source / unsupported type / unreadable preflight | `intake` / `source_missing`, `source_type_unsupported`, or `source_unreadable` |
+| typed retention failure | `retention` / `source_retention_failed` |
+| registry infrastructure / actual profile incompatibility | `module_resolution` / `processing_error` or `module_profile_incompatible` |
+| no QR / unreadable detector result | `payload` / `payload_missing` or `payload_unreadable` |
+| payload parser | `payload` / `payload_schema_unsupported`, `payload_too_large`, `identifier_invalid`, or `payload_invalid` |
+| retained page loading | `decoding` / `source_unreadable` |
+| typed request identifier failure / other request construction failure | `route_resolution` / `identifier_invalid` or `processing_error` |
+| locator/profile/registration/target/page outcome contradiction | `module_validation` / `target_incompatible` |
+| malformed handler output or scoring failure | `module_handling` / `processing_error` |
+| diagnostic write failure | `evidence` / `evidence_write_failed` |
+| missing, duplicate, conflicting, order, or coverage assembly failure | `review` / `page_conflict` |
+| unexpected page, inconsistent issuance, or invalid result identity | `review` / `target_incompatible` (or typed `processing_error`) |
+| export history contradiction | `review` / `processing_error` |
+| export preflight, staging, replacement, or not-attempted target | `evidence` / `evidence_write_failed` |
+
+Each occurrence is converted, Core-validated, and written independently.
+Failures report `conversion`, `validation`, `write`, or `collision_exhausted`
+while retaining the original exception in memory, and later occurrences
+continue. An independently valid occurrence-time page locator survives later
+request, resolution, registration, profile, or target contradictions. The
+target is then null unless independently trusted, and all competing values
+remain in ScoreForm context rather than one contradictory target being selected.
+
+Teacher action `mixed_assignment` maps to Core `resolved/cannot_route`; manual
+entry and manual marks map to `resolved/other`; defer maps to
+`deferred/deferred`. Manual entry writes or recognizes its idempotent result
+before appending a resolution. If that append fails, a typed partial-operation
+error reports the failure, result path, attempt, append state, and underlying
+error and explains that retrying will not create another attempt. Retry then
+recognizes the row and appends only the missing resolution.
+
+The `scan_review_manual:<failure_id>` link is globally unique across canonical
+`classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv`
+histories. Exact replay returns the original attempt; any different class,
+assignment, student, answers, score, or total is an integrity failure before a
+new row is written. Review evidence uses a deterministic failure/action
+destination, rejects symlink escapes at every managed boundary, verifies full
+source/destination digests, preserves the source, reports cleanup failures, and
+reuses only an already verified matching copy on resolution retry.
 
 ## Core 0.5 ScoreForm module dispatch contract
 
@@ -643,4 +751,5 @@ page number; the active PDS2 locator has no page field.
 
 The active PDS2 workflow preserves independent physical-page outcomes, then
 assembles only complete authoritative issuances. It never chooses among
-duplicates and does not persist review data; review persistence belongs to #145.
+duplicates; those occurrences are persisted for review without discarding
+unrelated valid attempts.
