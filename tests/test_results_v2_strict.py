@@ -10,6 +10,7 @@ from scoreform.folders import setup_assignment_folder
 from scoreform.page_scoring import ScoredAnswer
 from scoreform.results import (
     ScoreFormRoutedResult,
+    ScoreFormRoutedResultHistoryRow,
     ScoreFormRoutedResultValidationError,
     ScoreFormTemporaryCleanupFailure,
     _export_result_models,
@@ -53,6 +54,34 @@ def _manual(assignment_id="quiz1"):
         "manual", 1, 1, (ScoredAnswer(1, "A", True),),
         source_file="plain_paper_manual_entry",
     )
+
+
+@pytest.mark.parametrize("attempt_number", (True, False, 0, -1, "1", 1.0, None))
+def test_history_row_rejects_noncanonical_attempt_numbers(attempt_number):
+    with pytest.raises(ValueError, match="positive integer"):
+        ScoreFormRoutedResultHistoryRow(
+            _manual(), attempt_number, "2026-07-16T12:00:00+00:00"
+        )
+
+
+def test_history_row_rejects_naive_timestamp_deliberately():
+    with pytest.raises(ValueError, match="timezone-aware ISO 8601"):
+        ScoreFormRoutedResultHistoryRow(
+            _manual(), 1, "2026-07-16T12:00:00"
+        )
+
+
+def test_history_row_rejects_non_string_timestamp_deliberately():
+    with pytest.raises(TypeError, match="scan_timestamp must be a string"):
+        ScoreFormRoutedResultHistoryRow(_manual(), 1, None)
+
+
+def test_history_row_accepts_positive_attempt_and_aware_timestamp():
+    row = ScoreFormRoutedResultHistoryRow(
+        _manual(), 1, "2026-07-16T12:00:00+00:00"
+    )
+    assert row.attempt_number == 1
+    assert row.scan_timestamp == "2026-07-16T12:00:00+00:00"
 
 
 def test_routed_result_rejects_display_and_retained_path_contradictions():

@@ -498,17 +498,16 @@ def run_generate(args):
             print(f"Error: Failed to load/validate roster: {roster_path}")
             return 1
 
-        setup_paths = setup_assignment_folder(roster, assignment, roster_path, assignment_file)
+        setup_paths = setup_assignment_folder(roster, assignment)
         if setup_paths is None:
             print(f"Error: Failed to setup assignment folder for roster: {roster_path}")
             return 1
 
         print("--- Setup Summary ---")
         print(f"Class: {roster.get('class_id')}")
-        print(f"  Class dir: {setup_paths['class_dir']}")
-        print(f"  Assignment dir: {setup_paths['assignment_dir']}")
-        print(f"  Roster copy: {setup_paths['roster_copy']}")
-        print(f"  Assignment copy: {setup_paths['assignment_copy']}")
+        print(f"  Work root: {setup_paths['work_root']}")
+        print(f"  Roster path: {setup_paths['roster_path']}")
+        print(f"  Assignment path: {setup_paths['assignment_path']}")
 
         paths = setup_paths["paths"]
         managed_assignment = load_assignment(paths.assignment_path)

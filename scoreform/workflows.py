@@ -43,7 +43,7 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
-from scoreform.roster import _core_roster_to_legacy_dict, load_roster
+from scoreform.roster import _core_roster_to_legacy_dict
 from scoreform.standards_workflows import (
     attach_standard_to_questions as attach_standard_to_questions,
 )
@@ -186,16 +186,11 @@ def suggest_assignment_id(title):
     return value.strip("_")
 
 
-def discover_class_rosters(classes_dir=None):
+def discover_class_rosters(workspace_root=None):
     """Return valid class rosters discovered under classes/<class_id>/roster.csv."""
-    if classes_dir is None:
+    if workspace_root is None:
         workspace_root = workspace.get_scoreform_workspace_root()
-    else:
-        classes_path = Path(classes_dir)
-        if classes_path.name == "classes":
-            workspace_root = classes_path.parent
-        else:
-            return _discover_class_rosters_in_legacy_directory(classes_path)
+    workspace_root = Path(workspace_root)
 
     discovered = []
     for class_folder in list_core_class_folders(
@@ -232,55 +227,17 @@ def discover_class_rosters(classes_dir=None):
     return discovered
 
 
-def _discover_class_rosters_in_legacy_directory(classes_dir):
-    """Preserve explicit discovery for non-canonical class directories."""
-    if not classes_dir.is_dir():
-        return []
-
-    discovered = []
-    for class_dir in sorted(classes_dir.iterdir(), key=lambda entry: entry.name):
-        roster_path = class_dir / "roster.csv"
-        if not class_dir.is_dir() or not roster_path.exists():
-            continue
-
-        roster = load_roster(roster_path)
-        if roster is None:
-            print(f"Skipping invalid roster: {roster_path}")
-            continue
-
-        class_id = roster.get("class_id")
-        if class_id != class_dir.name:
-            print(
-                f"Skipping roster with mismatched class_id: {roster_path} "
-                f"(folder '{class_dir.name}', roster '{class_id}')"
-            )
-            continue
-
-        discovered.append({
-            "class_id": class_id,
-            "roster_path": os.fspath(roster_path),
-            "roster": roster,
-        })
-
-    return discovered
-
-
 def discover_class_assignments(
     class_id,
-    classes_dir=None,
     *,
     workspace_root=None,
 ):
     """Discover valid direct children of one class's ScoreForm work collection."""
-    if classes_dir is not None and workspace_root is not None:
-        raise ValueError("Pass either classes_dir or workspace_root, not both.")
-    if workspace_root is not None:
-        root = Path(workspace_root)
-    elif classes_dir is None:
-        root = workspace.get_scoreform_workspace_root()
-    else:
-        supplied = Path(classes_dir)
-        root = supplied.parent if supplied.name == "classes" else supplied
+    root = Path(
+        workspace_root
+        if workspace_root is not None
+        else workspace.get_scoreform_workspace_root()
+    )
 
     collection_dir = scoreform_work_collection_dir(root, class_id)
     if collection_dir.is_symlink() or not collection_dir.is_dir():

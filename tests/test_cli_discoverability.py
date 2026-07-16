@@ -12,7 +12,6 @@ from scoreform import (
     generate_workflows,
     menu_scoring,
     qr_workflows,
-    workflows,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -90,7 +89,7 @@ def assert_help_output(result):
     assert "scoreform score <scan.pdf>" in output
     assert "scoreform workspace show" in output
     assert "QR-aware scoring" in output
-    assert "Legacy/manual scoring" in output
+    assert "Manual scoring" in output
     assert "python main.py remains supported" in output
 
 
@@ -147,59 +146,6 @@ def test_menu_help_can_return_to_menu_and_exit():
     assert "Goodbye." in output
 
 
-def legacy_menu_generate_existing_class_assignment_creates_expected_outputs(tmp_path, monkeypatch, capsys):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
-        "english_9_period_2",
-        "2",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    workflows.write_assignment_json(
-        str(tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "assignment.json"),
-        {
-            "assignment_id": "act_1_quiz",
-            "title": "Act 1 Quiz",
-            "question_count": 1,
-            "choices": ["A", "B", "C", "D"],
-            "answer_key": {"1": "A"},
-            "standards": {"1": []},
-        },
-    )
-
-    def fake_student_pdf(output_path, _assignment, _student):
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(output_path).write_text("student pdf", encoding="utf-8")
-        return True
-
-    def fake_class_packet(output_path, _assignment, _roster):
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(output_path).write_text("class packet", encoding="utf-8")
-        return True
-
-    monkeypatch.setattr(generate_workflows, "generate_student_pdf", fake_student_pdf)
-    monkeypatch.setattr(
-        generate_workflows,
-        "generate_class_packet_pdf",
-        fake_class_packet,
-    )
-    responses = iter(["1", "4", "1", "1", "1", "y", "", "b", "5"])
-    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-
-    assert scoreform.cli.launch_menu() == 0
-
-    output = capsys.readouterr().out
-    assert "ScoreForm\nGenerate Answer Sheets" in output
-    assert "Generate answer sheets for an existing class assignment" in output
-    assert "Available classes:" in output
-    assert "english_9_period_2" in output
-    assert "Available assignments:" in output
-    assert "act_1_quiz" in output
-    assert "Goodbye." in output
-    assert (tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "templates" / "class_packet.pdf").exists()
-    assert (tmp_path / "classes" / "english_9_period_2" / "assignments" / "act_1_quiz" / "templates" / "individual" / "1001_doe_jane.pdf").exists()
-
-
 def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     generated = []
@@ -217,77 +163,6 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
     assert "Generate a generic blank template" in output
     assert generated == [True]
     assert "Goodbye." in output
-
-
-def legacy_menu_view_assignment_results_displays_selected_assignment_results(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "english12_p3" / "roster.csv"),
-        "english12_p3",
-        "3",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    workflows.write_assignment_json(
-        str(tmp_path / "classes" / "english12_p3" / "assignments" / "final_exam" / "assignment.json"),
-        {
-            "assignment_id": "final_exam",
-            "title": "Final Exam",
-            "question_count": 1,
-            "choices": ["A", "B", "C", "D"],
-            "answer_key": {"1": "A"},
-            "standards": {"1": []},
-        },
-    )
-    results_path = (
-        tmp_path
-        / "classes"
-        / "english12_p3"
-        / "assignments"
-        / "final_exam"
-        / "results.csv"
-    )
-    results_path.write_text(
-        "\n".join([
-            "Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct",
-            "1,english12_p3,final_exam,1001,Doe,Jane,3,scan.pdf,1,2026-06-17 09:30:00,13,15,A,True",
-            "",
-        ]),
-        encoding="utf-8",
-    )
-
-    responses = iter(["1", "6", "1", "1", "b", "5"])
-    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
-    monkeypatch.setattr(
-        assignment_workflows,
-        "clear_screen",
-        lambda: print("<CLEAR>"),
-    )
-
-    assert scoreform.cli.launch_menu() == 0
-
-    output = capsys.readouterr().out
-    assert "View Assignment Results" in output
-    assert "Available classes:" in output
-    assert "Available assignments:" in output
-    detail_screen = next(
-        screen for screen in output.split("<CLEAR>") if f"Source: {results_path}" in screen
-    )
-    assert "Available classes:" not in detail_screen
-    assert "Available assignments:" not in detail_screen
-    assert "Class: english12_p3" in detail_screen
-    assert "Assignment: final_exam" in detail_screen
-    assert f"Source: {results_path}" in output
-    assert "Student ID" in output
-    assert "Recent" in output
-    assert "Attempts" in output
-    assert "1001" in output
-    assert "Doe, Jane" in output
-    assert "13" in output
 
 
 def test_generate_menu_clears_lists_before_assignment_and_confirmation(
@@ -333,42 +208,6 @@ def test_generate_menu_clears_lists_before_assignment_and_confirmation(
     assert "Available assignments:" not in confirmation_screen
     assert "Class: english10" in confirmation_screen
     assert "Assignment: quiz_1" in confirmation_screen
-
-
-def legacy_menu_view_assignment_results_reports_missing_results_csv(
-    tmp_path,
-    monkeypatch,
-    capsys,
-):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "english12_p3" / "roster.csv"),
-        "english12_p3",
-        "3",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    workflows.write_assignment_json(
-        str(tmp_path / "classes" / "english12_p3" / "assignments" / "final_exam" / "assignment.json"),
-        {
-            "assignment_id": "final_exam",
-            "title": "Final Exam",
-            "question_count": 1,
-            "choices": ["A", "B", "C", "D"],
-            "answer_key": {"1": "A"},
-            "standards": {"1": []},
-        },
-    )
-
-    responses = iter(["1", "6", "1", "1", "b", "5"])
-    monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
-    monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
-
-    assert scoreform.cli.launch_menu() == 0
-
-    output = capsys.readouterr().out
-    assert "Class: english12_p3" in output
-    assert "Assignment: final_exam" in output
-    assert "No results have been recorded for this assignment yet." in output
 
 
 def test_main_menu_is_teacher_centered_and_omits_assignment_operations():
@@ -703,7 +542,7 @@ def test_direct_cli_score_does_not_invoke_scan_picker(monkeypatch):
     )
     monkeypatch.setattr(
         scoreform.cli_score,
-        "process_file_qr_aware",
+        "process_pds2_scan",
         lambda _input_file, workspace_root=None: [],
     )
 

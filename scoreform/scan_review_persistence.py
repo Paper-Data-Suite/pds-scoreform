@@ -377,6 +377,11 @@ def _page_metadata(page, provenance, failure_id, created_at, workspace_root=None
         in {"source_page_loading", "qr_detection", "payload_parsing"}
         else "scoreform_handling"
     )
+    details_category = (
+        _payload_category(page)
+        if page.failure_stage == "payload_parsing"
+        else page.failure_stage or "page_failure"
+    )
     locator, target = _validated_occurrence_identity(page)
     return _metadata(
         failure_id=failure_id,
@@ -393,7 +398,7 @@ def _page_metadata(page, provenance, failure_id, created_at, workspace_root=None
         details=_page_details(
             page,
             origin,
-            page.failure_stage or "page_failure",
+            details_category,
             error,
             workspace_root,
         ),

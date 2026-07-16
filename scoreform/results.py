@@ -7,7 +7,7 @@ import re
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Literal, cast
 
 from pds_core.identifiers import validate_identifier as validate_core_identifier
@@ -36,12 +36,11 @@ from scoreform.retained_page import (
     SUPPORTED_RETAINED_SOURCE_EXTENSIONS,
     validate_canonical_retained_source_relative_path,
 )
-from scoreform.validation import validate_identifier
 from scoreform.work_paths import scoreform_work_paths
 
 ROUTED_RESULTS_SCHEMA_VERSION = "2"
 RESULT_ORIGINS = frozenset(
-    {"pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"}
+    {"pds2_scan", "plain_paper_manual", "scan_review_manual"}
 )
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -49,7 +48,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 @dataclass(frozen=True, slots=True)
 class ScoreFormRoutedResult:
     result_origin: Literal[
-        "pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"
+        "pds2_scan", "plain_paper_manual", "scan_review_manual"
     ]
     class_id: str
     assignment_id: str
@@ -244,7 +243,7 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
         )
     ):
         raise ScoreFormRoutedResultValidationError(
-            "Manual and legacy results cannot fabricate PDS2 provenance."
+            "Manual results cannot fabricate PDS2 provenance."
         )
     if result.result_origin == "plain_paper_manual" and (
         result.page_display != "manual"
@@ -263,18 +262,6 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
             raise ScoreFormRoutedResultValidationError(
                 "Scan-review failure link is invalid."
             ) from error
-    if result.result_origin == "legacy_scan" and result.source_file:
-        windows_source = PureWindowsPath(result.source_file)
-        if (
-            windows_source.is_absolute()
-            or windows_source.drive
-            or result.source_file.startswith("/")
-            or ".." in PurePosixPath(result.source_file).parts
-            or "\\" in result.source_file
-        ):
-            raise ScoreFormRoutedResultValidationError(
-                "Legacy source_file must be empty or a privacy-safe relative value."
-            )
     return result
 
 
@@ -331,139 +318,6 @@ def _get_max_question_count(results):
             if isinstance(q_num, int) and q_num > max_question:
                 max_question = q_num
     return max_question
-
-
-def _routed_headers(question_count):
-    headers = [
-        "Page",
-        "class_id",
-        "assignment_id",
-        "student_id",
-        "last_name",
-        "first_name",
-        "period",
-        "source_file",
-        "attempt_number",
-        "scan_timestamp",
-        "Score",
-        "Total",
-    ]
-
-    for i in range(1, question_count + 1):
-        headers.append(f"Q{i}")
-        headers.append(f"Q{i}_Correct")
-
-    return headers
-
-
-def _routed_header_question_count(fieldnames):
-    base_headers = _routed_headers(0)
-
-    if not fieldnames:
-        return None
-    if fieldnames[: len(base_headers)] != base_headers:
-        return None
-
-    question_fields = fieldnames[len(base_headers) :]
-    if len(question_fields) % 2 != 0:
-        return None
-
-    question_count = len(question_fields) // 2
-    if fieldnames != _routed_headers(question_count):
-        return None
-
-    return question_count
-
-
-def _print_routed_results_permission_error(output_file, operation, error):
-    print(f"Error: Could not {operation} routed results at:")
-    print(output_file)
-    print()
-    print(
-        "The file may be open or locked by Excel, OneDrive, a preview pane, "
-        "or another process."
-    )
-    print("Close the file, wait for sync to finish, and try again.")
-    print()
-    print(f"Technical detail: {error}")
-
-
-def _read_existing_routed_results(output_file):
-    """Read and validate an existing routed results CSV."""
-    try:
-        with open(output_file, mode="r", newline="", encoding="utf-8") as csv_file:
-            reader = csv.DictReader(csv_file, strict=True)
-            question_count = _routed_header_question_count(reader.fieldnames)
-            if question_count is None:
-                print(
-                    f"Error: Existing routed results file has incompatible headers: "
-                    f"{output_file}"
-                )
-                return None, None
-
-            rows = []
-            for row in reader:
-                if None in row or any(value is None for value in row.values()):
-                    print(
-                        f"Error: Existing routed results file has malformed rows: "
-                        f"{output_file}"
-                    )
-                    return None, None
-                rows.append(row)
-            return rows, question_count
-    except PermissionError as e:
-        _print_routed_results_permission_error(output_file, "read", e)
-        return None, None
-    except csv.Error as e:
-        print(
-            f"Error: Existing routed results file is not valid CSV {output_file}: {e}"
-        )
-        return None, None
-    except Exception as e:
-        print(f"Error: Could not read existing routed results file {output_file}: {e}")
-        return None, None
-
-
-def _write_routed_results_safely(output_file, headers, rows):
-    """Write routed results via same-directory temp file and atomic replace."""
-    output_dir = os.path.dirname(output_file) or "."
-    temp_path = None
-
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            newline="",
-            encoding="utf-8",
-            dir=output_dir,
-            prefix=".results.",
-            suffix=".tmp",
-            delete=False,
-        ) as csv_file:
-            temp_path = csv_file.name
-            writer = csv.DictWriter(csv_file, fieldnames=headers)
-            writer.writeheader()
-            writer.writerows(rows)
-            csv_file.flush()
-            os.fsync(csv_file.fileno())
-
-        os.replace(temp_path, output_file)
-        temp_path = None
-        return True
-    except PermissionError as e:
-        _print_routed_results_permission_error(output_file, "write", e)
-    except Exception as e:
-        print(f"Error writing routed results to {output_file}: {e}")
-
-    if temp_path and os.path.exists(temp_path):
-        try:
-            os.remove(temp_path)
-        except Exception as cleanup_error:
-            print(
-                f"Warning: Could not remove temporary routed results file "
-                f"{temp_path}: {cleanup_error}"
-            )
-            print(f"Temporary routed results file remains at: {temp_path}")
-    return False
 
 
 def export_to_csv(all_results, output_file, workspace_root=None):
@@ -546,339 +400,6 @@ def export_to_csv(all_results, output_file, workspace_root=None):
         return False
 
 
-def _enrich_results_with_roster(all_results, workspace_root=None):
-    """Attach roster-derived fields to results in place.
-
-    Adds `last_name`, `first_name`, and `period` to each result dict when possible.
-    Returns True if at least one roster was successfully loaded, False otherwise.
-    """
-    if not all_results:
-        return False
-
-    # Group results by class_id for efficient roster loading
-    by_class = {}
-    for res in all_results:
-        class_id = res.get("class_id")
-        if not class_id:
-            print(f"Warning: result missing class_id for page {res.get('page_num')}")
-            # Ensure fields exist
-            res.setdefault("last_name", "")
-            res.setdefault("first_name", "")
-            res.setdefault("period", "")
-            continue
-        by_class.setdefault(class_id, []).append(res)
-
-    any_loaded = False
-    if workspace_root is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
-
-    for class_id, results in by_class.items():
-        roster_path = os.fspath(core_class_roster_path(workspace_root, class_id))
-
-        # Import locally to avoid circular imports
-        try:
-            from scoreform.roster import load_roster
-        except Exception:
-            print("Warning: Could not import load_roster from scoreform.roster")
-            # Leave fields blank
-            for r in results:
-                r.setdefault("last_name", "")
-                r.setdefault("first_name", "")
-                r.setdefault("period", "")
-            continue
-
-        if not os.path.exists(roster_path):
-            print(
-                f"Warning: Roster file not found for class '{class_id}': {roster_path}"
-            )
-            for r in results:
-                r.setdefault("last_name", "")
-                r.setdefault("first_name", "")
-                r.setdefault("period", "")
-            continue
-
-        roster = load_roster(roster_path)
-        if roster is None:
-            print(
-                f"Warning: Failed to load roster for class '{class_id}': {roster_path}"
-            )
-            for r in results:
-                r.setdefault("last_name", "")
-                r.setdefault("first_name", "")
-                r.setdefault("period", "")
-            continue
-
-        any_loaded = True
-
-        # Build lookup by student_id
-        lookup = {s["student_id"]: s for s in roster.get("students", [])}
-
-        for r in results:
-            sid = r.get("student_id", "")
-            student = lookup.get(sid)
-            if student:
-                r["last_name"] = student.get("last_name", "")
-                r["first_name"] = student.get("first_name", "")
-                r["period"] = student.get("period", "")
-            else:
-                print(f"Warning: student_id '{sid}' not found in roster {roster_path}")
-                r.setdefault("last_name", "")
-                r.setdefault("first_name", "")
-                r.setdefault("period", "")
-
-    return any_loaded
-
-
-def _build_routed_result_target_plan(
-    class_id,
-    assignment_id,
-    results,
-    workspace_root,
-):
-    paths = scoreform_work_paths(workspace_root, class_id, assignment_id)
-    output_dir = os.fspath(paths.work_root)
-    output_file = os.fspath(paths.results_path)
-
-    if paths.work_root.is_symlink() or not os.path.isdir(output_dir):
-        print(
-            f"Error: Could not prepare routed results target for class "
-            f"'{class_id}', assignment '{assignment_id}':"
-        )
-        print(output_file)
-        print(f"Assignment directory does not exist: {output_dir}")
-        return None
-
-    if paths.assignment_path.is_symlink() or not paths.assignment_path.is_file():
-        print(
-            f"Error: Managed assignment file does not exist for class "
-            f"'{class_id}', assignment '{assignment_id}': {paths.assignment_path}"
-        )
-        return None
-    assignment = load_assignment(paths.assignment_path)
-    if assignment is None:
-        print(f"Error: Managed assignment is invalid: {paths.assignment_path}")
-        return None
-    if assignment.get("assignment_id") != assignment_id:
-        print(
-            "Error: Managed assignment identifier does not match its work ID: "
-            f"{paths.assignment_path}"
-        )
-        return None
-
-    work_root_abs = os.path.abspath(output_dir)
-    output_abs = os.path.abspath(output_file)
-    if os.path.normcase(
-        os.path.commonpath([work_root_abs, output_abs])
-    ) != os.path.normcase(work_root_abs):
-        print(f"Error: Results destination escapes managed work: {output_file}")
-        return None
-
-    question_count = max(1, _get_max_question_count(results))
-    existing_rows_raw = []
-
-    if os.path.exists(output_file):
-        if paths.results_path.is_symlink() or not os.path.isfile(output_file):
-            print(
-                f"Error: Routed results destination is not a file for class "
-                f"'{class_id}', assignment '{assignment_id}': {output_file}"
-            )
-            return None
-
-        existing_rows_raw, existing_question_count = _read_existing_routed_results(
-            output_file
-        )
-        if existing_rows_raw is None:
-            print(
-                f"Preflight failed for assignment {assignment_id} in class "
-                f"{class_id}: {output_file}"
-            )
-            return None
-        question_count = max(question_count, existing_question_count)
-
-    headers = _routed_headers(question_count)
-    existing_rows = []
-    attempt_counts = {}
-
-    for row in existing_rows_raw:
-        preserved = {header: row.get(header, "") for header in headers}
-        preserved["source_file"] = privacy_safe_source_file(
-            row.get("source_file", ""),
-            workspace_root=workspace_root,
-        )
-
-        raw_attempt = row.get("attempt_number", "")
-        if raw_attempt and raw_attempt.isdigit():
-            preserved_attempt = int(raw_attempt)
-        else:
-            preserved_attempt = 1
-            preserved["attempt_number"] = "1"
-
-        preserved["scan_timestamp"] = row.get("scan_timestamp", "")
-        existing_rows.append(preserved)
-
-        attempt_key = (
-            preserved.get("class_id", ""),
-            preserved.get("assignment_id", ""),
-            preserved.get("student_id", ""),
-        )
-        if all(attempt_key):
-            attempt_counts[attempt_key] = max(
-                attempt_counts.get(attempt_key, 0),
-                preserved_attempt,
-            )
-
-    batch_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    rows_to_write = list(existing_rows)
-
-    for res in results:
-        attempt_key = (
-            res.get("class_id", ""),
-            res.get("assignment_id", ""),
-            res.get("student_id", ""),
-        )
-        next_attempt = attempt_counts.get(attempt_key, 0) + 1
-        attempt_counts[attempt_key] = next_attempt
-
-        row = {
-            "Page": res["page_num"],
-            "class_id": res.get("class_id", ""),
-            "assignment_id": res.get("assignment_id", ""),
-            "student_id": res.get("student_id", ""),
-            "last_name": res.get("last_name", ""),
-            "first_name": res.get("first_name", ""),
-            "period": res.get("period", ""),
-            "source_file": privacy_safe_source_file(
-                res.get("source_file", ""),
-                workspace_root=workspace_root,
-            ),
-            "attempt_number": str(next_attempt),
-            "scan_timestamp": batch_timestamp,
-            "Score": res["score"],
-            "Total": res["total_points"],
-        }
-
-        for ans in res["answers"]:
-            q_num = ans["Q"]
-            row[f"Q{q_num}"] = ans["Answer"]
-            row[f"Q{q_num}_Correct"] = ans["Correct"]
-
-        rows_to_write.append(row)
-
-    return {
-        "class_id": class_id,
-        "assignment_id": assignment_id,
-        "output_file": output_file,
-        "headers": headers,
-        "rows": rows_to_write,
-    }
-
-
-def _build_routed_result_write_plan(groups, workspace_root):
-    write_plan = []
-    for (class_id, assignment_id), target_results in sorted(groups.items()):
-        try:
-            target_plan = _build_routed_result_target_plan(
-                class_id,
-                assignment_id,
-                target_results,
-                workspace_root,
-            )
-        except (OSError, KeyError, TypeError, ValueError) as error:
-            print(
-                f"Error: Could not preflight routed results for class "
-                f"'{class_id}', assignment '{assignment_id}'."
-            )
-            print(f"Technical detail: {error}")
-            return None
-
-        if target_plan is None:
-            return None
-        write_plan.append(target_plan)
-
-    return write_plan
-
-
-def _legacy_export_routed_results(all_results, workspace_root=None):
-    """Route and export scoring results to ScoreForm managed-work folders.
-
-    Groups results by (class_id, assignment_id) and writes each group to:
-        classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv
-
-    Returns True on success, False on failure.
-    """
-    if not all_results:
-        print("No results to export.")
-        return False
-    if workspace_root is None:
-        workspace_root = workspace.get_scoreform_workspace_root()
-
-    # Validate all general result identifiers before loading or writing anything.
-    groups = {}
-    for res in all_results:
-        class_id = res.get("class_id")
-        assignment_id = res.get("assignment_id")
-        student_id = res.get("student_id")
-
-        if class_id is None or assignment_id is None or student_id is None:
-            print(
-                f"Error: Result missing required metadata. "
-                f"class_id={class_id}, assignment_id={assignment_id}, student_id={student_id}"
-            )
-            return False
-
-        try:
-            scoreform_work_paths(workspace_root, class_id, assignment_id)
-        except (TypeError, ValueError) as error:
-            print(
-                f"Error: Invalid managed result target for class '{class_id}', "
-                f"assignment '{assignment_id}': {error}"
-            )
-            return False
-        if not validate_identifier("student_id", student_id, context="result"):
-            print(
-                f"Error: Unsafe student_id in routed result: '{student_id}'. "
-                "Rejecting export."
-            )
-            return False
-
-        key = (class_id, assignment_id)
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(res)
-
-    # Enrich results with roster metadata (last_name, first_name, period)
-    enriched_ok = _enrich_results_with_roster(
-        all_results,
-        workspace_root=workspace_root,
-    )
-    if not enriched_ok:
-        # Continue exporting even if some roster lookups failed; warnings printed by helper
-        pass
-
-    # Preflight every target before modifying any routed results file.
-    write_plan = _build_routed_result_write_plan(groups, workspace_root)
-    if write_plan is None:
-        print("Routed results export aborted before writing any target.")
-        return False
-
-    for target in write_plan:
-        output_file = target["output_file"]
-        if not _write_routed_results_safely(
-            output_file,
-            target["headers"],
-            target["rows"],
-        ):
-            return False
-        print(f"Results routed to {output_file}")
-
-    return True
-
-
-# The mutable v1 implementation above is retained only as source-level migration
-# context. Remove its callable name so no supported caller can select that policy.
-del _legacy_export_routed_results
-
-
 # Durable routed-results schema v2. The generic ``export_to_csv`` above remains
 # intentionally separate for manual image scoring with an explicit answer key.
 _V2_BASE_HEADERS = [
@@ -933,6 +454,36 @@ class ScoreFormExportedAttempt:
             or self.attempt_number < 1
         ):
             raise ValueError("attempt_number must be a positive integer.")
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreFormRoutedResultHistoryRow:
+    """One strictly validated schema-v2 managed-history row."""
+
+    result: ScoreFormRoutedResult
+    attempt_number: int
+    scan_timestamp: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.result, ScoreFormRoutedResult):
+            raise TypeError("result must be a ScoreFormRoutedResult.")
+        if (
+            isinstance(self.attempt_number, bool)
+            or not isinstance(self.attempt_number, int)
+            or self.attempt_number < 1
+        ):
+            raise ValueError("attempt_number must be a positive integer.")
+        if not isinstance(self.scan_timestamp, str):
+            raise TypeError("scan_timestamp must be a string.")
+        try:
+            _validated_existing_timestamp(
+                self.scan_timestamp,
+                result_origin=self.result.result_origin,
+            )
+        except ScoreFormRoutedResultReadError as error:
+            raise ValueError(
+                "scan_timestamp must be timezone-aware ISO 8601."
+            ) from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -1137,7 +688,7 @@ def _validated_existing_timestamp(
     value: str,
     *,
     result_origin: Literal[
-        "pds2_scan", "plain_paper_manual", "scan_review_manual", "legacy_scan"
+        "pds2_scan", "plain_paper_manual", "scan_review_manual"
     ],
 ) -> str:
     if not isinstance(value, str) or not value:
@@ -1151,24 +702,9 @@ def _validated_existing_timestamp(
             "Existing scan_timestamp is not a supported timestamp."
         ) from iso_error
     if parsed.tzinfo is None or parsed.utcoffset() is None:
-        historical = False
-        if result_origin != "pds2_scan":
-            try:
-                historical = (
-                    datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S").strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    )
-                    == value
-                )
-            except ValueError:
-                historical = False
-        if not historical:
-            requirement = (
-                "PDS2 scan timestamps must be timezone-aware ISO 8601."
-                if result_origin == "pds2_scan"
-                else "Historical timestamps must use YYYY-MM-DD HH:MM:SS."
-            )
-            raise ScoreFormRoutedResultReadError(requirement)
+        raise ScoreFormRoutedResultReadError(
+            "Existing scan_timestamp must be timezone-aware ISO 8601."
+        )
     return value
 
 
@@ -1202,7 +738,6 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
                     "pds2_scan",
                     "plain_paper_manual",
                     "scan_review_manual",
-                    "legacy_scan",
                 ],
                 row["result_origin"],
             ),
@@ -1228,8 +763,10 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
             retained_source_relative_path=optional("retained_source_path"),
             source_sha256=optional("source_sha256"),
         )
-    except ScoreFormRoutedResultValidationError:
-        raise
+    except ScoreFormRoutedResultValidationError as error:
+        raise ScoreFormRoutedResultReadError(
+            "Existing v2 result is invalid."
+        ) from error
     except Exception as error:
         raise ScoreFormRoutedResultReadError(
             "Existing v2 result is invalid."
@@ -1248,10 +785,9 @@ def _read_history(path: Path):
             reader = csv.DictReader(handle, strict=True)
             fieldnames = reader.fieldnames or []
             v2_width = _question_width(fieldnames, _V2_BASE_HEADERS)
-            v1_width = _question_width(fieldnames, _routed_headers(0))
-            if v2_width is None and v1_width is None:
+            if v2_width is None:
                 raise ScoreFormRoutedResultReadError(
-                    "Existing routed results header is incompatible."
+                    "The managed results history is not schema version 2."
                 )
             raw_rows = list(reader)
     except (OSError, UnicodeError, csv.Error) as error:
@@ -1264,40 +800,16 @@ def _read_history(path: Path):
         raise ScoreFormRoutedResultReadError(
             "Existing routed results contain malformed rows."
         )
-    width = v2_width if v2_width is not None else v1_width
+    width = v2_width
     assert width is not None
     rows = []
     for raw in raw_rows:
         attempt = _parse_positive(raw.get("attempt_number", ""), "attempt_number")
-        if v2_width is not None:
-            if raw.get("result_schema_version") != ROUTED_RESULTS_SCHEMA_VERSION:
-                raise ScoreFormRoutedResultReadError(
-                    "Existing result_schema_version is unsupported."
-                )
-            model = _model_from_v2(raw)
-        else:
-            total = _parse_positive(raw.get("Total", ""), "Total")
-            score = _parse_score(raw.get("Score", ""), "Score")
-            manual = (
-                raw.get("Page") == "manual"
-                or raw.get("source_file") == "plain_paper_manual_entry"
+        if raw.get("result_schema_version") != ROUTED_RESULTS_SCHEMA_VERSION:
+            raise ScoreFormRoutedResultReadError(
+                "Existing result_schema_version is unsupported."
             )
-            model = ScoreFormRoutedResult(
-                result_origin="plain_paper_manual" if manual else "legacy_scan",
-                class_id=raw.get("class_id", ""),
-                assignment_id=raw.get("assignment_id", ""),
-                student_id=raw.get("student_id", ""),
-                last_name=raw.get("last_name", ""),
-                first_name=raw.get("first_name", ""),
-                period=raw.get("period", ""),
-                page_display="manual" if manual else raw.get("Page", ""),
-                score=score,
-                total_points=total,
-                answers=_answers_from_row(raw, total),
-                source_file="plain_paper_manual_entry"
-                if manual
-                else raw.get("source_file", ""),
-            )
+        model = _model_from_v2(raw)
         timestamp = _validated_existing_timestamp(
             raw.get("scan_timestamp", ""), result_origin=model.result_origin
         )
@@ -1308,6 +820,17 @@ def _read_history(path: Path):
                 )
         rows.append((model, attempt, timestamp))
     return rows, width
+
+
+def load_routed_results_history(
+    results_csv_path: str | os.PathLike[str],
+) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
+    """Load an exact schema-v2 routed history without mutating it."""
+    rows, _width = _read_history(Path(results_csv_path))
+    return tuple(
+        ScoreFormRoutedResultHistoryRow(model, attempt, timestamp)
+        for model, attempt, timestamp in rows
+    )
 
 
 def _same_exported_content(
@@ -1498,7 +1021,7 @@ def _cleanup_staged(staged) -> tuple[ScoreFormTemporaryCleanupFailure, ...]:
     return tuple(failures)
 
 
-def _adapt_legacy_mapping(value, workspace_root) -> ScoreFormRoutedResult:
+def _adapt_manual_mapping(value, workspace_root) -> ScoreFormRoutedResult:
     if isinstance(value, ScoreFormRoutedResult):
         return value
     answers = tuple(
@@ -1555,7 +1078,7 @@ def _adapt_legacy_mapping(value, workspace_root) -> ScoreFormRoutedResult:
 def _export_result_models(
     results, *, workspace_root: Path, explicit_output_file: Path | None = None
 ) -> ScoreFormAttemptExportBatch:
-    validated = tuple(_adapt_legacy_mapping(value, workspace_root) for value in results)
+    validated = tuple(_adapt_manual_mapping(value, workspace_root) for value in results)
     review_results = tuple(
         result for result in validated if result.result_origin == "scan_review_manual"
     )

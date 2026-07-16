@@ -94,7 +94,7 @@ def test_v2_scan_export_is_idempotent_and_rescan_appends(tmp_path) -> None:
     assert conflict.failures
 
 
-def test_valid_v1_history_migrates_without_fabricated_identity(tmp_path) -> None:
+def test_v1_history_is_rejected_without_mutation(tmp_path) -> None:
     roster = {"class_id": "class1", "students": [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane", "period": "1"}]}
     assignment = {"assignment_id": "quiz", "title": "Quiz", "question_count": 1, "choices": ["A", "B", "C", "D"], "answer_key": {"1": "A"}, "standards": {"1": []}}
     assert setup_assignment_folder(roster, assignment, workspace_root=tmp_path)
@@ -104,14 +104,14 @@ def test_valid_v1_history_migrates_without_fabricated_identity(tmp_path) -> None
         "1,class1,quiz,1001,Doe,Jane,1,old.pdf,2,2026-01-01 10:00:00,1,1,A,True\n",
         encoding="utf-8",
     )
+    before = output.read_bytes()
     manual = ScoreFormRoutedResult(
         "plain_paper_manual", "class1", "quiz", "1001", "Doe", "Jane", "1",
         "manual", 1, 1, (ScoredAnswer(1, "A", True),),
         source_file="plain_paper_manual_entry",
     )
     batch = _export_result_models((manual,), workspace_root=tmp_path)
-    assert batch.appended_attempts[0].attempt_number == 3
-    rows = list(csv.DictReader(output.open(newline="", encoding="utf-8")))
-    assert rows[0]["result_origin"] == "legacy_scan"
-    assert rows[0]["issuance_id"] == ""
-    assert rows[0]["page_ids"] == "[]"
+    assert batch.failures
+    assert not batch.appended_attempts
+    assert output.read_bytes() == before
+    assert not tuple(output.parent.glob("*.tmp"))

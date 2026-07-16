@@ -41,7 +41,7 @@ def test_score_cli_rejects_forged_dispatch_batches(
         ),
     )
     for batch in batches:
-        monkeypatch.setattr(cli_score, "process_file_qr_aware", lambda *_args, **_kwargs: batch)
+        monkeypatch.setattr(cli_score, "process_pds2_scan", lambda *_args, **_kwargs: batch)
         assert cli_score.run_score(["scan.pdf"]) == 1
     output = capsys.readouterr().out
     assert output.count("invalid batch result") == 3

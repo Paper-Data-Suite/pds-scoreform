@@ -145,7 +145,7 @@ def test_setup_reuses_equivalent_records_and_rejects_collisions(tmp_path):
     assert not new_work.work_root.exists()
 
 
-def test_discovery_is_direct_scoreform_only_and_has_no_legacy_fallback(tmp_path, capsys):
+def test_discovery_is_direct_scoreform_only_and_ignores_unqualified_roots(tmp_path, capsys):
     setup_assignment_folder(_roster(), _assignment("z_quiz"), workspace_root=tmp_path)
     setup_assignment_folder(_roster(), _assignment("a_quiz"), workspace_root=tmp_path)
 
@@ -161,9 +161,11 @@ def test_discovery_is_direct_scoreform_only_and_has_no_legacy_fallback(tmp_path,
     nested_assignment.parent.mkdir()
     nested_assignment.write_text(json.dumps(_assignment("nested")), encoding="utf-8")
 
-    legacy = tmp_path / "classes" / "class1" / "assignments" / "legacy"
-    legacy.mkdir(parents=True)
-    (legacy / "assignment.json").write_text(json.dumps(_assignment("legacy")), encoding="utf-8")
+    unqualified = tmp_path / "classes" / "class1" / "assignments" / "old_quiz"
+    unqualified.mkdir(parents=True)
+    unqualified_assignment = unqualified / "assignment.json"
+    original = json.dumps(_assignment("old_quiz")).encode()
+    unqualified_assignment.write_bytes(original)
     sibling = module_work_dir(tmp_path, ModuleWorkRef("quillan", "class1", "same"))
     sibling.mkdir(parents=True)
     (sibling / "assignment.json").write_text(json.dumps(_assignment("same")), encoding="utf-8")
@@ -173,6 +175,7 @@ def test_discovery_is_direct_scoreform_only_and_has_no_legacy_fallback(tmp_path,
     assert [record["assignment_id"] for record in discovered] == ["a_quiz", "z_quiz"]
     assert all(record["work_ref"].module_id == "scoreform" for record in discovered)
     assert all(record["results_path"].endswith("results.csv") for record in discovered)
+    assert unqualified_assignment.read_bytes() == original
     assert "mismatched assignment_id" in capsys.readouterr().out
 
 

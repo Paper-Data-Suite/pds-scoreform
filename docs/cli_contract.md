@@ -20,6 +20,12 @@ compatibility use.
 
 ### Core 0.5/PDS2 foundation state
 
+The CLI has no workspace, sheet, or result migration command. It discovers only
+module-qualified ScoreForm work, emits and parses PDS2 only, and requires exact
+schema-version-2 managed histories. Unsupported QR schemas fail before locator
+or dispatch construction. Manual scoring remains an explicit separate boundary
+and never creates routed identity.
+
 Module-qualified ScoreForm assignment storage is active. Managed assignment
 setup, direct ScoreForm discovery, creation, editing, plain-paper result entry,
 and result viewing operate on

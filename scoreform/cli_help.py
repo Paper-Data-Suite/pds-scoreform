@@ -116,12 +116,12 @@ Scoring modes:
   partial attempt. Actionable failures are persisted under scans/review/.
 
   scoreform score scanned_file.pdf answer_key.json
-      Legacy/manual scoring with an explicit answer key and default local results path.
+      Manual scoring with an explicit answer key and default local results path.
 
   scoreform score scanned_file.pdf output.csv answer_key.json
-      Legacy/manual scoring with an explicit answer key and explicit output CSV.
+      Manual scoring with an explicit answer key and explicit output CSV.
 
-  Manual/legacy multi-page or failed batches report processed, scored, and
+  Manual multi-page or failed batches report processed, scored, and
   failed/skipped page counts. Partial exports warn; zero-success batches fail.
 
 Examples:

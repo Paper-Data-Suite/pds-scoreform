@@ -12,7 +12,7 @@ from pds_core.rosters import Roster as CoreRoster
 from pds_core.rosters import RosterWriteError, StudentRecord
 from pds_core.school_years import open_school_year
 
-from scoreform import assignment, assignment_workflows, roster, workflows
+from scoreform import roster, workflows
 
 
 @dataclass(frozen=True)
@@ -216,8 +216,7 @@ def test_discover_class_rosters_uses_core_class_folder_discovery(
     ]
 
 
-def test_discover_class_rosters_preserves_explicit_classes_dir(tmp_path, monkeypatch):
-    classes_dir = tmp_path / "classes"
+def test_discover_class_rosters_accepts_explicit_workspace_root(tmp_path, monkeypatch):
     calls = []
 
     monkeypatch.setattr(
@@ -228,7 +227,7 @@ def test_discover_class_rosters_preserves_explicit_classes_dir(tmp_path, monkeyp
         ) or (),
     )
 
-    assert workflows.discover_class_rosters(classes_dir) == []
+    assert workflows.discover_class_rosters(tmp_path) == []
     assert calls == [
         (
             tmp_path,
@@ -237,7 +236,7 @@ def test_discover_class_rosters_preserves_explicit_classes_dir(tmp_path, monkeyp
     ]
 
 
-def test_discover_class_rosters_missing_classes_dir_returns_empty(tmp_path, monkeypatch):
+def test_discover_class_rosters_missing_workspace_classes_returns_empty(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     assert workflows.discover_class_rosters() == []
@@ -253,170 +252,6 @@ def test_discover_class_rosters_ignores_mismatched_folder_and_roster_class_id(tm
     )
 
     assert workflows.discover_class_rosters() == []
-
-
-def legacy_discover_class_assignments_finds_valid_assignments_deterministically(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    for assignment_id in ["z_assignment", "a_assignment"]:
-        workflows.write_assignment_json(
-            str(tmp_path / "classes" / "class_a" / "assignments" / assignment_id / "assignment.json"),
-            {
-                "assignment_id": assignment_id,
-                "title": assignment_id,
-                "question_count": 1,
-                "choices": ["A", "B", "C", "D"],
-                "answer_key": {"1": "A"},
-                "standards": {"1": []},
-            },
-        )
-    (tmp_path / "classes" / "class_a" / "assignments" / "no_json").mkdir(parents=True)
-    bad_dir = tmp_path / "classes" / "class_a" / "assignments" / "bad_assignment"
-    bad_dir.mkdir()
-    (bad_dir / "assignment.json").write_text("{not json", encoding="utf-8")
-
-    discovered = workflows.discover_class_assignments("class_a")
-
-    assert [item["assignment_id"] for item in discovered] == ["a_assignment", "z_assignment"]
-    assert discovered[0]["assignment_path"].endswith("classes\\class_a\\assignments\\a_assignment\\assignment.json") or discovered[0]["assignment_path"].endswith("classes/class_a/assignments/a_assignment/assignment.json")
-    assert discovered[0]["assignment"]["title"] == "a_assignment"
-
-
-def legacy_discover_class_assignments_uses_core_assignment_folder_listing(
-    tmp_path,
-    monkeypatch,
-):
-    assignment_dir = (
-        tmp_path
-        / "classes"
-        / "english9_p2"
-        / "assignments"
-        / "unit_1_quiz"
-    )
-    assignment_dir.mkdir(parents=True)
-    assignment_path = assignment_dir / "assignment.json"
-    assignment_path.write_text("{}", encoding="utf-8")
-    core_folder = AssignmentFolder(
-        class_id="english9_p2",
-        assignment_id="unit_1_quiz",
-        class_dir=tmp_path / "classes" / "english9_p2",
-        assignments_dir=assignment_dir.parent,
-        assignment_dir=assignment_dir,
-    )
-    assignment_data = {
-        "assignment_id": "unit_1_quiz",
-        "title": "Unit 1 Quiz",
-        "question_count": 1,
-        "choices": ["A", "B", "C", "D"],
-        "answer_key": {1: "A"},
-        "standards": {1: []},
-    }
-    calls = []
-
-    monkeypatch.setattr(
-        workflows,
-        "list_core_assignment_folders",
-        lambda workspace_root, class_id: calls.append(
-            (workspace_root, class_id)
-        ) or (core_folder,),
-    )
-    monkeypatch.setattr(
-        workflows,
-        "load_assignment",
-        lambda path: assignment_data if Path(path) == assignment_path else None,
-    )
-
-    discovered = workflows.discover_class_assignments("english9_p2")
-
-    assert calls == [(Path(tmp_path), "english9_p2")]
-    assert discovered == [
-        {
-            "assignment_id": "unit_1_quiz",
-            "assignment_path": str(assignment_path),
-            "assignment": assignment_data,
-        }
-    ]
-
-
-def legacy_discover_class_assignments_preserves_explicit_classes_dir(
-    tmp_path,
-    monkeypatch,
-):
-    classes_dir = tmp_path / "classes"
-    calls = []
-
-    monkeypatch.setattr(
-        workflows,
-        "list_core_assignment_folders",
-        lambda workspace_root, class_id: calls.append(
-            (workspace_root, class_id)
-        ) or (),
-    )
-
-    assert workflows.discover_class_assignments(
-        "class_a",
-        classes_dir,
-    ) == []
-    assert calls == [(tmp_path, "class_a")]
-
-
-def legacy_discover_class_assignments_preserves_noncanonical_classes_dir(
-    tmp_path,
-    monkeypatch,
-):
-    classes_dir = tmp_path / "custom_classes"
-    assignment_path = (
-        classes_dir
-        / "class_a"
-        / "assignments"
-        / "unit_1_quiz"
-        / "assignment.json"
-    )
-    workflows.write_assignment_json(
-        str(assignment_path),
-        {
-            "assignment_id": "unit_1_quiz",
-            "title": "Unit 1 Quiz",
-            "question_count": 1,
-            "choices": ["A", "B", "C", "D"],
-            "answer_key": {"1": "A"},
-            "standards": {"1": []},
-        },
-    )
-    monkeypatch.setattr(
-        workflows,
-        "list_core_assignment_folders",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("core listing should not receive a classes directory")
-        ),
-    )
-
-    discovered = workflows.discover_class_assignments("class_a", classes_dir)
-
-    assert [record["assignment_id"] for record in discovered] == ["unit_1_quiz"]
-    assert discovered[0]["assignment_path"] == str(assignment_path)
-
-
-def legacy_discover_class_assignments_missing_assignments_dir_returns_empty(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-
-    assert workflows.discover_class_assignments("class_a") == []
-
-
-def legacy_discover_class_assignments_ignores_mismatched_folder_and_assignment_id(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_assignment_json(
-        str(tmp_path / "classes" / "class_a" / "assignments" / "folder_id" / "assignment.json"),
-        {
-            "assignment_id": "assignment_id",
-            "title": "Mismatched",
-            "question_count": 1,
-            "choices": ["A", "B", "C", "D"],
-            "answer_key": {"1": "A"},
-            "standards": {"1": []},
-        },
-    )
-
-    assert workflows.discover_class_assignments("class_a") == []
 
 
 def test_parse_single_selection_accepts_one_valid_numeric_selection():
@@ -916,152 +751,6 @@ def test_roster_menu_clears_for_submenu_and_pauses_after_view(tmp_path, monkeypa
 
     assert calls.count("clear") >= 3
     assert "pause" in calls
-
-
-def legacy_prompt_create_assignment_writes_class_centered_assignment(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "english_9_period_2" / "roster.csv"),
-        "english_9_period_2",
-        "2",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter([
-        "1",
-        "Romeo and Juliet Act 1 Quiz",
-        "",
-        "",
-        "2",
-        "A",
-        "B",
-        "1",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-
-    output_path = tmp_path / "classes" / "english_9_period_2" / "assignments" / "romeo_and_juliet_act_1_quiz" / "assignment.json"
-    loaded = assignment.load_assignment(str(output_path))
-    assert loaded is not None
-    assert loaded["assignment_id"] == "romeo_and_juliet_act_1_quiz"
-    assert loaded["title"] == "Romeo and Juliet Act 1 Quiz"
-    assert loaded["question_count"] == 2
-    assert loaded["answer_key"] == {1: "A", 2: "B"}
-
-
-def legacy_prompt_create_assignment_uses_core_assignment_folder_helper(
-    tmp_path,
-    monkeypatch,
-):
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "class_a" / "roster.csv"),
-        "class_a",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter([
-        "1",
-        "Unit 1 Quiz",
-        "",
-        "",
-        "1",
-        "A",
-        "1",
-    ])
-    calls = []
-
-    def fake_ensure_assignment_folder(workspace_root, class_id, assignment_id):
-        assignment_dir = (
-            Path(workspace_root)
-            / "classes"
-            / class_id
-            / "assignments"
-            / assignment_id
-        )
-        assignment_dir.mkdir(parents=True, exist_ok=True)
-        calls.append((workspace_root, class_id, assignment_id))
-        return AssignmentFolder(
-            class_id=class_id,
-            assignment_id=assignment_id,
-            class_dir=assignment_dir.parents[1],
-            assignments_dir=assignment_dir.parent,
-            assignment_dir=assignment_dir,
-        )
-
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-    monkeypatch.setattr(
-        assignment_workflows,
-        "ensure_core_assignment_folder",
-        fake_ensure_assignment_folder,
-    )
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-    assert calls == [(Path(tmp_path), "class_a", "unit_1_quiz")]
-    assert (
-        tmp_path
-        / "classes"
-        / "class_a"
-        / "assignments"
-        / "unit_1_quiz"
-        / "assignment.json"
-    ).exists()
-
-
-def legacy_prompt_create_assignment_writes_multiple_classes(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    for class_id in ["class_a", "class_b"]:
-        workflows.write_roster_csv(
-            str(tmp_path / "classes" / class_id / "roster.csv"),
-            class_id,
-            "1",
-            [{"student_id": f"{class_id}_1001", "last_name": "Doe", "first_name": "Jane"}],
-        )
-    responses = iter([
-        "1,2",
-        "AP CSP Unit 3 Test",
-        "unit_3_test",
-        "",
-        "1",
-        "C",
-        "1",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-
-    for class_id in ["class_a", "class_b"]:
-        output_path = tmp_path / "classes" / class_id / "assignments" / "unit_3_test" / "assignment.json"
-        loaded = assignment.load_assignment(str(output_path))
-        assert loaded is not None
-        assert loaded["title"] == "AP CSP Unit 3 Test"
-
-
-def legacy_prompt_create_assignment_skips_existing_without_confirmation(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "class_a" / "roster.csv"),
-        "class_a",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    output_path = tmp_path / "classes" / "class_a" / "assignments" / "existing_assignment" / "assignment.json"
-    output_path.parent.mkdir(parents=True)
-    original_content = '{"assignment_id": "existing_assignment", "title": "Original"}'
-    output_path.write_text(original_content, encoding="utf-8")
-    responses = iter([
-        "1",
-        "Existing Assignment",
-        "",
-        "",
-        "1",
-        "A",
-        "1",
-        "n",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 1
-    assert output_path.read_text(encoding="utf-8") == original_content
 
 
 def test_prompt_create_roster_does_not_overwrite_without_confirmation(tmp_path, monkeypatch):

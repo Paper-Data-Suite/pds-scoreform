@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from scoreform import assignment, assignment_workflows, workflows
+from scoreform import assignment
 from scoreform.config import MAX_QUESTION_COUNT
 
 
@@ -320,164 +320,11 @@ def test_load_assignment_rejects_duplicate_standard_ids(tmp_path):
     assert assignment.load_assignment(path) is None
 
 
-def legacy_prompt_create_assignment_includes_empty_standards(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "test_class" / "roster.csv"),
-        "test_class",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter([
-        "1",
-        "Test Assignment V6",
-        "test_assignment_v6",
-        "",
-        "3",
-        "A",
-        "B",
-        "C",
-        "1",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-    output_path = tmp_path / "classes" / "test_class" / "assignments" / "test_assignment_v6" / "assignment.json"
-    saved = json.loads(output_path.read_text(encoding="utf-8"))
-    assert saved["standards"] == {"1": [], "2": [], "3": []}
-    assert saved["layout_id"] == "standard_15q_abcd_v1"
-
-    loaded = assignment.load_assignment(str(output_path))
-    assert loaded is not None
-    assert loaded["standards"] == {"1": [], "2": [], "3": []}
-
-
-def legacy_prompt_create_assignment_selects_and_persists_compact_without_env(
-    tmp_path, monkeypatch
-):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "test_class" / "roster.csv"),
-        "test_class",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter([
-        "1",
-        "Compact Assignment",
-        "compact_assignment",
-        "2",
-        "1",
-        "A",
-        "1",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-    output_path = (
-        tmp_path
-        / "classes"
-        / "test_class"
-        / "assignments"
-        / "compact_assignment"
-        / "assignment.json"
-    )
-    saved = json.loads(output_path.read_text(encoding="utf-8"))
-    assert saved["layout_id"] == "compact_25q_abcd_v1"
-
-
 def test_gitignore_excludes_physical_scan_test_workspaces():
     gitignore = (Path(__file__).parents[1] / ".gitignore").read_text(encoding="utf-8")
     ignored = {line.strip() for line in gitignore.splitlines()}
     assert ".scan-test-workspace/" in ignored
     assert "scan_test/" in ignored
-
-
-def legacy_prompt_create_assignment_accepts_max_question_count(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "test_class" / "roster.csv"),
-        "test_class",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter(
-        [
-            "1",
-            "Max Assignment",
-            "max_assignment",
-            "",
-            str(MAX_QUESTION_COUNT),
-            *["A" for _ in range(MAX_QUESTION_COUNT)],
-            "1",
-        ]
-    )
-    prompts = []
-
-    def fake_input(prompt):
-        prompts.append(prompt)
-        return next(responses)
-
-    monkeypatch.setattr("builtins.input", fake_input)
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-    assert f"Question count (1-{MAX_QUESTION_COUNT}; 15 per page): " in prompts
-
-    output_path = tmp_path / "classes" / "test_class" / "assignments" / "max_assignment" / "assignment.json"
-    saved = json.loads(output_path.read_text(encoding="utf-8"))
-    assert saved["question_count"] == MAX_QUESTION_COUNT
-    assert len(saved["answer_key"]) == MAX_QUESTION_COUNT
-
-
-def legacy_prompt_create_assignment_rejects_question_count_above_max(tmp_path, monkeypatch, capsys):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "test_class" / "roster.csv"),
-        "test_class",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter(
-        [
-            "1",
-            "Retry Max Assignment",
-            "retry_max_assignment",
-            "",
-            str(MAX_QUESTION_COUNT + 1),
-            str(MAX_QUESTION_COUNT),
-            *["B" for _ in range(MAX_QUESTION_COUNT)],
-            "1",
-        ]
-    )
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 0
-
-    captured = capsys.readouterr()
-    assert f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}." in captured.out
-
-    output_path = tmp_path / "classes" / "test_class" / "assignments" / "retry_max_assignment" / "assignment.json"
-    saved = json.loads(output_path.read_text(encoding="utf-8"))
-    assert saved["question_count"] == MAX_QUESTION_COUNT
-
-
-def legacy_prompt_create_assignment_rejects_unsafe_assignment_id(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    workflows.write_roster_csv(
-        str(tmp_path / "classes" / "test_class" / "roster.csv"),
-        "test_class",
-        "1",
-        [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane"}],
-    )
-    responses = iter([
-        "1",
-        "Test Assignment",
-        "../secret",
-    ])
-    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
-
-    assert assignment_workflows.prompt_create_assignment() == 1
-    assert not (tmp_path / "classes" / "test_class" / "assignments").exists()
 
 
 def test_load_answer_key_accepts(tmp_path):
