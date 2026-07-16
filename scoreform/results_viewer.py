@@ -2,7 +2,7 @@
 
 import csv
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 MULTIPLE_ATTEMPTS_NOTE = (
@@ -181,7 +181,10 @@ def _parse_scan_timestamp(value):
 
 def _parse_iso_timestamp(value):
     try:
-        return datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
     except ValueError:
         return None
 

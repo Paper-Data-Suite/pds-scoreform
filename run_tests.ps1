@@ -76,6 +76,11 @@ Invoke-Step "Run focused retained PDS2 boundary tests" {
 Invoke-Step "Run pytest suite" {
     & $Python -m pytest tests -q
 }
+Invoke-Step "Run #144 mixed-candidate non-happy-path smoke" {
+    & $Python -m pytest @(
+        "tests/test_attempt_assembly.py::test_nonhappy_mixed_candidates_export_only_complete_without_filing_or_review"
+    ) -q
+}
 Invoke-Step "Run Ruff" {
     & $Python -m ruff check .
 }
@@ -174,18 +179,19 @@ try {
     Invoke-Step "Dispatch and score retained PDS2 pages through Core" {
         & $ScoreForm score $ClassPacket
     }
-    if (Test-Path -LiteralPath (Join-Path $ManagedRoot "results.csv")) {
-        throw "#143 page dispatch unexpectedly wrote routed results.csv."
+    if (-not (Test-Path -LiteralPath (Join-Path $ManagedRoot "results.csv") -PathType Leaf)) {
+        throw "#144 routed scoring did not write results.csv."
     }
-    if (Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "scans") -File) {
-        throw "#143 page dispatch unexpectedly filed an assignment-local scan."
+    $ResultHeader = Get-Content -LiteralPath (Join-Path $ManagedRoot "results.csv") -TotalCount 1
+    if ($ResultHeader -notmatch "result_schema_version" -or $ResultHeader -notmatch "issuance_id") {
+        throw "#144 routed scoring did not write schema-v2 provenance columns."
     }
     $ReviewRoot = Join-Path $SmokeRoot "scans\review"
     if (
         (Test-Path -LiteralPath $ReviewRoot -PathType Container) -and
         (Get-ChildItem -LiteralPath $ReviewRoot -File -Recurse)
     ) {
-        throw "#143 page dispatch unexpectedly persisted scan-review metadata."
+        throw "#144 scoring unexpectedly persisted #145 scan-review metadata."
     }
 }
 finally {

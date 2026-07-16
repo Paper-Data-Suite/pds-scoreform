@@ -1,7 +1,10 @@
 """Plain-paper response normalization, scoring, and result construction."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
+
+from scoreform.page_scoring import ScoredAnswer
+from scoreform.results import ScoreFormRoutedResult
 
 MANUAL_ENTRY_SOURCE = "plain_paper_manual_entry"
 MANUAL_ENTRY_PAGE = "manual"
@@ -59,38 +62,44 @@ def build_manual_result(
     assignment: Mapping[str, Any],
     student: Mapping[str, str],
     responses: Mapping[int, str],
-) -> dict[str, object]:
-    """Build one result in the existing routed scoring shape."""
+) -> ScoreFormRoutedResult:
+    """Build one immutable plain-paper result for the shared v2 writer."""
     score, answers = score_manual_responses(assignment, responses)
-    return {
-        "page_num": MANUAL_ENTRY_PAGE,
-        "class_id": class_id,
-        "assignment_id": assignment["assignment_id"],
-        "student_id": student["student_id"],
-        "source_file": MANUAL_ENTRY_SOURCE,
-        "score": score,
-        "total_points": assignment["question_count"],
-        "answers": answers,
-    }
+    return ScoreFormRoutedResult(
+        result_origin="plain_paper_manual", class_id=class_id,
+        assignment_id=assignment["assignment_id"], student_id=student["student_id"],
+        last_name=student["last_name"], first_name=student["first_name"],
+        period=student["period"], page_display=MANUAL_ENTRY_PAGE,
+        score=score, total_points=assignment["question_count"],
+        answers=tuple(
+            ScoredAnswer(
+                cast(int, answer["Q"]),
+                cast(str, answer["Answer"]),
+                cast(bool, answer["Correct"]),
+            )
+            for answer in answers
+        ),
+        source_file=MANUAL_ENTRY_SOURCE,
+    )
 
 
 def format_manual_entry_review(
     student: Mapping[str, str],
     assignment: Mapping[str, Any],
-    result: Mapping[str, Any],
+    result: ScoreFormRoutedResult,
 ) -> str:
     """Return the compact confirmation review for one manual result."""
-    answers = result["answers"]
-    blanks = sum(answer["Answer"] == "BLANK" for answer in answers)
-    ambiguous = sum(answer["Answer"] == "AMBIGUOUS" for answer in answers)
+    answers = result.answers
+    blanks = sum(answer.selected_answer == "BLANK" for answer in answers)
+    ambiguous = sum(answer.selected_answer == "AMBIGUOUS" for answer in answers)
     student_name = f"{student['last_name']}, {student['first_name']}"
     return "\n".join([
         "Review Plain-Paper Result",
         "",
-        f"Class: {result['class_id']}",
+        f"Class: {result.class_id}",
         f"Assignment: {assignment['assignment_id']}",
         f"Student: {student_name}",
-        f"Score: {result['score']}/{result['total_points']}",
+        f"Score: {result.score}/{result.total_points}",
         f"Blank responses: {blanks}",
         f"Ambiguous responses: {ambiguous}",
     ])

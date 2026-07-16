@@ -23,6 +23,46 @@ SUPPORTED_RETAINED_SOURCE_EXTENSIONS = frozenset(
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+def validate_canonical_retained_source_relative_path(
+    value: object,
+    *,
+    expected_extension: str | None = None,
+) -> str:
+    """Return an exact scans/source/YYYY-MM-DD/filename retained path."""
+    if not isinstance(value, str) or not value:
+        raise ValueError("Retained source path must be a nonempty string.")
+    windows = PureWindowsPath(value)
+    posix = PurePosixPath(value)
+    parts = tuple(value.split("/"))
+    if (
+        "\\" in value
+        or windows.is_absolute()
+        or windows.drive
+        or windows.root
+        or posix.is_absolute()
+        or any(part in {"", ".", ".."} for part in parts)
+        or len(parts) != 4
+        or parts[:2] != ("scans", "source")
+    ):
+        raise ValueError(
+            "Retained source path must use scans/source/YYYY-MM-DD/<filename>."
+        )
+    try:
+        retained_date = date.fromisoformat(parts[2])
+    except ValueError as error:
+        raise ValueError("Retained source path must contain a valid date.") from error
+    if str(retained_date) != parts[2]:
+        raise ValueError("Retained source date must use canonical YYYY-MM-DD form.")
+    suffix = Path(parts[3]).suffix.lower()
+    if suffix not in SUPPORTED_RETAINED_SOURCE_EXTENSIONS:
+        raise ValueError("Retained source filename must use a supported extension.")
+    if expected_extension is not None and suffix != expected_extension.lower():
+        raise ValueError(
+            "Retained source path and source filename extensions must agree exactly."
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class RetainedPageImage:
     """One normalized OpenCV page plus its immutable Core provenance."""
@@ -102,28 +142,13 @@ def validate_retained_source(
         )
 
     relative_text = retained_source.retained_source_relative_path
-    if not isinstance(relative_text, str) or not relative_text:
-        raise ScoreFormRetainedPageError(
-            "retained_source_relative_path must be nonempty."
+    try:
+        validate_canonical_retained_source_relative_path(
+            relative_text, expected_extension=source_suffix
         )
-    windows = PureWindowsPath(relative_text)
-    posix = PurePosixPath(relative_text)
+    except (TypeError, ValueError) as error:
+        raise ScoreFormRetainedPageError(str(error)) from error
     normalized_parts = tuple(relative_text.split("/"))
-    if (
-        "\\" in relative_text
-        or windows.is_absolute()
-        or posix.is_absolute()
-        or windows.drive
-        or windows.root
-        or any(part in {"", ".", ".."} for part in normalized_parts)
-    ):
-        raise ScoreFormRetainedPageError(
-            "retained_source_relative_path must be a safe relative path."
-        )
-    if normalized_parts[:2] != ("scans", "source") or len(normalized_parts) != 4:
-        raise ScoreFormRetainedPageError(
-            "Retained source must be beneath the active scans/source hierarchy."
-        )
     if normalized_parts[2] != intake_date.isoformat():
         raise ScoreFormRetainedPageError(
             "Retained source date bucket does not match intake_date."

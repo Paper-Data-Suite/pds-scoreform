@@ -56,17 +56,18 @@ ScoreForm currently supports the following major workflows and capabilities.
 * Fresh installed-module registry per top-level scoring operation
 * Ordered independent Core dispatch for mixed-module source pages
 * Immutable ScoreForm page results and opaque foreign-module results
-* Page-level terminal summaries without attempt assembly or routed export
+* Page-level dispatch summaries plus issuance-level assembly and routed export
 
-### Legacy/manual Results and Future #144 Auditability
+### Durable routed results and attempt identity
 
 * CSV result export
 * Roster-enriched routed results
-* Duplicate/attempt handling for repeated QR-aware scans
+* Issuance-only assembly with missing/duplicate/conflict rejection
 * Per-result `source_file` tracking
 * Per-result `attempt_number` and `scan_timestamp` metadata
 * Safe routed-results writes that preserve existing rows
-* Filed scan copies for successful same-assignment QR-aware routed scoring
+* Idempotent schema-v2 export keyed by source scan plus issuance
+* Filed scan copies only for eligible full-success, same-assignment managed scoring
 * Workspace-level `scans_inbox/` creation to support scan workflow
 
 ### Rosters, Assignments, and Validation
@@ -108,8 +109,8 @@ ScoreForm is still under active development.
 Current limitations include:
 
 * Retained PDS2 decoding and page dispatch are active. Attempt assembly and
-  routed result export remain pending #144; failure and resolution persistence
-  remain pending #145. Manual scoring with an explicit answer key remains available.
+  complete issuance assembly and routed schema-v2 export are active; failure and
+  resolution persistence remain pending #145. Manual scoring remains available.
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
@@ -283,11 +284,14 @@ modules, or fall back to the former unqualified `assignments/` layout. Managed
 assignment setup, creation, editing, plain-paper entry, result viewing,
 personalized/class-packet generation, and managed regeneration are available.
 Generated pages use immutable ScoreForm page records and immutable Core PDS2
-route registrations. Retained PDS2 page dispatch is active; assembly/export and
-scan-review persistence retain their narrower #144/#145 gates.
+route registrations. Retained PDS2 dispatch, issuance assembly, and schema-v2
+export are active; scan-review persistence retains its narrower #145 gate.
 
-**Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for scanned PDFs and images awaiting scoring. Files there are not moved or deleted automatically.
-The #143 page-dispatch path never files an assignment-local scan copy.
+**Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for
+scans awaiting scoring. Core's canonical retained source is never moved or
+deleted. Eligible managed full-success batches may create an assignment-local
+copy. In `move` mode, ScoreForm may remove only the verified selected original
+that is a direct child of `scans_inbox`; external originals remain untouched.
 
 Generic/manual development outputs are organized under `<PDS workspace root>/local_outputs/` when ScoreForm chooses the default path:
 
@@ -870,14 +874,18 @@ scans_inbox/
   mixed_scan.pdf
 ```
 
-The program creates this folder under the resolved PDS workspace root. From the terminal menu, **Score scanned responses** can select a scan for retained PDS2 page dispatch. The active dispatch workflow accepts `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tif`, and `.tiff` (not BMP), retains the source once, and processes only retained bytes. It does not yet assemble attempts, export routed results, file assignment-local copies, or persist scan-review failures.
+The program creates this folder under the resolved PDS workspace root. From the
+terminal menu, **Score scanned responses** can select a scan for retained PDS2
+dispatch. The workflow accepts `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tif`, and
+`.tiff` (not BMP), retains the source once, assembles complete issuances, and
+exports schema-v2 results. It does not persist scan-review failures (#145).
 
-The picker only selects active PDS2 source types and never moves, renames, or
-deletes them. Core creates one canonical retained copy for each invocation.
-Partial and zero-success batches return nonzero and remain in memory; there is
-no saved QR batch summary, result CSV, assignment-local scan copy, or review
-record at this stage. Manual scoring remains available and may accept BMP by
-custom path even though the PDS2 inbox picker excludes BMP.
+Core creates one canonical retained copy for each invocation and never alters
+it. Eligible single-target managed full-success batches follow the configured
+`copy`, `move`, or `off` filing policy. Partial, mixed-module, multi-target,
+explicit-output, missing, duplicate, conflicting, and export-failure batches do
+not auto-file. Manual scoring remains available and may accept BMP by custom
+path even though the PDS2 inbox picker excludes BMP.
 
 ScoreForm module handlers may write their documented module-owned diagnostic
 images. Missing-QR diagnostics use collision-safe retained provenance names;
@@ -1025,16 +1033,18 @@ dispatch failures and do not stop later valid pages.
 scoreform score path\to\scan.pdf
 ```
 
-QR-aware one-argument scoring currently performs retained-source PDS2 page
-dispatch only. It writes no routed CSV; attempt assembly and export are #144 work.
-The #143 page-dispatch stage does not apply the scan-filing preference and never
-creates assignment-local scan copies. Core retained sources remain under
-`scans/source/YYYY-MM-DD/` for later #144/#145 processing.
+QR-aware one-argument scoring retains and dispatches PDS2 pages, groups successful
+ScoreForm pages only by authoritative issuance ID, and appends one schema-v2 row
+for every complete and unambiguous print copy. Missing or duplicate pages never
+produce a partial row. Core retained sources remain under
+`scans/source/YYYY-MM-DD/`; eligible full-success managed batches may also file
+an assignment-local copy according to the `copy`, `move`, or `off` preference.
 
 QR-aware scoring uses these batch outcomes and exit codes:
 
-* **Complete success** means every discovered source page produced a successful
-  Core dispatch (including foreign-module success); it exits `0`.
+* **Full success** means every page dispatched, every ScoreForm issuance assembled,
+  and every attempt was appended or already present; it exits `0`.
+* **Dispatch-only success** means every page belongs to foreign modules; it exits `0`.
 * **Partial success** means at least one but not all pages dispatched
   successfully; it exits nonzero.
 * **Zero success** means no page dispatched successfully; it exits `1`.
@@ -1043,14 +1053,11 @@ QR-aware scoring uses these batch outcomes and exit codes:
 * **File or registry failure** exits `1`; after retention, exact retained
   provenance remains present in the immutable result.
 
-For retained PDS2 batches, exit code `0` means complete page dispatch only; it
-does not claim that attempts were assembled or results written. The terminal
-summary is an in-memory dispatch report, not persisted review metadata.
+The terminal summary reports dispatch, assembly, appended/already-present
+attempts, and export failures. Assembly and export failures remain immutable in
+memory; #145 persistence is not created by this workflow.
 
-The routed `results.csv` audit-log contract is reserved for the #144 assembly
-and export stage and is not written by active #143 page dispatch.
-
-QR-aware scoring with an explicit output CSV is rejected before retention until #144:
+QR-aware scoring supports an explicit schema-v2 output history:
 
 ```powershell
 scoreform score scanned_file.pdf qr_metadata_results.csv
@@ -1259,7 +1266,7 @@ key is scoring authority; assignment-title-only changes are allowed.
 Each dispatch extracts only the requested retained image or PDF source page and
 returns one immutable page result. A retained source page number is independent
 of the answer sheet's logical page. PDS2 batch page dispatch is active; attempt
-assembly/export and review persistence remain pending #144 and #145.
+assembly/export is active; review persistence remains pending #145.
 # Multi-page assessments
 
 ScoreForm generates 1-75-question assignments with the registered 15-question

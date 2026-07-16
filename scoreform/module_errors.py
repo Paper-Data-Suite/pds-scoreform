@@ -64,3 +64,35 @@ class ScoreFormQrDiagnosticWriteError(ScoreFormScanDispatchError):
 
 class ScoreFormDispatchIntegrationError(ScoreFormScanDispatchError):
     """A module success violated ScoreForm's application integration contract."""
+
+
+class ScoreFormAttemptAssemblyError(ScoreFormModuleError):
+    """Base error for post-dispatch issuance assembly."""
+
+
+class ScoreFormDuplicatePageError(ScoreFormAttemptAssemblyError):
+    """An issuance has repeated physical identity."""
+
+
+class ScoreFormIncompleteAttemptError(ScoreFormAttemptAssemblyError):
+    """An observed issuance is missing authoritative pages."""
+
+
+class ScoreFormAttemptConflictError(ScoreFormAttemptAssemblyError):
+    """Observations for one issuance contradict each other."""
+
+
+class ScoreFormRoutedResultValidationError(ScoreFormModuleError, ValueError):
+    """An in-memory routed result violates schema v2."""
+
+
+class ScoreFormRoutedResultReadError(ScoreFormModuleError):
+    """An existing routed history cannot be read safely."""
+
+
+class ScoreFormRoutedResultWriteError(ScoreFormModuleError):
+    """A routed history cannot be replaced safely."""
+
+
+class ScoreFormRoutedResultIntegrityError(ScoreFormModuleError):
+    """Durable exported identity was reused contradictorily."""

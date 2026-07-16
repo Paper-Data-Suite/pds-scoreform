@@ -1,12 +1,26 @@
 """Scoring command orchestration for retained PDS2 and manual workflows."""
 
 import os
+from pathlib import Path
 
 from scoreform import workspace
 from scoreform.assignment import load_answer_key
+from scoreform.attempt_assembly import (
+    ScoreFormRoutedScoringBatch,
+    assemble_scoreform_attempts,
+    format_routed_scoring_summary,
+)
 from scoreform.config import LOCAL_RESULTS_CSV
-from scoreform.pds2_scan_dispatch import format_pds2_dispatch_summary
-from scoreform.results import export_to_csv
+from scoreform.pds2_scan_dispatch import (
+    Pds2ScanDispatchResult,
+    format_pds2_dispatch_summary,
+)
+from scoreform.results import export_scoreform_attempts, export_to_csv
+from scoreform.scan_filing import (
+    file_original_scan_after_success,
+    print_scan_filing_result,
+)
+from scoreform.scan_filing_settings import get_scan_filing_mode
 from scoreform.scoring import (
     ManualScoringSummary,
     process_file,
@@ -26,14 +40,55 @@ def _print_manual_scoring_summary(summary):
     print(summary.format())
 
 
+def _eligible_for_scan_filing(batch: ScoreFormRoutedScoringBatch, output_file) -> bool:
+    dispatch = batch.dispatch_result
+    assembly = batch.assembly_result
+    export = batch.export_result
+    return (
+        output_file is None and batch.status == "full_success" and export is not None
+        and not export.failures and dispatch.other_module_success_count == 0
+        and dispatch.scoreform_page_score_count == dispatch.total_source_pages
+        and len({
+            (item.routed_result.class_id, item.routed_result.assignment_id)
+            for item in assembly.completed_attempts
+        }) == 1
+        and bool(export.appended_attempts or export.already_present_attempts)
+    )
+
+
+def _run_routed_scoring(input_file, *, workspace_root: Path, output_file=None):
+    dispatch = process_file_qr_aware(input_file, workspace_root=workspace_root)
+    if not isinstance(dispatch, Pds2ScanDispatchResult):
+        print("Error: PDS2 scan processing returned an invalid batch result.")
+        return 1
+    print(format_pds2_dispatch_summary(dispatch))
+    assembly = assemble_scoreform_attempts(dispatch, workspace_root=workspace_root)
+    export = None
+    if assembly.completed_attempts:
+        export = export_scoreform_attempts(
+            assembly, workspace_root=workspace_root,
+            explicit_output_file=Path(output_file) if output_file is not None else None,
+        )
+    batch = ScoreFormRoutedScoringBatch(dispatch, assembly, export)
+    print(format_routed_scoring_summary(batch))
+
+    if _eligible_for_scan_filing(batch, output_file):
+        result = file_original_scan_after_success(
+            [item.routed_result for item in assembly.completed_attempts], input_file,
+            mode=get_scan_filing_mode(workspace_root), workspace_root=workspace_root,
+        )
+        print_scan_filing_result(result)
+    return batch.exit_code()
+
+
 def run_score(args):
     """Dispatch retained PDS2 pages or run the distinct manual answer-key path."""
     if len(args) < 1:
         print("Usage:")
         print("  scoreform score <input_file>")
-        print("      Retain and independently dispatch PDS2 source pages through Core.")
+        print("      Retain, dispatch, assemble, and route complete PDS2 attempts.")
         print("  scoreform score <input_file> <output_csv>")
-        print("      Routed result export remains pending #144.")
+        print("      Write assembled PDS2 attempts to an explicit schema-v2 CSV.")
         print("  scoreform score <input_file> <answer_key_json>")
         print("      Manual scoring with default output:")
         print("      <PDS workspace root>/local_outputs/results/results.csv")
@@ -48,21 +103,14 @@ def run_score(args):
     if len(args) == 1:
         workspace_root = workspace.get_scoreform_workspace_root()
         print("Using retained PDS2 Core dispatch mode...")
-        result = process_file_qr_aware(input_file, workspace_root=workspace_root)
-        if not hasattr(result, "exit_code"):
-            print("Error: PDS2 scan processing returned an invalid batch result.")
-            return 1
-        print(format_pds2_dispatch_summary(result))
-        print("Attempt assembly and routed result export remain pending #144.")
-        print("No routed results were written.")
-        return result.exit_code()
+        return _run_routed_scoring(input_file, workspace_root=workspace_root)
 
     if len(args) == 2 and not args[1].lower().endswith(".json"):
-        print(
-            "Error: Explicit QR-aware CSV export is unavailable; routed result "
-            "assembly and export remain pending #144."
+        workspace_root = workspace.get_scoreform_workspace_root()
+        print("Using retained PDS2 Core dispatch mode with explicit output...")
+        return _run_routed_scoring(
+            input_file, workspace_root=workspace_root, output_file=args[1]
         )
-        return 1
 
     output_file = None
     answer_key_file = "answer_key.json"

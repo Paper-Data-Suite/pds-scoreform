@@ -36,7 +36,8 @@ The teacher-facing workflow retains a selected source before QR detection,
 parses only Core PDS2 locators, and dispatches valid requests in source-page
 order through a fresh installed-module registry. The handler never decodes PDS2
 and a retained PDF page number is independent of the sheet's logical page.
-Attempt assembly/export and review persistence remain pending #144/#145.
+Complete ScoreForm issuances are assembled and exported under #144. Review
+failure and resolution persistence remains pending #145.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or
 fall back to the former unqualified assignment layout. Help/version, assignment
@@ -302,9 +303,9 @@ Current mode inference is:
 
 | Arguments after `score` | Current behavior |
 | --- | --- |
-| `<input>` | retained PDS2 page dispatch; no routed export |
+| `<input>` | retained PDS2 dispatch, complete-issuance assembly, managed schema-v2 export |
 | `<input> <value ending in .json>` | manual scoring with that answer key and the managed default results CSV |
-| `<input> <other value>` | rejected before retention pending routed export in #144 |
+| `<input> <output.csv>` | retained PDS2 dispatch, issuance assembly, explicit schema-v2 export |
 | `<input> <output> <answer-key>` | manual scoring with explicit output and answer key |
 
 The current three-argument manual form places the output CSV before the answer
@@ -313,9 +314,11 @@ key. The proposed form
 implementation and must not be documented as working unless code support is
 added in a separate compatibility-conscious change.
 
-The #143 retained PDS2 path never applies assignment-local scan filing. The
-existing `scan-filing` preference remains inspectable for later workflows, but
-page dispatch does not copy, move, rename, or delete the selected original.
+Core's retained PDS2 source is never altered. Eligible managed full-success,
+ScoreForm-only, single-target batches apply the `scan-filing` preference.
+`move` may remove only a verified selected original directly inside
+`scans_inbox`. Partial, mixed-module, multi-target, explicit-output, missing,
+duplicate, conflicting, and export-failure batches never auto-file.
 
 The direct settings commands are:
 
@@ -875,5 +878,5 @@ document does not implement:
 Existing `generate`, `regenerate-sheets`, and `score` commands require no new
 flags. Assignments may contain 1-75 questions and are automatically paged at 15
 questions per physical sheet. The active PDS2 scanner dispatches physical pages
-independently and preserves source order. It does not yet assemble student
-attempts or write routed result rows (#144).
+independently, then assembles complete ScoreForm issuances in authoritative
+logical-page order and writes one schema-v2 row per completed observation.
