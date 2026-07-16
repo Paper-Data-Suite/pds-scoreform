@@ -432,15 +432,23 @@ def detect_qr_payload_text(
             "QR detection requires nonempty uint8 image data."
         )
         return QrPayloadDetectionResult(None, None, error=error)
-    detector = cv2.QRCodeDetector()
-    try:
-        for method, candidate in _qr_candidate_images(image):
+    attempted = 0
+    completed = 0
+    last_detector_error: Exception | None = None
+    for method, candidate in _qr_candidate_images(image):
+        attempted += 1
+        try:
+            detector = cv2.QRCodeDetector()
             payload, _, _ = detector.detectAndDecode(candidate)
-            if payload:
-                return QrPayloadDetectionResult(payload, method)
-    except Exception as error:
+        except Exception as error:
+            last_detector_error = error
+            continue
+        completed += 1
+        if payload:
+            return QrPayloadDetectionResult(payload, method)
+    if attempted and completed == 0:
         failure = ScoreFormQrUnreadableError("QR image detection failed.")
-        failure.__cause__ = error
+        failure.__cause__ = last_detector_error
         return QrPayloadDetectionResult(None, None, error=failure)
     diagnostics = save_qr_failure_diagnostics_with_status(
         image,

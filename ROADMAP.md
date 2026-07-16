@@ -1,102 +1,55 @@
 # ScoreForm Roadmap
 
-## Project Status
+## Project status
 
-ScoreForm is an early prototype and active-development local-first OMR tool for generating printable answer sheets and scoring scanned responses.
+ScoreForm 0.9.1 is a pre-1.0, local-first classroom OMR release candidate. It
+generates registered answer sheets and scores retained scans through PDS Core
+0.5. Scan quality affects reliability, and teachers must manually verify every
+result before recording a grade.
 
-It works for controlled testing and development use, but it is not yet recommended for high-stakes grading without manual verification. Current work is focused on improving reliability, test coverage, documentation, and public-readiness while keeping example data synthetic.
+Future planning is tracked in GitHub issues. This document does not promise a
+next version or milestone.
 
-## Completed Milestones
+## v0.9.1 — Core 0.5 and PDS2 migration
 
-### v0.1.0 - QR-Aware Scoring With Routed Results
+The v0.9.1 milestone establishes the current architecture:
 
-ScoreForm can generate QR-coded student sheets and class packets, decode QR payloads, score QR-aware scans, route results into class and assignment folders, enrich routed results with roster data, and preserve legacy/manual scoring workflows. Regression coverage exists for QR decoding, QR-aware scoring, mixed scans, routed results, and roster-enriched results.
+- ScoreForm work is stored below
+  `classes/<class_id>/modules/scoreform/work/<assignment_id>/`.
+- Every generated routable page has immutable issuance and page records plus a
+  unique Core route registration before its PDS2 locator is rendered.
+- The installed `paper_data_suite.modules` entry point supplies ScoreForm's
+  side-effect-free module profile and defensive one-page route handler.
+- Core retains source bytes before decoding and dispatches pages through its
+  installed module registry.
+- ScoreForm assembles complete standard or compact multi-page attempts by
+  issuance identity and writes routed-results schema version 2.
+- Scan failures and append-only resolutions use Core metadata schema version 2.
+- Copy, move, and off scan-filing modes preserve Core's retained source.
+- Manual answer-key scoring and plain-paper entry remain separate from routed
+  PDS2 scoring.
 
-### v0.2.0 - Scan Workflow and Auditability
+PDS1 and OMR1 sheets are unsupported. Historical schema-v1 routed results are
+not migrated, old unqualified assignment workspaces are not discovered, and
+previously printed legacy sheets cannot be assigned fabricated routes.
 
-ScoreForm tracks scan source files in result rows, creates a project-level `scans_inbox/`, routes QR-aware debug output into assignment folders, handles duplicate scan attempts with attempt metadata, and protects existing assignment folders from mismatched assignment JSON collisions.
+## Historical milestones
 
-### v0.3.0 - Teacher-Friendly Terminal Menu
+Milestones v0.1.0 through v0.8.1 introduced the initial scoring, auditability,
+terminal menu, installable command, roster and assignment management, flexible
+forms, robustness work, and workflow polish. Those releases predate and are
+superseded by the v0.9.1 routing and storage contracts where their behavior
+conflicts with the current architecture.
 
-A basic terminal menu wraps the main workflows so users can generate sheets, score scans, decode QR codes, and validate files without memorizing every command. Assignment-folder setup remains available through the direct CLI.
+## Future planning principles
 
-### v0.4.0 - Installable Command
+- Keep ScoreForm local-first and preserve synthetic public examples.
+- Improve physical-scan reliability without weakening manual verification.
+- Keep result history auditable; do not select an official attempt or grade.
+- Keep sibling modules isolated behind PDS Core contracts.
+- Treat gradebook, LMS export, reporting, and broader UI work as separately
+  approved features.
+- Keep release, privacy, schema, CLI, and physical-test documentation aligned
+  with runtime behavior.
 
-ScoreForm supports editable installation, a `scoreform` console command, a `scoreform/cli.py` entry point, `pyproject.toml` packaging metadata, and backward-compatible `python main.py` commands.
-
-### v0.5.0 - Roster and Assignment Management
-
-The terminal menu supports creating rosters and assignments without manually editing CSV or JSON files. These workflows include parent-directory creation, overwrite confirmation, validation after save, and support for assignments with configurable question counts.
-
-### v0.6.0 - Flexible Form Configuration and Standards Metadata
-
-ScoreForm includes a pytest foundation, supports single-page assignments with 1-15 questions, validates optional question-level standards metadata, preserves optional roster columns when loading rosters, and keeps existing assignment files without standards metadata valid.
-
-### v0.7.0 - Robustness, Cleanup, and Public Readiness
-
-ScoreForm added deterministic scoring accuracy coverage, CLI failure-mode tests, ignored `local_outputs/` routing for generated local artifacts, PowerShell helper cleanup, clearer score command help, and initial public-facing roadmap and changelog files while preserving `docs/development_plan.md` as the detailed working document.
-
-### v0.8.0 - Menu Workflow Polish and Release Documentation
-
-ScoreForm completed interactive menu clear/pause behavior, read-only roster viewing, the `scans_inbox/` picker, QR-aware routed scoring as the recommended/default menu scoring workflow, QR-aware batch summaries, non-overwriting debug image filenames, fast development checks through `run_fast_tests.ps1`, and documentation/version closeout for the `0.8.0` release.
-
-### v0.8.1 - Manual Run-Through Fixes and Menu Refinement
-
-ScoreForm refined the interactive teacher workflow after a full manual run-through. The top-level menu now centers on Assignment Management, Roster Management, Help, and Exit. Assignment workflows now live under Assignment Management, while path-oriented primitives such as `setup-assignment` remain direct-CLI-only. The interactive menu now uses consistent `ScoreForm` headers with restrained terminal styling where supported, and release tooling now generates stricter version assertions.
-
-## Current Direction
-
-The `v0.8.1` milestone is complete. Current near-term work is moving into `v0.9.0`, focused on project organization, project-root/home directory planning, scan archiving, data lifecycle design, and schema/version contract documentation.
-
-The terminal menu is organized around teacher workflows: Assignment Management, Roster Management, Help, and Exit. Assignment creation, validation, generation, scoring, and QR decoding live under Assignment Management. Stable path-oriented primitives such as `setup-assignment` remain available through the direct CLI without appearing in the normal teacher-facing menu.
-
-## Near-Term Priorities
-
-* Complete the post-public repository audit.
-* Run senior-developer review.
-* Run project-manager / release-readiness review.
-* Keep `README.md` current.
-* Keep all examples synthetic.
-* Continue improving tests and documentation.
-
-## Future Work
-
-Planned and possible future work includes:
-
-* Keep CLI help, version output, and terminal menu help current as commands evolve.
-* Add menu-driven standards editing.
-* Add standards performance reporting.
-* Add roster editing.
-* Add roster import column mapping.
-* Add roster summaries.
-* Add optional report/export field selection.
-* Add a manual answer entry workflow.
-* Add a scan storage or archive workflow separate from the current `scans_inbox/` picker.
-* Add project root/home directory configuration as future architecture work.
-* Add structured logging.
-* Improve QR and scan reliability.
-* Add malformed and missing QR test coverage.
-* Support multi-page forms.
-* Broaden CLI/parser cleanup if needed.
-* Consolidate CSV-writing logic.
-* Clean up roster enrichment behavior.
-* Extract shared validation helpers.
-* Consider a `pathlib` migration.
-* Consider splitting menu and command-dispatch modules as the CLI grows.
-
-## Longer-Term Direction
-
-ScoreForm should remain standalone and local-first.
-
-ScoreForm may eventually become one module in a larger Paper Data Suite, but that suite does not exist yet. Longer-term ideas may include scanned essay tagging or scoring, reporting, data visualization, and email/export workflows.
-
-Future schema and module-boundary decisions should preserve standalone ScoreForm functionality while allowing later interoperability if a larger suite becomes useful.
-
-## Public-Readiness Notes
-
-* Repository examples must remain synthetic.
-* Real student data, scanned student work, and private classroom records should not be committed.
-* `README.md` should clearly identify current limitations.
-* `SECURITY.md` and audit work may be needed before broader classroom use or a stable release.
-* Detailed working planning notes are preserved in `docs/development_plan.md`.
-* A post-public repository audit should happen before recommending ScoreForm for broader classroom use or treating it as classroom-ready.
+See the repository's open GitHub issues for approved future work.

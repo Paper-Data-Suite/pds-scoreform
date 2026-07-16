@@ -29,6 +29,7 @@ from scoreform import pds2_scan_dispatch as dispatch_module
 from scoreform import scoring
 from scoreform.module_errors import (
     ScoreFormDispatchIntegrationError,
+    ScoreFormQrUnreadableError,
     ScoreFormRetainedPageError,
     ScoreFormScanPreflightError,
 )
@@ -787,6 +788,66 @@ def test_missing_qr_preserves_diagnostic_directory_failure(
     assert detection.error is not None
     assert detection.diagnostic_errors == (diagnostic_error,)
     assert detection.diagnostic_paths == ()
+
+
+def test_qr_detection_continues_after_one_candidate_raises(
+    tmp_path: Path, monkeypatch
+) -> None:
+    retained = _retained(tmp_path)
+    candidates = (
+        ("raw", np.full((30, 30, 3), 255, np.uint8)),
+        ("scaled", np.full((60, 60, 3), 255, np.uint8)),
+    )
+    payload = f"PDS2|m=scoreform|c=class1|w=quiz1|r=rt_{'9' * 32}"
+    calls = []
+
+    class Detector:
+        def detectAndDecode(self, _candidate):
+            calls.append(True)
+            if len(calls) == 1:
+                raise RuntimeError("OpenCV candidate failure")
+            return payload, None, None
+
+    monkeypatch.setattr(dispatch_module, "_qr_candidate_images", lambda _image: candidates)
+    monkeypatch.setattr(dispatch_module.cv2, "QRCodeDetector", Detector)
+
+    detection = dispatch_module.detect_qr_payload_text(
+        candidates[0][1],
+        retained_source=retained,
+        source_page_number=1,
+        workspace_root=tmp_path,
+    )
+
+    assert detection.raw_payload_text == payload
+    assert detection.decode_method == "scaled"
+    assert detection.error is None
+    assert calls == [True, True]
+
+
+def test_qr_detection_reports_unreadable_when_every_candidate_raises(
+    tmp_path: Path, monkeypatch
+) -> None:
+    retained = _retained(tmp_path)
+    candidates = (("raw", np.full((30, 30, 3), 255, np.uint8)),)
+
+    class Detector:
+        def detectAndDecode(self, _candidate):
+            raise RuntimeError("OpenCV candidate failure")
+
+    monkeypatch.setattr(dispatch_module, "_qr_candidate_images", lambda _image: candidates)
+    monkeypatch.setattr(dispatch_module.cv2, "QRCodeDetector", Detector)
+
+    detection = dispatch_module.detect_qr_payload_text(
+        candidates[0][1],
+        retained_source=retained,
+        source_page_number=1,
+        workspace_root=tmp_path,
+    )
+
+    assert detection.raw_payload_text is None
+    assert detection.decode_method is None
+    assert isinstance(detection.error, ScoreFormQrUnreadableError)
+    assert isinstance(detection.error.__cause__, RuntimeError)
 
 
 def test_missing_qr_preserves_successful_and_failed_diagnostics_in_summary(

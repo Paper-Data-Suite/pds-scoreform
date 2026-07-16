@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "scoreform"
-version = "0.8.1"
+version = "0.9.1"
 description = "A local-first classroom OMR tool for generating and scoring printable answer sheets."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
   { name = "Stephen Severino" }
 ]
@@ -23,9 +23,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "build",
   "pytest",
   "ruff",
-  "mypy"
+  "mypy",
+  "twine"
 ]
 
 [project.scripts]

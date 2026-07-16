@@ -20,6 +20,8 @@ from scoreform.folders import ensure_parent_dir
 from scoreform.layouts import get_layout
 from scoreform.paging import question_range_for_page
 
+QR_QUIET_ZONE_MODULES = 4
+
 
 def _pdf_coord(x, y, layout=None):
     """Convert template coordinates to PDF points with origin at bottom-left."""
@@ -199,7 +201,7 @@ def make_qr_image(payload):
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
         box_size=10,
-        border=0,
+        border=QR_QUIET_ZONE_MODULES,
     )
     qr.add_data(payload)
     qr.make(fit=True)

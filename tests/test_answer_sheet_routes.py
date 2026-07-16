@@ -7,6 +7,7 @@ from pds_core.pds2 import parse_pds2_payload
 from pds_core.route_registrations import load_route_registration
 from pds_core.routes import route_registration_path
 from pds_core.routing_models import PDS2_SCHEMA, RouteLocator
+from pds_core.scan_retention import retain_source_scan
 
 import scoreform.answer_sheet_generation as generation_module
 import scoreform.answer_sheet_routes as routes_module
@@ -29,6 +30,7 @@ from scoreform.answer_sheet_routes import (
 )
 from scoreform.folders import setup_assignment_folder
 from scoreform.layouts import get_layout
+from scoreform.pds2_scan_dispatch import detect_qr_payload_text
 from scoreform.templates import build_qr_payload, student_pdf_filename
 from scoreform.work_paths import scoreform_work_paths
 
@@ -387,6 +389,12 @@ def test_rendered_pdf_qrs_decode_to_exact_planned_locators(
     )
     student = roster["students"][0]
     output = paths.individual_templates_dir / student_pdf_filename(student)
+    route_ids = iter(
+        (
+            "rt_10000000000000000000000000000000",
+            "rt_20000000000000000000000000000000",
+        )
+    )
     plan = plan_answer_sheet_artifact(
         tmp_path,
         paths.work_ref,
@@ -395,6 +403,7 @@ def test_rendered_pdf_qrs_decode_to_exact_planned_locators(
         output,
         output_kind="individual_pdf",
         generation_id="gen_80000000000000000000000000000000",
+        route_id_generator=lambda: next(route_ids),
     )
     result = execute_answer_sheet_artifact(tmp_path, paths.work_ref, plan)
     assert result.success
@@ -405,14 +414,41 @@ def test_rendered_pdf_qrs_decode_to_exact_planned_locators(
 
     rendered_pages = pdf2image.convert_from_path(output, dpi=300)
     expected_payloads = [route.payload_text for route in plan.route_sets[0]]
+    retained = retain_source_scan(tmp_path, output)
     decoded_payloads = []
-    detector = cv2.QRCodeDetector()
-    for rendered_page in rendered_pages:
+    for source_page_number, rendered_page in enumerate(rendered_pages, start=1):
         image = cv2.cvtColor(np.array(rendered_page), cv2.COLOR_RGB2BGR)
-        payload, _points, _straight = detector.detectAndDecode(image)
-        decoded_payloads.append(payload)
+        detection = detect_qr_payload_text(
+            image,
+            retained_source=retained,
+            source_page_number=source_page_number,
+            workspace_root=tmp_path,
+        )
+        assert detection.error is None
+        decoded_payloads.append(detection.raw_payload_text)
 
     assert decoded_payloads == expected_payloads
+
+
+def test_generated_qr_has_four_module_white_quiet_zone():
+    from scoreform.templates import QR_QUIET_ZONE_MODULES, make_qr_image
+
+    reader = make_qr_image(
+        "PDS2|m=scoreform|c=class1|w=quiz|"
+        "r=rt_1234567890abcdef1234567890abcdef"
+    )
+    width, height = reader.getSize()
+    image = np.frombuffer(reader.getRGBData(), dtype=np.uint8).reshape(
+        height, width, 3
+    )
+    white_rows = np.all(image == 255, axis=(1, 2))
+    white_columns = np.all(image == 255, axis=(0, 2))
+
+    assert QR_QUIET_ZONE_MODULES == 4
+    assert np.count_nonzero(np.cumprod(white_rows)) == 40
+    assert np.count_nonzero(np.cumprod(white_rows[::-1])) == 40
+    assert np.count_nonzero(np.cumprod(white_columns)) == 40
+    assert np.count_nonzero(np.cumprod(white_columns[::-1])) == 40
 
 
 class _RecordingCanvas:

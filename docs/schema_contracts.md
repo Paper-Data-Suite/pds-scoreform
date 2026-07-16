@@ -1,5 +1,10 @@
 # ScoreForm Schema and File Contract
 
+> v0.9.1 current-only boundary: managed work is module-qualified, generated and
+> scanned routed sheets use PDS2, routed results use schema version 2, and Core
+> failure/resolution metadata uses schema version 2. Historical PDS1/OMR1 and
+> schema-v1 routed-result data is unsupported and is not migrated.
+
 ## Status categories
 
 This document describes the files and metadata that ScoreForm currently reads or

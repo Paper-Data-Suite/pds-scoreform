@@ -9,6 +9,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = Path("pyproject.toml")
 CLI_DISCOVERABILITY_TEST_PATH = Path("tests/test_cli_discoverability.py")
+README_PATH = Path("README.md")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:\.dev\d+)?$")
 
 
@@ -82,6 +83,19 @@ def update_cli_discoverability_test_version(text: str, version: str) -> str:
     return updated
 
 
+def update_readme_version(text: str, version: str) -> str:
+    updated, count = re.subn(
+        r"(?m)^Current version: `[0-9]+\.[0-9]+\.[0-9]+(?:\.dev[0-9]+)?`\.$",
+        f"Current version: `{version}`.",
+        text,
+    )
+    if count != 1:
+        raise VersionUpdateError(
+            "Could not update README.md: missing unique current-version line."
+        )
+    return updated
+
+
 def write_updated_file(path: Path, updated_text: str) -> None:
     path.write_text(updated_text, encoding="utf-8")
 
@@ -91,6 +105,7 @@ def update_version(root: Path, version: str) -> None:
 
     pyproject_path = root / PYPROJECT_PATH
     cli_test_path = root / CLI_DISCOVERABILITY_TEST_PATH
+    readme_path = root / README_PATH
 
     pyproject_updated = update_pyproject_version(
         pyproject_path.read_text(encoding="utf-8"),
@@ -100,9 +115,14 @@ def update_version(root: Path, version: str) -> None:
         cli_test_path.read_text(encoding="utf-8"),
         version,
     )
+    readme_updated = update_readme_version(
+        readme_path.read_text(encoding="utf-8"),
+        version,
+    )
 
     write_updated_file(pyproject_path, pyproject_updated)
     write_updated_file(cli_test_path, cli_test_updated)
+    write_updated_file(readme_path, readme_updated)
 
 
 def main(argv: list[str] | None = None) -> int:
