@@ -27,7 +27,7 @@ function Invoke-Step {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-Write-Host "=== ScoreForm Core 0.5 Foundation Validation ===" -ForegroundColor Cyan
+Write-Host "=== ScoreForm v0.9.1 Release Readiness ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
 Invoke-Step "Require Python 3.11+" {
@@ -41,6 +41,9 @@ Invoke-Step "Check installed dependency consistency" {
 }
 Invoke-Step "Compile ScoreForm" {
     & $Python -m compileall -q scoreform
+}
+Invoke-Step "Validate tracked release text encoding" {
+    & $Python scripts\verify_text_encoding.py
 }
 Invoke-Step "Import ScoreForm, PDS contract, CLI, and Core" {
     & $Python -c "import pds_core; import scoreform; import scoreform.pds_contract; import scoreform.cli"
@@ -68,6 +71,9 @@ Invoke-Step "Run pytest suite" {
 }
 Invoke-Step "Run Ruff" {
     & $Python -m ruff check .
+}
+Invoke-Step "Run mypy" {
+    & $Python -m mypy scoreform
 }
 
 if (Test-Path -LiteralPath $VenvScoreForm -PathType Leaf) {
@@ -434,6 +440,74 @@ try {
             "tests/test_attempt_assembly.py::test_deterministic_review_smoke_exports_complete_and_preserves_review_history"
         ) -q
     }
+
+    foreach ($Case in @(
+        @{
+            Name = "standard multi-page"
+            ClassId = "release_standard"
+            AssignmentId = "standard_30"
+            Questions = 30
+            Layout = $null
+            ExpectedPages = 2
+        },
+        @{
+            Name = "compact multi-page"
+            ClassId = "release_compact"
+            AssignmentId = "compact_30"
+            Questions = 30
+            Layout = "compact_25q_abcd_v1"
+            ExpectedPages = 2
+        }
+    )) {
+        $FixtureRoot = Join-Path $SmokeRoot ("fixtures\" + $Case.AssignmentId)
+        $FixtureArgs = @(
+            "scripts\build_release_e2e_fixture.py", $FixtureRoot,
+            "--class-id", $Case.ClassId,
+            "--assignment-id", $Case.AssignmentId,
+            "--questions", [string]$Case.Questions
+        )
+        if ($Case.Layout) {
+            $FixtureArgs += @("--layout-id", $Case.Layout)
+        }
+        Invoke-Step "Build $($Case.Name) installed E2E inputs" {
+            & $Python @FixtureArgs
+        }
+        $AssignmentPath = Join-Path $FixtureRoot "assignment.json"
+        $RosterPath = Join-Path $FixtureRoot "roster.csv"
+        Invoke-Step "Set up $($Case.Name) installed E2E work" {
+            & $ScoreForm setup-assignment $AssignmentPath $RosterPath
+        }
+        Invoke-Step "Generate $($Case.Name) registered sheets" {
+            & $ScoreForm generate $AssignmentPath --rosters $RosterPath
+        }
+        $CaseRoot = Join-Path $SmokeRoot (
+            "classes\$($Case.ClassId)\modules\scoreform\work\$($Case.AssignmentId)"
+        )
+        $CasePacket = Join-Path $CaseRoot "templates\class_packet.pdf"
+        $CasePages = @(Get-ChildItem -LiteralPath (Join-Path $CaseRoot "answer_sheets\pages") -Filter "*.json" -File)
+        $CaseRoutes = @(Get-ChildItem -LiteralPath (Join-Path $CaseRoot "routes") -Filter "*.json" -File -Recurse)
+        $ExpectedRegisteredPages = 2 * $Case.ExpectedPages
+        if (
+            $CasePages.Count -ne $ExpectedRegisteredPages -or
+            $CaseRoutes.Count -ne $ExpectedRegisteredPages
+        ) {
+            throw "$($Case.Name) did not create separate individual and packet page/route identities."
+        }
+        Invoke-Step "Decode $($Case.Name) registered pages" {
+            & $ScoreForm decode-qr $CasePacket
+        }
+        Invoke-Step "Score and assemble $($Case.Name) installed E2E" {
+            & $ScoreForm score $CasePacket
+        }
+        $CaseRows = @(Import-Csv -LiteralPath (Join-Path $CaseRoot "results.csv"))
+        if (
+            $CaseRows.Count -ne 1 -or
+            $CaseRows[0].result_schema_version -ne "2" -or
+            $CaseRows[0].result_origin -ne "pds2_scan"
+        ) {
+            throw "$($Case.Name) did not export one schema-v2 routed attempt."
+        }
+    }
 }
 finally {
     if ($workspaceWasSet) {
@@ -468,5 +542,105 @@ Invoke-Step "Run dependency checker" {
     powershell -ExecutionPolicy Bypass -File .\check_dependencies.ps1
 }
 
+$BuildDir = Join-Path $RepoRoot "build"
+$DistDir = Join-Path $RepoRoot "dist"
+foreach ($GeneratedDir in @($BuildDir, $DistDir)) {
+    $ResolvedGenerated = [System.IO.Path]::GetFullPath($GeneratedDir)
+    $ResolvedRepo = [System.IO.Path]::GetFullPath($RepoRoot)
+    if (-not $ResolvedGenerated.StartsWith(
+        $ResolvedRepo + [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw "Refusing to clean generated directory outside repository: $ResolvedGenerated"
+    }
+    if ((Split-Path -Leaf $ResolvedGenerated) -notin @("build", "dist")) {
+        throw "Refusing to clean unexpected generated directory: $ResolvedGenerated"
+    }
+    if (Test-Path -LiteralPath $ResolvedGenerated) {
+        Remove-Item -LiteralPath $ResolvedGenerated -Recurse -Force
+    }
+}
+
+Invoke-Step "Build wheel and source distribution" {
+    $SavedErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $BuildOutput = & $Python -m build 2>&1
+    $BuildExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $SavedErrorActionPreference
+    $BuildOutput | ForEach-Object { Write-Host $_ }
+    if ($BuildExitCode -ne 0) { exit $BuildExitCode }
+}
+Invoke-Step "Check release artifacts with twine" {
+    & $Python -m twine check .\dist\*
+}
+Invoke-Step "Validate release artifact names, metadata, and contents" {
+    & $Python scripts\verify_release_artifacts.py --version 0.9.1 --dist .\dist
+}
+$CoreWheelRoot = $null
+$CoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
+$SavedCoreWheel = $env:PDS_CORE_WHEEL
+try {
+    if (-not $CoreWheelWasSet) {
+        $CoreSource = Join-Path (Split-Path -Parent $RepoRoot) "pds-core"
+        if (-not (Test-Path -LiteralPath (Join-Path $CoreSource "pyproject.toml") -PathType Leaf)) {
+            throw "Set PDS_CORE_WHEEL to a separately built pds-core 0.5 wheel."
+        }
+        $CoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+            "scoreform-core-wheel-" + [guid]::NewGuid().ToString("N")
+        )
+        New-Item -ItemType Directory -Path $CoreWheelRoot | Out-Null
+        Invoke-Step "Build separate pds-core 0.5 test wheel" {
+            $SavedErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $CoreBuildOutput = & $Python -m build --wheel --outdir $CoreWheelRoot $CoreSource 2>&1
+            $CoreBuildExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $SavedErrorActionPreference
+            $CoreBuildOutput | ForEach-Object { Write-Host $_ }
+            if ($CoreBuildExitCode -ne 0) { exit $CoreBuildExitCode }
+        }
+        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.5*.whl" -File)
+        if ($CoreWheels.Count -ne 1) {
+            throw "Expected one separately built pds-core 0.5 wheel."
+        }
+        $env:PDS_CORE_WHEEL = $CoreWheels[0].FullName
+    }
+    Invoke-Step "Validate clean wheel and source-distribution installations" {
+        powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
+            -Python $Python -Version 0.9.1
+    }
+}
+finally {
+    if ($CoreWheelWasSet) {
+        $env:PDS_CORE_WHEEL = $SavedCoreWheel
+    }
+    else {
+        Remove-Item Env:PDS_CORE_WHEEL -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $CoreWheelRoot -and (Test-Path -LiteralPath $CoreWheelRoot)) {
+        $ResolvedCoreWheelRoot = [System.IO.Path]::GetFullPath($CoreWheelRoot)
+        $ResolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        if (
+            -not $ResolvedCoreWheelRoot.StartsWith($ResolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not (Split-Path -Leaf $ResolvedCoreWheelRoot).StartsWith("scoreform-core-wheel-")
+        ) {
+            throw "Refusing to remove unexpected Core-wheel root: $ResolvedCoreWheelRoot"
+        }
+        Remove-Item -LiteralPath $ResolvedCoreWheelRoot -Recurse -Force
+    }
+}
+Invoke-Step "Verify exact CLI version output" {
+    $VersionOutput = & $ScoreForm --version
+    if (($VersionOutput -join "`n") -ne "ScoreForm 0.9.1") { exit 1 }
+}
+Invoke-Step "Check Git whitespace" {
+    git diff --check
+}
+Invoke-Step "Report release artifact SHA-256" {
+    Get-FileHash -Algorithm SHA256 -LiteralPath @(
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.9.1-*.whl" -File).FullName,
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.9.1.tar.gz" -File).FullName
+    ) | Format-Table -AutoSize
+}
+
 Write-Host ""
-Write-Host "All ScoreForm Core 0.5 foundation checks passed." -ForegroundColor Green
+Write-Host "All ScoreForm v0.9.1 release-readiness checks passed." -ForegroundColor Green

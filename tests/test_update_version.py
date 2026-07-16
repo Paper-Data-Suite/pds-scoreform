@@ -87,6 +87,20 @@ def test_update_cli_discoverability_test_version_supports_repeated_strict_update
     assert 'assert scoreform.cli.get_version() == "0.9.0.dev0"' in updated
 
 
+def test_update_readme_version_updates_only_current_version_line():
+    text = "# ScoreForm\n\nCurrent version: `0.8.1`.\n\nHistory: v0.8.1\n"
+
+    updated = update_version.update_readme_version(text, "0.9.1")
+
+    assert "Current version: `0.9.1`." in updated
+    assert "History: v0.8.1" in updated
+
+
+def test_update_readme_version_requires_unique_authoritative_line():
+    with pytest.raises(update_version.VersionUpdateError):
+        update_version.update_readme_version("# ScoreForm\n", "0.9.1")
+
+
 def test_main_rejects_missing_or_extra_arguments(capsys):
     assert update_version.main([]) == 2
     assert "Usage: python scripts/update_version.py <version>" in capsys.readouterr().err
@@ -124,6 +138,10 @@ def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch
 """,
         encoding="utf-8",
     )
+    (tmp_path / "README.md").write_text(
+        "# ScoreForm\n\nCurrent version: `0.7.0.dev0`.\n",
+        encoding="utf-8",
+    )
 
     update_version.update_version(tmp_path, "0.8.0.dev0")
 
@@ -134,6 +152,9 @@ def test_get_version_prefers_local_pyproject_over_installed_metadata(monkeypatch
         in cli_test_text
     )
     assert 'assert scoreform.cli.get_version() == "0.8.0.dev0"' in cli_test_text
+    assert "Current version: `0.8.0.dev0`." in (
+        tmp_path / "README.md"
+    ).read_text(encoding="utf-8")
 
 
 def test_update_version_fails_when_pyproject_pattern_is_missing(tmp_path):
@@ -143,6 +164,9 @@ def test_update_version_fails_when_pyproject_pattern_is_missing(tmp_path):
         'assert re.search(r"0\\.7\\.0\\.dev0", output)\n'
         'assert scoreform.cli.get_version() == "0.7.0.dev0"\n',
         encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text(
+        "Current version: `0.7.0.dev0`.\n", encoding="utf-8"
     )
 
     with pytest.raises(update_version.VersionUpdateError):
@@ -158,6 +182,9 @@ def test_update_version_fails_when_cli_test_pattern_is_missing(tmp_path):
     (tmp_path / "tests" / "test_cli_discoverability.py").write_text(
         "def test_placeholder():\n    assert True\n",
         encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text(
+        "Current version: `0.7.0.dev0`.\n", encoding="utf-8"
     )
 
     with pytest.raises(update_version.VersionUpdateError):

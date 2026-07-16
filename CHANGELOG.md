@@ -14,110 +14,120 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
+No changes yet.
+
+## [v0.9.1] - release date pending
+
 ### Added
 
-* Added ScoreForm assignment/question standards-alignment validation against
-  the shared `pds-core` standards library contract.
-* Added `check_dependencies.ps1` to document and verify the current sibling
-  editable `pds-core` development dependency, repo-local virtual environment,
-  third-party imports, and Poppler `pdftoppm` availability.
-* Added a read-only Assignment Management workflow for viewing assignment-local
-  `results.csv` files. The viewer discovers classes and assignments, displays
-  one summary row per student with recent score, total, and attempt count, and
-  does not mutate historical result rows or decide grading policy.
-* Added an Assignment Management menu workflow for editing existing
-  assignments. The workflow stages title, answer-key, and existing-standard-ID
-  alignment edits until explicit `SAVE`, requires `DISCARD` for unsaved
-  cancellation, keeps `assignment_id`, `question_count`, and `choices` locked,
-  writes only the selected `assignment.json`, and does not regenerate answer
-  sheets, rescore scans, rewrite historical results, alter rosters, write
-  standards usage ledgers, or modify the shared standards library.
-* Changed assignment answer-key editing to prompt for one question at a time,
-  show the selected question's current answer, and stage each changed answer
-  independently instead of accepting comma-separated bulk edits.
-* Added a Roster Management menu workflow for editing existing class rosters.
-  The workflow loads and writes canonical class rosters through shared
-  `pds-core` roster APIs, stages add/edit/remove changes until explicit save,
-  preserves existing optional roster columns, disallows `student_id` changes,
-  and treats removal as removal from the active roster only without deleting
-  generated materials, assignments, results, scans, or scan evidence.
-* Added ScoreForm CLI and Workspace Settings menu workflows for showing,
-  opening, and closing the shared `pds-core` active school-year state.
-  Opening and closing a school year does not delete, archive, migrate,
-  summarize, or move classroom data.
-* Added a side-effect-free builder for creating shared `pds-core` standards
-  usage events from ScoreForm assignment-local standards alignment. The builder
-  does not automatically write to the shared standards usage ledger, change
-  scoring behavior, or add standards summaries or reports.
-* Added an explicit helper for recording ScoreForm assignment standards usage
-  to the shared `pds-core` standards usage ledger. Recording is not automatic,
-  no CLI or menu command has been added yet, scoring behavior is unchanged, and
-  no standards summaries or reports have been added.
-* Added standards alignment during menu-driven assignment creation. Teachers can
-  skip standards, attach existing shared standards from the `pds-core` workspace
-  standards library, or create a new shared standard before attaching its ID to
-  selected questions. Assignment files store standard IDs only; empty standards
-  lists remain valid, usage recording is not automatic, and scoring/export
-  behavior is unchanged.
-* Added same-assignment scan filing after successful QR-aware routed scoring.
-  When a full-success routed batch resolves to one class and assignment,
-  ScoreForm copies the original source scan into the assignment `scans/`
-  folder with a timestamped `_scored` filename while preserving the original
-  source scan.
+* Added assignment and per-question standards-alignment validation against the
+  shared PDS Core standards-library contract.
+* Added `check_dependencies.ps1` to verify the repository-local environment,
+  the `pds-core>=0.5,<0.6` package contract, third-party imports, and Poppler
+  availability.
+* Added read-only assignment-results viewing with per-student recent score,
+  total, and attempt-count summaries without changing grading policy or
+  historical rows.
+* Added staged assignment editing for title, per-question answer keys, and
+  existing-standard-ID alignment. Identity, question count, and choices remain
+  locked, and editing does not regenerate sheets, rescore scans, or rewrite
+  results.
+* Added staged roster editing through shared Core roster APIs, preserving
+  optional columns, immutable student IDs, and historical generated materials.
+* Added CLI and menu controls for showing, opening, and closing the shared
+  active school year without moving, archiving, or rewriting classroom data.
+* Added side-effect-free standards-usage event construction plus a separate
+  explicit recording helper. Usage recording remains opt-in.
+* Added standards alignment during assignment creation, including selection
+  from and creation within the shared standards library; assignments store
+  standard IDs only.
+* Added plain-paper result entry as a separate route-free workflow.
+* Added copy, move, and off scan-filing modes with full-success,
+  single-assignment eligibility, retained-source preservation, safe original
+  handling, and assignment-local scored copies.
+* Added module-qualified ScoreForm work under
+  `classes/<class_id>/modules/scoreform/work/<assignment_id>/`.
+* Added immutable answer-sheet issuance and page records, unique Core PDS2 route
+  registrations created before rendering, and separate identities for
+  individual and class-packet print copies.
+* Added the installed `paper_data_suite.modules` ScoreForm profile and
+  defensive route handler for PDS Core 0.5.
+* Added retained-source Core dispatch, issuance-based multi-page attempt
+  assembly, and routed-results schema version 2.
+* Added Core schema-v2 scan-review failure persistence and append-only
+  resolution workflows.
+* Added active standard and compact registered layouts plus managed
+  regeneration with fresh immutable identities.
 
 ### Changed
 
-* Removed transitional compatibility monkeypatch and synchronization bridges
-  after the CLI/workflow extraction, and kept command ownership in the focused
-  modules.
-* Replaced signature-inspection-based QR scoring dispatch with explicit call
+* Extracted workspace, school-year, help/version, scoring, scan-menu, roster,
+  assignment, standards, generation, and QR workflows into focused modules
+  while preserving the public CLI entry point and teacher-facing behavior.
+* Removed transitional monkeypatch and synchronization bridges after workflow
+  ownership moved to the focused modules.
+* Replaced signature-inspection-based scoring dispatch with explicit call
   paths.
-* Hardened QR-aware failure accounting and established full-success,
-  partial-success, zero-success, and export-failure outcomes with saved batch
-  summaries as the completeness record.
-* Hardened routed result writes with destination preflight checks and
-  failure-aware export reporting.
-* Limited automatic scan filing to full-success, single-target QR-aware routed
-  batches; partial, failed, and mixed-target batches remain for manual review.
-* Privacy-minimized QR failure diagnostics and result CSV `source_file` values
-  by default while keeping generated artifacts classified as sensitive.
-* Added manual/legacy scoring failure accounting so processed, scored, and
-  failed/skipped pages are reported instead of failed pages being silently
-  omitted.
-* Extracted the workspace and school-year CLI command-group implementations
-  into focused modules while preserving the existing `scoreform.cli` entry
-  point and command dispatch.
-* Extracted top-level CLI help, version, and terminal menu help presentation
-  into a focused module while preserving the existing `scoreform.cli` entry
-  point and command dispatch.
-* Extracted scoring command orchestration into a focused module while
-  preserving the existing `scoreform.cli` entry point and command dispatch.
-* Extracted interactive scan/menu scoring workflow code into a focused module
-  while preserving the existing Assignment Management scoring behavior and CLI
-  compatibility entry points.
-* Extracted Roster Management interactive workflow code into a focused module
-  while preserving the existing menu behavior, direct roster validation command,
-  and compatibility entry points in `scoreform.workflows`.
-* Extracted Assignment Management interactive workflow code into a focused
-  module while preserving the existing menu behavior, direct assignment
-  commands, scan/menu scoring handoff, results viewing, and compatibility entry
-  points in `scoreform.workflows`.
-* Extracted standards alignment helper code into a focused
-  `scoreform.standards_workflows` module while preserving Assignment Management
-  standards behavior and compatibility exports from `scoreform.workflows`.
-* Moved Generate Answer Sheets and QR decode action ownership into focused
-  workflow modules, and updated Assignment Management to call scoring,
-  generation, and QR menu actions without importing them back from
-  `scoreform.cli`, while preserving legacy `scoreform.cli` compatibility
-  wrappers.
+* Hardened routed and manual scoring failure accounting so full success,
+  partial success, zero success, export failure, processed pages, scored pages,
+  and failed/skipped pages are reported explicitly.
+* Hardened routed-result writes with destination preflight checks,
+  idempotent schema-v2 identity, and failure-aware export reporting.
+* Privacy-minimized QR diagnostics and result `source_file` values by default
+  while retaining enough provenance for audit and review.
+* QR payloads now contain only canonical PDS2 locator identity. Student,
+  logical-page, question-range, layout, answer-key, attempt, and result
+  semantics come from authoritative records.
+* Routed results now preserve aligned route, page, logical-page, source-page,
+  retained-path, source-scan, digest, and intake provenance.
+* Manual answer-key scoring, plain-paper entry, and routed PDS2 scoring are
+  explicitly separate workflows.
+* Current routed histories and persisted Core metadata require aware
+  timestamps.
+
+### Removed
+
+* Removed active PDS1 and OMR1 parsing and generation.
+* Removed QR-carried ScoreForm semantics and obsolete QR compatibility APIs.
+* Removed unqualified work-root discovery and universal assignment paths.
+* Removed schema-v1 routed-results migration, `legacy_scan`, generic migration
+  gates, and obsolete schema-v1 scan-review creation paths.
+* Removed remaining transitional CLI/workflow compatibility bridges that no
+  longer owned behavior.
 
 ### Documentation
 
-* Documented the sibling editable `pds-core` development/runtime contract and
-  the diagnostic-only `check_dependencies.ps1` workflow.
-* Established `run_tests.ps1` as the local release-readiness gate.
-* Updated Windows, PowerShell, Poppler, setup, testing, QR outcome, scan filing,
-  privacy, and local-output guidance to match current behavior.
+* Documented the development and release Core dependency contracts, including
+  separate noneditable Core and ScoreForm wheels.
+* Established `run_tests.ps1` as the authoritative local release-readiness
+  gate.
+* Updated Windows, PowerShell, Poppler, setup, teacher workflow, QR outcome,
+  scan filing, privacy, diagnostics, and local-output guidance.
+* Added release packaging, artifact inspection, clean-install, installed
+  profile, and physical-paper acceptance procedures.
+
+### Compatibility
+
+PDS1 and OMR1 sheets are unsupported. Historical schema-v1 routed-result files
+are not migrated. Assignments must use canonical module-qualified work.
+Previously printed legacy sheets cannot be assigned fabricated PDS2 routes;
+generate new v0.9.1 PDS2 sheets for routed scoring.
+
+### Testing
+
+* Added coverage for assignment and roster editing, result viewing, school-year
+  controls, standards alignment and usage helpers, scan-filing safeguards,
+  explicit failure accounting, privacy boundaries, and release metadata.
+* Added coverage for registered one-page and multi-page generation and scoring,
+  compact layout, regeneration, duplicate/conflict/missing observations,
+  rescan idempotence, manual workflows, scan review and resolution, module
+  isolation, retained provenance, mixed-module dispatch, unsupported schemas,
+  schema-v1 rejection, and filing modes.
+* Added nonpublishing Python 3.11 release-readiness CI, deterministic artifact
+  checks, clean wheel/sdist install validation, and installed end-to-end smoke
+  tests.
+* The mandatory real printed two-page acceptance test remains pending until the
+  project owner records its result; publication is blocked until it passes.
 
 ## [v0.8.1] - 2026-06-06
 

@@ -1,5 +1,11 @@
 # ScoreForm CLI Contract
 
+> v0.9.1 release boundary: ScoreForm requires Python 3.11+ and
+> `pds-core>=0.5,<0.6`. Installed help, version, package imports, and module
+> profile discovery are side-effect free. The authoritative local validation is
+> `powershell -ExecutionPolicy Bypass -File .\run_tests.ps1`; the mandatory
+> physical procedure is documented in `physical_acceptance_test.md`.
+
 ## Status and Scope
 
 This document defines the command-line interface contract for ScoreForm's

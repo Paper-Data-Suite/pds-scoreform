@@ -2,7 +2,7 @@
 
 ## Project Status
 
-ScoreForm is an early-stage, local-first classroom OMR tool.
+ScoreForm v0.9.1 is a pre-1.0, local-first classroom OMR tool.
 
 It is intended to run on a teacher's local machine and is not currently designed as a hosted service.
 
@@ -34,21 +34,27 @@ If the concern involves sensitive details, describe the issue generally and requ
 
 ## Supported Versions
 
-ScoreForm is currently in early prototype development. No stable production release is available yet.
+ScoreForm remains pre-1.0. Supported package releases require Python 3.11 or
+newer and a compatible `pds-core>=0.5,<0.6` installation.
 
 ## Current Limitations
 
 ScoreForm is not yet recommended for high-stakes grading without manual verification.
 
-Implemented areas that are still maturing include:
+Implemented areas that still require manual verification include:
 
-- QR-aware scoring and scan reliability
-- routed result workflows
-- duplicate and repeated-attempt handling policy
+- PDS2 QR detection and physical scan reliability
+- routed schema-v2 result workflows
+- duplicate, repeated-attempt, and scan-review decisions
 
-Known areas still planned or under development include:
+ScoreForm does not select an official attempt or grade and does not provide a
+gradebook or LMS export. Generated sheets, packets, retained scans, filed scan
+copies, results, review records, evidence, and diagnostics may all contain
+sensitive student data and must be protected accordingly.
+
+Known areas outside the v0.9.1 release include:
 
 - gradebook export attempt-selection rules
-- scan archiving or moving workflow
+- long-term scan archival and data-lifecycle management beyond current scan filing
 - broader test coverage
 - classroom-ready nontechnical user interface

@@ -1,0 +1,67 @@
+name: Release readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Check out PDS Core 0.5 source for a separate test wheel
+        uses: actions/checkout@v4
+        with:
+          repository: Paper-Data-Suite/pds-core
+          ref: v0.5.0
+          path: _release_core
+      - name: Install Poppler
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: Build separate PDS Core wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir "$RUNNER_TEMP/core-dist" _release_core
+          rm -rf "$GITHUB_WORKSPACE/_release_core"
+          python -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.5*.whl
+      - name: Install development environment
+        run: python -m pip install -e ".[dev]"
+      - name: Check dependencies
+        run: python -m pip check
+      - name: Compile
+        run: python -m compileall -q scoreform
+      - name: Ruff
+        run: python -m ruff check .
+      - name: Mypy
+        run: python -m mypy scoreform
+      - name: Pytest
+        run: python -m pytest tests -q
+      - name: Build artifacts
+        run: python -m build
+      - name: Twine check
+        run: python -m twine check dist/*
+      - name: Inspect artifacts
+        run: python scripts/verify_release_artifacts.py --version 0.9.1 --dist dist
+      - name: Install wheel noneditable
+        run: |
+          python -m venv "$RUNNER_TEMP/scoreform-wheel"
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.5*.whl dist/scoreform-0.9.1-*.whl
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip check
+      - name: Verify installed version and profile
+        env:
+          PDS_WORKSPACE_ROOT: ${{ runner.temp }}/scoreform-workspace-must-not-exist
+        run: |
+          test ! -e "$PDS_WORKSPACE_ROOT"
+          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --version | grep -Fx "ScoreForm 0.9.1"
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.9.1 --workspace "$PDS_WORKSPACE_ROOT"
+          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
+          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.9.1"
+          test ! -e "$PDS_WORKSPACE_ROOT"
