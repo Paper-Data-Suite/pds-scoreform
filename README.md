@@ -108,16 +108,17 @@ ScoreForm is still under active development.
 
 Current limitations include:
 
-* Retained PDS2 decoding and page dispatch are active. Attempt assembly and
-  complete issuance assembly and routed schema-v2 export are active; failure and
-  resolution persistence remain pending #145. Manual scoring remains available.
+* Retained PDS2 decoding, page dispatch, complete-issuance assembly, routed
+  schema-v2 export, Core-v2 failure persistence, and append-only resolution
+  review are active. Manual scoring remains available.
 
 * QR detection depends on scan quality, lighting, alignment, and camera/scanner behavior.
 * ScoreForm uses full-page and upper-right crop fallbacks, including tight-crop
   scaling, quiet-zone padding, contrast normalization, threshold cleanup, and
   small rotations. Severely blurred, damaged, or obscured QR codes may still fail.
-* The active PDS2 path does not write routed results, choose duplicates, file
-  assignment-local scans, or persist review records.
+* The active PDS2 path never chooses among duplicates. Partial batches may
+  export unrelated complete attempts and persist review records, but are never
+  automatically filed into an assignment-local scan folder.
 * Question count support is 1-75, paged automatically at 15 questions per sheet.
 * The terminal menu interface is available via `scoreform` or `python main.py menu`.
 * The installable `scoreform` command is available after editable installation, but standalone executable packaging has not yet been implemented.
@@ -285,7 +286,7 @@ assignment setup, creation, editing, plain-paper entry, result viewing,
 personalized/class-packet generation, and managed regeneration are available.
 Generated pages use immutable ScoreForm page records and immutable Core PDS2
 route registrations. Retained PDS2 dispatch, issuance assembly, and schema-v2
-export are active; scan-review persistence retains its narrower #145 gate.
+export and Core-v2 scan-review persistence are active.
 
 **Note:** `<PDS workspace root>/scans_inbox/` is the recommended location for
 scans awaiting scoring. Core's canonical retained source is never moved or
@@ -411,14 +412,27 @@ Resolved records are hidden by default; deferred records stay visible. Decisions
 are written as immutable Core records under `scans/review/resolutions/`. Failure
 records and retained sources are not changed or removed.
 
+Active routed scoring persists exact Core schema-version-2 failure records after
+dispatch, assembly, and export are known. Failures are exclusive immutable
+occurrences; resolutions are append-only linked events. ScoreForm diagnostics
+live under `module_details.scoreform`. Raw decoded payloads are retained exactly,
+while route locators and targets are included only when independently validated.
+Strict discovery ignores malformed and historical v1 files with warnings and
+never rewrites them. Valid attempts remain exported during unrelated partial
+failures.
+
 Manual entry is guided by the menu because it requires verified class,
 assignment, and student identity plus a complete confirmed answer set. It writes
-through the existing routed-results safety path and does not add columns. The
-row's `source_file` points to a non-overwriting assignment-local
-`_manual_entry` evidence copy. Manual marks and rescan-needed evidence use
-`_manual_marks` and `_rescan_needed`; manual marks do not write a result row.
-Assignment-local evidence is a working copy, while `scans/source/YYYY-MM-DD/`
-remains the canonical retained source.
+through the existing routed-results safety path and does not add columns. Its
+row uses an immutable review-link marker; the resolution can point to a
+non-overwriting assignment-local `_manual_entry` evidence copy. Manual marks
+may create a `_manual_marks` copy but do not write a result row. The source must
+be a non-symlink regular file
+inside the workspace and the assignment must be valid and managed. ScoreForm
+flushes the destination, verifies its SHA-256 digest, removes an incomplete
+destination on handled failure, and never moves the source. Actions whose Core
+contract has no final evidence reject evidence paths. Canonical evidence remains
+under `scans/source/YYYY-MM-DD/`.
 
 ### Create a Roster from the Menu
 
@@ -878,7 +892,7 @@ The program creates this folder under the resolved PDS workspace root. From the
 terminal menu, **Score scanned responses** can select a scan for retained PDS2
 dispatch. The workflow accepts `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tif`, and
 `.tiff` (not BMP), retains the source once, assembles complete issuances, and
-exports schema-v2 results. It does not persist scan-review failures (#145).
+exports schema-v2 results and persists actionable Core-v2 scan-review failures.
 
 Core creates one canonical retained copy for each invocation and never alters
 it. Eligible single-target managed full-success batches follow the configured
@@ -1055,7 +1069,7 @@ QR-aware scoring uses these batch outcomes and exit codes:
 
 The terminal summary reports dispatch, assembly, appended/already-present
 attempts, and export failures. Assembly and export failures remain immutable in
-memory; #145 persistence is not created by this workflow.
+memory; the complete routed-scoring batch persists reviewable occurrences afterward.
 
 QR-aware scoring supports an explicit schema-v2 output history:
 
@@ -1266,7 +1280,7 @@ key is scoring authority; assignment-title-only changes are allowed.
 Each dispatch extracts only the requested retained image or PDF source page and
 returns one immutable page result. A retained source page number is independent
 of the answer sheet's logical page. PDS2 batch page dispatch is active; attempt
-assembly/export is active; review persistence remains pending #145.
+assembly/export and review persistence are active.
 # Multi-page assessments
 
 ScoreForm generates 1-75-question assignments with the registered 15-question

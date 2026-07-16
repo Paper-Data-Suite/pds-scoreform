@@ -34,9 +34,12 @@ from pds_core.scan_retention import (
 
 from scoreform.module_errors import (
     ScoreFormDispatchIntegrationError,
-    ScoreFormQrDetectionError,
+    ScoreFormQrMissingError,
+    ScoreFormQrUnreadableError,
     ScoreFormRegistryError,
     ScoreFormScanPreflightError,
+    ScoreFormSourceMissingError,
+    ScoreFormSourceTypeUnsupportedError,
 )
 from scoreform.page_scoring import ScoreFormPageDispatchResult
 from scoreform.retained_page import (
@@ -120,7 +123,9 @@ class Pds2ScanPageOutcome:
             raise ValueError("source_page_number must be a positive integer.")
         _validate_diagnostics(self.diagnostic_paths, self.diagnostic_errors)
         if self.failure_stage is not None and self.failure_stage not in _FAILURE_STAGES:
-            raise ValueError("failure_stage is not a supported closed-vocabulary value.")
+            raise ValueError(
+                "failure_stage is not a supported closed-vocabulary value."
+            )
         if self.failure_stage is not None and self.error is None:
             raise ValueError("A failure_stage requires an error.")
         if self.failure_stage is None and self.error is not None:
@@ -148,7 +153,9 @@ class Pds2ScanPageOutcome:
                     )
         if isinstance(self.dispatch_outcome, RouteDispatchFailure):
             if self.failure_stage not in {None, "core_outcome_validation"}:
-                raise ValueError("Core dispatch failures must remain unwrapped outcomes.")
+                raise ValueError(
+                    "Core dispatch failures must remain unwrapped outcomes."
+                )
         if isinstance(self.dispatch_outcome, RouteDispatchSuccess):
             success_stages = {
                 "scoreform_result_validation",
@@ -158,15 +165,14 @@ class Pds2ScanPageOutcome:
                 self.failure_stage is not None
                 and self.failure_stage not in success_stages
             ):
-                raise ValueError("A Core success has an invalid application failure stage.")
+                raise ValueError(
+                    "A Core success has an invalid application failure stage."
+                )
 
     @property
     def successful_module_id(self) -> str | None:
         outcome = self.dispatch_outcome
-        if (
-            isinstance(outcome, RouteDispatchSuccess)
-            and self.failure_stage is None
-        ):
+        if isinstance(outcome, RouteDispatchSuccess) and self.failure_stage is None:
             return outcome.profile.module_id
         return None
 
@@ -211,12 +217,17 @@ class Pds2ScanDispatchResult:
             raise ValueError("A pre-retention file error cannot contain page outcomes.")
         for page in self.pages:
             request = page.dispatch_request
-            if request is not None and request.retained_source is not self.retained_source:
+            if (
+                request is not None
+                and request.retained_source is not self.retained_source
+            ):
                 raise ValueError(
                     "Every dispatch request must share exact retained provenance."
                 )
         if self.file_error is None and self.terminal_page_count != len(self.pages):
-            raise ValueError("Every source page must have exactly one terminal category.")
+            raise ValueError(
+                "Every source page must have exactly one terminal category."
+            )
 
     @property
     def total_source_pages(self) -> int:
@@ -351,7 +362,12 @@ def validate_scan_registry(registry: ModuleRegistry) -> ModuleRegistry:
     try:
         registry.require("scoreform")
         registry.module_ids()
-    except (ModuleRegistryError, UnsupportedModuleError, TypeError, ValueError) as error:
+    except (
+        ModuleRegistryError,
+        UnsupportedModuleError,
+        TypeError,
+        ValueError,
+    ) as error:
         raise ScoreFormScanPreflightError(
             f"The scan module registry is invalid: {error}"
         ) from error
@@ -387,7 +403,7 @@ def validate_pds2_scan_source(source_file: str | Path) -> Path:
     try:
         resolved = path.resolve(strict=True)
     except (OSError, RuntimeError) as error:
-        raise ScoreFormScanPreflightError(
+        raise ScoreFormSourceMissingError(
             f"Source file does not exist: {path}"
         ) from error
     if not resolved.is_file():
@@ -397,7 +413,7 @@ def validate_pds2_scan_source(source_file: str | Path) -> Path:
     suffix = resolved.suffix.lower()
     if suffix not in SUPPORTED_RETAINED_SOURCE_EXTENSIONS:
         supported = ", ".join(sorted(SUPPORTED_RETAINED_SOURCE_EXTENSIONS))
-        raise ScoreFormScanPreflightError(
+        raise ScoreFormSourceTypeUnsupportedError(
             f"Unsupported active-scan extension {suffix or '(none)'}; expected {supported}."
         )
     return resolved
@@ -411,12 +427,10 @@ def detect_qr_payload_text(
     workspace_root: Path,
 ) -> QrPayloadDetectionResult:
     """Detect exact raw QR text without parsing or module-specific interpretation."""
-    if (
-        not isinstance(image, np.ndarray)
-        or image.size == 0
-        or image.dtype != np.uint8
-    ):
-        error = ScoreFormQrDetectionError("QR detection requires nonempty uint8 image data.")
+    if not isinstance(image, np.ndarray) or image.size == 0 or image.dtype != np.uint8:
+        error = ScoreFormQrUnreadableError(
+            "QR detection requires nonempty uint8 image data."
+        )
         return QrPayloadDetectionResult(None, None, error=error)
     detector = cv2.QRCodeDetector()
     try:
@@ -425,7 +439,7 @@ def detect_qr_payload_text(
             if payload:
                 return QrPayloadDetectionResult(payload, method)
     except Exception as error:
-        failure = ScoreFormQrDetectionError("QR image detection failed.")
+        failure = ScoreFormQrUnreadableError("QR image detection failed.")
         failure.__cause__ = error
         return QrPayloadDetectionResult(None, None, error=failure)
     diagnostics = save_qr_failure_diagnostics_with_status(
@@ -439,7 +453,7 @@ def detect_qr_payload_text(
         None,
         diagnostic_paths=diagnostics.paths,
         diagnostic_errors=diagnostics.errors,
-        error=ScoreFormQrDetectionError(
+        error=ScoreFormQrMissingError(
             "No QR code was detected on the retained source page."
         ),
     )
@@ -471,7 +485,7 @@ def _decode_pages(
                 workspace_root=workspace_root,
             )
         except Exception as error:
-            failure = ScoreFormQrDetectionError(
+            failure = ScoreFormQrUnreadableError(
                 "QR detection failed unexpectedly for the retained source page."
             )
             failure.__cause__ = error
@@ -633,9 +647,7 @@ def dispatch_retained_scan(
             file_error=error,
         )
     requests = tuple(
-        page.dispatch_request
-        for page in pages
-        if page.dispatch_request is not None
+        page.dispatch_request for page in pages if page.dispatch_request is not None
     )
     try:
         outcomes = (
@@ -694,9 +706,8 @@ def dispatch_retained_scan(
         )
         diagnostic_paths = page.diagnostic_paths
         if alignment_error is None and isinstance(outcome, RouteDispatchSuccess):
-            if (
-                outcome.profile.module_id == "scoreform"
-                and isinstance(outcome.module_result, ScoreFormPageDispatchResult)
+            if outcome.profile.module_id == "scoreform" and isinstance(
+                outcome.module_result, ScoreFormPageDispatchResult
             ):
                 diagnostic_paths += tuple(outcome.module_result.diagnostic_paths)
         elif (

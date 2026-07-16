@@ -76,11 +76,6 @@ Invoke-Step "Run focused retained PDS2 boundary tests" {
 Invoke-Step "Run pytest suite" {
     & $Python -m pytest tests -q
 }
-Invoke-Step "Run #144 mixed-candidate non-happy-path smoke" {
-    & $Python -m pytest @(
-        "tests/test_attempt_assembly.py::test_nonhappy_mixed_candidates_export_only_complete_without_filing_or_review"
-    ) -q
-}
 Invoke-Step "Run Ruff" {
     & $Python -m ruff check .
 }
@@ -172,26 +167,101 @@ try {
         throw "Managed generation page/route cardinality mismatch: pages=$($PageRecords.Count), routes=$($RouteRecords.Count)"
     }
 
-    $ClassPacket = Join-Path $ManagedRoot "templates\class_packet.pdf"
-    Invoke-Step "Decode retained PDS2 pages through Core grammar" {
-        & $ScoreForm decode-qr $ClassPacket
+    $Individual = Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "templates\individual") -Filter "*.pdf" -File | Select-Object -First 1
+    if (-not $Individual) {
+        throw "Managed generation did not create an individual synthetic artifact."
     }
-    Invoke-Step "Dispatch and score retained PDS2 pages through Core" {
-        & $ScoreForm score $ClassPacket
+    Invoke-Step "Decode an actual generated ScoreForm QR through the installed command" {
+        & $ScoreForm decode-qr $Individual.FullName
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $ManagedRoot "results.csv") -PathType Leaf)) {
-        throw "#144 routed scoring did not write results.csv."
+    Invoke-Step "Score an actual generated ScoreForm artifact through Core dispatch" {
+        & $ScoreForm score $Individual.FullName
     }
-    $ResultHeader = Get-Content -LiteralPath (Join-Path $ManagedRoot "results.csv") -TotalCount 1
-    if ($ResultHeader -notmatch "result_schema_version" -or $ResultHeader -notmatch "issuance_id") {
-        throw "#144 routed scoring did not write schema-v2 provenance columns."
+    $ResultsPath = Join-Path $ManagedRoot "results.csv"
+    if (-not (Test-Path -LiteralPath $ResultsPath -PathType Leaf)) {
+        throw "Real CLI scoring did not export the managed result history."
+    }
+    $FullRows = @(Import-Csv -LiteralPath $ResultsPath)
+    if ($FullRows.Count -ne 1 -or $FullRows[0].result_schema_version -ne "2" -or $FullRows[0].result_origin -ne "pds2_scan") {
+        throw "Real CLI scoring did not export one schema-v2 PDS2 attempt."
     }
     $ReviewRoot = Join-Path $SmokeRoot "scans\review"
-    if (
-        (Test-Path -LiteralPath $ReviewRoot -PathType Container) -and
-        (Get-ChildItem -LiteralPath $ReviewRoot -File -Recurse)
-    ) {
-        throw "#144 scoring unexpectedly persisted #145 scan-review metadata."
+    if (Test-Path -LiteralPath $ReviewRoot) {
+        $UnexpectedFailures = @(Get-ChildItem -LiteralPath $ReviewRoot -Filter "*.json" -File)
+        if ($UnexpectedFailures.Count -ne 0) {
+            throw "Full-success CLI scoring unexpectedly wrote failure metadata."
+        }
+    }
+
+    $PartialScan = Join-Path $SmokeRoot "synthetic_partial.pdf"
+    Invoke-Step "Build deterministic synthetic partial-batch fixture" {
+        & $Python scripts\build_partial_cli_smoke.py $Individual.FullName $PartialScan
+    }
+    $FiledBeforePartial = @(
+        Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "scans") -File
+    ).Count
+    Write-Host ""
+    Write-Host "Running expected nonzero real #145 partial-batch command" -ForegroundColor Yellow
+    $PartialOutput = & $ScoreForm score $PartialScan 2>&1
+    $PartialCode = $LASTEXITCODE
+    if ($PartialCode -eq 0) {
+        throw "Partial-batch score command unexpectedly exited zero.`n$($PartialOutput -join "`n")"
+    }
+    if (($PartialOutput -join "`n") -match "Traceback") {
+        throw "Partial-batch score command exposed a traceback.`n$($PartialOutput -join "`n")"
+    }
+    Write-Host "PASSED EXPECTED NONZERO: real #145 partial-batch command" -ForegroundColor Green
+    $PartialRows = @(Import-Csv -LiteralPath $ResultsPath)
+    if ($PartialRows.Count -ne 2 -or @($PartialRows | Where-Object { $_.result_schema_version -ne "2" }).Count -ne 0) {
+        throw "Partial CLI batch did not preserve one full-success export per command."
+    }
+    $FailureFiles = @(Get-ChildItem -LiteralPath $ReviewRoot -Filter "*.json" -File)
+    if ($FailureFiles.Count -ne 1) {
+        $FailureSummary = @(
+            $FailureFiles | ForEach-Object {
+                $value = Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json
+                "$($_.Name): $($value.stage)/$($value.failure_category) page=$($value.source_page_number)"
+            }
+        ) -join "; "
+        throw "Partial CLI batch persisted $($FailureFiles.Count) failures instead of one: $FailureSummary`n$($PartialOutput -join "`n")"
+    }
+    $FailureId = $FailureFiles[0].BaseName
+    $FailureHash = (Get-FileHash -LiteralPath $FailureFiles[0].FullName -Algorithm SHA256).Hash
+    Invoke-Step "Strictly reload the real CLI failure through Core" {
+        & $Python -c "import sys; from pds_core.scan_failure_metadata import load_routing_failure_metadata; value=load_routing_failure_metadata(sys.argv[1], sys.argv[2]); raise SystemExit(0 if value.failure_id == sys.argv[2] and value.schema_version == '2' else 1)" $SmokeRoot $FailureId
+    }
+    Invoke-Step "List the real CLI review failure" {
+        $text = & $ScoreForm list-scan-review 2>&1
+        if (($text -join "`n") -notmatch [regex]::Escape($FailureId)) { exit 1 }
+    }
+    Invoke-Step "Append deferred resolution through the installed command" {
+        & $ScoreForm resolve-scan-review $FailureId --action defer
+    }
+    Invoke-Step "Append final resolution through the installed command" {
+        & $ScoreForm resolve-scan-review $FailureId --action cannot_route
+    }
+    $ResolutionFiles = @(Get-ChildItem -LiteralPath (Join-Path $ReviewRoot "resolutions") -Filter "*.json" -File)
+    if ($ResolutionFiles.Count -ne 2) {
+        throw "Real CLI smoke did not preserve both append-only resolutions."
+    }
+    if ((Get-FileHash -LiteralPath $FailureFiles[0].FullName -Algorithm SHA256).Hash -ne $FailureHash) {
+        throw "Resolution commands mutated immutable failure bytes."
+    }
+    $MetadataText = @($FailureFiles + $ResolutionFiles | ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }) -join "`n"
+    if ($MetadataText -match '"schema_version"\s*:\s*"1"') {
+        throw "Real CLI smoke wrote schema-v1 failure or resolution metadata."
+    }
+    $FiledAfterPartial = @(
+        Get-ChildItem -LiteralPath (Join-Path $ManagedRoot "scans") -File
+    ).Count
+    if ($FiledAfterPartial -ne $FiledBeforePartial) {
+        throw "Partial CLI scoring performed automatic assignment-local scan filing."
+    }
+
+    Invoke-Step "Run deterministic #145 partial-batch scan-review smoke" {
+        & $Python -m pytest @(
+            "tests/test_attempt_assembly.py::test_deterministic_review_smoke_exports_complete_and_preserves_review_history"
+        ) -q
     }
 }
 finally {

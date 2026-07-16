@@ -37,7 +37,7 @@ parses only Core PDS2 locators, and dispatches valid requests in source-page
 order through a fresh installed-module registry. The handler never decodes PDS2
 and a retained PDF page number is independent of the sheet's logical page.
 Complete ScoreForm issuances are assembled and exported under #144. Review
-failure and resolution persistence remains pending #145.
+failure persistence and append-only resolution review are active.
 
 Discovery is exact and nonrecursive: it does not inspect sibling modules or
 fall back to the former unqualified assignment layout. Help/version, assignment
@@ -96,7 +96,8 @@ scoreform resolve-scan-review <failure_id> --action rescan_needed
 scoreform resolve-scan-review <failure_id> --action defer
 ```
 
-List filters are `--class-id`, `--assignment-id`, and `--failure-category`.
+List filters are `--status`, `--class-id`, `--assignment-id`, `--student-id`,
+`--failure-category`, `--stage`, and `--source-scan-id`.
 The default list includes unresolved and deferred ScoreForm records and hides
 resolved records. Malformed and non-ScoreForm records do not stop listing.
 
@@ -105,6 +106,10 @@ Direct resolution actions are `manual_marks`, `rescan_needed`, `cannot_route`,
 `defer`. `other` requires `--message`; `evidence_filed` requires a safe
 workspace-relative `--evidence-path`. Identity flags are `--class-id`,
 `--assignment-id`, and `--student-id`, and supplied identity is validated.
+`route_selected` and `route_corrected` require an exact canonical
+`--route-payload`; the existing Core registration, ScoreForm page target, and
+issuance are reloaded and cross-validated before the locator and target are
+written to the resolution.
 
 `manual_entry` requires answer-by-answer review and confirmation, so the direct
 command points teachers to **Assignment Management > Resolve Scan Review

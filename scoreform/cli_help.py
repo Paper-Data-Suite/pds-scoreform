@@ -98,7 +98,7 @@ Core 0.5/PDS2 scan intake:
   parsed only as PDS2, and dispatched one source page at a time through a fresh
   installed-module registry. Complete ScoreForm pages are assembled by immutable
   issuance identity and exported through routed-results schema version 2.
-  Failure/resolution persistence remains pending #145. Managed assignment
+  Core-v2 failure persistence and append-only resolution review are active. Managed assignment
   setup, discovery, creation, editing, plain-paper result entry, and result
   viewing use module-qualified ScoreForm work storage and are available.
 
@@ -113,7 +113,7 @@ Scoring modes:
 
   Full and foreign-only success exit 0. Partial, zero-success, export, file, and
   integration failures exit nonzero. Missing or duplicate page sets write no
-  partial attempt. This stage creates no scan-review metadata.
+  partial attempt. Actionable failures are persisted under scans/review/.
 
   scoreform score scanned_file.pdf answer_key.json
       Legacy/manual scoring with an explicit answer key and default local results path.
@@ -170,6 +170,7 @@ def print_menu_help():
     print("  Routed result destination:")
     print("  classes/<class_id>/modules/scoreform/work/<assignment_id>/results.csv")
     print()
-    print("  Review persistence remains separate #145 work.")
+    print("  Review failures use immutable Core-v2 records under scans/review/.")
+    print("  Teacher decisions append records under scans/review/resolutions/.")
     print("Manually verify page scores before using them for grades.")
     print()

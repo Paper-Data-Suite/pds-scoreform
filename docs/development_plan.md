@@ -178,7 +178,7 @@ Core PDS2 route per physical page, reloads every registration before rendering,
 and atomically installs each completed PDF. Managed regeneration preserves old
 records and routes and supersedes predecessors only after replacement install.
 Retained-source PDS2 page dispatch is implemented in #143. Attempt assembly and
-routed issuance assembly/export is active; failure/resolution persistence remains #145.
+routed issuance assembly/export and Core-v2 failure/resolution persistence are active.
 
 The #143 boundary validates the source and application-owned installed registry,
 retains exactly once, enumerates only retained bytes, detects raw QR text, uses
@@ -1655,4 +1655,4 @@ physical-form incompatibility. Diagnostic-write failures are typed scoring
 failures rather than silent warnings.
 
 Teacher-facing retained QR decoding and production page dispatch are active.
-Attempt assembly/results export is active; review persistence stays gated on #145.
+Attempt assembly/results export and Core-v2 review persistence are active.
