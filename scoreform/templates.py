@@ -1,11 +1,13 @@
 import os
 import re
 import sys
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
 from pds_core.pds2 import parse_pds2_payload, serialize_pds2_payload
 from pds_core.routing_models import RouteLocator
+from reportlab.pdfbase import pdfmetrics
 
 from scoreform import workspace
 from scoreform.answer_sheet_routes import (
@@ -17,10 +19,380 @@ from scoreform.config import (
     LOCAL_TEMPLATE_PNG,
 )
 from scoreform.folders import ensure_parent_dir
-from scoreform.layouts import get_layout
+from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.paging import question_range_for_page
 
 QR_QUIET_ZONE_MODULES = 4
+HEADER_COLUMN_GAP = 10.0
+HEADER_TEXT_CLEARANCE = 4.0
+HEADER_QUESTION_CLEARANCE = 8.0
+
+
+@dataclass(frozen=True, slots=True)
+class PdfRectangle:
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+@dataclass(frozen=True, slots=True)
+class HeaderTextRun:
+    text: str
+    font_name: str
+    font_size: float
+    x: float
+    baseline_y: float
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerSheetHeaderPlan:
+    title_runs: tuple[HeaderTextRun, ...]
+    left_metadata_runs: tuple[HeaderTextRun, ...]
+    page_context_runs: tuple[HeaderTextRun, ...]
+    identifier_runs: tuple[HeaderTextRun, ...]
+    left_column: PdfRectangle
+    right_column: PdfRectangle
+    qr_rectangle: PdfRectangle
+    first_question_boundary: PdfRectangle
+    registration_rectangles: tuple[PdfRectangle, ...]
+    page_bounds: PdfRectangle
+
+    @property
+    def text_runs(self) -> tuple[HeaderTextRun, ...]:
+        return (
+            self.title_runs
+            + self.left_metadata_runs
+            + self.page_context_runs
+            + self.identifier_runs
+        )
+
+
+def header_text_bounds(run: HeaderTextRun) -> PdfRectangle:
+    width = pdfmetrics.stringWidth(run.text, run.font_name, run.font_size)
+    ascent, descent = pdfmetrics.getAscentDescent(run.font_name, run.font_size)
+    return PdfRectangle(
+        run.x,
+        run.baseline_y + descent,
+        run.x + width,
+        run.baseline_y + ascent,
+    )
+
+
+def rectangles_overlap(
+    first: PdfRectangle, second: PdfRectangle, *, clearance: float = 0.0
+) -> bool:
+    return not (
+        first.right + clearance <= second.left
+        or second.right + clearance <= first.left
+        or first.top + clearance <= second.bottom
+        or second.top + clearance <= first.bottom
+    )
+
+
+def _text_fits(text: str, font_name: str, font_size: float, width: float) -> bool:
+    return pdfmetrics.stringWidth(text, font_name, font_size) <= width
+
+
+def _ellipsize_text(
+    text: str, font_name: str, font_size: float, width: float
+) -> str:
+    if _text_fits(text, font_name, font_size, width):
+        return text
+    ellipsis = "\N{HORIZONTAL ELLIPSIS}"
+    if not _text_fits(ellipsis, font_name, font_size, width):
+        raise ValueError("Header column is too narrow to render an ellipsis.")
+    shortened = text.rstrip()
+    while shortened and not _text_fits(
+        shortened.rstrip() + ellipsis, font_name, font_size, width
+    ):
+        shortened = shortened[:-1]
+    return shortened.rstrip() + ellipsis
+
+
+def _wrap_title(
+    text: str, font_name: str, font_size: float, width: float
+) -> tuple[str, ...]:
+    words = text.split()
+    if not words:
+        return ("Assignment:",)
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+        if _text_fits(candidate, font_name, font_size, width):
+            current = candidate
+            continue
+        if current:
+            lines.append(current)
+            current = word
+        else:
+            lines.append(word)
+            current = ""
+    if current:
+        lines.append(current)
+    return tuple(lines)
+
+
+def _plan_title_runs(
+    title: str, x: float, top_baseline: float, width: float
+) -> tuple[HeaderTextRun, ...]:
+    font_name = "Helvetica-Bold"
+    text = f"Assignment: {title}".strip()
+    for half_points in range(28, 19, -1):
+        font_size = half_points / 2
+        lines = _wrap_title(text, font_name, font_size, width)
+        if len(lines) <= 2 and all(
+            _text_fits(line, font_name, font_size, width) for line in lines
+        ):
+            line_spacing = font_size + 3.5
+            return tuple(
+                HeaderTextRun(
+                    line,
+                    font_name,
+                    font_size,
+                    x,
+                    top_baseline - index * line_spacing,
+                )
+                for index, line in enumerate(lines)
+            )
+
+    font_size = 10.0
+    lines = _wrap_title(text, font_name, font_size, width)
+    first = _ellipsize_text(lines[0], font_name, font_size, width)
+    remainder = " ".join(lines[1:])
+    second = _ellipsize_text(remainder, font_name, font_size, width)
+    return (
+        HeaderTextRun(first, font_name, font_size, x, top_baseline),
+        HeaderTextRun(second, font_name, font_size, x, top_baseline - 13.5),
+    )
+
+
+def _fit_single_line_run(
+    text: str,
+    font_name: str,
+    preferred_size: float,
+    minimum_size: float,
+    x: float,
+    baseline_y: float,
+    width: float,
+) -> HeaderTextRun:
+    half_points = round(preferred_size * 2)
+    minimum_half_points = round(minimum_size * 2)
+    while half_points >= minimum_half_points:
+        font_size = half_points / 2
+        if _text_fits(text, font_name, font_size, width):
+            return HeaderTextRun(text, font_name, font_size, x, baseline_y)
+        half_points -= 1
+    raise ValueError(f"Header text does not fit its column: {text!r}")
+
+
+def _registration_rectangles(layout: AnswerSheetLayout) -> tuple[PdfRectangle, ...]:
+    size = layout.registration_size * layout.pdf_scale
+    rectangles = []
+    for x, y in layout.registration_marks:
+        left, top = _pdf_coord(x, y, layout)
+        rectangles.append(PdfRectangle(left, top - size, left + size, top))
+    return tuple(rectangles)
+
+
+def _first_question_boundary(layout: AnswerSheetLayout) -> PdfRectangle:
+    first_question_top = max(
+        layout.pdf_height - box.y * layout.pdf_scale
+        for slot in layout.question_slots
+        for box in slot.boxes
+    )
+    return PdfRectangle(0.0, 0.0, float(layout.pdf_width), first_question_top)
+
+
+def _require_inside(inner: PdfRectangle, outer: PdfRectangle, label: str) -> None:
+    if not (
+        inner.left >= outer.left
+        and inner.bottom >= outer.bottom
+        and inner.right <= outer.right
+        and inner.top <= outer.top
+    ):
+        raise ValueError(f"{label} falls outside its permitted bounds.")
+
+
+def _require_clear(
+    first: PdfRectangle,
+    second: PdfRectangle,
+    label: str,
+    *,
+    clearance: float = HEADER_TEXT_CLEARANCE,
+) -> None:
+    if rectangles_overlap(first, second, clearance=clearance):
+        raise ValueError(f"Header geometry overlaps: {label}.")
+
+
+def _validate_header_plan(plan: AnswerSheetHeaderPlan) -> None:
+    groups = (
+        (plan.title_runs, plan.left_column, "assignment title"),
+        (plan.left_metadata_runs, plan.left_column, "student metadata"),
+        (plan.page_context_runs, plan.right_column, "page context"),
+        (plan.identifier_runs, plan.right_column, "page identifiers"),
+    )
+    for runs, column, label in groups:
+        for run in runs:
+            bounds = header_text_bounds(run)
+            _require_inside(bounds, plan.page_bounds, label)
+            _require_inside(bounds, column, label)
+            _require_clear(
+                bounds,
+                plan.first_question_boundary,
+                f"{label} and questions",
+                clearance=HEADER_QUESTION_CLEARANCE,
+            )
+            for registration in plan.registration_rectangles:
+                _require_clear(bounds, registration, f"{label} and registration mark")
+
+    left_runs = plan.title_runs + plan.left_metadata_runs
+    for first_index, first in enumerate(left_runs):
+        for second in left_runs[first_index + 1 :]:
+            _require_clear(
+                header_text_bounds(first),
+                header_text_bounds(second),
+                "left-column text",
+            )
+
+    right_runs = plan.page_context_runs + plan.identifier_runs
+    for first_index, first in enumerate(right_runs):
+        for second in right_runs[first_index + 1 :]:
+            _require_clear(
+                header_text_bounds(first),
+                header_text_bounds(second),
+                "right-column text",
+            )
+
+    for run in plan.title_runs + plan.left_metadata_runs:
+        _require_clear(header_text_bounds(run), plan.qr_rectangle, "left text and QR")
+    for run in plan.page_context_runs + plan.identifier_runs:
+        _require_clear(header_text_bounds(run), plan.qr_rectangle, "right text and QR")
+
+
+def plan_answer_sheet_header(
+    *,
+    assignment_title: str,
+    student_name: str,
+    student_id: str,
+    class_id: str,
+    period: str,
+    logical_page: int,
+    total_pages: int,
+    question_start: int,
+    question_end: int,
+    page_id: str,
+    route_id: str,
+    layout: AnswerSheetLayout,
+) -> AnswerSheetHeaderPlan:
+    """Return a deterministic, validated plan for answer-sheet header text."""
+    left_x, _ = _pdf_coord(150, 260, layout)
+    context_x, context_y = _pdf_coord(
+        layout.page_context_x, layout.page_context_y, layout
+    )
+    content_right = layout.pdf_width - left_x
+    page_bounds = PdfRectangle(
+        0.0, 0.0, float(layout.pdf_width), float(layout.pdf_height)
+    )
+    left_column = PdfRectangle(
+        left_x,
+        0.0,
+        context_x - HEADER_COLUMN_GAP,
+        float(layout.pdf_height),
+    )
+    right_column = PdfRectangle(
+        context_x, 0.0, content_right, float(layout.pdf_height)
+    )
+    qr_left, qr_top = _pdf_coord(layout.qr_x, layout.qr_y, layout)
+    qr_size = layout.qr_size * layout.pdf_scale
+    qr_rectangle = PdfRectangle(
+        qr_left, qr_top - qr_size, qr_left + qr_size, qr_top
+    )
+
+    title_runs = _plan_title_runs(
+        assignment_title,
+        left_column.left,
+        qr_rectangle.top,
+        left_column.right - left_column.left,
+    )
+    last_title = title_runs[-1]
+    metadata_baseline = last_title.baseline_y - last_title.font_size - 3.5
+    metadata_text = (
+        f"Student: {student_name}",
+        f"ID: {student_id}",
+        f"Class: {class_id}",
+        f"Period: {period}",
+    )
+    left_metadata_runs = tuple(
+        _fit_single_line_run(
+            text,
+            "Helvetica",
+            10.0,
+            7.0,
+            left_column.left,
+            metadata_baseline - index * 13.5,
+            left_column.right - left_column.left,
+        )
+        for index, text in enumerate(metadata_text)
+    )
+    page_context_runs = (
+        HeaderTextRun(
+            f"Page {logical_page} of {total_pages}",
+            "Helvetica",
+            10.0,
+            right_column.left,
+            context_y,
+        ),
+        HeaderTextRun(
+            f"Questions {question_start}\N{EN DASH}{question_end}",
+            "Helvetica",
+            10.0,
+            right_column.left,
+            context_y - 14.0,
+        ),
+    )
+    identifier_font_size = 7.0
+    identifier_ascent, _ = pdfmetrics.getAscentDescent(
+        "Helvetica", identifier_font_size
+    )
+    identifier_baseline = (
+        qr_rectangle.bottom - HEADER_TEXT_CLEARANCE - identifier_ascent
+    )
+    identifier_runs = (
+        _fit_single_line_run(
+            f"Sheet ID: {page_id}",
+            "Helvetica",
+            identifier_font_size,
+            6.5,
+            right_column.left,
+            identifier_baseline,
+            right_column.right - right_column.left,
+        ),
+        _fit_single_line_run(
+            f"Route ID: {route_id}",
+            "Helvetica",
+            identifier_font_size,
+            6.5,
+            right_column.left,
+            identifier_baseline - 11.5,
+            right_column.right - right_column.left,
+        ),
+    )
+    plan = AnswerSheetHeaderPlan(
+        title_runs=title_runs,
+        left_metadata_runs=left_metadata_runs,
+        page_context_runs=page_context_runs,
+        identifier_runs=identifier_runs,
+        left_column=left_column,
+        right_column=right_column,
+        qr_rectangle=qr_rectangle,
+        first_question_boundary=_first_question_boundary(layout),
+        registration_rectangles=_registration_rectangles(layout),
+        page_bounds=page_bounds,
+    )
+    _validate_header_plan(plan)
+    return plan
 
 
 def _pdf_coord(x, y, layout=None):
@@ -281,35 +653,28 @@ def draw_student_answer_sheet_page(c, assignment_data, student_data, route, layo
     for (x, y) in layout.registration_marks:
         _pdf_rect(c, x, y, layout.registration_size, layout.registration_size, fill=True, layout=layout)
 
-    # Metadata area (away from corners and questions)
-    c.setFont("Helvetica-Bold", 14)
-    meta_x, meta_y = _pdf_coord(150, 260, layout)
-    c.drawString(meta_x, meta_y, f"Assignment: {assignment_data.get('title', '')}")
-
-    c.setFont("Helvetica", layout.question_font_size)
-    meta_y -= 16
-    student_line = f"Student: {student_data.get('last_name','')}, {student_data.get('first_name','')}"
-    c.drawString(meta_x, meta_y, student_line)
-    meta_y -= 14
-    c.drawString(meta_x, meta_y, f"ID: {student_data.get('student_id','')}")
-    meta_y -= 14
-    c.drawString(meta_x, meta_y, f"Class: {student_data.get('class_id', '')}")
-    meta_y -= 14
-    c.drawString(meta_x, meta_y, f"Period: {student_data.get('period','')}")
-
     page_count = page.total_pages
     question_start, question_end = page.question_start, page.question_end
-    context_x, context_y = _pdf_coord(layout.page_context_x, layout.page_context_y, layout)
-    c.setFont("Helvetica", 10)
-    c.drawString(context_x, context_y, f"Page {page.logical_page} of {page_count}")
-    c.drawString(context_x, context_y - 13, f"Questions {question_start}\N{EN DASH}{question_end}")
-
-    identity_x, identity_y = _pdf_coord(
-        layout.identity_context_x, layout.identity_context_y, layout
+    header = plan_answer_sheet_header(
+        assignment_title=str(assignment_data.get("title", "")),
+        student_name=(
+            f"{student_data.get('last_name', '')}, "
+            f"{student_data.get('first_name', '')}"
+        ),
+        student_id=str(student_data.get("student_id", "")),
+        class_id=str(student_data.get("class_id", "")),
+        period=str(student_data.get("period", "")),
+        logical_page=page.logical_page,
+        total_pages=page_count,
+        question_start=question_start,
+        question_end=question_end,
+        page_id=page.page_id,
+        route_id=route.locator.route_id,
+        layout=layout,
     )
-    c.setFont("Helvetica", 7)
-    c.drawString(identity_x, identity_y, f"Sheet ID: {page.page_id}")
-    c.drawString(identity_x, identity_y - 10, f"Route ID: {route.locator.route_id}")
+    for run in header.text_runs:
+        c.setFont(run.font_name, run.font_size)
+        c.drawString(run.x, run.baseline_y, run.text)
 
     # Draw question boxes based on assignment question_count
     c.setLineWidth(1)
