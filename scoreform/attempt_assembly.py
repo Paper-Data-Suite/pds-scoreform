@@ -37,7 +37,12 @@ from scoreform.pds_contract import (
     ANSWER_SHEET_PAGE_RECORD_KIND,
     SCOREFORM_MODULE_ID,
 )
-from scoreform.results import ScoreFormAttemptExportBatch, ScoreFormRoutedResult
+from scoreform.results import (
+    ScoreFormAttemptExportBatch,
+    ScoreFormRoutedResult,
+    pds2_result_content_key,
+    pds2_results_semantically_equivalent,
+)
 from scoreform.retained_page import validate_canonical_retained_source_relative_path
 from scoreform.work_paths import scoreform_work_ref
 
@@ -533,19 +538,34 @@ class ScoreFormRoutedScoringBatch:
             return
         if not isinstance(self.export_result, ScoreFormAttemptExportBatch):
             raise TypeError("export_result must be a ScoreFormAttemptExportBatch.")
-        completed = {item.routed_result for item in self.assembly_result.completed_attempts}
-        exported = (
-            *self.export_result.appended_attempts,
-            *self.export_result.already_present_attempts,
+        completed = tuple(
+            item.routed_result for item in self.assembly_result.completed_attempts
         )
-        if any(item.result not in completed for item in exported):
-            raise ValueError("Every exported attempt must correspond to completed assembly.")
-        identities = tuple(
-            (item.result.source_scan_id, item.result.issuance_id)
-            for item in exported if item.result.result_origin == "pds2_scan"
-        )
-        if len(identities) != len(set(identities)):
-            raise ValueError("Export identities must not repeat.")
+        if any(
+            item.result not in completed
+            for item in self.export_result.appended_attempts
+        ):
+            raise ValueError(
+                "Every appended attempt must exactly match completed assembly."
+            )
+        for item in self.export_result.already_present_attempts:
+            result = item.result
+            if result.result_origin == "pds2_scan":
+                if not any(
+                    pds2_result_content_key(candidate)
+                    == pds2_result_content_key(result)
+                    and pds2_results_semantically_equivalent(candidate, result)
+                    for candidate in completed
+                ):
+                    raise ValueError(
+                        "Every already-present PDS2 attempt must semantically "
+                        "match completed assembly."
+                    )
+            elif result not in completed:
+                raise ValueError(
+                    "Every already-present manual attempt must exactly match "
+                    "completed assembly."
+                )
 
     @property
     def status(self) -> str:
@@ -603,6 +623,15 @@ def format_routed_scoring_summary(batch: ScoreFormRoutedScoringBatch) -> str:
             f"Attempts already present: {len(exported.already_present_attempts)}",
             f"Export failures: {len(exported.failures)}",
         ))
+        if (
+            not exported.appended_attempts
+            and exported.already_present_attempts
+            and not exported.failures
+        ):
+            lines.append(
+                "No new ScoreForm attempt was added because identical scan "
+                "content was already recorded."
+            )
         lines.extend(f"Output: {path}" for path in exported.output_paths)
     for failure in assembly.failures:
         lines.append(f"Assembly failure [{failure.category}] {failure.issuance_id}: {failure.reason}")

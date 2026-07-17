@@ -14,7 +14,13 @@ from scoreform.answer_sheet_generation import (
 )
 from scoreform.answer_sheet_records import generate_generation_id
 from scoreform.assignment import load_assignment
+from scoreform.config import LOCAL_TEMPLATE_PDF, LOCAL_TEMPLATE_PNG
 from scoreform.folders import setup_assignment_folder
+from scoreform.generated_output_opening import (
+    ScoreFormGeneratedOutputOpenError,
+    open_generated_output_file,
+    open_generated_output_folder,
+)
 from scoreform.layouts import get_layout
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
@@ -25,7 +31,7 @@ from scoreform.paging import page_count_for_question_count
 from scoreform.roster import load_roster
 from scoreform.templates import generate_template, student_pdf_filename
 from scoreform.validation import is_safe_identifier
-from scoreform.work_paths import scoreform_work_paths
+from scoreform.work_paths import scoreform_work_collection_dir, scoreform_work_paths
 from scoreform.workflows import (
     clear_screen,
     discover_class_assignments,
@@ -50,6 +56,24 @@ class RegenerateSheetsResult:
     stale_extra_count: int = 0
     stale_extra_examples: tuple[str, ...] = ()
     generation_result: AnswerSheetGenerationResult | None = None
+    individual_templates_dir: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ManagedGeneratedOutput:
+    """Structured output paths from one successful managed generation."""
+
+    class_packet_path: Path
+    individual_templates_dir: Path
+
+
+@dataclass(frozen=True, slots=True)
+class GenerateCommandResult:
+    """Internal structured result while the public command retains an int."""
+
+    exit_code: int
+    managed_outputs: tuple[ManagedGeneratedOutput, ...] = ()
+    blank_template_path: Path | None = None
 
 
 class ManagedAnswerSheetGenerationFailure(RuntimeError):
@@ -176,6 +200,7 @@ def regenerate_answer_sheets_for_assignment(
         individual_count=len(roster["students"]),
         class_packet_path=os.fspath(packet_path),
         templates_dir=os.fspath(templates_dir),
+        individual_templates_dir=os.fspath(individual_dir),
         pages_per_student=page_count_for_question_count(
             assignment["question_count"], get_layout(assignment["layout_id"])
         ),
@@ -250,6 +275,103 @@ def _print_stale_note(result, *, include_examples=False):
     )
     if include_examples and result.stale_extra_examples:
         print("Examples: " + ", ".join(result.stale_extra_examples))
+
+
+def _open_output_or_report(
+    operation,
+    workspace_root: Path,
+    output_path: str | os.PathLike[str],
+) -> bool:
+    try:
+        opened = operation(workspace_root, output_path)
+    except ScoreFormGeneratedOutputOpenError as error:
+        print(f"Error opening generated output: {error}")
+        print(f"Saved path: {output_path}")
+        return False
+    print(f"Opened: {opened}")
+    return True
+
+
+def _offer_assignment_output_actions(
+    workspace_root: Path,
+    class_packet_path: str | os.PathLike[str],
+    individual_templates_dir: str | os.PathLike[str],
+) -> None:
+    while True:
+        print("\nWhat would you like to do next?\n")
+        print("1. Open class packet for printing")
+        print("2. Open individual answer sheets folder")
+        print("3. Return")
+        selection = input("Select an option: ").strip()
+        if not selection or selection == "3":
+            return
+        if parse_scoreform_navigation(selection) is not None:
+            return
+        if selection == "1":
+            if _open_output_or_report(
+                open_generated_output_file, workspace_root, class_packet_path
+            ):
+                return
+            continue
+        if selection == "2":
+            if _open_output_or_report(
+                open_generated_output_folder,
+                workspace_root,
+                individual_templates_dir,
+            ):
+                return
+            continue
+        print(f"Invalid selection: {selection}.")
+        print_invalid_navigation()
+
+
+def _offer_class_output_actions(workspace_root: Path, class_work_dir: Path) -> None:
+    while True:
+        print("\nWhat would you like to do next?\n")
+        print("1. Open class ScoreForm work folder")
+        print("2. Return")
+        selection = input("Select an option: ").strip()
+        if not selection or selection == "2":
+            return
+        if parse_scoreform_navigation(selection) is not None:
+            return
+        if selection == "1":
+            if _open_output_or_report(
+                open_generated_output_folder, workspace_root, class_work_dir
+            ):
+                return
+            continue
+        print(f"Invalid selection: {selection}.")
+        print_invalid_navigation()
+
+
+def _offer_blank_template_actions(
+    workspace_root: Path, template_path: Path
+) -> None:
+    while True:
+        print("\nWhat would you like to do next?\n")
+        print("1. Open generated template")
+        print("2. Open containing folder")
+        print("3. Return")
+        selection = input("Select an option: ").strip()
+        if not selection or selection == "3":
+            return
+        if parse_scoreform_navigation(selection) is not None:
+            return
+        if selection == "1":
+            if _open_output_or_report(
+                open_generated_output_file, workspace_root, template_path
+            ):
+                return
+            continue
+        if selection == "2":
+            if _open_output_or_report(
+                open_generated_output_folder, workspace_root, template_path.parent
+            ):
+                return
+            continue
+        print(f"Invalid selection: {selection}.")
+        print_invalid_navigation()
 
 
 def run_regenerate_sheets(args):
@@ -434,6 +556,14 @@ def launch_regenerate_sheets_menu(preselected_class_id=None):
         if result.stale_extra_count:
             print("\nNote: Older individual PDFs remain in the templates folder.")
             print("Review that folder before printing individual sheets.")
+        individual_dir = result.individual_templates_dir or os.fspath(
+            Path(result.templates_dir) / "individual"
+        )
+        _offer_assignment_output_actions(
+            Path(workspace.get_scoreform_workspace_root()),
+            result.class_packet_path,
+            individual_dir,
+        )
         return 0
 
     clear_screen()
@@ -462,19 +592,29 @@ def launch_regenerate_sheets_menu(preselected_class_id=None):
     if any(result.stale_extra_count for result in results):
         print("\nNote: Older individual PDFs remain in the templates folders.")
         print("Review those folders before printing individual sheets.")
+    root = Path(workspace.get_scoreform_workspace_root())
+    _offer_class_output_actions(
+        root,
+        scoreform_work_collection_dir(root, class_id),
+    )
     return 0
 
 
-def run_generate(args):
-    """Generate blank templates or assignment-specific answer sheets."""
+def _run_generate_operation(args) -> GenerateCommandResult:
+    """Generate outputs and return their paths without adding menu prompts."""
     if not args:
-        generate_template()
-        return 0
+        root = Path(workspace.get_scoreform_workspace_root())
+        template_path = root / LOCAL_TEMPLATE_PDF
+        generate_template(
+            pdf_filename=os.fspath(template_path),
+            png_filename=os.fspath(root / LOCAL_TEMPLATE_PNG),
+        )
+        return GenerateCommandResult(0, blank_template_path=template_path)
 
     assignment_file = args[0]
     if "--rosters" not in args[1:]:
         print("Error: Missing --rosters.\nUsage: scoreform generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
-        return 1
+        return GenerateCommandResult(1)
 
     rosters_index = args.index("--rosters")
     roster_files = args[rosters_index + 1 :]
@@ -482,26 +622,27 @@ def run_generate(args):
     if not roster_files:
         print("Error: --rosters provided but no roster files specified.")
         print("Usage: scoreform generate <assignment_json> --rosters <roster_csv> [more_rosters...]")
-        return 1
+        return GenerateCommandResult(1)
 
     assignment = load_assignment(assignment_file)
     if assignment is None:
-        return 1
+        return GenerateCommandResult(1)
 
     command_generation_id = generate_generation_id()
     installed_artifacts = 0
     clean_artifacts = 0
     partial_artifacts = 0
+    managed_outputs = []
     for roster_path in roster_files:
         roster = load_roster(roster_path)
         if roster is None:
             print(f"Error: Failed to load/validate roster: {roster_path}")
-            return 1
+            return GenerateCommandResult(1)
 
         setup_paths = setup_assignment_folder(roster, assignment)
         if setup_paths is None:
             print(f"Error: Failed to setup assignment folder for roster: {roster_path}")
-            return 1
+            return GenerateCommandResult(1)
 
         print("--- Setup Summary ---")
         print(f"Class: {roster.get('class_id')}")
@@ -514,7 +655,7 @@ def run_generate(args):
         managed_roster = load_roster(paths.roster_path)
         if managed_assignment is None or managed_roster is None:
             print("Error: Canonical managed assignment or roster could not be reloaded.")
-            return 1
+            return GenerateCommandResult(1)
 
         try:
             generation_result = generate_managed_answer_sheets(
@@ -531,10 +672,10 @@ def run_generate(args):
             print(f"Error: Managed answer-sheet preflight failed: {error}")
             for note in getattr(error, "__notes__", ()):
                 print(f"Warning: {note}")
-            return 1
+            return GenerateCommandResult(1)
         except Exception as error:
             print(f"Error: Managed answer-sheet orchestration failed: {error}")
-            return 1
+            return GenerateCommandResult(1)
         if not generation_result.success:
             for index, line in enumerate(
                 _generation_failure_lines(
@@ -545,7 +686,7 @@ def run_generate(args):
                 )
             ):
                 print(("Error: " if index == 0 else "") + line)
-            return 1
+            return GenerateCommandResult(1)
 
         installed_artifacts += generation_result.installed_artifact_count
         clean_artifacts += generation_result.clean_success_count
@@ -563,8 +704,19 @@ def run_generate(args):
             f"Verified PDS2 routes: {generation_result.installed_route_count}; "
             f"physical pages: {generation_result.physical_page_count}"
         )
+        managed_outputs.append(
+            ManagedGeneratedOutput(
+                class_packet_path=Path(paths.class_packet_path),
+                individual_templates_dir=Path(paths.individual_templates_dir),
+            )
+        )
 
-    return 0
+    return GenerateCommandResult(0, managed_outputs=tuple(managed_outputs))
+
+
+def run_generate(args):
+    """Generate outputs noninteractively and preserve the public integer result."""
+    return _run_generate_operation(args).exit_code
 
 
 def launch_generate_menu():
@@ -659,20 +811,32 @@ def launch_generate_menu():
                     pause_for_user()
                     return 1
 
-                result = run_generate([
-                    assignment_record["assignment_path"],
-                    "--rosters",
-                    class_record["roster_path"],
-                ])
-                pause_for_user()
-                return result
+                operation = _run_generate_operation(
+                    [
+                        assignment_record["assignment_path"],
+                        "--rosters",
+                        class_record["roster_path"],
+                    ]
+                )
+                if operation.exit_code == 0 and operation.managed_outputs:
+                    output = operation.managed_outputs[0]
+                    _offer_assignment_output_actions(
+                        Path(workspace.get_scoreform_workspace_root()),
+                        output.class_packet_path,
+                        output.individual_templates_dir,
+                    )
+                return operation.exit_code
 
             elif choice == "2":
                 clear_screen()
                 print_menu_header("Generate a Generic Blank Template")
-                result = run_generate([])
-                pause_for_user()
-                return result
+                operation = _run_generate_operation([])
+                if operation.exit_code == 0 and operation.blank_template_path:
+                    _offer_blank_template_actions(
+                        Path(workspace.get_scoreform_workspace_root()),
+                        operation.blank_template_path,
+                    )
+                return operation.exit_code
 
             else:
                 print(f"Invalid selection: {choice}.")

@@ -134,7 +134,7 @@ def test_duplicate_identity_inside_one_transaction_is_deduplicated_or_rejected(t
     assert conflict.failures[0].stage == "integrity"
 
 
-def test_duplicate_identity_already_in_history_is_rejected(tmp_path):
+def test_equivalent_content_identity_duplicates_in_history_are_preserved(tmp_path):
     _setup(tmp_path)
     result = _scan()
     assert _export_result_models((result,), workspace_root=tmp_path).succeeded
@@ -142,8 +142,10 @@ def test_duplicate_identity_already_in_history_is_rejected(tmp_path):
     rows = path.read_text(encoding="utf-8").splitlines()
     path.write_text("\n".join((*rows, rows[1])) + "\n", encoding="utf-8")
     batch = _export_result_models((result,), workspace_root=tmp_path)
-    assert batch.failures[0].stage == "integrity"
+    assert not batch.failures
     assert not batch.appended_attempts
+    assert batch.already_present_attempts[0].attempt_number == 1
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 3
 
 
 def test_pds2_history_rejects_historical_naive_timestamp(tmp_path):
@@ -221,7 +223,10 @@ def test_staging_failure_changes_no_target_and_reports_no_append(
         return actual_stage(path, headers, rows)
 
     monkeypatch.setattr(results_module, "_stage_history", fail_second)
-    rescans = tuple(replace(item, source_scan_id="rescan") for item in seeds)
+    rescans = tuple(
+        replace(item, source_scan_id="rescan", source_sha256="f" * 64)
+        for item in seeds
+    )
     batch = _export_result_models(rescans, workspace_root=tmp_path)
     assert [path.read_bytes() for path in paths] == before
     assert not batch.appended_attempts
@@ -267,7 +272,10 @@ def test_replacement_failure_reports_only_persisted_attempts(
 
     monkeypatch.setattr(results_module.os, "replace", fail_selected)
     batch = _export_result_models(
-        tuple(replace(item, source_scan_id="rescan") for item in seeds),
+        tuple(
+            replace(item, source_scan_id="rescan", source_sha256="f" * 64)
+            for item in seeds
+        ),
         workspace_root=tmp_path,
     )
     assert [item.result.assignment_id for item in batch.appended_attempts] == list(
@@ -306,7 +314,8 @@ def test_cleanup_failure_remains_attached_to_primary_replacement_failure(
 
     monkeypatch.setattr(results_module, "_cleanup_staged", fail_cleanup)
     batch = _export_result_models(
-        (replace(seed, source_scan_id="rescan"),), workspace_root=tmp_path
+        (replace(seed, source_scan_id="rescan", source_sha256="f" * 64),),
+        workspace_root=tmp_path,
     )
     assert not batch.appended_attempts
     assert batch.failures[0].error.__cause__ is not None

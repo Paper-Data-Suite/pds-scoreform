@@ -20,6 +20,11 @@ No changes yet.
 
 ### Added
 
+* Added post-generation menu actions that can open the generated class packet,
+  individual-sheets folder, class ScoreForm work folder, or blank template
+  through PDS Core after explicit teacher selection; direct commands remain
+  prompt-free.
+
 * Added assignment and per-question standards-alignment validation against the
   shared PDS Core standards-library contract.
 * Added `check_dependencies.ps1` to verify the repository-local environment,
@@ -61,6 +66,15 @@ No changes yet.
 
 ### Changed
 
+* Reordered new schema-v2 managed result files for teacher use: identity,
+  `Score`, `Total`, and contiguous question pairs now precede page, attempt, and
+  provenance metadata. Existing pre-release v2 files retain read compatibility
+  and normalize atomically on their next successful export transaction.
+* Changed PDS2 attempt idempotency to `source_sha256 + issuance_id`, so a renamed
+  or newly retained copy of identical scan bytes does not add another attempt;
+  retained-source and assignment-filed audit evidence remain governed by their
+  existing layers.
+
 * Extracted workspace, school-year, help/version, scoring, scan-menu, roster,
   assignment, standards, generation, and QR workflows into focused modules
   while preserving the public CLI entry point and teacher-facing behavior.
@@ -96,6 +110,11 @@ No changes yet.
   longer owned behavior.
 
 ### Documentation
+
+* Moved normal-use source-menu rehearsal and generated-PDF inspection ahead of
+  merge, the authoritative release gate, and artifact building. Clarified that
+  Python 3.11 verifies the supported minimum while the owner may run the menu
+  and physical test on any interpreter satisfying Python 3.11 or newer.
 
 * Documented the development and release Core dependency contracts, including
   separate noneditable Core and ScoreForm wheels.

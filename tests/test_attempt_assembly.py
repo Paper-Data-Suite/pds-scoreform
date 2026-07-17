@@ -28,6 +28,7 @@ from scoreform.attempt_assembly import (
     ScoreFormPageObservation,
     ScoreFormRoutedScoringBatch,
     assemble_scoreform_attempts,
+    format_routed_scoring_summary,
 )
 from scoreform.cli_score import _eligible_for_scan_filing
 from scoreform.folders import setup_assignment_folder
@@ -45,6 +46,7 @@ from scoreform.results import (
     ScoreFormAttemptExportFailure,
     ScoreFormExportedAttempt,
     export_scoreform_attempts,
+    export_scoreform_result_models,
 )
 from scoreform.scan_review_persistence import persist_routed_scoring_failures
 from scoreform.scan_review_resolution import (
@@ -616,6 +618,65 @@ def test_scan_filing_eligibility_requires_managed_full_success(tmp_path: Path):
         ScoreFormRoutedScoringBatch(assembly.dispatch_result, assembly, failed_export),
         None,
     )
+
+
+def test_summary_explains_identical_content_already_recorded(tmp_path: Path):
+    assembly = assemble_scoreform_attempts(_batch(tmp_path), workspace_root=tmp_path)
+    result = assembly.completed_attempts[0].routed_result
+    exported = ScoreFormAttemptExportBatch(
+        already_present_attempts=(
+            ScoreFormExportedAttempt(result, tmp_path / "results.csv", 1),
+        ),
+        output_paths=(tmp_path / "results.csv",),
+    )
+
+    summary = format_routed_scoring_summary(
+        ScoreFormRoutedScoringBatch(assembly.dispatch_result, assembly, exported)
+    )
+
+    assert "Attempts appended: 0" in summary
+    assert "Attempts already present: 1" in summary
+    assert (
+        "No new ScoreForm attempt was added because identical scan content was "
+        "already recorded."
+    ) in summary
+
+
+def test_canonical_history_matches_completed_equivalent_ingestion(tmp_path: Path):
+    assembly = assemble_scoreform_attempts(_batch(tmp_path), workspace_root=tmp_path)
+    incoming = assembly.completed_attempts[0].routed_result
+    suffix = Path(incoming.source_file).suffix
+    canonical = replace(
+        incoming,
+        source_file=f"original{suffix}",
+        source_scan_id="canonical_source",
+        retained_source_relative_path=(
+            f"scans/source/2026-07-15/original{suffix}"
+        ),
+    )
+    seeded = export_scoreform_result_models((canonical,), workspace_root=tmp_path)
+    assert seeded.appended_attempts[0].result == canonical
+
+    exported = export_scoreform_attempts(assembly, workspace_root=tmp_path)
+
+    assert not exported.appended_attempts
+    assert len(exported.already_present_attempts) == 1
+    already_present = exported.already_present_attempts[0]
+    assert already_present.result == canonical
+    assert already_present.result.source_file == canonical.source_file
+    assert already_present.result.source_scan_id == canonical.source_scan_id
+    assert already_present.result.retained_source_relative_path == (
+        canonical.retained_source_relative_path
+    )
+    assert already_present.attempt_number == 1
+
+    batch = ScoreFormRoutedScoringBatch(
+        assembly.dispatch_result, assembly, exported
+    )
+    assert batch.status == "full_success"
+    summary = format_routed_scoring_summary(batch)
+    assert "Attempts appended: 0" in summary
+    assert "Attempts already present: 1" in summary
 
 
 def test_deterministic_review_smoke_exports_complete_and_preserves_review_history(

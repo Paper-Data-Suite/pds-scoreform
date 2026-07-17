@@ -22,10 +22,10 @@ choose the official attempt or grade, and does not provide LMS export.
 - module ID: `scoreform`
 - routed-results schema: `2`
 
-The v0.9.1 release process tests Python 3.11 in CI and the locally reported
-interpreter used by the Windows release gate. The package metadata intentionally
-retains `requires-python = ">=3.11"`; additional interpreter results must be
-reported rather than assumed.
+Python 3.11 CI and release testing verifies the minimum supported version. The
+package metadata remains `requires-python = ">=3.11"`; local menu and physical
+testing may use any interpreter satisfying that metadata, including Python
+3.12, 3.13, or 3.14, and must record the exact interpreter version used.
 
 ## Installation
 
@@ -108,12 +108,13 @@ assembles complete attempts by issuance identity. Source page number and logical
 page number remain distinct.
 
 Standard and compact layouts are active for one-page and multi-page
-assessments. Complete, unambiguous attempts write schema-v2 results with aligned
-route, page, logical-page, source-page, retained-path, source-scan, digest, and
-intake provenance. Incomplete, duplicate, conflicting, mixed-issuance, or
-malformed page sets do not produce invalid rows. Rescanning in a later intake
-creates a new attempt; repeating export for the same intake and issuance is
-idempotent.
+assessments. Complete, unambiguous attempts write teacher-first schema-v2
+results with score, total, and contiguous question pairs before aligned route,
+page, logical-page, source-page, retained-path, source-scan, digest, and intake
+provenance. Incomplete, duplicate, conflicting, mixed-issuance, or malformed
+page sets do not produce invalid rows. A PDS2 attempt is idempotent by
+`source_sha256 + issuance_id`, even when identical bytes receive a new filename,
+retained path, or Core source-scan ID. Different scan bytes create a new attempt.
 
 ### Scan review and filing
 
@@ -156,7 +157,28 @@ scoreform --help
 scoreform --version
 ```
 
-`python main.py` remains a direct-source compatibility wrapper.
+With the repository development environment active and ScoreForm installed in
+it, run `scoreform` to launch the teacher menu. The direct-source compatibility
+form is `python .\main.py menu`; bare `python .\main.py` prints help rather than
+launching the menu.
+
+After successful menu-based generation for one assignment, ScoreForm offers to
+open the class packet for printing or the individual-sheets folder. Regeneration
+offers the same assignment actions, all-assignment regeneration can open the
+canonical class ScoreForm work folder, and generic-template generation can open
+the template or its containing folder. ScoreForm asks first and delegates local
+opening to PDS Core. Direct CLI commands remain prompt-free and never launch a
+viewer.
+
+The generic blank template is an unpersonalized sheet for printer/scanner
+alignment testing, mark-detection practice, emergency or ad hoc use, anonymous
+or manually associated responses, and the explicit-answer-key manual scoring
+workflow. It is not a managed personalized answer sheet: it has no roster-bound
+student identity, assignment issuance, or PDS2 route that can automatically
+select a managed class, assignment, student, or `results.csv`. Managed
+personalized sheets and class packets remain the preferred classroom workflow.
+Renaming this menu choice to something such as **Generic Blank Sheet (manual
+scoring)** is a possible future usability improvement, not current behavior.
 
 ### Routed PDS2 scoring
 
@@ -227,8 +249,13 @@ installed profile discovery, import/help/version side-effect checks, and Git
 diff hygiene. `.github/workflows/release-readiness.yml` provides nonpublishing
 Python 3.11 Linux validation.
 
-A real printed two-page standard-layout test using the reviewed wheel is a
-separate mandatory release gate. See `docs/physical_acceptance_test.md`.
+Before another build, the project owner must rehearse the normal teacher menu
+from the source checkout and visually inspect its generated PDFs. Only after
+focused tests, complete diff review, that rehearsal, visual inspection, review,
+and merge may the authoritative release gate and clean artifact build run. A
+real printed two-page test using the exact reviewed wheel remains a separate
+owner-operated release gate. Codex may prepare code, tests, and instructions but
+cannot claim a physical pass. See `docs/physical_acceptance_test.md`.
 
 ## Privacy and generated data
 
