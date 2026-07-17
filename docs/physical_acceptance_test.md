@@ -5,7 +5,130 @@ built from the clean reviewed candidate commit, reports a pass, and explicitly
 authorizes release. Use synthetic identities only. Do not commit or upload
 generated PDFs, filled sheets, scans, results, or diagnostic images.
 
-## 1. Freeze and build the candidate
+The project owner performs and adjudicates both the local rehearsal and final
+paper test. Codex may prepare code, tests, review material, and instructions,
+but may not claim a physical pass. The required release order is:
+
+```text
+implementation
+    -> focused automated tests
+    -> complete diff review
+    -> local normal-use menu rehearsal from source checkout
+    -> visual inspection of generated PDFs
+    -> merge reviewed corrections
+    -> authoritative automated release gate
+    -> clean artifact build and hashes
+    -> clean noneditable wheel installation
+    -> installed menu smoke
+    -> project-owner physical paper acceptance
+    -> explicit release authorization
+    -> tag and GitHub Release
+```
+
+## 1. Project-owner pre-build menu rehearsal
+
+Before merging or building another candidate, the project owner must run
+ScoreForm from the source checkout as a teacher would. Use a new disposable
+workspace and synthetic data. This rehearsal is not the final paper test.
+
+Activate the repository's development environment, where ScoreForm is installed,
+and run `scoreform` as the primary teacher-facing entry point. If direct-source
+compatibility is needed, use `python .\main.py menu`. Bare `python .\main.py`
+prints help and does not launch the menu. Then exercise these actual menu labels
+and navigation:
+
+1. **Roster Management** > **Create a class roster** to create the synthetic
+   roster (or enter the equivalent synthetic roster through the supported
+   roster workflow).
+2. **Assignment Management** > **Create an assignment** to create the synthetic
+   assignment and answer key.
+3. **Assignment Management** > **Generate answer sheets** > **Generate answer
+   sheets for an existing class assignment**.
+4. At **What would you like to do next?**, choose **Open class packet for
+   printing**. Confirm that the saved packet opens and visually inspect every
+   generated page, including header text, IDs, QR placement, registration
+   marks, question labels, and answer boxes. Then open the assignment's
+   `templates/individual` folder from its reported saved path and inspect at
+   least one individual PDF as well.
+5. Put a synthetic supported scan in `scans_inbox/`, then use **Assignment
+   Management** > **Score scanned responses** > **Retained PDS2 Core page
+   dispatch (recommended)** and **Choose a file from scans_inbox**.
+6. Use **Assignment Management** > **View assignment results** and confirm its
+   compact teacher summary shows the correct student, score, total, and attempt
+   count. This terminal screen is a summary; it does not display question,
+   page, issuance, route, or retained-source columns.
+7. Open the assignment's actual `results.csv` in a spreadsheet or text editor,
+   and also run this direct header check from the source checkout:
+
+```powershell
+$WorkRoot = Join-Path $env:PDS_WORKSPACE_ROOT `
+    "classes\physical_acceptance\modules\scoreform\work\physical_acceptance_30"
+$ResultsPath = Join-Path $WorkRoot "results.csv"
+$HeaderColumns = (Get-Content -LiteralPath $ResultsPath -TotalCount 1) -split ","
+$HeaderColumns
+
+$ExpectedPrefix = @(
+    "class_id", "assignment_id", "student_id", "last_name",
+    "first_name", "period", "Score", "Total"
+)
+$ExpectedQuestions = @(1..30 | ForEach-Object { "Q$_"; "Q$($_)_Correct" })
+if ((@($HeaderColumns[0..7]) -join ",") -ne ($ExpectedPrefix -join ",")) {
+    throw "Teacher-facing prefix columns are out of order."
+}
+if ((@($HeaderColumns[8..67]) -join ",") -ne ($ExpectedQuestions -join ",")) {
+    throw "Q1 through Q30 columns are not contiguous."
+}
+if ($HeaderColumns[68] -ne "Page") {
+    throw "Page must immediately follow Q30_Correct."
+}
+if ([Array]::IndexOf($HeaderColumns, "source_sha256") -le 68) {
+    throw "Provenance must follow the question fields."
+}
+```
+
+Confirm the first eight columns are `class_id`, `assignment_id`, `student_id`,
+`last_name`, `first_name`, `period`, `Score`, and `Total`; `Q1`, `Q1_Correct`
+through `Q30`, `Q30_Correct` are contiguous; `Page` immediately follows
+`Q30_Correct`; and attempt and provenance fields follow the question fields.
+
+Also rehearse blank/Return behavior at the post-generation prompt and confirm
+that direct `scoreform generate ...` and `scoreform regenerate-sheets ...`
+commands remain prompt-free. Record the exact interpreter version used. Python
+3.11 verifies the minimum supported version in CI/release testing; this owner
+rehearsal may use any interpreter satisfying `Python >=3.11`, including Python
+3.12, 3.13, or 3.14.
+
+Only after the focused tests, complete diff review, owner rehearsal, and visual
+inspection pass may the corrections be merged and the authoritative release
+gate and artifact build begin.
+
+### Completed source-menu rehearsal — 2026-07-17
+
+The project owner completed the pre-build source-menu rehearsal with sanitized
+synthetic data. This was a source-menu rehearsal, not final paper acceptance.
+
+```text
+Class: menu_rehearsal
+Assignment: menu_rehearsal_4
+Student: synthetic1
+Questions: 4
+Unmarked generated packet result: 0/4
+First processing: 1 attempt appended
+Identical second processing: 0 appended, 1 already present
+Final result rows: 1
+Results viewer attempts: 1
+```
+
+The class packet opened successfully and every packet page plus at least one
+individual PDF was visually inspected. Single-assignment regeneration opened
+the individual-sheets folder, and the generic blank template opened
+successfully. The compact results viewer showed the expected student, score,
+total, and single attempt; the actual CSV used the teacher-first schema-v2
+order. A second retained source and non-overwriting filed copy may exist as
+intake evidence even though identical content appended no additional result.
+No generated artifacts or ingestion identifiers are recorded here.
+
+## 2. Freeze and build the candidate
 
 From the ScoreForm repository, require a clean working tree before building:
 
@@ -30,11 +153,12 @@ $ScoreFormWheelHash
 ```
 
 Record all four values. The physical test must use that exact rebuilt wheel.
-Any later runtime, dependency, packaging, build-script, layout, behavioral-test,
-or runtime-smoke change invalidates the test. Documentation-only recording of
-the completed result does not require another paper run.
+Any later runtime, package, dependency, layout, routing, scoring, assembly,
+result-contract, menu-workflow, build-script, behavioral-test, or runtime-smoke
+change invalidates the test. Documentation-only recording of the completed
+result does not require another paper run.
 
-## 2. Obtain and install both release distributions
+## 3. Obtain and install both release distributions
 
 Download `pds_core-0.5.0-py3-none-any.whl` from the verified PDS Core `v0.5.0`
 GitHub Release. Core 0.5.0 was not published to PyPI. ScoreForm's metadata
@@ -60,13 +184,13 @@ if ((Get-FileHash $CandidateWheel.FullName -Algorithm SHA256).Hash -ne $ScoreFor
 }
 
 $Venv = Join-Path $TestRoot "venv"
-py -3.11 -m venv $Venv
+py -m venv $Venv
 $Python = Join-Path $Venv "Scripts\python.exe"
 & $Python -c @"
 import sys
 
 print(sys.version)
-raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)
+raise SystemExit(0 if sys.version_info >= (3, 11) else 1)
 "@
 $ScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
 & $Python -m pip install $CoreWheel.FullName
@@ -76,10 +200,12 @@ $ScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
 & $Python -c "from importlib.metadata import version; print(version('pds-core'))"
 ```
 
-Record the full Python version printed by the exact Python 3.11 check, along
-with the PDS Core and ScoreForm versions.
+Record the full Python version printed by this supported-version check, along
+with the PDS Core and ScoreForm versions. The physical-test interpreter need
+not be exactly Python 3.11 and must not reject Python 3.12, 3.13, or 3.14 merely
+for being newer.
 
-## 3. Create the exact synthetic inputs
+## 4. Create the exact synthetic inputs
 
 Use these stable identities:
 
@@ -135,15 +261,22 @@ class_id,student_id,last_name,first_name,period
 physical_acceptance,synthetic1,Synthetic,Student,1
 ```
 
-## 4. Generate and verify both independent print copies
+## 5. Generate and verify both independent print copies
 
-Run the installed commands:
+Run the installed menu with `& $ScoreForm`. Use **Roster Management** > **Create
+a class roster** to enter the exact synthetic roster above. Use **Assignment
+Management** > **Create an assignment** to enter the exact assignment, standard
+layout, 30-question answer key, and title above. Then use **Assignment
+Management** > **Generate answer sheets** > **Generate answer sheets for an
+existing class assignment**. At the post-generation prompt, choose **Open class
+packet for printing**.
+
+Use **Workspace Settings** > **ScoreForm Scan Filing Mode** to select copy mode.
+Do not substitute the direct generation or scan-filing commands for these
+teacher-facing menu steps. After leaving the menu, use these terminal checks to
+verify the exact machine-readable artifacts:
 
 ```powershell
-& $ScoreForm setup-assignment .\assignment.json .\roster.csv
-& $ScoreForm generate .\assignment.json --rosters .\roster.csv
-& $ScoreForm scan-filing set copy
-
 $WorkRoot = Join-Path $Workspace `
     "classes\physical_acceptance\modules\scoreform\work\physical_acceptance_30"
 $IndividualPdfs = @(Get-ChildItem `
@@ -171,23 +304,24 @@ Generation must create two independent two-page print copies:
 - four immutable page records;
 - four distinct route registrations.
 
-Select only the individual PDF for the physical test and identify its issuance:
+Select the class packet opened by the menu for the physical test and identify
+its issuance. Keep the independently generated individual PDF unused:
 
 ```powershell
 $Issuances = @($IssuanceFiles | ForEach-Object {
     Get-Content -Raw -LiteralPath $_.FullName | ConvertFrom-Json
 })
 $SelectedIssuances = @($Issuances | Where-Object {
-    $_.generation_context.output_kind -eq "individual_pdf"
-})
-$UnusedPacketIssuances = @($Issuances | Where-Object {
     $_.generation_context.output_kind -eq "class_packet_pdf"
 })
-if ($SelectedIssuances.Count -ne 1 -or $UnusedPacketIssuances.Count -ne 1) {
+$UnusedIndividualIssuances = @($Issuances | Where-Object {
+    $_.generation_context.output_kind -eq "individual_pdf"
+})
+if ($SelectedIssuances.Count -ne 1 -or $UnusedIndividualIssuances.Count -ne 1) {
     throw "Expected one individual issuance and one class-packet issuance."
 }
 $SelectedIssuance = $SelectedIssuances[0]
-$UnusedPacketIssuance = $UnusedPacketIssuances[0]
+$UnusedIndividualIssuance = $UnusedIndividualIssuances[0]
 $SelectedIssuanceId = $SelectedIssuance.issuance_id
 $SelectedPageIds = @($SelectedIssuance.page_ids)
 
@@ -216,10 +350,10 @@ if ((@($SelectedPages.logical_page) -join ",") -ne "1,2") {
     throw "Selected logical pages must be 1 and 2."
 }
 
-"Selected PDF: $($IndividualPdf.FullName)"
-"Unused packet PDF: $($PacketPdf.FullName)"
+"Selected packet PDF: $($PacketPdf.FullName)"
+"Unused individual PDF: $($IndividualPdf.FullName)"
 "Selected issuance: $SelectedIssuanceId"
-"Unused packet issuance: $($UnusedPacketIssuance.issuance_id)"
+"Unused individual issuance: $($UnusedIndividualIssuance.issuance_id)"
 $SelectedPages | Select-Object logical_page,page_id,issuance_id
 $SelectedRoutes | ForEach-Object {
     [pscustomobject]@{
@@ -230,10 +364,10 @@ $SelectedRoutes | ForEach-Object {
 ```
 
 Record the selected issuance ID, its two page IDs, and its two route IDs. Print
-only `$IndividualPdf` at actual size/100%. Do not use "fit to page". Do not print
-or scan the unused class-packet PDF.
+only `$PacketPdf` at actual size/100%. Do not use "fit to page". Do not print or
+scan the unused individual PDF.
 
-## 5. Mark the exact answer pattern
+## 6. Mark the exact answer pattern
 
 The answer key repeats A, B, C, D. Mark every keyed answer except:
 
@@ -244,18 +378,17 @@ The answer key repeats A, B, C, D. Mark every keyed answer except:
 This produces exactly 27 correct, 2 incorrect, 1 blank, expected score 27/30.
 All other questions must have one unambiguous mark matching the key.
 
-## 6. Scan, decode, and score
+## 7. Scan and score through the installed menu
 
 Scan the two printed pages through the intended classroom scanner/camera into
-one PDF named `physical-scan.pdf` in `$FixtureRoot`. Record scanner orientation,
-auto-rotation, and enhancement settings, then run:
+one PDF named `physical-scan.pdf` under `$Workspace\scans_inbox`. Record scanner
+orientation, auto-rotation, and enhancement settings. Run `& $ScoreForm`, then
+use **Assignment Management** > **Score scanned responses** > **Retained PDS2
+Core page dispatch (recommended)** > **Choose a file from scans_inbox** and
+select `physical-scan.pdf`. Do not replace this teacher-facing path with the
+direct `decode-qr` or `score` commands.
 
-```powershell
-& $ScoreForm decode-qr .\physical-scan.pdf
-& $ScoreForm score .\physical-scan.pdf
-```
-
-## 7. Locate and verify every output
+## 8. Locate and verify every output
 
 ```powershell
 $ResultsPath = Join-Path $WorkRoot "results.csv"
@@ -273,10 +406,10 @@ $FiledCopies = @(Get-ChildItem (Join-Path $WorkRoot "scans") `
 if ($ResultRows.Count -ne 1) { throw "Expected exactly one result row." }
 $Result = $ResultRows[0]
 if ($Result.issuance_id -ne $SelectedIssuanceId) {
-    throw "Result resolved to the unused packet issuance."
+    throw "Result resolved to the unused individual issuance."
 }
-if ($Result.issuance_id -eq $UnusedPacketIssuance.issuance_id) {
-    throw "Result must not use the unused packet issuance."
+if ($Result.issuance_id -eq $UnusedIndividualIssuance.issuance_id) {
+    throw "Result must not use the unused individual issuance."
 }
 if ($Result.Score -ne "27" -or $Result.Total -ne "30") {
     throw "Expected score 27/30."
@@ -287,8 +420,8 @@ if ($Result.result_origin -ne "pds2_scan" -or `
 }
 if ($ReviewRecords.Count -ne 0) { throw "Unexpected scan-review record." }
 if ($FiledCopies.Count -ne 1) { throw "Copy mode must create one filed copy." }
-if ($RetainedSources.Count -lt 2) {
-    throw "Decode and score should each retain their selected intake."
+if ($RetainedSources.Count -lt 1) {
+    throw "Scoring should retain its selected intake."
 }
 
 $ResultsPath
@@ -306,11 +439,17 @@ Core retained source, and the assignment-local filed copy all remain because
 filing mode is `copy`. Confirm no
 `classes\physical_acceptance\assignments\` directory exists.
 
+If the same bytes are deliberately processed again, verify the summary reports
+`Attempts appended: 0` and `Attempts already present: 1`. A second Core retained
+source and another non-overwriting assignment-filed copy may still exist because
+Core retention and ScoreForm filing record intake evidence independently from
+result-attempt deduplication. Do not delete those records as part of this test.
+
 ## Required pass conditions
 
 - Both physical QR codes decode and dispatch through Core.
 - All four registration marks are found on both physical pages.
-- The observations resolve to `$SelectedIssuanceId`, not the unused packet
+- The observations resolve to `$SelectedIssuanceId`, not the unused individual
   issuance.
 - Selected logical pages are 1 and 2 with distinct page and route IDs.
 - All 30 detected answers match the documented physical marks.

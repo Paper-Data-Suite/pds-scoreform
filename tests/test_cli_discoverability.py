@@ -150,7 +150,7 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
     monkeypatch.chdir(tmp_path)
     generated = []
 
-    def fake_generate_template():
+    def fake_generate_template(**_kwargs):
         generated.append(True)
 
     monkeypatch.setattr(generate_workflows, "generate_template", fake_generate_template)
@@ -184,7 +184,11 @@ def test_generate_menu_clears_lists_before_assignment_and_confirmation(
         "discover_class_assignments",
         lambda _class_id: [assignment_record],
     )
-    monkeypatch.setattr(generate_workflows, "run_generate", lambda _args: 0)
+    monkeypatch.setattr(
+        generate_workflows,
+        "_run_generate_operation",
+        lambda _args: generate_workflows.GenerateCommandResult(0),
+    )
     monkeypatch.setattr(generate_workflows, "pause_for_user", lambda: None)
     monkeypatch.setattr(
         generate_workflows,

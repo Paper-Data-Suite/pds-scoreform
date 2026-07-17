@@ -402,7 +402,7 @@ def export_to_csv(all_results, output_file, workspace_root=None):
 
 # Durable routed-results schema v2. The generic ``export_to_csv`` above remains
 # intentionally separate for manual image scoring with an explicit answer key.
-_V2_BASE_HEADERS = [
+_V2_LEGACY_BASE_HEADERS = [
     "Page",
     "class_id",
     "assignment_id",
@@ -429,11 +429,42 @@ _V2_BASE_HEADERS = [
     "Total",
 ]
 
+_V2_TEACHER_PREFIX_HEADERS = [
+    "class_id",
+    "assignment_id",
+    "student_id",
+    "last_name",
+    "first_name",
+    "period",
+    "Score",
+    "Total",
+]
+
+_V2_TEACHER_SUFFIX_HEADERS = [
+    "Page",
+    "attempt_number",
+    "scan_timestamp",
+    "source_file",
+    "result_schema_version",
+    "result_origin",
+    "issuance_id",
+    "generation_id",
+    "artifact_id",
+    "page_ids",
+    "route_ids",
+    "logical_pages",
+    "source_scan_id",
+    "source_pages",
+    "retained_source_path",
+    "source_sha256",
+]
+
 
 def routed_results_v2_headers(question_count: int) -> list[str]:
-    headers = list(_V2_BASE_HEADERS)
+    headers = list(_V2_TEACHER_PREFIX_HEADERS)
     for number in range(1, question_count + 1):
         headers.extend((f"Q{number}", f"Q{number}_Correct"))
+    headers.extend(_V2_TEACHER_SUFFIX_HEADERS)
     return headers
 
 
@@ -573,18 +604,13 @@ class ScoreFormAttemptExportBatch:
             raise ValueError(
                 "Every confirmed attempt path must appear in output_paths."
             )
-        append_ids = tuple(
-            (item.result.source_scan_id, item.result.issuance_id)
-            for item in self.appended_attempts
+        content_ids = tuple(
+            pds2_result_content_key(item.result)
+            for item in (*self.appended_attempts, *self.already_present_attempts)
             if item.result.result_origin == "pds2_scan"
         )
-        present_ids = tuple(
-            (item.result.source_scan_id, item.result.issuance_id)
-            for item in self.already_present_attempts
-            if item.result.result_origin == "pds2_scan"
-        )
-        if len((*append_ids, *present_ids)) != len(set((*append_ids, *present_ids))):
-            raise ValueError("Exported identities must not repeat.")
+        if len(content_ids) != len(set(content_ids)):
+            raise ValueError("PDS2 content identities must not repeat.")
 
     @property
     def succeeded(self) -> bool:
@@ -658,17 +684,34 @@ def _parse_score(value: str, label: str, *, minimum=0) -> int:
     return parsed
 
 
-def _question_width(fieldnames: Sequence[str], base: list[str]) -> int | None:
-    if fieldnames[: len(base)] != base:
-        return None
-    tail = fieldnames[len(base) :]
-    if len(tail) % 2:
-        return None
-    width = len(tail) // 2
-    expected: list[str] = []
+def _question_headers(width: int) -> list[str]:
+    headers: list[str] = []
     for number in range(1, width + 1):
-        expected.extend((f"Q{number}", f"Q{number}_Correct"))
-    return width if tail == expected else None
+        headers.extend((f"Q{number}", f"Q{number}_Correct"))
+    return headers
+
+
+def _question_width(fieldnames: Sequence[str]) -> tuple[int, bool] | None:
+    legacy = fieldnames[: len(_V2_LEGACY_BASE_HEADERS)] == _V2_LEGACY_BASE_HEADERS
+    if legacy:
+        question_fields = fieldnames[len(_V2_LEGACY_BASE_HEADERS) :]
+    elif (
+        fieldnames[: len(_V2_TEACHER_PREFIX_HEADERS)]
+        == _V2_TEACHER_PREFIX_HEADERS
+        and fieldnames[-len(_V2_TEACHER_SUFFIX_HEADERS) :]
+        == _V2_TEACHER_SUFFIX_HEADERS
+    ):
+        question_fields = fieldnames[
+            len(_V2_TEACHER_PREFIX_HEADERS) : -len(_V2_TEACHER_SUFFIX_HEADERS)
+        ]
+    else:
+        return None
+    if len(question_fields) % 2:
+        return None
+    width = len(question_fields) // 2
+    if question_fields != _question_headers(width):
+        return None
+    return width, legacy
 
 
 def _answers_from_row(row: dict[str, str], total: int) -> tuple[ScoredAnswer, ...]:
@@ -775,7 +818,7 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
 
 def _read_history(path: Path):
     if not path.exists():
-        return [], 0
+        return [], 0, False
     if path.is_symlink() or not path.is_file():
         raise ScoreFormRoutedResultReadError(
             "Routed results destination is not a regular file."
@@ -784,11 +827,12 @@ def _read_history(path: Path):
         with path.open(newline="", encoding="utf-8") as handle:
             reader = csv.DictReader(handle, strict=True)
             fieldnames = reader.fieldnames or []
-            v2_width = _question_width(fieldnames, _V2_BASE_HEADERS)
-            if v2_width is None:
+            header_layout = _question_width(fieldnames)
+            if header_layout is None:
                 raise ScoreFormRoutedResultReadError(
                     "The managed results history is not schema version 2."
                 )
+            v2_width, legacy_header_order = header_layout
             raw_rows = list(reader)
     except (OSError, UnicodeError, csv.Error) as error:
         raise ScoreFormRoutedResultReadError(
@@ -803,6 +847,7 @@ def _read_history(path: Path):
     width = v2_width
     assert width is not None
     rows = []
+    pds2_content: dict[tuple[str, str], ScoreFormRoutedResult] = {}
     for raw in raw_rows:
         attempt = _parse_positive(raw.get("attempt_number", ""), "attempt_number")
         if raw.get("result_schema_version") != ROUTED_RESULTS_SCHEMA_VERSION:
@@ -818,15 +863,25 @@ def _read_history(path: Path):
                 raise ScoreFormRoutedResultReadError(
                     "Existing question cells beyond Total must be empty."
                 )
+        if model.result_origin == "pds2_scan":
+            content_key = pds2_result_content_key(model)
+            prior = pds2_content.get(content_key)
+            if prior is not None and not pds2_results_semantically_equivalent(
+                prior, model
+            ):
+                raise ScoreFormRoutedResultReadError(
+                    "Existing history contradicts a source_sha256 + issuance_id key."
+                )
+            pds2_content.setdefault(content_key, model)
         rows.append((model, attempt, timestamp))
-    return rows, width
+    return rows, width, legacy_header_order
 
 
 def load_routed_results_history(
     results_csv_path: str | os.PathLike[str],
 ) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
     """Load an exact schema-v2 routed history without mutating it."""
-    rows, _width = _read_history(Path(results_csv_path))
+    rows, _width, _legacy_header_order = _read_history(Path(results_csv_path))
     return tuple(
         ScoreFormRoutedResultHistoryRow(model, attempt, timestamp)
         for model, attempt, timestamp in rows
@@ -837,6 +892,60 @@ def _same_exported_content(
     left: ScoreFormRoutedResult, right: ScoreFormRoutedResult
 ) -> bool:
     return left == right
+
+
+def pds2_result_content_key(result: ScoreFormRoutedResult) -> tuple[str, str]:
+    if result.result_origin != "pds2_scan":
+        raise ValueError("PDS2 content keys require a pds2_scan result.")
+    assert result.source_sha256 is not None
+    assert result.issuance_id is not None
+    return result.source_sha256, result.issuance_id
+
+
+def pds2_results_semantically_equivalent(
+    left: ScoreFormRoutedResult, right: ScoreFormRoutedResult
+) -> bool:
+    return (
+        left.result_origin,
+        left.class_id,
+        left.assignment_id,
+        left.student_id,
+        left.last_name,
+        left.first_name,
+        left.period,
+        left.page_display,
+        left.issuance_id,
+        left.generation_id,
+        left.artifact_id,
+        left.page_ids,
+        left.route_ids,
+        left.logical_pages,
+        left.source_page_numbers,
+        left.score,
+        left.total_points,
+        left.answers,
+        left.source_sha256,
+    ) == (
+        right.result_origin,
+        right.class_id,
+        right.assignment_id,
+        right.student_id,
+        right.last_name,
+        right.first_name,
+        right.period,
+        right.page_display,
+        right.issuance_id,
+        right.generation_id,
+        right.artifact_id,
+        right.page_ids,
+        right.route_ids,
+        right.logical_pages,
+        right.source_page_numbers,
+        right.score,
+        right.total_points,
+        right.answers,
+        right.source_sha256,
+    )
 
 
 def _managed_review_result_links(workspace_root: Path):
@@ -932,7 +1041,7 @@ def _managed_review_result_links(workspace_root: Path):
                 raise ScoreFormRoutedResultIntegrityError(
                     "Managed results history escapes its assignment directory."
                 )
-            existing, _width = _read_history(results_path)
+            existing, _width, _legacy_header_order = _read_history(results_path)
             for model, attempt, _stamp in existing:
                 if (
                     model.class_id != class_path.name
@@ -1158,7 +1267,7 @@ def _export_result_models(
                 raise ScoreFormRoutedResultReadError(
                     "Routed results destination cannot be a symlink."
                 )
-            existing, old_width = _read_history(path)
+            existing, old_width, legacy_header_order = _read_history(path)
             if managed_width is not None:
                 if (
                     old_width not in {0, managed_width}
@@ -1181,7 +1290,16 @@ def _export_result_models(
                     [old_width, *(item.total_points for item in target_results)],
                     default=0,
                 )
-            plans.append((key, path, target_results, existing, width))
+            plans.append(
+                (
+                    key,
+                    path,
+                    target_results,
+                    existing,
+                    width,
+                    legacy_header_order,
+                )
+            )
         except Exception as error:
             target = path or Path(".")
             affected = tuple(
@@ -1204,7 +1322,7 @@ def _export_result_models(
     timestamp = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat()
     prepared = []
     present = []
-    for key, path, target_results, existing, width in plans:
+    for key, path, target_results, existing, width, legacy_header_order in plans:
         affected = tuple(
             sorted({(item.class_id, item.assignment_id) for item in target_results})
         )
@@ -1214,7 +1332,9 @@ def _export_result_models(
         failure_assignment = (
             affected[0][1] if len({item[1] for item in affected}) == 1 else "multiple"
         )
-        existing_export_ids = {}
+        existing_export_ids: dict[
+            tuple[str, str], tuple[ScoreFormRoutedResult, int]
+        ] = {}
         existing_review_ids = {}
         for model, attempt, _stamp in existing:
             if model.result_origin == "scan_review_manual":
@@ -1238,28 +1358,35 @@ def _export_result_models(
                 continue
             if model.result_origin != "pds2_scan":
                 continue
-            export_id = (model.source_scan_id, model.issuance_id)
-            if export_id in existing_export_ids:
-                integrity_error = ScoreFormRoutedResultIntegrityError(
-                    "Existing history contains a duplicate source_scan_id + issuance_id."
-                )
-                failures.append(
-                    ScoreFormAttemptExportFailure(
-                        failure_class,
-                        failure_assignment,
-                        path,
-                        str(integrity_error),
-                        integrity_error,
-                        stage="integrity",
-                        affected_targets=affected,
+            export_id = pds2_result_content_key(model)
+            existing_prior = existing_export_ids.get(export_id)
+            if existing_prior is not None:
+                if not pds2_results_semantically_equivalent(
+                    existing_prior[0], model
+                ):
+                    integrity_error = ScoreFormRoutedResultIntegrityError(
+                        "Existing history contradicts a source_sha256 + issuance_id key."
                     )
-                )
-                break
+                    failures.append(
+                        ScoreFormAttemptExportFailure(
+                            failure_class,
+                            failure_assignment,
+                            path,
+                            str(integrity_error),
+                            integrity_error,
+                            stage="integrity",
+                            affected_targets=affected,
+                        )
+                    )
+                    break
+                if attempt < existing_prior[1]:
+                    existing_export_ids[export_id] = (model, attempt)
+                continue
             existing_export_ids[export_id] = (model, attempt)
         if failures:
             break
         unique_incoming = []
-        incoming_ids: dict[tuple[str | None, str | None], ScoreFormRoutedResult] = {}
+        incoming_ids: dict[tuple[str, str], ScoreFormRoutedResult] = {}
         incoming_review_ids: dict[str, ScoreFormRoutedResult] = {}
         for result in target_results:
             if result.result_origin == "scan_review_manual":
@@ -1286,14 +1413,14 @@ def _export_result_models(
             if result.result_origin != "pds2_scan":
                 unique_incoming.append(result)
                 continue
-            export_id = (result.source_scan_id, result.issuance_id)
-            prior = incoming_ids.get(export_id)
-            if prior is None:
+            export_id = pds2_result_content_key(result)
+            incoming_prior = incoming_ids.get(export_id)
+            if incoming_prior is None:
                 incoming_ids[export_id] = result
                 unique_incoming.append(result)
-            elif prior != result:
+            elif not pds2_results_semantically_equivalent(incoming_prior, result):
                 integrity_error = ScoreFormRoutedResultIntegrityError(
-                    "Incoming transaction contradicts source_scan_id + issuance_id."
+                    "Incoming transaction contradicts source_sha256 + issuance_id."
                 )
                 failures.append(
                     ScoreFormAttemptExportFailure(
@@ -1320,17 +1447,20 @@ def _export_result_models(
         pending = []
         for result in unique_incoming:
             if result.result_origin == "pds2_scan":
-                match = existing_export_ids.get(
-                    (result.source_scan_id, result.issuance_id)
-                )
+                match = existing_export_ids.get(pds2_result_content_key(result))
             elif result.result_origin == "scan_review_manual":
                 match = existing_review_ids.get(result.source_file)
             else:
                 match = None
             if match is not None:
-                if not _same_exported_content(match[0], result):
+                equivalent = (
+                    pds2_results_semantically_equivalent(match[0], result)
+                    if result.result_origin == "pds2_scan"
+                    else _same_exported_content(match[0], result)
+                )
+                if not equivalent:
                     integrity_error = ScoreFormRoutedResultIntegrityError(
-                        "Contradictory reuse of source_scan_id + issuance_id."
+                        "Contradictory reuse of an existing result identity."
                     )
                     failures.append(
                         ScoreFormAttemptExportFailure(
@@ -1344,7 +1474,12 @@ def _export_result_models(
                         )
                     )
                     break
-                present.append(ScoreFormExportedAttempt(result, path, match[1]))
+                recorded_result = (
+                    match[0] if result.result_origin == "pds2_scan" else result
+                )
+                present.append(
+                    ScoreFormExportedAttempt(recorded_result, path, match[1])
+                )
                 continue
             attempt_key = (result.class_id, result.assignment_id, result.student_id)
             attempt = counts.get(attempt_key, 0) + 1
@@ -1361,6 +1496,7 @@ def _export_result_models(
                 affected,
                 failure_class,
                 failure_assignment,
+                legacy_header_order,
             )
         )
     if failures:
@@ -1381,8 +1517,9 @@ def _export_result_models(
             affected,
             failure_class,
             failure_assignment,
+            legacy_header_order,
         ) = prepared_target
-        if not pending_attempts:
+        if not pending_attempts and not legacy_header_order:
             continue
         try:
             temporary_path = _stage_history(path, headers, rows)
@@ -1406,7 +1543,7 @@ def _export_result_models(
                 )
             )
             for other in prepared:
-                if other is prepared_target or not other[4]:
+                if other is prepared_target or (not other[4] and not other[8]):
                     continue
                 not_attempted = ScoreFormRoutedResultWriteError(
                     "Target was not attempted because transaction staging failed."
@@ -1442,6 +1579,7 @@ def _export_result_models(
             affected,
             failure_class,
             failure_assignment,
+            _legacy_header_order,
         ) = prepared_target
         try:
             os.replace(temporary_path, path)

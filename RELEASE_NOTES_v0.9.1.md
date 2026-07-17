@@ -27,6 +27,12 @@ complete attempts export routed-results schema version 2.
   conflicting, or mixed-issuance sets produce no invalid attempt.
 - Schema-v2 results preserve aligned route, page, logical-page, source-page,
   retained-path, source-scan, digest, and intake provenance.
+- New managed results place teacher identity, score, total, and contiguous
+  question pairs before audit metadata. Earlier pre-release v2 column order is
+  read exactly and normalizes atomically on the next successful export.
+- Byte-identical PDS2 intake is idempotent by `source_sha256 + issuance_id`,
+  even after rename or a new retention event; retained and filed source copies
+  remain audit evidence rather than result-attempt identity.
 - Core schema-v2 failure records and append-only resolutions support the scan
   review workflow.
 - Manual answer-key scoring and plain-paper entry remain available as separate,
@@ -43,6 +49,9 @@ complete attempts export routed-results schema version 2.
   shared Core roster APIs while preserving optional columns and historical
   classroom artifacts.
 - Workspace controls can show, open, and close the shared active school year.
+- Successful interactive generation can open the class packet or individual
+  sheet folder after asking; regeneration and blank-template workflows expose
+  corresponding local-output actions. Direct commands remain noninteractive.
 - Assignment creation and editing integrate with the shared standards library;
   ScoreForm also provides side-effect-free standards-usage event construction
   and a separate explicit recording helper.
@@ -103,16 +112,16 @@ applicable school, district, state, and federal privacy requirements.
 
 ## Validation status
 
-The authoritative Windows PowerShell gate passed on Python 3.14.1 with PDS Core
-0.5.0: 768 tests passed and 7 environment-dependent tests were skipped. Ruff,
-mypy, compilation, dependency checks, installed one-page/standard multi-page/
-compact multi-page smokes, artifact inspection, `twine check`, and clean
-noneditable wheel and source-distribution installs passed using a separately
-built PDS Core 0.5.0 wheel. Nonpublishing Python
-3.11 GitHub Actions validation remains pending until the release-preparation PR
-runs.
+The prior candidate validation predates these teacher-workflow corrections and
+is not the final release gate. The required order is focused automated testing,
+complete diff review, project-owner normal-use menu rehearsal from source,
+generated-PDF visual inspection, merge, authoritative release gate, clean build
+and hashes, clean noneditable installation, installed-menu smoke, and then the
+project-owner physical paper test. Python 3.11 validates the minimum supported
+version; owner menu and paper testing may use any interpreter satisfying
+`Python >=3.11`, with the exact version recorded.
 
-Physical-paper acceptance: pending. The project owner must complete the
-documented real printed two-page standard-layout test with the reviewed wheel
-and explicitly authorize publication. Release publication is blocked until
-then.
+Physical-paper acceptance remains pending. The project owner—not Codex—must
+complete and adjudicate the documented real printed workflow with the exact
+reviewed wheel and explicitly authorize publication. Release publication is
+blocked until then.

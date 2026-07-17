@@ -425,11 +425,19 @@ immutable `routes/` registrations. Active discovery is direct-child-only within
 the ScoreForm collection. An unqualified `classes/<class_id>/assignments/` tree
 is outside the managed contract and is neither inspected nor modified.
 
-Schema v2 uses this exact base header, followed by `Qn`, `Qn_Correct` pairs:
+New schema-v2 histories use this exact logical order. The `Qn`,
+`Qn_Correct` pairs are contiguous and dynamic through the assignment total:
 
 ```csv
-Page,class_id,assignment_id,student_id,last_name,first_name,period,source_file,result_schema_version,result_origin,issuance_id,generation_id,artifact_id,page_ids,route_ids,logical_pages,source_scan_id,source_pages,retained_source_path,source_sha256,attempt_number,scan_timestamp,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...
+class_id,assignment_id,student_id,last_name,first_name,period,Score,Total,Q1,Q1_Correct,Q2,Q2_Correct,...,Page,attempt_number,scan_timestamp,source_file,result_schema_version,result_origin,issuance_id,generation_id,artifact_id,page_ids,route_ids,logical_pages,source_scan_id,source_pages,retained_source_path,source_sha256
 ```
+
+The reader recognizes exactly this teacher-first layout and the earlier
+pre-release schema-v2 metadata-first layout. It does not accept arbitrary
+permutations. Reading is nonmutating. The next successful export transaction
+against an old-order history preserves every row and value while atomically
+normalizing the header to teacher-first order, including when the incoming
+attempt is already present.
 
 The collection fields are compact canonical JSON arrays in authoritative logical
 page order. `Page` displays retained source-page numbers and is not authoritative
@@ -452,9 +460,22 @@ and the export result distinguishes persisted, failed, and not-attempted targets
 Cleanup failures retain the temporary path, target path, and cleanup exception.
 An attempt is reported appended only after its target replacement succeeds.
 
-PDS2 export identity is `source_scan_id + issuance_id`. Exact incoming duplicates
-are coalesced, contradictory duplicates fail, and existing history may contain at
-most one row for the identity. A new source scan ID is a later rescan and appends.
+PDS2 export identity is `source_sha256 + issuance_id`. Equivalent incoming
+duplicates are coalesced even when filename, Core `source_scan_id`, or retained
+path differs. A different digest for the same issuance is a new attempt. The
+semantic comparison includes student and assignment identity, displayed student
+fields, issuance/generation/artifact identity, page/route/logical/source-page
+arrays, score, total, every answer and correctness value, and the source digest.
+It excludes ingestion-only filename, source-scan ID, and retained path.
+Contradictory reuse of a content key fails the transaction.
+
+Equivalent historical duplicate rows produced by the earlier pre-release
+behavior remain valid and are preserved; the lowest existing attempt number is
+the canonical already-present match, and future identical intake appends
+nothing. Conflicting historical rows for one content key are invalid. Result
+deduplication does not delete Core retained-source records or assignment-level
+filed copies: those remain evidence of each intake under their respective Core
+retention and ScoreForm filing contracts.
 
 Teacher-entered plain-paper results use this same routed contract, not the
 provisional explicit-output contract in section 9. They set `Page` to `manual`

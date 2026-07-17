@@ -64,7 +64,7 @@ def test_routed_results_require_existing_managed_work(tmp_path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
-def test_v2_scan_export_is_idempotent_and_rescan_appends(tmp_path) -> None:
+def test_v2_scan_export_is_content_idempotent_and_new_bytes_append(tmp_path) -> None:
     roster = {"class_id": "class1", "students": [{"student_id": "1001", "last_name": "Doe", "first_name": "Jane", "period": "1"}]}
     assignment = {"assignment_id": "quiz", "title": "Quiz", "question_count": 1, "choices": ["A", "B", "C", "D"], "answer_key": {"1": "A"}, "standards": {"1": []}}
     assert setup_assignment_folder(roster, assignment, workspace_root=tmp_path)
@@ -82,9 +82,26 @@ def test_v2_scan_export_is_idempotent_and_rescan_appends(tmp_path) -> None:
     )
     first = _export_result_models((result,), workspace_root=tmp_path)
     retry = _export_result_models((result,), workspace_root=tmp_path)
-    rescan = _export_result_models((replace(result, source_scan_id="scan_two"),), workspace_root=tmp_path)
+    retained_again = _export_result_models(
+        (
+            replace(
+                result,
+                source_file="renamed.png",
+                source_scan_id="scan_two",
+                retained_source_relative_path=(
+                    "scans/source/2026-07-15/retained-again.png"
+                ),
+            ),
+        ),
+        workspace_root=tmp_path,
+    )
+    rescan = _export_result_models(
+        (replace(result, source_scan_id="scan_three", source_sha256="b" * 64),),
+        workspace_root=tmp_path,
+    )
     assert len(first.appended_attempts) == 1
     assert len(retry.already_present_attempts) == 1
+    assert len(retained_again.already_present_attempts) == 1
     assert rescan.appended_attempts[0].attempt_number == 2
 
     conflict = _export_result_models(
