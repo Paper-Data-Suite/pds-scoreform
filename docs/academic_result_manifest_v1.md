@@ -70,13 +70,18 @@ module are both exactly `scoreform`. For ScoreForm, the complete work identity i
 
 ## Record-set and source identity
 
-`record_set_id` is the stable safe identity of the result record set. `revision`
-is a caller-supplied positive integer for the manifest as a whole. It is not the
+Production uses the stable record-set ID `academic_results`; synthetic contract
+fixtures may use clearly synthetic IDs. `revision` is a positive producer
+revision for the manifest as a whole. It is not the
 routed-results schema version, attempt count, highest attempt number, question
 count, Core Academic Work Registration revision, Core Publication Record schema
 version, Core publication record-set revision, Publication Record identity, or
-ScoreForm package version. This contract neither defines “latest” nor defines
-revision transitions, supersession, or withdrawal.
+ScoreForm package version. The schema deliberately does not infer a latest
+revision or series head. ScoreForm's active allocation, exact replay,
+append-preserving transition, correction, supersession, withdrawal, and recovery
+rules are defined in
+[`publication_revision_policy.md`](publication_revision_policy.md); those rules
+do not add fields to this exact v1 contract.
 
 The source snapshot binds the exact native bytes used to construct a future
 manifest. Its paths are relative to the exact ScoreForm work root. Only the

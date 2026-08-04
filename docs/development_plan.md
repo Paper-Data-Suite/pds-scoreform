@@ -58,6 +58,10 @@ JSON contract are active and documented in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). It defines a
 producer-owned publication projection only; workspace generation, Core Academic
 Work registration, and Core publication workflows are not yet implemented.
+The pure producer allocation, replay, append-history, supersession-requirement,
+withdrawal, and recovery decisions are active in
+[`publication_revision_policy.md`](publication_revision_policy.md). They do not
+perform filesystem or Core registry operations.
 
 ### Review, evidence, and filing
 
