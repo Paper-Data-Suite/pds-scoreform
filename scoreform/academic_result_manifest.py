@@ -111,7 +111,7 @@ def _identifier(value: object, field: str) -> str:
     if not isinstance(value, str):
         _fail(f"{field} must be a safe identifier.")
     try:
-        return validate_identifier(value, field)
+        return cast(str, validate_identifier(value, field))
     except Exception as error:
         raise ScoreFormAcademicResultManifestValidationError(
             f"{field} must be a safe identifier."

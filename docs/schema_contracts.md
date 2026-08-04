@@ -4,6 +4,10 @@ The active immutable publication projection is specified separately in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That pure
 ScoreForm-owned contract is implemented, but workspace manifest generation and
 Core publication are not yet implemented.
+Its stable production identity and immutable revision-transition rules are in
+[`publication_revision_policy.md`](publication_revision_policy.md). The policy
+is active and pure; manifest generation and Core publication, supersession, and
+withdrawal commands remain future work.
 
 > v0.9.1 current-only boundary: managed work is module-qualified, generated and
 > scanned routed sheets use PDS2, routed results use schema version 2, and Core
