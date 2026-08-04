@@ -577,32 +577,47 @@ Invoke-Step "Validate release artifact names, metadata, and contents" {
     & $Python scripts\verify_release_artifacts.py --version 0.9.1 --dist .\dist
 }
 $CoreWheelRoot = $null
+$CoreExportRoot = $null
 $CoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
 $SavedCoreWheel = $env:PDS_CORE_WHEEL
 try {
     if (-not $CoreWheelWasSet) {
         $CoreSource = Join-Path (Split-Path -Parent $RepoRoot) "pds-core"
-        if (-not (Test-Path -LiteralPath (Join-Path $CoreSource "pyproject.toml") -PathType Leaf)) {
-            throw "Set PDS_CORE_WHEEL to a separately built pds-core 0.5 wheel."
+        if (-not (Test-Path -LiteralPath (Join-Path $CoreSource ".git") -PathType Container)) {
+            throw "Core v0.6.0 tag cannot be exported; set PDS_CORE_WHEEL to the released pds-core 0.6.0 wheel."
         }
         $CoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
             "scoreform-core-wheel-" + [guid]::NewGuid().ToString("N")
         )
+        $CoreExportRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+            "scoreform-core-export-" + [guid]::NewGuid().ToString("N")
+        )
         New-Item -ItemType Directory -Path $CoreWheelRoot | Out-Null
-        Invoke-Step "Build separate pds-core 0.5 test wheel" {
+        New-Item -ItemType Directory -Path $CoreExportRoot | Out-Null
+        $CoreArchive = Join-Path $CoreExportRoot "pds-core-v0.6.0.zip"
+        $CoreExport = Join-Path $CoreExportRoot "source"
+        Invoke-Step "Export exact pds-core v0.6.0 tag" {
+            git -c "safe.directory=$($CoreSource.Replace('\', '/'))" -C $CoreSource `
+                archive --format=zip --output=$CoreArchive v0.6.0
+        }
+        Expand-Archive -LiteralPath $CoreArchive -DestinationPath $CoreExport
+        Invoke-Step "Build separate pds-core 0.6.0 test wheel" {
             $SavedErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
-            $CoreBuildOutput = & $Python -m build --wheel --outdir $CoreWheelRoot $CoreSource 2>&1
+            $CoreBuildOutput = & $Python -m build --wheel --outdir $CoreWheelRoot $CoreExport 2>&1
             $CoreBuildExitCode = $LASTEXITCODE
             $ErrorActionPreference = $SavedErrorActionPreference
             $CoreBuildOutput | ForEach-Object { Write-Host $_ }
             if ($CoreBuildExitCode -ne 0) { exit $CoreBuildExitCode }
         }
-        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.5*.whl" -File)
+        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.6.0-*.whl" -File)
         if ($CoreWheels.Count -ne 1) {
-            throw "Expected one separately built pds-core 0.5 wheel."
+            throw "Expected exactly one pds_core-0.6.0-*.whl from the v0.6.0 export."
         }
         $env:PDS_CORE_WHEEL = $CoreWheels[0].FullName
+    }
+    Invoke-Step "Validate exact pds-core 0.6.0 baseline wheel" {
+        & $Python scripts\verify_core_wheel.py $env:PDS_CORE_WHEEL
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
@@ -626,6 +641,17 @@ finally {
             throw "Refusing to remove unexpected Core-wheel root: $ResolvedCoreWheelRoot"
         }
         Remove-Item -LiteralPath $ResolvedCoreWheelRoot -Recurse -Force
+    }
+    if ($null -ne $CoreExportRoot -and (Test-Path -LiteralPath $CoreExportRoot)) {
+        $ResolvedCoreExportRoot = [System.IO.Path]::GetFullPath($CoreExportRoot)
+        $ResolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        if (
+            -not $ResolvedCoreExportRoot.StartsWith($ResolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not (Split-Path -Leaf $ResolvedCoreExportRoot).StartsWith("scoreform-core-export-")
+        ) {
+            throw "Refusing to remove unexpected Core-export root: $ResolvedCoreExportRoot"
+        }
+        Remove-Item -LiteralPath $ResolvedCoreExportRoot -Recurse -Force
     }
 }
 Invoke-Step "Verify exact CLI version output" {

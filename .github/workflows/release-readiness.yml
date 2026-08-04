@@ -18,11 +18,11 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Check out PDS Core 0.5 source for a separate test wheel
+      - name: Check out PDS Core 0.6.0 source for a separate test wheel
         uses: actions/checkout@v4
         with:
           repository: Paper-Data-Suite/pds-core
-          ref: v0.5.0
+          ref: v0.6.0
           path: _release_core
       - name: Install Poppler
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
@@ -31,7 +31,8 @@ jobs:
           python -m pip install build
           python -m build --wheel --outdir "$RUNNER_TEMP/core-dist" _release_core
           rm -rf "$GITHUB_WORKSPACE/_release_core"
-          python -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.5*.whl
+          python scripts/verify_core_wheel.py "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl
+          python -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl
       - name: Install development environment
         run: python -m pip install -e ".[dev]"
       - name: Check dependencies
@@ -53,7 +54,7 @@ jobs:
       - name: Install wheel noneditable
         run: |
           python -m venv "$RUNNER_TEMP/scoreform-wheel"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.5*.whl dist/scoreform-0.9.1-*.whl
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl dist/scoreform-0.9.1-*.whl
           "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip check
       - name: Verify installed version and profile
         env:
@@ -61,7 +62,7 @@ jobs:
         run: |
           test ! -e "$PDS_WORKSPACE_ROOT"
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --version | grep -Fx "ScoreForm 0.9.1"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.9.1 --workspace "$PDS_WORKSPACE_ROOT"
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.9.1 --workspace "$PDS_WORKSPACE_ROOT" --expected-core-version 0.6.0
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.9.1"
           test ! -e "$PDS_WORKSPACE_ROOT"

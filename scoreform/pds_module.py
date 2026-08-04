@@ -133,7 +133,7 @@ def validate_scoreform_registration(registration: RouteRegistration, /) -> None:
 
 
 def get_module_profile() -> ModuleProfile:
-    """Return ScoreForm's immutable installed Core 0.5 module profile."""
+    """Return ScoreForm's immutable installed Core 0.6 module profile."""
     from scoreform.route_handler import handle_scoreform_route
 
     return validate_module_profile(

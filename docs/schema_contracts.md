@@ -720,7 +720,7 @@ destination, rejects symlink escapes at every managed boundary, verifies full
 source/destination digests, preserves the source, reports cleanup failures, and
 reuses only an already verified matching copy on resolution retry.
 
-## Core 0.5 ScoreForm module dispatch contract
+## Core 0.6 ScoreForm module dispatch contract
 
 Installed discovery uses `paper_data_suite.modules` with entry-point name
 `scoreform`. The profile supports exactly Core routing contract `1`, `PDS2`,

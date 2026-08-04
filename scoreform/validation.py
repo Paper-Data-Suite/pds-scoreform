@@ -1,4 +1,4 @@
-from pds_core import identifiers as core_identifiers
+import pds_core.identifiers as core_identifiers
 from pds_core.identifiers import IdentifierValidationError
 
 # Preserve the existing ScoreForm-facing name while making pds-core authoritative.
