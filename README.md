@@ -288,6 +288,7 @@ Follow applicable school, district, state, and federal privacy requirements.
 - `ROADMAP.md` — current direction and historical milestone summary
 - `docs/cli_contract.md` — command and exit-code contract
 - `docs/schema_contracts.md` — persisted schema contract
+- `docs/academic_result_manifest_v1.md` — immutable producer-owned academic-result manifest contract
 - `docs/release_checklist.md` — preparation and publication gates
 - `docs/physical_acceptance_test.md` — mandatory paper procedure
 - `RELEASE_NOTES_v0.9.1.md` — reviewed GitHub Release body
