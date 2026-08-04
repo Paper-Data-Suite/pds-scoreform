@@ -56,6 +56,14 @@ manifest, a withdrawn revision, and a missing historical file all continue to
 consume their numbers. A failure before durable immutable creation consumes no
 number; #165 owns that filesystem boundary.
 
+Revision planning always uses the manifest for the greatest durably allocated
+producer revision as its predecessor. Replay is permitted only against that
+current producer head, and a successor can never branch from an older allocated
+revision. Older manifests are comparison evidence only. Each supplied historical
+manifest must be a unique allocated revision lower than the predecessor and in
+the same complete series; valid history is normalized into ascending revision
+order before historical-reversion classification.
+
 | State or event | Producer decision |
 | --- | --- |
 | no allocated manifest | `create_initial`, revision 1 |
@@ -81,7 +89,8 @@ values are publication content.
 paths, hashes and contract versions, assignment snapshot, students, attempts,
 responses, correctness, alignments, origins, provenance, and every other field.
 
-An exact replay selects the existing logical revision and its exact canonical
+An exact replay against the greatest allocated producer revision selects that
+existing logical revision and its exact canonical
 bytes. It preserves generated time, manifest digest and path, source snapshots,
 Core publication ID and time, predecessor, and withdrawal state. A no-op never
 updates `generated_at`, writes equivalent new bytes, increments a revision, or

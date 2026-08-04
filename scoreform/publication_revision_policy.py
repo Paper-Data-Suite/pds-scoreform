@@ -151,21 +151,36 @@ class ManifestRevisionPlan:
         ):
             _validation_error("existing_manifest_bytes must be immutable bytes.")
         if self.disposition is ManifestRevisionDisposition.REUSE_EXISTING:
-            if (
-                self.reason is not ManifestRevisionReason.EXACT_REPLAY
-                or not self.existing_manifest_bytes
-            ):
-                _validation_error("Replay plans require exact existing bytes.")
-        elif self.existing_manifest_bytes is not None:
-            _validation_error("New revision plans cannot carry existing bytes.")
-        if (
-            self.disposition is ManifestRevisionDisposition.CREATE_INITIAL
-            and (
-                self.reason is not ManifestRevisionReason.INITIAL_PUBLICATION
-                or self.revision != 1
-            )
-        ):
-            _validation_error("Initial plans must select initial publication revision 1.")
+            if self.reason is not ManifestRevisionReason.EXACT_REPLAY:
+                _validation_error("Replay plans require the exact_replay reason.")
+            if not self.existing_manifest_bytes:
+                _validation_error("Replay plans require nonempty exact existing bytes.")
+            return
+        if self.disposition is ManifestRevisionDisposition.CREATE_INITIAL:
+            if self.reason is not ManifestRevisionReason.INITIAL_PUBLICATION:
+                _validation_error(
+                    "Initial plans require the initial_publication reason."
+                )
+            if self.revision != 1:
+                _validation_error("Initial plans must select revision 1.")
+            if self.existing_manifest_bytes is not None:
+                _validation_error("Initial plans cannot carry existing bytes.")
+            return
+        allowed_successor_reasons = frozenset(
+            {
+                ManifestRevisionReason.NATIVE_SOURCE_CHANGED,
+                ManifestRevisionReason.ATTEMPT_HISTORY_APPENDED,
+                ManifestRevisionReason.ASSIGNMENT_METADATA_CHANGED,
+                ManifestRevisionReason.HISTORICAL_REVERSION,
+                ManifestRevisionReason.REPUBLICATION_AFTER_WITHDRAWAL,
+            }
+        )
+        if self.reason not in allowed_successor_reasons:
+            _validation_error("Successor plans require a successor revision reason.")
+        if self.revision <= 1:
+            _validation_error("Successor plans must select a revision greater than 1.")
+        if self.existing_manifest_bytes is not None:
+            _validation_error("Successor plans cannot carry existing bytes.")
 
     @property
     def reuse_existing_bytes(self) -> bool:
@@ -221,10 +236,17 @@ class ManifestRecoveryPlan:
             self.exact_bytes_to_restore, bytes
         ):
             _validation_error("exact_bytes_to_restore must be immutable bytes.")
-        if (
-            self.disposition is ManifestRecoveryDisposition.RESTORE_EXACT_BYTES
-        ) != bool(self.exact_bytes_to_restore):
-            _validation_error("Recovery disposition and exact bytes disagree.")
+        if self.disposition is ManifestRecoveryDisposition.RESTORE_EXACT_BYTES:
+            if (
+                not isinstance(self.exact_bytes_to_restore, bytes)
+                or len(self.exact_bytes_to_restore) == 0
+            ):
+                _validation_error("Exact restoration requires nonempty bytes.")
+            return
+        if self.exact_bytes_to_restore is not None:
+            _validation_error(
+                "Withdrawal-and-successor recovery cannot carry restoration bytes."
+            )
 
 
 def _validation_error(message: str) -> NoReturn:
@@ -534,7 +556,23 @@ def plan_manifest_revision(
         raise ManifestRevisionAllocationError(
             "allocated_revisions must include the predecessor revision."
         )
-    for historical in validated_history:
+    if predecessor.record_set.revision != max(revisions):
+        raise ManifestRevisionAllocationError(
+            "Revision planning must use the greatest allocated producer revision "
+            "as its predecessor."
+        )
+
+    ordered_history = tuple(
+        sorted(validated_history, key=lambda item: item.record_set.revision)
+    )
+    historical_revisions = tuple(
+        historical.record_set.revision for historical in ordered_history
+    )
+    if len(set(historical_revisions)) != len(historical_revisions):
+        raise ManifestRevisionAllocationError(
+            "historical_manifests must contain unique revisions."
+        )
+    for historical in ordered_history:
         if (
             historical.work != predecessor.work
             or historical.record_set.record_set_id
@@ -542,6 +580,14 @@ def plan_manifest_revision(
         ):
             raise ManifestRevisionTransitionError(
                 "Historical manifests must belong to the same complete series."
+            )
+        if historical.record_set.revision not in revisions:
+            raise ManifestRevisionAllocationError(
+                "Every historical manifest revision must be allocated."
+            )
+        if historical.record_set.revision >= predecessor.record_set.revision:
+            raise ManifestRevisionAllocationError(
+                "Historical manifest revisions must be lower than the predecessor."
             )
 
     same_content = manifests_have_same_publication_content(candidate, predecessor)
@@ -570,7 +616,7 @@ def plan_manifest_revision(
     reason = (
         ManifestRevisionReason.REPUBLICATION_AFTER_WITHDRAWAL
         if republish_after_withdrawal
-        else _plan_reason(predecessor, candidate, transition, validated_history)
+        else _plan_reason(predecessor, candidate, transition, ordered_history)
     )
     return ManifestRevisionPlan(
         ManifestRevisionDisposition.CREATE_SUCCESSOR,

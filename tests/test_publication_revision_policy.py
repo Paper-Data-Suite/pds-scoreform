@@ -20,8 +20,10 @@ from scoreform.publication_revision_policy import (
     SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID,
     ManifestRecoveryDisposition,
     ManifestRecoveryError,
+    ManifestRecoveryPlan,
     ManifestRevisionAllocationError,
     ManifestRevisionDisposition,
+    ManifestRevisionPlan,
     ManifestRevisionReason,
     ManifestRevisionReplayConflictError,
     ManifestRevisionTransitionError,
@@ -292,6 +294,267 @@ def test_allocated_revision_cannot_be_reused_for_changed_content() -> None:
             predecessor_manifest=predecessor,
             allocated_revisions=(1, 2),
         )
+
+
+def test_planning_rejects_replay_from_non_greatest_allocated_revision() -> None:
+    stale_predecessor = _manifest(2)
+    with pytest.raises(ManifestRevisionAllocationError, match="greatest allocated"):
+        plan_manifest_revision(
+            stale_predecessor,
+            predecessor_manifest=stale_predecessor,
+            predecessor_manifest_bytes=_bytes(stale_predecessor),
+            allocated_revisions=(1, 2, 3),
+        )
+
+
+def test_planning_rejects_successor_branch_from_non_greatest_revision() -> None:
+    stale_predecessor = _manifest(2)
+    candidate = _with_source_hash(_manifest(4), results="d" * 64)
+    with pytest.raises(ManifestRevisionAllocationError, match="greatest allocated"):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=stale_predecessor,
+            allocated_revisions=(1, 2, 3),
+        )
+
+
+def test_planning_accepts_successor_from_greatest_allocated_revision() -> None:
+    predecessor = _manifest(3)
+    candidate = _with_source_hash(_manifest(4), results="d" * 64)
+    plan = plan_manifest_revision(
+        candidate,
+        predecessor_manifest=predecessor,
+        allocated_revisions=(1, 2, 3),
+    )
+    assert plan.revision == 4
+    assert plan.disposition is ManifestRevisionDisposition.CREATE_SUCCESSOR
+
+
+def test_planning_accepts_successor_after_gapped_allocated_history() -> None:
+    predecessor = _manifest(8)
+    candidate = _with_source_hash(_manifest(9), results="d" * 64)
+    plan = plan_manifest_revision(
+        candidate,
+        predecessor_manifest=predecessor,
+        allocated_revisions=(1, 3, 8),
+    )
+    assert plan.revision == 9
+
+
+def _historical_planning_values() -> tuple[
+    AcademicResultManifest,
+    AcademicResultManifest,
+    AcademicResultManifest,
+    AcademicResultManifest,
+]:
+    historical_one = _manifest(1)
+    historical_two = replace(
+        _with_source_hash(_manifest(2), assignment="c" * 64),
+        assignment=replace(historical_one.assignment, title="Earlier title"),
+    )
+    predecessor = replace(
+        _with_source_hash(_manifest(3), assignment="d" * 64),
+        assignment=replace(historical_one.assignment, title="Current title"),
+    )
+    candidate = _manifest(4)
+    return historical_one, historical_two, predecessor, candidate
+
+
+def test_historical_reversion_normalizes_valid_unordered_prior_history() -> None:
+    historical_one, historical_two, predecessor, candidate = (
+        _historical_planning_values()
+    )
+    plan = plan_manifest_revision(
+        candidate,
+        predecessor_manifest=predecessor,
+        allocated_revisions=(1, 2, 3),
+        historical_manifests=(historical_two, historical_one),
+    )
+    assert plan.reason is ManifestRevisionReason.HISTORICAL_REVERSION
+    assert manifests_have_same_publication_content(candidate, historical_one)
+    assert not manifests_have_same_publication_content(candidate, predecessor)
+
+
+def test_historical_manifest_revision_must_be_allocated() -> None:
+    historical_one, _, predecessor, candidate = _historical_planning_values()
+    unallocated = replace(historical_one, record_set=RecordSet("academic_results", 2))
+    with pytest.raises(ManifestRevisionAllocationError, match="must be allocated"):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=predecessor,
+            allocated_revisions=(1, 3),
+            historical_manifests=(unallocated,),
+        )
+
+
+def test_historical_manifest_revisions_must_be_unique() -> None:
+    historical_one, _, predecessor, candidate = _historical_planning_values()
+    duplicate = replace(
+        historical_one,
+        generated_at=historical_one.generated_at + timedelta(seconds=1),
+    )
+    with pytest.raises(ManifestRevisionAllocationError, match="unique revisions"):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=predecessor,
+            allocated_revisions=(1, 2, 3),
+            historical_manifests=(historical_one, duplicate),
+        )
+
+
+@pytest.mark.parametrize("historical_revision", [3, 4])
+def test_historical_manifest_must_be_lower_than_predecessor(
+    historical_revision: int,
+) -> None:
+    historical_one, _, predecessor, candidate = _historical_planning_values()
+    historical = replace(
+        historical_one,
+        record_set=RecordSet("academic_results", historical_revision),
+    )
+    allocated = (1, 2, 3) if historical_revision == 3 else (1, 2, 3, 4)
+    with pytest.raises(ManifestRevisionAllocationError):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=predecessor,
+            allocated_revisions=allocated,
+            historical_manifests=(historical,),
+        )
+
+
+@pytest.mark.parametrize("identity", ["class", "work", "record_set"])
+def test_historical_manifests_must_share_complete_series_identity(
+    identity: str,
+) -> None:
+    historical, _, predecessor, candidate = _historical_planning_values()
+    if identity == "class":
+        historical = replace(
+            historical,
+            work=WorkReference("scoreform", "other_class", historical.work.work_id),
+        )
+    elif identity == "work":
+        historical = replace(
+            historical,
+            work=WorkReference("scoreform", historical.work.class_id, "other_work"),
+            assignment=replace(historical.assignment, assignment_id="other_work"),
+        )
+    else:
+        historical = replace(
+            historical, record_set=RecordSet("other_results", 1)
+        )
+    with pytest.raises(ManifestRevisionTransitionError):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=predecessor,
+            allocated_revisions=(1, 2, 3),
+            historical_manifests=(historical,),
+        )
+
+
+@pytest.mark.parametrize("field", ["producer_module_id", "contract_version"])
+def test_historical_manifest_must_use_supported_producer_and_contract(
+    field: str,
+) -> None:
+    historical, _, predecessor, candidate = _historical_planning_values()
+    object.__setattr__(historical, field, "unsupported")
+    with pytest.raises(ScoreFormPublicationRevisionPolicyValidationError):
+        plan_manifest_revision(
+            candidate,
+            predecessor_manifest=predecessor,
+            allocated_revisions=(1, 2, 3),
+            historical_manifests=(historical,),
+        )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        ManifestRevisionReason.NATIVE_SOURCE_CHANGED,
+        ManifestRevisionReason.ATTEMPT_HISTORY_APPENDED,
+        ManifestRevisionReason.ASSIGNMENT_METADATA_CHANGED,
+        ManifestRevisionReason.HISTORICAL_REVERSION,
+        ManifestRevisionReason.REPUBLICATION_AFTER_WITHDRAWAL,
+    ],
+)
+def test_manifest_revision_plan_accepts_every_valid_successor_reason(reason) -> None:
+    plan = ManifestRevisionPlan(
+        ManifestRevisionDisposition.CREATE_SUCCESSOR,
+        reason,
+        2,
+        SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID,
+    )
+    assert plan.reason is reason
+
+
+def test_manifest_revision_plan_accepts_valid_initial_and_replay() -> None:
+    initial = ManifestRevisionPlan(
+        ManifestRevisionDisposition.CREATE_INITIAL,
+        ManifestRevisionReason.INITIAL_PUBLICATION,
+        1,
+        SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID,
+    )
+    replay = ManifestRevisionPlan(
+        ManifestRevisionDisposition.REUSE_EXISTING,
+        ManifestRevisionReason.EXACT_REPLAY,
+        3,
+        SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID,
+        b"exact",
+    )
+    assert initial.disposition is ManifestRevisionDisposition.CREATE_INITIAL
+    assert replay.existing_manifest_bytes == b"exact"
+
+
+@pytest.mark.parametrize(
+    ("disposition", "reason", "revision", "existing_bytes"),
+    [
+        (ManifestRevisionDisposition.CREATE_SUCCESSOR, ManifestRevisionReason.EXACT_REPLAY, 2, None),
+        (ManifestRevisionDisposition.CREATE_SUCCESSOR, ManifestRevisionReason.INITIAL_PUBLICATION, 2, None),
+        (ManifestRevisionDisposition.CREATE_INITIAL, ManifestRevisionReason.NATIVE_SOURCE_CHANGED, 1, None),
+        (ManifestRevisionDisposition.REUSE_EXISTING, ManifestRevisionReason.NATIVE_SOURCE_CHANGED, 2, b"exact"),
+        (ManifestRevisionDisposition.CREATE_SUCCESSOR, ManifestRevisionReason.NATIVE_SOURCE_CHANGED, 1, None),
+        (ManifestRevisionDisposition.REUSE_EXISTING, ManifestRevisionReason.EXACT_REPLAY, 2, None),
+        (ManifestRevisionDisposition.REUSE_EXISTING, ManifestRevisionReason.EXACT_REPLAY, 2, b""),
+        (ManifestRevisionDisposition.CREATE_INITIAL, ManifestRevisionReason.INITIAL_PUBLICATION, 1, b"exact"),
+        (ManifestRevisionDisposition.CREATE_SUCCESSOR, ManifestRevisionReason.NATIVE_SOURCE_CHANGED, 2, b"exact"),
+    ],
+)
+def test_manifest_revision_plan_rejects_invalid_disposition_reason_matrix(
+    disposition, reason, revision: int, existing_bytes: bytes | None
+) -> None:
+    with pytest.raises(ScoreFormPublicationRevisionPolicyValidationError):
+        ManifestRevisionPlan(
+            disposition,
+            reason,
+            revision,
+            SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID,
+            existing_bytes,
+        )
+
+
+def test_manifest_recovery_plan_accepts_exact_valid_combinations() -> None:
+    restore = ManifestRecoveryPlan(
+        ManifestRecoveryDisposition.RESTORE_EXACT_BYTES, b"exact"
+    )
+    withdraw = ManifestRecoveryPlan(
+        ManifestRecoveryDisposition.WITHDRAW_AND_CREATE_SUCCESSOR, None
+    )
+    assert restore.exact_bytes_to_restore == b"exact"
+    assert withdraw.exact_bytes_to_restore is None
+
+
+@pytest.mark.parametrize(
+    ("disposition", "exact_bytes"),
+    [
+        (ManifestRecoveryDisposition.RESTORE_EXACT_BYTES, None),
+        (ManifestRecoveryDisposition.RESTORE_EXACT_BYTES, b""),
+        (ManifestRecoveryDisposition.WITHDRAW_AND_CREATE_SUCCESSOR, b"exact"),
+        (ManifestRecoveryDisposition.WITHDRAW_AND_CREATE_SUCCESSOR, b""),
+    ],
+)
+def test_manifest_recovery_plan_rejects_contradictory_byte_state(
+    disposition, exact_bytes: bytes | None
+) -> None:
+    with pytest.raises(ScoreFormPublicationRevisionPolicyValidationError):
+        ManifestRecoveryPlan(disposition, exact_bytes)
 
 
 @pytest.mark.parametrize(
