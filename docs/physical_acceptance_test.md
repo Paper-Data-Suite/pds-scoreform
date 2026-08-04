@@ -160,9 +160,9 @@ result does not require another paper run.
 
 ## 3. Obtain and install both release distributions
 
-Download `pds_core-0.5.0-py3-none-any.whl` from the verified PDS Core `v0.5.0`
-GitHub Release. Core 0.5.0 was not published to PyPI. ScoreForm's metadata
-enforces `pds-core>=0.5,<0.6`, but pip cannot obtain Core unless its wheel is
+Download `pds_core-0.6.0-py3-none-any.whl` from the verified PDS Core `v0.6.0`
+GitHub Release. Core 0.6.0 is not published to PyPI. ScoreForm's metadata
+enforces `pds-core>=0.6,<0.7`, but pip cannot obtain Core unless its wheel is
 made available explicitly. The ScoreForm release does not repackage or bundle
 Core, and an editable sibling checkout is for development only.
 
@@ -177,7 +177,7 @@ if (Test-Path -LiteralPath $TestRoot) {
 New-Item -ItemType Directory -Path $TestRoot | Out-Null
 
 # Copy the two verified wheel files into $TestRoot before continuing.
-$CoreWheel = Get-Item (Join-Path $TestRoot "pds_core-0.5.0-py3-none-any.whl")
+$CoreWheel = Get-Item (Join-Path $TestRoot "pds_core-0.6.0-py3-none-any.whl")
 $CandidateWheel = Get-Item (Join-Path $TestRoot "scoreform-0.9.1-py3-none-any.whl")
 if ((Get-FileHash $CandidateWheel.FullName -Algorithm SHA256).Hash -ne $ScoreFormWheelHash) {
     throw "The copied ScoreForm wheel is not the recorded candidate wheel."

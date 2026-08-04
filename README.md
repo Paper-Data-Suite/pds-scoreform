@@ -13,7 +13,7 @@ choose the official attempt or grade, and does not provide LMS export.
 ## Release contract
 
 - Python: 3.11 or newer
-- PDS Core: `pds-core>=0.5,<0.6`
+- PDS Core: `pds-core>=0.6,<0.7`
 - Core routing contract: `1`
 - QR payload schema: `PDS2`
 - route-registration schema: `1`
@@ -29,24 +29,30 @@ testing may use any interpreter satisfying that metadata, including Python
 
 ## Installation
 
-PDS Core 0.5.0 is distributed through the verified PDS Core `v0.5.0` GitHub
+PDS Core 0.6.0 is distributed separately through the verified PDS Core `v0.6.0` GitHub
 Release; it was not published to PyPI. Download its wheel and the ScoreForm
 wheel, create and activate a Python 3.11+ virtual environment, install Poppler
 so `pdftoppm` is available for PDF scans, then install both distributions
 noneditably:
 
 ```powershell
-python -m pip install .\pds_core-0.5.0-py3-none-any.whl
+python -m pip install .\pds_core-0.6.0-py3-none-any.whl
 python -m pip install .\scoreform-0.9.1-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
 ```
 
-ScoreForm's dependency metadata enforces `pds-core>=0.5,<0.6`, but pip cannot
-download Core 0.5.0 from PyPI. A compatible Core wheel must be available to pip
+ScoreForm's dependency metadata enforces `pds-core>=0.6,<0.7`, but pip cannot
+download Core 0.6.0 from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
+
+Adopting Core 0.6 does not by itself register work, generate manifests,
+publish results, build the catalog, or calculate Grades. ScoreForm remains
+responsible only for its existing routing and PDS2 behavior: it does not choose
+the official attempt, calculate proficiency or a course Grade, or depend on
+Meridian.
 
 Development installation:
 

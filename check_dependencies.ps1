@@ -68,12 +68,23 @@ Check-PythonImport "pds_core" "pds-core"
 $coreVersion = & $Python -c "from importlib.metadata import version; print(version('pds-core'))" 2>&1
 if ($LASTEXITCODE -eq 0) {
     Info "Installed pds-core distribution version: $coreVersion"
-    $coreRangeOutput = & $Python -c "from importlib.metadata import version; from pip._vendor.packaging.specifiers import SpecifierSet; value=version('pds-core'); raise SystemExit(0 if value in SpecifierSet('>=0.5,<0.6') else 1)" 2>&1
+    $coreRangeOutput = & $Python -c "from importlib.metadata import version; from pip._vendor.packaging.specifiers import SpecifierSet; value=version('pds-core'); raise SystemExit(0 if value in SpecifierSet('>=0.6,<0.7') else 1)" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Pass "pds-core $coreVersion satisfies >=0.5,<0.6."
+        Pass "pds-core $coreVersion satisfies >=0.6,<0.7."
     }
     else {
-        Fail "pds-core $coreVersion is incompatible; install a version in >=0.5,<0.6."
+        Fail "pds-core $coreVersion is incompatible; install a version in >=0.6,<0.7."
+    }
+    $coreModuleVersion = & $Python -c "import pds_core; print(pds_core.__version__)" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Fail "pds_core.__version__ is missing or unreadable."
+        if ($coreModuleVersion) { Info ($coreModuleVersion -join "`n") }
+    }
+    elseif (($coreModuleVersion -join "`n").Trim() -eq ($coreVersion -join "`n").Trim()) {
+        Pass "pds_core.__version__ agrees with distribution version $coreVersion."
+    }
+    else {
+        Fail "pds-core distribution version $coreVersion disagrees with pds_core.__version__ $coreModuleVersion."
     }
 }
 else {

@@ -7,7 +7,7 @@ from the PDS1 era have been removed because they no longer describe supported
 behavior; public milestone history remains in `CHANGELOG.md` and `ROADMAP.md`.
 
 ScoreForm is a local-first PDS module for printable multiple-choice answer
-sheets. It supports Python 3.11 or newer and `pds-core>=0.5,<0.6`.
+sheets. It supports Python 3.11 or newer and `pds-core>=0.6,<0.7`.
 
 ### Storage and identity
 
@@ -58,6 +58,11 @@ JSON contract are active and documented in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). It defines a
 producer-owned publication projection only; workspace generation, Core Academic
 Work registration, and Core publication workflows are not yet implemented.
+ScoreForm now runs on released Core 0.6 while its installed routing profile
+remains routing contract `1` and QR schema `PDS2`. The manifest and revision
+policy foundations are implemented; Academic Work Registration remains #164,
+manifest generation remains #165, publication-profile registration remains
+#166, and Core publication workflows remain #167.
 The pure producer allocation, replay, append-history, supersession-requirement,
 withdrawal, and recovery decisions are active in
 [`publication_revision_policy.md`](publication_revision_policy.md). They do not

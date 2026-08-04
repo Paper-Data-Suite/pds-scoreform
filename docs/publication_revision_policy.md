@@ -191,7 +191,8 @@ revision 4
 
 ## Later-issue boundary
 
-#163 upgrades Core without changing this policy. #164 registers Academic Work.
+Core 0.6 is adopted by #163 without changing this producer revision policy.
+#164 registers Academic Work.
 #165 reads and hashes native files, constructs complete manifests, durably writes
 revision-addressed immutable bytes, and enforces allocation failure boundaries.
 #166 advertises producer capability. #167 reconciles exact Core state and creates

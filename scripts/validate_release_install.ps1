@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Python,
-    [string]$Version = "0.9.1"
+    [string]$Version = "0.9.1",
+    [string]$ExpectedCoreVersion = "0.6.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,12 +40,10 @@ function Test-InstalledArtifact {
 
     Invoke-Checked "Create $Label clean environment" { & $Python -m venv $Venv }
     Invoke-Checked "Install $Label noneditable artifact" {
-        if (Test-Path Env:PDS_CORE_WHEEL) {
-            & $VenvPython -m pip install $env:PDS_CORE_WHEEL $Artifact --quiet
+        if (-not (Test-Path Env:PDS_CORE_WHEEL)) {
+            throw "PDS_CORE_WHEEL must name the exact released Core $ExpectedCoreVersion wheel."
         }
-        else {
-            & $VenvPython -m pip install $Artifact --quiet
-        }
+        & $VenvPython -m pip install $env:PDS_CORE_WHEEL $Artifact --quiet
     }
     Invoke-Checked "Run $Label pip check" { & $VenvPython -m pip check }
 
@@ -55,7 +54,8 @@ function Test-InstalledArtifact {
     try {
         Invoke-Checked "Verify $Label installed metadata and module profile" {
             & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_release.py") `
-                --version $Version --workspace $Workspace
+                --version $Version --workspace $Workspace `
+                --expected-core-version $ExpectedCoreVersion
         }
         Invoke-Checked "Show $Label installed version flag" { & $VenvScoreForm --version }
         Invoke-Checked "Show $Label installed version command" { & $VenvScoreForm version }
@@ -64,6 +64,19 @@ function Test-InstalledArtifact {
         Invoke-Checked "Show $Label installed help command" { & $VenvScoreForm help }
         Invoke-Checked "Import $Label installed public boundaries" {
             & $VenvPython -c "import scoreform; import scoreform.cli; import scoreform.pds_contract; import scoreform.pds_module; import pds_core"
+        }
+        $ForbiddenRegistryPaths = @(
+            "settings\academic_periods",
+            "registry\work",
+            "registry\publications",
+            "registry\withdrawals",
+            "registry\catalog.sqlite",
+            "registry\.locks"
+        )
+        foreach ($RelativePath in $ForbiddenRegistryPaths) {
+            if (Test-Path -LiteralPath (Join-Path $Workspace $RelativePath)) {
+                throw "$Label validation created forbidden registry state: $RelativePath"
+            }
         }
         if (Test-Path -LiteralPath $Workspace) {
             throw "$Label import/help/version/profile discovery created workspace data."

@@ -10,6 +10,12 @@ from importlib import metadata
 from pathlib import Path
 
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
+from pds_core.routing_models import (
+    ModuleRecordRef,
+    ModuleWorkRef,
+    RouteLocator,
+    RouteRegistration,
+)
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.version import Version
 
@@ -24,17 +30,39 @@ except ModuleNotFoundError:
         validate_core_requirement_strings,
     )
 
-CORE_VERSION_SPECIFIER = SpecifierSet(">=0.5,<0.6")
+CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6,<0.7")
 
 
 def core_version_is_supported(value: str) -> bool:
     return Version(value) in CORE_VERSION_SPECIFIER
 
 
+def validate_core_runtime_versions(
+    distribution_version: str,
+    module_version: str | None,
+    expected_version: str | None = None,
+) -> None:
+    if not core_version_is_supported(distribution_version):
+        raise SystemExit(
+            f"installed pds-core does not satisfy >=0.6,<0.7: {distribution_version}"
+        )
+    if module_version != distribution_version:
+        raise SystemExit(
+            "installed pds-core distribution and pds_core.__version__ disagree: "
+            f"{distribution_version!r} != {module_version!r}"
+        )
+    if expected_version is not None and distribution_version != expected_version:
+        raise SystemExit(
+            f"installed pds-core version {distribution_version} does not match "
+            f"expected baseline {expected_version}"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", default="0.9.1")
     parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--expected-core-version")
     args = parser.parse_args()
 
     if args.workspace.exists():
@@ -54,6 +82,18 @@ def main() -> int:
             f"installed pds-core does not satisfy ScoreForm's declared dependency: "
             f"{core_version}"
         )
+    pds_core = importlib.import_module("pds_core")
+    module_core_version = getattr(pds_core, "__version__", None)
+    validate_core_runtime_versions(
+        core_version, module_core_version, args.expected_core_version
+    )
+
+    for module_name in (
+        "pds_core.academic_work_registrations",
+        "pds_core.publication_records",
+        "pds_core.publication_compatibility",
+    ):
+        importlib.import_module(module_name)
 
     entries = [
         entry
@@ -85,6 +125,33 @@ def main() -> int:
         if getattr(first, field) != value:
             raise SystemExit(f"profile mismatch for {field}: {getattr(first, field)!r}")
 
+    page_id = "pg_" + "2" * 32
+    registration = RouteRegistration(
+        schema_version="1",
+        locator=RouteLocator(
+            "PDS2",
+            ModuleWorkRef("scoreform", "class1", "quiz1"),
+            "rt_" + "1" * 32,
+        ),
+        target=ModuleRecordRef("scoreform", "answer_sheet_page", page_id, "1"),
+        created_at="2026-01-01T00:00:00+00:00",
+        status="active",
+        human_fallback=(
+            "ScoreForm | class=class1 | assignment=quiz1 | student=student1 | "
+            f"page=1/1 | page_id={page_id}"
+        ),
+        module_details={
+            "issuance_id": "iss_" + "3" * 32,
+            "logical_page": 1,
+            "total_pages": 1,
+        },
+    )
+    before_details = registration.module_details
+    if first.registration_validator(registration) is not None:
+        raise SystemExit("ScoreForm registration validator must return None")
+    if registration.module_details != before_details:
+        raise SystemExit("ScoreForm registration validator mutated the Core model")
+
     discovered = [
         profile for profile in discover_module_profiles() if profile.module_id == "scoreform"
     ]
@@ -97,8 +164,6 @@ def main() -> int:
         raise SystemExit("profile discovery created workspace state")
 
     scoreform = importlib.import_module("scoreform")
-    pds_core = importlib.import_module("pds_core")
-
     for module in (scoreform, pds_core):
         module_file = module.__file__
         if module_file is None:

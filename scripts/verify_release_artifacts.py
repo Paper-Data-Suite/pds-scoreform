@@ -31,7 +31,7 @@ FORBIDDEN_PARTS = {
     "scans_inbox",
 }
 FORBIDDEN_SUFFIXES = {".diff", ".patch", ".pdf", ".pyc", ".pyo"}
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.5,<0.6")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 
 
@@ -114,7 +114,7 @@ def validate_core_requirement_strings(values: list[str], label: str) -> Requirem
         raise ArtifactValidationError(f"{label} pds-core requirement must not use extras")
     if requirement.specifier != EXPECTED_CORE_SPECIFIER:
         raise ArtifactValidationError(
-            f"{label} pds-core requirement must be exactly >=0.5,<0.6"
+            f"{label} pds-core requirement must be exactly >=0.6,<0.7"
         )
     return requirement
 

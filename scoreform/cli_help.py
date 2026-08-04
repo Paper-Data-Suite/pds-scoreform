@@ -91,7 +91,7 @@ Commands:
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
-Core 0.5/PDS2 scan intake:
+Core 0.6/PDS2 scan intake:
   Personalized PDFs, class packets, and managed regeneration use immutable page
   records and Core PDS2 route registrations. The installed one-page module
   handler is available to Core. Active scans are retained before QR detection,
