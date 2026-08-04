@@ -53,6 +53,12 @@ Manual answer-key scoring remains route-free. Plain-paper entry uses
 `result_origin=plain_paper_manual`; review-linked manual results use
 `scan_review_manual`. ScoreForm does not select an official grade.
 
+The pure, immutable ScoreForm Academic Result Manifest v1 model and canonical
+JSON contract are active and documented in
+[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). It defines a
+producer-owned publication projection only; workspace generation, Core Academic
+Work registration, and Core publication workflows are not yet implemented.
+
 ### Review, evidence, and filing
 
 Routing failures and resolutions use Core schema version 2. Failure bytes are

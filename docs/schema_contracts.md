@@ -1,5 +1,10 @@
 # ScoreForm Schema and File Contract
 
+The active immutable publication projection is specified separately in
+[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That pure
+ScoreForm-owned contract is implemented, but workspace manifest generation and
+Core publication are not yet implemented.
+
 > v0.9.1 current-only boundary: managed work is module-qualified, generated and
 > scanned routed sheets use PDS2, routed results use schema version 2, and Core
 > failure/resolution metadata uses schema version 2. Historical PDS1/OMR1 and
