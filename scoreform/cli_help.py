@@ -59,6 +59,9 @@ Usage:
   scoreform validate-assignment <assignment.json>
   scoreform validate-roster <roster.csv>
   scoreform setup-assignment <assignment.json> <roster.csv>
+  scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
+  scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
+  scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
   scoreform workspace show
   scoreform workspace set <path>
   scoreform workspace validate
@@ -85,6 +88,7 @@ Commands:
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
+  academic-work         Show, register, or explicitly update Academic Work metadata.
   workspace             View or configure the shared PDS workspace root.
   school-year           View, open, or close the active PDS school year.
   scan-filing           View or configure ScoreForm scored-copy filing.

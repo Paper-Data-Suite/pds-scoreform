@@ -9,6 +9,14 @@ Its stable production identity and immutable revision-transition rules are in
 is active and pure; manifest generation and Core publication, supersession, and
 withdrawal commands remain future work.
 
+ScoreForm Academic Work Registration is defined in
+[`academic_work_registration.md`](academic_work_registration.md). Its exact
+mapping fixes `module_id="scoreform"`, producer contract
+`scoreform_academic_work_v1`, work kind `assignment`, and one source record with
+`record_kind="assignment"` and `contract_version=None`. The title is a snapshot
+from canonical `assignment.json`; academic intent and lifecycle are explicit.
+The native assignment JSON remains unversioned and its shape is unchanged.
+
 > v0.9.1 current-only boundary: managed work is module-qualified, generated and
 > scanned routed sheets use PDS2, routed results use schema version 2, and Core
 > failure/resolution metadata uses schema version 2. Historical PDS1/OMR1 and
