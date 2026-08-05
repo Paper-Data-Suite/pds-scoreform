@@ -59,6 +59,16 @@ def _counts(manifest) -> tuple[int, int]:
     return len(manifest.students), sum(len(student.attempts) for student in manifest.students)
 
 
+def _print_lock_cleanup_warning(error: ScoreFormManifestGenerationError) -> None:
+    failure = error.lock_cleanup_failure
+    if failure is None:
+        return
+    print("Warning: the manifest generation lock could not be removed:")
+    print(failure.relative_path)
+    print()
+    print("Inspect and resolve the lock before retrying generation.")
+
+
 def _print_stored(stored, *, include_identity: bool) -> None:
     manifest = stored.manifest
     students, attempts = _counts(manifest)
@@ -141,9 +151,14 @@ def run_manifest(args: Sequence[str]) -> int:
         print("Warning: an immutable manifest revision is durably allocated.")
         print(f"revision: {error.state.revision}")
         print(f"manifest path: {error.state.relative_path}")
+        _print_lock_cleanup_warning(error)
         return 1
     except (ScoreFormManifestGenerationError, ValueError, TypeError) as error:
         print(f"Error: {error}")
+        if isinstance(error, ScoreFormManifestGenerationError):
+            if error.lock_cleanup_failure is not None:
+                print("Warning: no manifest revision was confirmed durable.")
+            _print_lock_cleanup_warning(error)
         print()
         print(MANIFEST_USAGE)
         return 1

@@ -8,7 +8,7 @@ import os
 import stat
 from collections import defaultdict
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from pds_core.routing_models import ModuleWorkRef, validate_module_work_ref
@@ -53,7 +53,7 @@ from scoreform.publication_revision_policy import (
 )
 from scoreform.results import (
     ScoreFormRoutedResultHistoryRow,
-    routed_results_history_from_csv_bytes,
+    parse_routed_results_history_csv_bytes,
 )
 from scoreform.retained_page import (
     validate_canonical_retained_source_relative_path,
@@ -66,8 +66,42 @@ from scoreform.work_paths import (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ManifestGenerationCleanupFailure:
+    """Public record of a generation lock that could not be removed."""
+
+    path: Path
+    relative_path: str
+    message: str
+    error: OSError
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.path, Path):
+            raise TypeError("Cleanup failure path must be a Path.")
+        if not isinstance(self.relative_path, str) or not self.relative_path:
+            raise ValueError("Cleanup failure relative_path must be nonempty.")
+        if not isinstance(self.message, str) or not self.message:
+            raise ValueError("Cleanup failure message must be nonempty.")
+        if not isinstance(self.error, OSError):
+            raise TypeError("Cleanup failure error must be an OSError.")
+
+
 class ScoreFormManifestGenerationError(Exception):
     """Base error for manifest generation and storage."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self._lock_cleanup_failure: ManifestGenerationCleanupFailure | None = None
+
+    @property
+    def lock_cleanup_failure(self) -> ManifestGenerationCleanupFailure | None:
+        """Describe a lock-removal failure accompanying this operation error."""
+        return self._lock_cleanup_failure
+
+    def _record_lock_cleanup_failure(
+        self, failure: ManifestGenerationCleanupFailure
+    ) -> None:
+        self._lock_cleanup_failure = failure
 
 
 class ScoreFormManifestGenerationValidationError(ScoreFormManifestGenerationError):
@@ -89,6 +123,10 @@ class ScoreFormManifestGenerationIntegrityError(ScoreFormManifestGenerationError
 class ScoreFormManifestGenerationWriteError(ScoreFormManifestGenerationError):
     """Immutable storage could not be completed safely."""
 
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.incomplete_target_cleanup_failure: OSError | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class ManifestGenerationPartialSuccessState:
@@ -99,7 +137,7 @@ class ManifestGenerationPartialSuccessState:
     relative_path: str
     expected_sha256: str | None
     durable_file_exists: bool
-    cleanup_failure: str | None = None
+    lock_cleanup_failure: ManifestGenerationCleanupFailure | None = None
 
 
 class ScoreFormManifestGenerationPartialSuccessError(
@@ -110,6 +148,8 @@ class ScoreFormManifestGenerationPartialSuccessError(
     def __init__(self, message: str, state: ManifestGenerationPartialSuccessState):
         super().__init__(message)
         self.state = state
+        if state.lock_cleanup_failure is not None:
+            self._record_lock_cleanup_failure(state.lock_cleanup_failure)
 
 
 class _DurableRevisionWriteError(Exception):
@@ -669,7 +709,9 @@ def load_academic_result_manifest_generation_context(
     )
     try:
         native_assignment = assignment_from_json_bytes(assignment_source.content)
-        result_rows = routed_results_history_from_csv_bytes(results_source.content)
+        parsed_history = parse_routed_results_history_csv_bytes(
+            results_source.content
+        )
     except ScoreFormManifestGenerationError:
         raise
     except Exception as error:
@@ -681,8 +723,14 @@ def load_academic_result_manifest_generation_context(
         workspace_root=root,
         work=work,
     )
+    if parsed_history.question_count != assignment.question_count:
+        raise ScoreFormManifestGenerationIntegrityError(
+            "The schema-v2 results history question structure does not match "
+            "assignment.json. Existing results cannot be reinterpreted under "
+            "the changed assignment structure."
+        )
     students = _students(
-        result_rows,
+        parsed_history.rows,
         assignment=assignment,
         work=work,
         workspace_root=root,
@@ -945,7 +993,9 @@ def _write_new_revision(path: Path, content: bytes) -> None:
         created = True
         with os.fdopen(descriptor, "wb", closefd=True) as stream:
             descriptor = None
-            stream.write(content)
+            written = stream.write(content)
+            if written != len(content):
+                raise OSError("Manifest revision write was incomplete.")
             stream.flush()
             os.fsync(stream.fileno())
         durable = True
@@ -978,7 +1028,7 @@ def _write_new_revision(path: Path, content: bytes) -> None:
                 else "."
             )
         )
-        setattr(write_error, "cleanup_failure", cleanup_error)
+        write_error.incomplete_target_cleanup_failure = cleanup_error
         raise write_error from error
 
 
@@ -1171,6 +1221,15 @@ def generate_academic_result_manifest(
         try:
             lock_path.unlink()
         except OSError as cleanup_error:
+            lock_cleanup_failure = ManifestGenerationCleanupFailure(
+                path=lock_path,
+                relative_path=(
+                    academic_result_manifest_relative_path(work, 1).rsplit("/", 1)[0]
+                    + "/.write.lock"
+                ),
+                message=str(cleanup_error),
+                error=cleanup_error,
+            )
             if operation_error is None:
                 if durable_path is not None and durable_revision is not None:
                     state = ManifestGenerationPartialSuccessState(
@@ -1183,21 +1242,35 @@ def generate_academic_result_manifest(
                         ),
                         expected_sha256=expected_digest,
                         durable_file_exists=durable_path.exists(),
-                        cleanup_failure=str(cleanup_error),
+                        lock_cleanup_failure=lock_cleanup_failure,
                     )
                     raise ScoreFormManifestGenerationPartialSuccessError(
                         "Manifest is durable but generation lock cleanup failed.",
                         state,
                     ) from cleanup_error
-                raise ScoreFormManifestGenerationWriteError(
+                cleanup_failure_error = ScoreFormManifestGenerationWriteError(
                     "Manifest generation lock cleanup failed."
-                ) from cleanup_error
-            setattr(operation_error, "lock_cleanup_failure", cleanup_error)
+                )
+                cleanup_failure_error._record_lock_cleanup_failure(
+                    lock_cleanup_failure
+                )
+                raise cleanup_failure_error from cleanup_error
+            if isinstance(operation_error, ScoreFormManifestGenerationError):
+                operation_error._record_lock_cleanup_failure(lock_cleanup_failure)
+                if isinstance(
+                    operation_error,
+                    ScoreFormManifestGenerationPartialSuccessError,
+                ):
+                    operation_error.state = replace(
+                        operation_error.state,
+                        lock_cleanup_failure=lock_cleanup_failure,
+                    )
 
 
 __all__ = [
     "AcademicResultManifestGenerationContext",
     "AcademicResultManifestGenerationResult",
+    "ManifestGenerationCleanupFailure",
     "ManifestGenerationPartialSuccessState",
     "NativeFileByteSnapshot",
     "ScoreFormManifestGenerationConflictError",

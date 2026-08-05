@@ -1,21 +1,31 @@
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 import scoreform.academic_result_manifest_generation as generation_module
 from scoreform.academic_result_manifest_generation import (
     ScoreFormManifestGenerationConflictError,
+    ScoreFormManifestGenerationError,
     ScoreFormManifestGenerationIntegrityError,
+    ScoreFormManifestGenerationPartialSuccessError,
+    ScoreFormManifestGenerationWriteError,
     generate_academic_result_manifest,
     list_academic_result_manifest_revisions,
 )
 from scoreform.page_scoring import ScoredAnswer
-from scoreform.results import ScoreFormRoutedResult, export_scoreform_result_models
+from scoreform.results import (
+    ScoreFormRoutedResult,
+    export_scoreform_result_models,
+    routed_results_v2_headers,
+)
 from scoreform.work_paths import (
     academic_result_manifest_relative_path,
     academic_result_manifest_revision_path,
@@ -141,6 +151,82 @@ def _assert_failed_initial_allocation(paths, changed_path, changed_bytes):
     assert list_academic_result_manifest_revisions(
         paths.work_root.parents[5], paths.work_ref
     ) == ()
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def _set_assignment_question_count(paths, question_count):
+    assignment = json.loads(paths.assignment_path.read_text(encoding="utf-8"))
+    assignment["question_count"] = question_count
+    assignment["answer_key"] = {
+        str(number): "A" for number in range(1, question_count + 1)
+    }
+    assignment["standards"] = {
+        str(number): [] for number in range(1, question_count + 1)
+    }
+    paths.assignment_path.write_text(json.dumps(assignment), encoding="utf-8")
+
+
+def _set_header_only_results(paths, question_count):
+    paths.results_path.write_bytes(
+        (",".join(routed_results_v2_headers(question_count)) + "\r\n").encode()
+    )
+
+
+def _assert_width_integrity_failure(tmp_path, paths):
+    assignment_bytes = paths.assignment_path.read_bytes()
+    results_bytes = paths.results_path.read_bytes()
+    with pytest.raises(
+        ScoreFormManifestGenerationIntegrityError,
+        match="question structure does not match assignment.json",
+    ):
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+    assert paths.assignment_path.read_bytes() == assignment_bytes
+    assert paths.results_path.read_bytes() == results_bytes
+    assert not (paths.academic_result_manifests_dir / "1.json").exists()
+    assert list_academic_result_manifest_revisions(tmp_path, paths.work_ref) == ()
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_header_only_results_wider_than_assignment_fail_before_allocation(tmp_path):
+    paths = _workspace(tmp_path)
+    _set_header_only_results(paths, 2)
+    _assert_width_integrity_failure(tmp_path, paths)
+
+
+def test_header_only_results_narrower_than_assignment_fail_before_allocation(
+    tmp_path,
+):
+    paths = _workspace(tmp_path)
+    _set_assignment_question_count(paths, 2)
+    _set_header_only_results(paths, 1)
+    _assert_width_integrity_failure(tmp_path, paths)
+
+
+def test_wider_results_header_with_blank_trailing_question_cells_fails_closed(
+    tmp_path,
+):
+    paths = _workspace(tmp_path)
+    with paths.results_path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        row = next(reader)
+    headers = routed_results_v2_headers(2)
+    row["Q2"] = ""
+    row["Q2_Correct"] = ""
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=headers)
+    writer.writeheader()
+    writer.writerow(row)
+    paths.results_path.write_bytes(output.getvalue().encode())
+
+    _assert_width_integrity_failure(tmp_path, paths)
+
+
+def test_matching_header_only_results_generate_empty_students(tmp_path):
+    paths = _workspace(tmp_path)
+    _set_header_only_results(paths, 1)
+    result = generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+    assert result.manifest.students == ()
+    assert result.path == paths.academic_result_manifests_dir / "1.json"
     assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
 
 
@@ -272,4 +358,270 @@ def test_replay_race_cannot_return_stale_reuse_existing(tmp_path, monkeypatch):
         item.revision
         for item in list_academic_result_manifest_revisions(tmp_path, paths.work_ref)
     ) == (1,)
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def _fail_selected_unlinks(monkeypatch, names):
+    real_unlink = Path.unlink
+
+    def fail_selected(path, *args, **kwargs):
+        if path.name in names:
+            raise PermissionError(f"injected unlink failure for {path.name}")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_selected)
+
+
+def test_validation_failure_exposes_lock_cleanup_failure_without_allocation(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+    paths.assignment_path.write_bytes(b"{")
+    _fail_selected_unlinks(monkeypatch, {".write.lock"})
+
+    with pytest.raises(ScoreFormManifestGenerationError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert isinstance(error, generation_module.ScoreFormManifestGenerationValidationError)
+    assert error.lock_cleanup_failure is not None
+    assert error.lock_cleanup_failure.error.__class__ is PermissionError
+    assert error.lock_cleanup_failure.relative_path.endswith(
+        "/exports/manifests/academic_results/.write.lock"
+    )
+    assert not (paths.academic_result_manifests_dir / "1.json").exists()
+    assert (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_nondurable_write_and_both_cleanup_failures_remain_public(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+
+    def fail_file_fsync(_descriptor):
+        raise OSError("injected file fsync failure")
+
+    monkeypatch.setattr(generation_module.os, "fsync", fail_file_fsync)
+    _fail_selected_unlinks(monkeypatch, {"1.json", ".write.lock"})
+
+    with pytest.raises(ScoreFormManifestGenerationWriteError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert not isinstance(error, ScoreFormManifestGenerationPartialSuccessError)
+    assert error.incomplete_target_cleanup_failure is not None
+    assert error.lock_cleanup_failure is not None
+    assert "incomplete-file cleanup also failed" in str(error)
+    assert (paths.academic_result_manifests_dir / "1.json").exists()
+    assert (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_directory_sync_and_lock_cleanup_failure_report_durable_revision(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+
+    def fail_directory_sync(_directory):
+        raise OSError("injected directory sync failure")
+
+    monkeypatch.setattr(generation_module, "_sync_directory", fail_directory_sync)
+    _fail_selected_unlinks(monkeypatch, {".write.lock"})
+
+    with pytest.raises(ScoreFormManifestGenerationPartialSuccessError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert error.state.operation == "directory_sync"
+    assert error.state.revision == 1
+    assert error.state.path == paths.academic_result_manifests_dir / "1.json"
+    assert error.state.expected_sha256 == hashlib.sha256(
+        error.state.path.read_bytes()
+    ).hexdigest()
+    assert error.state.durable_file_exists
+    assert error.state.lock_cleanup_failure == error.lock_cleanup_failure
+    assert (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_final_history_reload_failure_is_partial_and_removes_lock(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+    real_load_history = generation_module._load_history
+    calls = 0
+
+    def fail_final_reload(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ScoreFormManifestGenerationIntegrityError(
+                "injected final history reload failure"
+            )
+        return real_load_history(*args, **kwargs)
+
+    monkeypatch.setattr(generation_module, "_load_history", fail_final_reload)
+    with pytest.raises(ScoreFormManifestGenerationPartialSuccessError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    content = error.state.path.read_bytes()
+    assert error.state.operation == "generate"
+    assert error.state.revision == 1
+    assert hashlib.sha256(content).hexdigest() == error.state.expected_sha256
+    assert isinstance(error.__cause__, ScoreFormManifestGenerationIntegrityError)
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_successful_generation_with_lock_cleanup_failure_becomes_partial(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+    _fail_selected_unlinks(monkeypatch, {".write.lock"})
+
+    with pytest.raises(ScoreFormManifestGenerationPartialSuccessError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert error.state.operation == "lock_cleanup"
+    assert error.state.revision == 1
+    assert error.state.durable_file_exists
+    assert error.state.path.read_bytes()
+    assert error.state.lock_cleanup_failure == error.lock_cleanup_failure
+    assert (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_replay_with_lock_cleanup_failure_never_returns_ordinary_success(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+    first = generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+    first_bytes = first.path.read_bytes()
+    first_mtime = first.path.stat().st_mtime_ns
+    _fail_selected_unlinks(monkeypatch, {".write.lock"})
+
+    with pytest.raises(ScoreFormManifestGenerationPartialSuccessError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert error.state.operation == "lock_cleanup"
+    assert error.state.revision == 1
+    assert error.lock_cleanup_failure is not None
+    assert first.path.read_bytes() == first_bytes
+    assert first.path.stat().st_mtime_ns == first_mtime
+    assert not (paths.academic_result_manifests_dir / "2.json").exists()
+    assert (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_exclusive_target_collision_preserves_foreign_target(tmp_path, monkeypatch):
+    paths = _workspace(tmp_path)
+    target = paths.academic_result_manifests_dir / "1.json"
+
+    def inject_collision(_context):
+        target.write_bytes(b"concurrent-owner-bytes")
+
+    monkeypatch.setattr(
+        generation_module, "_run_prewrite_verification_hook", inject_collision
+    )
+    with pytest.raises(ScoreFormManifestGenerationConflictError):
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    assert target.read_bytes() == b"concurrent-owner-bytes"
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+def test_failure_before_target_creation_allocates_nothing(tmp_path, monkeypatch):
+    paths = _workspace(tmp_path)
+
+    def fail_before_create(_path, _content):
+        raise ScoreFormManifestGenerationWriteError(
+            "injected failure before target creation"
+        )
+
+    monkeypatch.setattr(generation_module, "_write_new_revision", fail_before_create)
+    with pytest.raises(ScoreFormManifestGenerationWriteError):
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    assert not (paths.academic_result_manifests_dir / "1.json").exists()
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+
+
+@pytest.mark.parametrize("stage", ("partial_write", "flush", "file_fsync"))
+def test_nondurable_stream_failures_remove_only_the_incomplete_target(
+    tmp_path, monkeypatch, stage
+):
+    paths = _workspace(tmp_path)
+    assignment_bytes = paths.assignment_path.read_bytes()
+    results_bytes = paths.results_path.read_bytes()
+    real_fdopen = os.fdopen
+
+    class InjectedFailureStream:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.stream.close()
+            return False
+
+        def write(self, content):
+            if stage == "partial_write":
+                return self.stream.write(content[: len(content) // 2])
+            return self.stream.write(content)
+
+        def flush(self):
+            if stage == "flush":
+                raise OSError("injected flush failure")
+            return self.stream.flush()
+
+        def fileno(self):
+            return self.stream.fileno()
+
+    if stage in {"partial_write", "flush"}:
+        monkeypatch.setattr(
+            generation_module.os,
+            "fdopen",
+            lambda descriptor, mode, closefd: InjectedFailureStream(
+                real_fdopen(descriptor, mode, closefd=closefd)
+            ),
+        )
+    else:
+        monkeypatch.setattr(
+            generation_module.os,
+            "fsync",
+            lambda _descriptor: (_ for _ in ()).throw(
+                OSError("injected file fsync failure")
+            ),
+        )
+
+    with pytest.raises(ScoreFormManifestGenerationWriteError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    assert caught.value.incomplete_target_cleanup_failure is None
+    assert not (paths.academic_result_manifests_dir / "1.json").exists()
+    assert not (paths.academic_result_manifests_dir / ".write.lock").exists()
+    assert paths.assignment_path.read_bytes() == assignment_bytes
+    assert paths.results_path.read_bytes() == results_bytes
+
+
+def test_result_model_construction_failure_after_durability_is_partial(
+    tmp_path, monkeypatch
+):
+    paths = _workspace(tmp_path)
+
+    def fail_result_model(**_kwargs):
+        raise RuntimeError("injected result-model construction failure")
+
+    monkeypatch.setattr(
+        generation_module,
+        "AcademicResultManifestGenerationResult",
+        fail_result_model,
+    )
+    with pytest.raises(ScoreFormManifestGenerationPartialSuccessError) as caught:
+        generate_academic_result_manifest(tmp_path, "class1", "quiz1")
+
+    error = caught.value
+    assert error.state.durable_file_exists
+    assert error.state.path.read_bytes()
+    assert isinstance(error.__cause__, RuntimeError)
     assert not (paths.academic_result_manifests_dir / ".write.lock").exists()

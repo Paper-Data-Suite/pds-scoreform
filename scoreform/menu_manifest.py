@@ -5,6 +5,7 @@ from __future__ import annotations
 from scoreform import workspace
 from scoreform.academic_result_manifest_generation import (
     ScoreFormManifestGenerationError,
+    ScoreFormManifestGenerationPartialSuccessError,
     generate_academic_result_manifest,
     list_academic_result_manifest_revisions,
     load_academic_result_manifest_revision,
@@ -29,6 +30,16 @@ from scoreform.workflows import (
 
 def _counts(manifest) -> tuple[int, int]:
     return len(manifest.students), sum(len(item.attempts) for item in manifest.students)
+
+
+def _print_lock_cleanup_warning(error: ScoreFormManifestGenerationError) -> None:
+    failure = error.lock_cleanup_failure
+    if failure is None:
+        return
+    print("Warning: the manifest generation lock could not be removed:")
+    print(failure.relative_path)
+    print()
+    print("Inspect and resolve the lock before retrying generation.")
 
 
 def _summary(stored) -> None:
@@ -150,8 +161,19 @@ def launch_academic_result_manifests_menu() -> int:
             return 0
         print("Cancelled: no manifest state was changed.")
         return 0
+    except ScoreFormManifestGenerationPartialSuccessError as error:
+        print(f"Error: {error}")
+        print("Warning: an immutable manifest revision is durably allocated.")
+        print(f"revision: {error.state.revision}")
+        print(f"manifest path: {error.state.relative_path}")
+        _print_lock_cleanup_warning(error)
+        return 1
     except (ScoreFormManifestGenerationError, ValueError, TypeError) as error:
         print(f"Error: {error}")
+        if isinstance(error, ScoreFormManifestGenerationError):
+            if error.lock_cleanup_failure is not None:
+                print("Warning: no manifest revision was confirmed durable.")
+            _print_lock_cleanup_warning(error)
         return 1
 
 

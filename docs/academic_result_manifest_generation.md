@@ -17,7 +17,12 @@ be an existing nonsymlink directory and its validated `assignment.json` identity
 must match the requested work. Generation requires existing nonsymlink regular
 files `assignment.json` and `results.csv`; it never creates an empty history.
 Only strict routed-results schema version 2 headers and rows are accepted. A
-valid header-only history produces `students: []`.
+valid header-only history produces `students: []`. The validated question width
+declared by the CSV header must exactly equal `assignment.json`'s
+`question_count`, including for header-only histories and histories whose wider
+trailing question cells are blank. An incompatible native history fails closed
+with an integrity error; generation does not truncate, pad, reinterpret,
+migrate, or rewrite it.
 
 Each native source is opened in binary mode, checked as a regular file through
 the opened descriptor, read to immutable `bytes`, checked for stability, and
@@ -86,6 +91,19 @@ lowercase SHA-256 of the exact stored canonical bytes, including the trailing
 newline. Before durability, only an incomplete file created by the operation may
 be cleaned up. After durability, the revision is never deleted or rewritten;
 later verification or cleanup failures report partial success.
+
+Every failure to remove the generation lock is retained as a public structured
+cleanup record containing the lock path, workspace-relative path, message, and
+original cleanup exception. It is user-visible even when another validation,
+conflict, write, or partial-success error is already active. Before confirmed
+durability, an accompanying warning states that no revision was confirmed
+durable; an incomplete target created by this operation is removed when
+possible and any target-cleanup failure is also preserved. After confirmed
+durability, the immutable revision remains allocated and untouched, and the
+partial-success state reports both its revision/path/digest and the lock-cleanup
+failure. Exact replay also becomes partial success rather than ordinary success
+when its newly acquired lock cannot be removed. A pre-existing lock is never
+removed by a later invocation.
 
 ## User surfaces and privacy
 

@@ -456,6 +456,15 @@ against an old-order history preserves every row and value while atomically
 normalizing the header to teacher-first order, including when the incoming
 attempt is already present.
 
+The strict byte-oriented history parser preserves the validated question width
+declared by the accepted header and whether the pre-release header order was
+used, in addition to its typed rows. Rows-only loaders retain their existing
+behavior through that shared parser. Academic Result Manifest generation
+requires the declared header width to exactly equal the current assignment
+question count. Header-only histories remain valid when the widths agree;
+header-only mismatches and wider headers with blank trailing question cells fail
+closed without rewriting or reinterpreting native history.
+
 The collection fields are compact canonical JSON arrays in authoritative logical
 page order. `Page` displays retained source-page numbers and is not authoritative
 logical-page identity. PDS2 pages assemble only by `issuance_id`; every expected
