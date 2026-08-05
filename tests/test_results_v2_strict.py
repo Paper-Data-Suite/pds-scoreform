@@ -10,10 +10,14 @@ from scoreform.folders import setup_assignment_folder
 from scoreform.page_scoring import ScoredAnswer
 from scoreform.results import (
     ScoreFormRoutedResult,
+    ScoreFormRoutedResultHistory,
     ScoreFormRoutedResultHistoryRow,
     ScoreFormRoutedResultValidationError,
     ScoreFormTemporaryCleanupFailure,
     _export_result_models,
+    load_routed_results_history,
+    parse_routed_results_history_csv_bytes,
+    routed_results_history_from_csv_bytes,
 )
 from scoreform.work_paths import scoreform_work_paths
 
@@ -82,6 +86,33 @@ def test_history_row_accepts_positive_attempt_and_aware_timestamp():
     )
     assert row.attempt_number == 1
     assert row.scan_timestamp == "2026-07-16T12:00:00+00:00"
+
+
+def test_structured_byte_parser_preserves_width_without_changing_rows_loader(
+    tmp_path,
+):
+    _setup(tmp_path)
+    assert _export_result_models((_manual(),), workspace_root=tmp_path).succeeded
+    path = scoreform_work_paths(tmp_path, "class1", "quiz1").results_path
+    content = path.read_bytes()
+
+    parsed = parse_routed_results_history_csv_bytes(content)
+    rows_only = routed_results_history_from_csv_bytes(content)
+
+    assert isinstance(parsed, ScoreFormRoutedResultHistory)
+    assert parsed.question_count == 1
+    assert parsed.legacy_header_order is False
+    assert parsed.rows == rows_only == load_routed_results_history(path)
+
+
+def test_structured_byte_parser_reports_accepted_legacy_header_order():
+    header = [*results_module._V2_LEGACY_BASE_HEADERS, "Q1", "Q1_Correct"]
+    parsed = parse_routed_results_history_csv_bytes(
+        (",".join(header) + "\r\n").encode()
+    )
+    assert parsed.rows == ()
+    assert parsed.question_count == 1
+    assert parsed.legacy_header_order is True
 
 
 def test_routed_result_rejects_display_and_retained_path_contradictions():

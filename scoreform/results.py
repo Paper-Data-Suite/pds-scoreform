@@ -1,14 +1,15 @@
 import csv
 import datetime
+import io
 import json
 import ntpath
 import os
 import re
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from pds_core.identifiers import validate_identifier as validate_core_identifier
 from pds_core.routes import (
@@ -265,7 +266,10 @@ def validate_routed_result(result: ScoreFormRoutedResult) -> ScoreFormRoutedResu
     return result
 
 
-def privacy_safe_source_file(source_file, workspace_root=None):
+def privacy_safe_source_file(
+    source_file: str | bytes | os.PathLike[str] | os.PathLike[bytes] | None,
+    workspace_root: str | os.PathLike[str] | None = None,
+) -> str:
     """Return a workspace-relative source path or a basename-only fallback."""
     if source_file is None:
         return ""
@@ -309,7 +313,7 @@ def privacy_safe_source_file(source_file, workspace_root=None):
     return source_path.as_posix()
 
 
-def _get_max_question_count(results):
+def _get_max_question_count(results: Sequence[Mapping[str, Any]]) -> int:
     """Return the maximum question number seen across a list of results."""
     max_question = 0
     for res in results:
@@ -320,7 +324,11 @@ def _get_max_question_count(results):
     return max_question
 
 
-def export_to_csv(all_results, output_file, workspace_root=None):
+def export_to_csv(
+    all_results: Sequence[Mapping[str, Any]],
+    output_file: str | os.PathLike[str],
+    workspace_root: str | os.PathLike[str] | None = None,
+) -> bool:
     """Exports structured scoring data to a CSV file.
 
     Includes metadata columns (class_id, assignment_id, student_id) when present
@@ -518,6 +526,29 @@ class ScoreFormRoutedResultHistoryRow:
 
 
 @dataclass(frozen=True, slots=True)
+class ScoreFormRoutedResultHistory:
+    """Strict schema-v2 rows plus the exact accepted CSV header structure."""
+
+    rows: tuple[ScoreFormRoutedResultHistoryRow, ...]
+    question_count: int
+    legacy_header_order: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.rows, tuple) or any(
+            not isinstance(row, ScoreFormRoutedResultHistoryRow) for row in self.rows
+        ):
+            raise TypeError("rows must contain routed-result history rows.")
+        if (
+            isinstance(self.question_count, bool)
+            or not isinstance(self.question_count, int)
+            or self.question_count < 0
+        ):
+            raise ValueError("question_count must be a nonnegative integer.")
+        if not isinstance(self.legacy_header_order, bool):
+            raise TypeError("legacy_header_order must be a Boolean.")
+
+
+@dataclass(frozen=True, slots=True)
 class ScoreFormTemporaryCleanupFailure:
     temporary_path: Path
     target_path: Path
@@ -617,7 +648,7 @@ class ScoreFormAttemptExportBatch:
         return not self.failures
 
 
-def _json_array(values) -> str:
+def _json_array(values: Sequence[object]) -> str:
     return json.dumps(list(values), ensure_ascii=False, separators=(",", ":"))
 
 
@@ -672,7 +703,7 @@ def _parse_positive(value: str, label: str) -> int:
     return int(value)
 
 
-def _parse_score(value: str, label: str, *, minimum=0) -> int:
+def _parse_score(value: str, label: str, *, minimum: int = 0) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError) as error:
@@ -751,7 +782,9 @@ def _validated_existing_timestamp(
     return value
 
 
-def _arrays(row: dict[str, str], field: str, item_type):
+def _arrays(
+    row: dict[str, str], field: str, item_type: type[Any]
+) -> tuple[Any, ...]:
     try:
         value = json.loads(row[field])
     except (KeyError, json.JSONDecodeError, TypeError) as error:
@@ -771,7 +804,7 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
     total = _parse_positive(row["Total"], "Total")
     score = _parse_score(row["Score"], "Score")
 
-    def optional(name):
+    def optional(name: str) -> str | None:
         return row[name] or None
 
     try:
@@ -816,25 +849,18 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
         ) from error
 
 
-def _read_history(path: Path):
-    if not path.exists():
-        return [], 0, False
-    if path.is_symlink() or not path.is_file():
-        raise ScoreFormRoutedResultReadError(
-            "Routed results destination is not a regular file."
-        )
+def _read_history_text(text: str) -> ScoreFormRoutedResultHistory:
     try:
-        with path.open(newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle, strict=True)
-            fieldnames = reader.fieldnames or []
-            header_layout = _question_width(fieldnames)
-            if header_layout is None:
-                raise ScoreFormRoutedResultReadError(
-                    "The managed results history is not schema version 2."
-                )
-            v2_width, legacy_header_order = header_layout
-            raw_rows = list(reader)
-    except (OSError, UnicodeError, csv.Error) as error:
+        reader = csv.DictReader(io.StringIO(text, newline=""), strict=True)
+        fieldnames = reader.fieldnames or []
+        header_layout = _question_width(fieldnames)
+        if header_layout is None:
+            raise ScoreFormRoutedResultReadError(
+                "The managed results history is not schema version 2."
+            )
+        v2_width, legacy_header_order = header_layout
+        raw_rows = list(reader)
+    except csv.Error as error:
         raise ScoreFormRoutedResultReadError(
             f"Could not read routed results: {error}"
         ) from error
@@ -846,7 +872,7 @@ def _read_history(path: Path):
         )
     width = v2_width
     assert width is not None
-    rows = []
+    rows: list[ScoreFormRoutedResultHistoryRow] = []
     pds2_content: dict[tuple[str, str], ScoreFormRoutedResult] = {}
     for raw in raw_rows:
         attempt = _parse_positive(raw.get("attempt_number", ""), "attempt_number")
@@ -873,19 +899,75 @@ def _read_history(path: Path):
                     "Existing history contradicts a source_sha256 + issuance_id key."
                 )
             pds2_content.setdefault(content_key, model)
-        rows.append((model, attempt, timestamp))
-    return rows, width, legacy_header_order
+        rows.append(ScoreFormRoutedResultHistoryRow(model, attempt, timestamp))
+    return ScoreFormRoutedResultHistory(tuple(rows), width, legacy_header_order)
+
+
+def parse_routed_results_history_csv_bytes(
+    data: bytes,
+) -> ScoreFormRoutedResultHistory:
+    """Parse exact schema-v2 bytes while retaining their validated header width."""
+    if not isinstance(data, bytes):
+        raise ScoreFormRoutedResultReadError("Routed results input must be bytes.")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ScoreFormRoutedResultReadError(
+            "Routed results must be valid UTF-8."
+        ) from error
+    return _read_history_text(text)
+
+
+def routed_results_history_from_csv_bytes(
+    data: bytes,
+) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
+    """Strictly parse schema-v2 history from the exact immutable CSV bytes."""
+    return parse_routed_results_history_csv_bytes(data).rows
+
+
+def _read_history(
+    path: Path,
+) -> tuple[list[tuple[ScoreFormRoutedResult, int, str]], int, bool]:
+    if not path.exists():
+        return [], 0, False
+    if path.is_symlink() or not path.is_file():
+        raise ScoreFormRoutedResultReadError(
+            "Routed results destination is not a regular file."
+        )
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise ScoreFormRoutedResultReadError(
+            f"Could not read routed results: {error}"
+        ) from error
+    parsed = parse_routed_results_history_csv_bytes(content)
+    return (
+        [
+            (row.result, row.attempt_number, row.scan_timestamp)
+            for row in parsed.rows
+        ],
+        parsed.question_count,
+        parsed.legacy_header_order,
+    )
 
 
 def load_routed_results_history(
     results_csv_path: str | os.PathLike[str],
 ) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
     """Load an exact schema-v2 routed history without mutating it."""
-    rows, _width, _legacy_header_order = _read_history(Path(results_csv_path))
-    return tuple(
-        ScoreFormRoutedResultHistoryRow(model, attempt, timestamp)
-        for model, attempt, timestamp in rows
-    )
+    path = Path(results_csv_path)
+    if not path.exists():
+        return ()
+    if path.is_symlink() or not path.is_file():
+        raise ScoreFormRoutedResultReadError(
+            "Routed results destination is not a regular file."
+        )
+    try:
+        return parse_routed_results_history_csv_bytes(path.read_bytes()).rows
+    except OSError as error:
+        raise ScoreFormRoutedResultReadError(
+            f"Could not read routed results: {error}"
+        ) from error
 
 
 def _same_exported_content(
@@ -948,7 +1030,9 @@ def pds2_results_semantically_equivalent(
     )
 
 
-def _managed_review_result_links(workspace_root: Path):
+def _managed_review_result_links(
+    workspace_root: Path,
+) -> dict[str, list[tuple[ScoreFormRoutedResult, int, Path]]]:
     """Read review-linked rows only from canonical managed ScoreForm histories."""
     workspace_root = workspace_root.resolve(strict=True)
     links: dict[str, list[tuple[ScoreFormRoutedResult, int, Path]]] = {}
@@ -1071,8 +1155,14 @@ def _managed_review_result_links(workspace_root: Path):
     return links
 
 
-class _HistoryStageError(ScoreFormRoutedResultWriteError):
-    def __init__(self, message, *, temporary_path, cleanup_failures):
+class _HistoryStageError(ScoreFormRoutedResultWriteError):  # type: ignore[misc]
+    def __init__(
+        self,
+        message: str,
+        *,
+        temporary_path: Path | None,
+        cleanup_failures: tuple[ScoreFormTemporaryCleanupFailure, ...],
+    ) -> None:
         super().__init__(message)
         self.temporary_path = temporary_path
         self.cleanup_failures = cleanup_failures
@@ -1118,7 +1208,9 @@ def _stage_history(
         raise staged_error
 
 
-def _cleanup_staged(staged) -> tuple[ScoreFormTemporaryCleanupFailure, ...]:
+def _cleanup_staged(
+    staged: Iterable[tuple[Path, Path]],
+) -> tuple[ScoreFormTemporaryCleanupFailure, ...]:
     failures = []
     for temporary_path, target_path in staged:
         try:
@@ -1130,7 +1222,9 @@ def _cleanup_staged(staged) -> tuple[ScoreFormTemporaryCleanupFailure, ...]:
     return tuple(failures)
 
 
-def _adapt_manual_mapping(value, workspace_root) -> ScoreFormRoutedResult:
+def _adapt_manual_mapping(
+    value: ScoreFormRoutedResult | Mapping[str, Any], workspace_root: Path
+) -> ScoreFormRoutedResult:
     if isinstance(value, ScoreFormRoutedResult):
         return value
     answers = tuple(
@@ -1185,7 +1279,10 @@ def _adapt_manual_mapping(value, workspace_root) -> ScoreFormRoutedResult:
 
 
 def _export_result_models(
-    results, *, workspace_root: Path, explicit_output_file: Path | None = None
+    results: Sequence[ScoreFormRoutedResult | Mapping[str, Any]],
+    *,
+    workspace_root: Path,
+    explicit_output_file: Path | None = None,
 ) -> ScoreFormAttemptExportBatch:
     validated = tuple(_adapt_manual_mapping(value, workspace_root) for value in results)
     review_results = tuple(
@@ -1628,7 +1725,10 @@ def _export_result_models(
 
 
 def export_scoreform_attempts(
-    assembly, *, workspace_root: Path, explicit_output_file: Path | None = None
+    assembly: Any,
+    *,
+    workspace_root: Path,
+    explicit_output_file: Path | None = None,
 ) -> ScoreFormAttemptExportBatch:
     """Export a typed assembly batch without interpreting dispatch outcomes."""
     results = tuple(attempt.routed_result for attempt in assembly.completed_attempts)
@@ -1650,7 +1750,10 @@ def export_scoreform_result_models(
     return _export_result_models(tuple(results), workspace_root=Path(workspace_root))
 
 
-def export_routed_results(all_results, workspace_root=None):
+def export_routed_results(
+    all_results: Sequence[ScoreFormRoutedResult | Mapping[str, Any]],
+    workspace_root: str | os.PathLike[str] | None = None,
+) -> bool:
     """Compatibility Boolean wrapper over the strict shared v2 writer."""
     if not all_results:
         print("No results to export.")

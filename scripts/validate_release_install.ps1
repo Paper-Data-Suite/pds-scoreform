@@ -63,7 +63,7 @@ function Test-InstalledArtifact {
         Invoke-Checked "Show $Label installed short help" { & $VenvScoreForm -h }
         Invoke-Checked "Show $Label installed help command" { & $VenvScoreForm help }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.pds_contract; import scoreform.pds_module; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_manifest_generation; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.pds_contract; import scoreform.pds_module; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "settings\academic_periods",

@@ -1,13 +1,13 @@
 # ScoreForm Schema and File Contract
 
 The active immutable publication projection is specified separately in
-[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That pure
-ScoreForm-owned contract is implemented, but workspace manifest generation and
-Core publication are not yet implemented.
+[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That
+ScoreForm-owned contract and immutable workspace manifest generation are
+implemented, but Core publication is not yet implemented.
 Its stable production identity and immutable revision-transition rules are in
 [`publication_revision_policy.md`](publication_revision_policy.md). The policy
-is active and pure; manifest generation and Core publication, supersession, and
-withdrawal commands remain future work.
+is active and pure; durable generation/replay is active, while Core publication,
+supersession, and withdrawal commands remain future work.
 
 ScoreForm Academic Work Registration is defined in
 [`academic_work_registration.md`](academic_work_registration.md). Its exact
@@ -455,6 +455,15 @@ permutations. Reading is nonmutating. The next successful export transaction
 against an old-order history preserves every row and value while atomically
 normalizing the header to teacher-first order, including when the incoming
 attempt is already present.
+
+The strict byte-oriented history parser preserves the validated question width
+declared by the accepted header and whether the pre-release header order was
+used, in addition to its typed rows. Rows-only loaders retain their existing
+behavior through that shared parser. Academic Result Manifest generation
+requires the declared header width to exactly equal the current assignment
+question count. Header-only histories remain valid when the widths agree;
+header-only mismatches and wider headers with blank trailing question cells fail
+closed without rewriting or reinterpreting native history.
 
 The collection fields are compact canonical JSON arrays in authoritative logical
 page order. `Page` displays retained source-page numbers and is not authoritative

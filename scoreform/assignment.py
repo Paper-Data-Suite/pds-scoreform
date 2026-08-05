@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 from collections.abc import Iterable, Mapping
@@ -17,6 +19,58 @@ VALID_ANSWER_CHOICES = {"A", "B", "C", "D"}
 
 class AssignmentStandardsAlignmentError(ValueError):
     """Raised when question standards do not match the shared standards library."""
+
+
+class AssignmentJsonBytesError(ValueError):
+    """Raised when exact assignment JSON bytes violate the native contract."""
+
+
+def _assignment_duplicate_guard(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise AssignmentJsonBytesError(
+                "Assignment JSON contains a duplicate object key."
+            )
+        result[key] = value
+    return result
+
+
+def _reject_assignment_constant(value):
+    raise AssignmentJsonBytesError(
+        "Assignment JSON contains a nonfinite numeric constant."
+    )
+
+
+def assignment_from_json_bytes(data: bytes) -> dict[str, object]:
+    """Strictly parse and validate the exact immutable native assignment bytes."""
+    if not isinstance(data, bytes):
+        raise AssignmentJsonBytesError("Assignment JSON input must be bytes.")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise AssignmentJsonBytesError(
+            "Assignment JSON must be valid UTF-8."
+        ) from error
+    try:
+        decoded = json.loads(
+            text,
+            object_pairs_hook=_assignment_duplicate_guard,
+            parse_constant=_reject_assignment_constant,
+        )
+    except AssignmentJsonBytesError:
+        raise
+    except (ValueError, RecursionError) as error:
+        raise AssignmentJsonBytesError("Assignment JSON is malformed.") from error
+    if not isinstance(decoded, dict):
+        raise AssignmentJsonBytesError("Assignment JSON must contain an object.")
+    diagnostics = io.StringIO()
+    with contextlib.redirect_stdout(diagnostics):
+        normalized = validate_assignment_data(decoded)
+    if normalized is None:
+        detail = diagnostics.getvalue().strip()
+        raise AssignmentJsonBytesError(detail or "Assignment JSON is invalid.")
+    return normalized
 
 
 def _normalize_question_number(key, question_count, field_name):

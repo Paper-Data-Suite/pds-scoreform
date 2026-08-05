@@ -4,7 +4,8 @@
 
 This is the active producer policy for the unchanged
 `scoreform_academic_result_manifest_v1` contract. The pure implementation is
-`scoreform.publication_revision_policy`. It compares immutable manifest values,
+`scoreform.publication_revision_policy`; workspace orchestration is implemented
+by `scoreform.academic_result_manifest_generation`. The policy compares immutable manifest values,
 validates append-preserving transitions, allocates producer revisions, and
 returns immutable decisions for later generation and publication workflows.
 
@@ -54,7 +55,8 @@ one greater than the highest producer revision ever allocated. Existing gaps are
 preserved, but normal allocation does not create a new gap. A durable unpublished
 manifest, a withdrawn revision, and a missing historical file all continue to
 consume their numbers. A failure before durable immutable creation consumes no
-number; #165 owns that filesystem boundary.
+number. #165 implements that filesystem boundary with strict history validation,
+an exclusive producer lock, exact replay, and exclusive revision creation.
 
 Revision planning always uses the manifest for the greatest durably allocated
 producer revision as its predecessor. Replay is permitted only against that

@@ -201,6 +201,35 @@ nonzero without a traceback, and partial-success output warns that durable Core
 state may exist. Assignment Management provides the confirmed teacher-menu
 equivalent.
 
+### Academic Result Manifests
+
+```text
+scoreform manifest list --class-id <class_id> --assignment-id <assignment_id>
+scoreform manifest show --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest validate --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id>
+```
+
+The caller never supplies a generation revision. New manifests are immutable,
+revision-addressed producer bytes; exact replay returns the existing revision
+unchanged. Output is privacy-minimized and excludes student IDs and responses.
+Generation does not publish through Core and does not make a Grade. Assignment
+Management exposes the workflow with typed `GENERATE` confirmation.
+
+Manifest generation requires exact equality between the schema-v2 CSV header's
+question width and the assignment question count. A matching header-only
+history generates an empty student collection; incompatible header-only or
+wider blank-tailed histories fail closed without changing either native file.
+
+The direct CLI and teacher menu display every failure to remove the manifest
+generation `.write.lock` using its safe workspace-relative path and instruct
+the user to inspect and resolve it before retrying. When no revision reached
+confirmed durability, the warning says so. When creation, final verification,
+successful generation, or replay established a durable revision, output reports
+the immutable revision as allocated as well as the unresolved lock. Such a
+revision is never deleted or rewritten; before durability, only this
+operation's incomplete target may be removed, and cleanup failure is reported.
+
 The following syntax reflects actual current behavior.
 
 ### Launch, help, and version
