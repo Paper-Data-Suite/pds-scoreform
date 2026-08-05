@@ -667,6 +667,28 @@ def prompt_edit_assignment():
                 print("Error: Assignment validation failed after save.")
                 continue
             print(f"Saved assignment: {assignment_path}")
+            if saved_assignment["title"] != loaded_assignment["title"]:
+                try:
+                    from scoreform.academic_work_registration import (
+                        ScoreFormAcademicWorkRegistrationError,
+                        load_current_scoreform_academic_work_registration,
+                    )
+
+                    registration = load_current_scoreform_academic_work_registration(
+                        workspace_root,
+                        class_id,
+                        saved_assignment["assignment_id"],
+                    )
+                    if registration is not None and registration.title != saved_assignment["title"]:
+                        print(
+                            "Notice: The Academic Work Registration title snapshot is now stale."
+                        )
+                        print(
+                            "Use Assignment Management > Academic Work Registration "
+                            "to update it explicitly."
+                        )
+                except ScoreFormAcademicWorkRegistrationError as error:
+                    print(f"Notice: Registration status could not be inspected: {error}")
             return 0
 
         elif choice == "6":
@@ -1054,6 +1076,7 @@ def launch_assignment_menu():
             print("7. Decode QR from a file")
             print("8. Enter Plain-Paper Results")
             print("9. Resolve scan review items")
+            print("10. Academic Work Registration")
             print_scoreform_navigation_options()
             print()
 
@@ -1128,6 +1151,13 @@ def launch_assignment_menu():
 
             elif choice == "9":
                 menu_scan_review.launch_scan_review_menu()
+
+            elif choice == "10":
+                from scoreform.menu_academic_work import (
+                    launch_academic_work_registration_menu,
+                )
+
+                launch_academic_work_registration_menu()
 
             else:
                 print(f"Invalid selection: {choice}.")

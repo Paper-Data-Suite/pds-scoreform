@@ -20,6 +20,11 @@ or accessing Core registry state. Workspace construction and publication are
 future work. The checked-in fixture is a normative byte example, not evidence
 that Core publication or Meridian consumption is implemented.
 
+Academic Work Registration is now a separate explicit workflow. Manifest
+generation remains future work under #165. Later publication must reference the
+exact current registration revision. Registration metadata is not added to this
+approved manifest v1 contract.
+
 ## Exact envelope
 
 Every JSON object has the exact keys documented below. Missing or extension keys

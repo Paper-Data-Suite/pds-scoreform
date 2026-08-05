@@ -185,6 +185,22 @@ options only. They are not implemented or reserved interfaces.
 
 ## Current Command Surface
 
+### Academic Work Registration
+
+```text
+scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
+scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
+scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
+```
+
+These prompt-free commands operate only on an existing canonical managed
+assignment. `register` creates or exactly replays; it never transforms a
+conflict into an update. `update` requires a positive explicit expected current
+revision. The assignment title is not a CLI option. Expected failures return
+nonzero without a traceback, and partial-success output warns that durable Core
+state may exist. Assignment Management provides the confirmed teacher-menu
+equivalent.
+
 The following syntax reflects actual current behavior.
 
 ### Launch, help, and version

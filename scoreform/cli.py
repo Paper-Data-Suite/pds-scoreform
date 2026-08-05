@@ -127,6 +127,13 @@ def run_scan_filing(args):
     return scan_filing(args)
 
 
+def run_academic_work(args):
+    """Load Academic Work Registration only for its explicit command."""
+    from scoreform.cli_academic_work import run_academic_work as academic_work
+
+    return academic_work(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -528,6 +535,8 @@ def _main(argv=None, default_to_menu=True):
         return run_school_year(args)
     elif cmd == "scan-filing":
         return run_scan_filing(args)
+    elif cmd == "academic-work":
+        return run_academic_work(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

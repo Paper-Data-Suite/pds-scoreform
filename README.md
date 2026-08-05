@@ -156,6 +156,9 @@ scoreform resolve-scan-review <failure_id> --action <action>
 scoreform validate-assignment <assignment.json>
 scoreform validate-roster <roster.csv>
 scoreform setup-assignment <assignment.json> <roster.csv>
+scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
+scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
+scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
 scoreform workspace show|set|validate|reset
 scoreform school-year show|open|close
 scoreform scan-filing show|set|reset
@@ -175,6 +178,12 @@ canonical class ScoreForm work folder, and generic-template generation can open
 the template or its containing folder. ScoreForm asks first and delegates local
 opening to PDS Core. Direct CLI commands remain prompt-free and never launch a
 viewer.
+
+Registration makes an existing managed ScoreForm assignment eligible for
+academic publication. It does not publish results, select an attempt, assign
+the work to an Academic Period, calculate proficiency, or create a Grade.
+Registration is always explicit; see
+[`docs/academic_work_registration.md`](docs/academic_work_registration.md).
 
 The generic blank template is an unpersonalized sheet for printer/scanner
 alignment testing, mark-detection practice, emergency or ad hoc use, anonymous
@@ -290,6 +299,7 @@ Follow applicable school, district, state, and federal privacy requirements.
 
 ## Release documents
 
+- `docs/academic_work_registration.md` — explicit managed-assignment registration contract and workflows
 - `CHANGELOG.md` — factual release history
 - `ROADMAP.md` — current direction and historical milestone summary
 - `docs/cli_contract.md` — command and exit-code contract

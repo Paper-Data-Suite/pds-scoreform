@@ -92,6 +92,8 @@ def main() -> int:
         "pds_core.academic_work_registrations",
         "pds_core.publication_records",
         "pds_core.publication_compatibility",
+        "scoreform.academic_work_registration",
+        "scoreform.cli_academic_work",
     ):
         importlib.import_module(module_name)
 
