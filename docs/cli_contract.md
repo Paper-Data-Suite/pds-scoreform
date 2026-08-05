@@ -201,6 +201,21 @@ nonzero without a traceback, and partial-success output warns that durable Core
 state may exist. Assignment Management provides the confirmed teacher-menu
 equivalent.
 
+### Academic Result Manifests
+
+```text
+scoreform manifest list --class-id <class_id> --assignment-id <assignment_id>
+scoreform manifest show --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest validate --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id>
+```
+
+The caller never supplies a generation revision. New manifests are immutable,
+revision-addressed producer bytes; exact replay returns the existing revision
+unchanged. Output is privacy-minimized and excludes student IDs and responses.
+Generation does not publish through Core and does not make a Grade. Assignment
+Management exposes the workflow with typed `GENERATE` confirmation.
+
 The following syntax reflects actual current behavior.
 
 ### Launch, help, and version

@@ -16,12 +16,15 @@ The ownership boundary is:
 The pure implementation is `scoreform.academic_result_manifest`. It constructs,
 validates, converts, and serializes in-memory values without resolving a
 workspace, reading native files, writing a manifest, importing another producer,
-or accessing Core registry state. Workspace construction and publication are
+or accessing Core registry state. Workspace generation is implemented separately
+by `scoreform.academic_result_manifest_generation`; Core publication remains
 future work. The checked-in fixture is a normative byte example, not evidence
 that Core publication or Meridian consumption is implemented.
 
-Academic Work Registration is now a separate explicit workflow. Manifest
-generation remains future work under #165. Later publication must reference the
+Academic Work Registration is a separate explicit workflow. Manifest generation
+now validates and hashes exact native bytes, validates retained evidence, uses
+the approved revision planner, and stores immutable canonical revisions at
+`exports/manifests/academic_results/<revision>.json`. Later publication must reference the
 exact current registration revision. Registration metadata is not added to this
 approved manifest v1 contract.
 

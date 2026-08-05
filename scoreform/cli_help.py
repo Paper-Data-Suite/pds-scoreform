@@ -62,6 +62,10 @@ Usage:
   scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
   scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
   scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
+  scoreform manifest list --class-id <class_id> --assignment-id <assignment_id>
+  scoreform manifest show --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+  scoreform manifest validate --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+  scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id>
   scoreform workspace show
   scoreform workspace set <path>
   scoreform workspace validate
@@ -79,6 +83,7 @@ Usage:
 
 Commands:
   menu                  Launch the terminal menu.
+  manifest              Generate, list, show, or validate immutable result manifests.
   generate              Generate a generic template or assignment-based answer sheets.
   regenerate-sheets     Regenerate managed answer sheets from the current roster.
   score                 Score scanned responses.

@@ -134,6 +134,13 @@ def run_academic_work(args):
     return academic_work(args)
 
 
+def run_manifest(args):
+    """Load immutable manifest workflows only for their explicit command."""
+    from scoreform.cli_manifest import run_manifest as manifest
+
+    return manifest(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -537,6 +544,8 @@ def _main(argv=None, default_to_menu=True):
         return run_scan_filing(args)
     elif cmd == "academic-work":
         return run_academic_work(args)
+    elif cmd == "manifest":
+        return run_manifest(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

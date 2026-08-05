@@ -56,14 +56,14 @@ Manual answer-key scoring remains route-free. Plain-paper entry uses
 The pure, immutable ScoreForm Academic Result Manifest v1 model and canonical
 JSON contract are active and documented in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). It defines a
-producer-owned publication projection only; workspace manifest generation and
-Core publication workflows are not yet implemented.
+producer-owned publication projection with implemented immutable workspace
+generation; Core publication workflows are not yet implemented.
 ScoreForm now runs on released Core 0.6 while its installed routing profile
 remains routing contract `1` and QR schema `PDS2`. The manifest and revision
-policy foundations are implemented; explicit Academic Work Registration is
-implemented through released Core 0.6 services, manifest generation remains
-#165, publication-profile registration remains
-#166, and Core publication workflows remain #167.
+policy foundations are implemented. #163 Core 0.6 adoption, #164 explicit
+Academic Work Registration, and #165 immutable manifest generation are complete.
+Publication-profile registration remains #166, and Core publication workflows
+remain #167.
 The pure producer allocation, replay, append-history, supersession-requirement,
 withdrawal, and recovery decisions are active in
 [`publication_revision_policy.md`](publication_revision_policy.md). They do not

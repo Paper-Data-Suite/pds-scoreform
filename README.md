@@ -159,12 +159,20 @@ scoreform setup-assignment <assignment.json> <roster.csv>
 scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
 scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
 scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
+scoreform manifest list --class-id <class_id> --assignment-id <assignment_id>
+scoreform manifest show --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest validate --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id>
 scoreform workspace show|set|validate|reset
 scoreform school-year show|open|close
 scoreform scan-filing show|set|reset
 scoreform --help
 scoreform --version
 ```
+
+Generating an Academic Result Manifest creates immutable, revision-addressed
+producer bytes. It does not publish those bytes through Core and does not make
+them a Grade.
 
 With the repository development environment active and ScoreForm installed in
 it, run `scoreform` to launch the teacher menu. The direct-source compatibility
@@ -305,6 +313,7 @@ Follow applicable school, district, state, and federal privacy requirements.
 - `docs/cli_contract.md` — command and exit-code contract
 - `docs/schema_contracts.md` — persisted schema contract
 - `docs/academic_result_manifest_v1.md` — immutable producer-owned academic-result manifest contract
+- `docs/academic_result_manifest_generation.md` — exact-byte generation, validation, replay, and storage
 - `docs/publication_revision_policy.md` — production identity, replay, revision, supersession, withdrawal, and recovery policy
 - `docs/release_checklist.md` — preparation and publication gates
 - `docs/physical_acceptance_test.md` — mandatory paper procedure

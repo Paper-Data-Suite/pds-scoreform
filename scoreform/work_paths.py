@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from pds_core.publication_records import validate_publication_manifest_path
 from pds_core.routes import (
     class_roster_path,
     module_work_collection_dir,
@@ -71,6 +72,48 @@ class ScoreFormWorkPaths:
     scans_dir: Path
     results_path: Path
     debug_dir: Path
+    exports_dir: Path
+    manifest_exports_dir: Path
+    academic_result_manifests_dir: Path
+
+
+def _positive_revision(revision: object) -> int:
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+        raise ValueError("revision must be a positive integer.")
+    return revision
+
+
+def academic_result_manifest_relative_path(
+    work_ref: ModuleWorkRef,
+    revision: int,
+) -> str:
+    """Return one Core-valid workspace-relative manifest revision path."""
+    work_ref = validate_module_work_ref(work_ref)
+    if work_ref.module_id != SCOREFORM_MODULE_ID:
+        raise ValueError('work_ref.module_id must be "scoreform".')
+    value = _positive_revision(revision)
+    relative_path = (
+        f"classes/{work_ref.class_id}/modules/{work_ref.module_id}/work/"
+        f"{work_ref.work_id}/exports/manifests/academic_results/{value}.json"
+    )
+    return validate_publication_manifest_path(work_ref, relative_path)
+
+
+def academic_result_manifest_revision_path(
+    workspace_root: str | Path,
+    work_ref: ModuleWorkRef,
+    revision: int,
+) -> Path:
+    """Return one immutable manifest target without touching the filesystem."""
+    work_ref = validate_module_work_ref(work_ref)
+    if work_ref.module_id != SCOREFORM_MODULE_ID:
+        raise ValueError('work_ref.module_id must be "scoreform".')
+    value = _positive_revision(revision)
+    return safe_module_work_descendant(
+        workspace_root,
+        work_ref,
+        f"exports/manifests/academic_results/{value}.json",
+    )
 
 
 def scoreform_work_ref(class_id: str, assignment_id: str) -> ModuleWorkRef:
@@ -120,6 +163,11 @@ def scoreform_work_paths(
         scans_dir=descendant("scans"),
         results_path=descendant("results.csv"),
         debug_dir=descendant("debug"),
+        exports_dir=descendant("exports"),
+        manifest_exports_dir=descendant("exports/manifests"),
+        academic_result_manifests_dir=descendant(
+            "exports/manifests/academic_results"
+        ),
     )
 
 

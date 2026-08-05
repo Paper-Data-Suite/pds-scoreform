@@ -1,5 +1,6 @@
 import csv
 import datetime
+import io
 import json
 import ntpath
 import os
@@ -816,25 +817,18 @@ def _model_from_v2(row: dict[str, str]) -> ScoreFormRoutedResult:
         ) from error
 
 
-def _read_history(path: Path):
-    if not path.exists():
-        return [], 0, False
-    if path.is_symlink() or not path.is_file():
-        raise ScoreFormRoutedResultReadError(
-            "Routed results destination is not a regular file."
-        )
+def _read_history_text(text: str):
     try:
-        with path.open(newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle, strict=True)
-            fieldnames = reader.fieldnames or []
-            header_layout = _question_width(fieldnames)
-            if header_layout is None:
-                raise ScoreFormRoutedResultReadError(
-                    "The managed results history is not schema version 2."
-                )
-            v2_width, legacy_header_order = header_layout
-            raw_rows = list(reader)
-    except (OSError, UnicodeError, csv.Error) as error:
+        reader = csv.DictReader(io.StringIO(text, newline=""), strict=True)
+        fieldnames = reader.fieldnames or []
+        header_layout = _question_width(fieldnames)
+        if header_layout is None:
+            raise ScoreFormRoutedResultReadError(
+                "The managed results history is not schema version 2."
+            )
+        v2_width, legacy_header_order = header_layout
+        raw_rows = list(reader)
+    except csv.Error as error:
         raise ScoreFormRoutedResultReadError(
             f"Could not read routed results: {error}"
         ) from error
@@ -877,15 +871,64 @@ def _read_history(path: Path):
     return rows, width, legacy_header_order
 
 
-def load_routed_results_history(
-    results_csv_path: str | os.PathLike[str],
+def routed_results_history_from_csv_bytes(
+    data: bytes,
 ) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
-    """Load an exact schema-v2 routed history without mutating it."""
-    rows, _width, _legacy_header_order = _read_history(Path(results_csv_path))
+    """Strictly parse schema-v2 history from the exact immutable CSV bytes."""
+    if not isinstance(data, bytes):
+        raise ScoreFormRoutedResultReadError("Routed results input must be bytes.")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ScoreFormRoutedResultReadError(
+            "Routed results must be valid UTF-8."
+        ) from error
+    rows, _width, _legacy_header_order = _read_history_text(text)
     return tuple(
         ScoreFormRoutedResultHistoryRow(model, attempt, timestamp)
         for model, attempt, timestamp in rows
     )
+
+
+def _read_history(path: Path):
+    if not path.exists():
+        return [], 0, False
+    if path.is_symlink() or not path.is_file():
+        raise ScoreFormRoutedResultReadError(
+            "Routed results destination is not a regular file."
+        )
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise ScoreFormRoutedResultReadError(
+            f"Could not read routed results: {error}"
+        ) from error
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ScoreFormRoutedResultReadError(
+            "Could not read routed results: invalid UTF-8."
+        ) from error
+    return _read_history_text(text)
+
+
+def load_routed_results_history(
+    results_csv_path: str | os.PathLike[str],
+) -> tuple[ScoreFormRoutedResultHistoryRow, ...]:
+    """Load an exact schema-v2 routed history without mutating it."""
+    path = Path(results_csv_path)
+    if not path.exists():
+        return ()
+    if path.is_symlink() or not path.is_file():
+        raise ScoreFormRoutedResultReadError(
+            "Routed results destination is not a regular file."
+        )
+    try:
+        return routed_results_history_from_csv_bytes(path.read_bytes())
+    except OSError as error:
+        raise ScoreFormRoutedResultReadError(
+            f"Could not read routed results: {error}"
+        ) from error
 
 
 def _same_exported_content(

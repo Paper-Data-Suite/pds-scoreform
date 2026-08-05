@@ -1,13 +1,13 @@
 # ScoreForm Schema and File Contract
 
 The active immutable publication projection is specified separately in
-[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That pure
-ScoreForm-owned contract is implemented, but workspace manifest generation and
-Core publication are not yet implemented.
+[`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That
+ScoreForm-owned contract and immutable workspace manifest generation are
+implemented, but Core publication is not yet implemented.
 Its stable production identity and immutable revision-transition rules are in
 [`publication_revision_policy.md`](publication_revision_policy.md). The policy
-is active and pure; manifest generation and Core publication, supersession, and
-withdrawal commands remain future work.
+is active and pure; durable generation/replay is active, while Core publication,
+supersession, and withdrawal commands remain future work.
 
 ScoreForm Academic Work Registration is defined in
 [`academic_work_registration.md`](academic_work_registration.md). Its exact

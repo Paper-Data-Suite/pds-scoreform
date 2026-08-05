@@ -84,6 +84,7 @@ be registered.
 A future Publication Record must reference the exact current registration
 revision. A stale revision and a cancelled current registration cannot be used
 for publication; a closed registration remains canonical history. Registration
-itself creates neither a publication nor Grade membership. Manifest generation,
-producer-profile advertisement, publication, supersession, and withdrawal are
-owned by later issues #165, #166, and #167.
+itself creates neither a publication nor Grade membership. Manifest generation
+is a separate explicit operation implemented by #165 and does not require or
+update registration. Producer-profile advertisement is owned by #166;
+publication, supersession, and withdrawal are owned by #167.
