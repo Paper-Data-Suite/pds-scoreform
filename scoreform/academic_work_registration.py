@@ -52,10 +52,12 @@ from pds_core.registry_services import (
 )
 
 from scoreform.assignment import load_assignment
-from scoreform.pds_contract import SCOREFORM_MODULE_ID
+from scoreform.pds_contract import (
+    SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
+    SCOREFORM_MODULE_ID,
+)
 from scoreform.work_paths import scoreform_work_paths
 
-SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION = "scoreform_academic_work_v1"
 SCOREFORM_ACADEMIC_WORK_KIND = "assignment"
 SCOREFORM_ASSIGNMENT_SOURCE_RECORD_KIND = "assignment"
 

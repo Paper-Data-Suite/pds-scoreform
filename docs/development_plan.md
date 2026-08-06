@@ -23,18 +23,24 @@ registrations before PDF rendering. QR payloads contain only canonical PDS2
 locator identity. Student, layout, logical-page, question-range, answer-key,
 attempt, and result-destination semantics come from authoritative records.
 
-### Installed module boundary
+### Installed routing and publication boundaries
 
-The distribution exposes exactly this entry point:
+The distribution exposes independent routing and publication entry points:
 
 ```text
 paper_data_suite.modules
     scoreform = scoreform.pds_module:get_module_profile
+
+paper_data_suite.publication_producers
+    scoreform = scoreform.pds_publication:get_publication_producer_profile
 ```
 
-The zero-argument provider declares Core routing contract `1`, QR schema PDS2,
+The routing provider declares Core routing contract `1`, QR schema PDS2,
 route-registration schema `1`, and dispatchable status `active`. Discovery is
-side-effect free. Runtime code imports no sibling module implementation.
+side-effect free. The publication provider independently declares Core
+Publication schema `1`, `scoreform_academic_work_v1`, academic results manifest
+v1, three evidence capabilities, and an absent Publication Record source.
+Runtime code imports no sibling module implementation.
 
 ### Generation and scoring
 
@@ -60,10 +66,17 @@ producer-owned publication projection with implemented immutable workspace
 generation; Core publication workflows are not yet implemented.
 ScoreForm now runs on released Core 0.6 while its installed routing profile
 remains routing contract `1` and QR schema `PDS2`. The manifest and revision
-policy foundations are implemented. #163 Core 0.6 adoption, #164 explicit
-Academic Work Registration, and #165 immutable manifest generation are complete.
-Publication-profile registration remains #166, and Core publication workflows
-remain #167.
+policy foundations are implemented. Current issue status is:
+
+```text
+#163 Core 0.6 adoption — complete
+#164 Academic Work Registration — complete
+#165 immutable manifest generation — complete
+#166 publication producer profile — complete
+#167 publication workflows — remaining
+#168 consumer-neutral reader — remaining
+#169 installed end-to-end acceptance — remaining
+```
 The pure producer allocation, replay, append-history, supersession-requirement,
 withdrawal, and recovery decisions are active in
 [`publication_revision_policy.md`](publication_revision_policy.md). They do not

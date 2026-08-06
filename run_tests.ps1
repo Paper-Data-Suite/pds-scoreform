@@ -45,8 +45,14 @@ Invoke-Step "Compile ScoreForm" {
 Invoke-Step "Validate tracked release text encoding" {
     & $Python scripts\verify_text_encoding.py
 }
-Invoke-Step "Import ScoreForm, PDS contract, CLI, and Core" {
-    & $Python -c "import pds_core; import scoreform; import scoreform.academic_work_registration; import scoreform.cli_academic_work; import scoreform.pds_contract; import scoreform.cli"
+Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
+    & $Python -c "import pds_core; import scoreform; import scoreform.academic_work_registration; import scoreform.cli_academic_work; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
+}
+Invoke-Step "Run focused installed-profile contract tests" {
+    & $Python -m pytest @(
+        "tests/test_pds_module.py",
+        "tests/test_pds_publication.py"
+    ) -q
 }
 Invoke-Step "Run focused retained PDS2 boundary tests" {
     & $Python -m pytest @(

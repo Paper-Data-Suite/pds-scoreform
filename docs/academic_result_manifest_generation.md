@@ -5,9 +5,14 @@
 ScoreForm explicitly generates immutable
 `scoreform_academic_result_manifest_v1` revisions for an existing canonical
 managed assignment. Generation is producer storage only: it does not register
-Academic Work, add a publication producer profile, create a Core Publication
+Academic Work, discover or invoke the installed publication producer profile,
+create a Core Publication
 Record, supersede or withdraw a publication, rebuild the catalog, select an
 attempt, calculate proficiency, or create a Grade.
+
+The canonical bytes generated here satisfy the profile's declared
+`scoreform_academic_result_manifest_v1` contract. That compatibility declaration
+does not turn generation into publication.
 
 ## Eligible native state
 
@@ -115,5 +120,5 @@ Routine output never prints full manifest JSON, student IDs, responses,
 provenance arrays, names, periods, or answer keys. Generation is not invoked by
 registration, assignment setup/editing, sheet generation, scoring, manual entry,
 scan-review resolution, result viewing, import, help, version, or profile
-discovery. #166 owns producer compatibility; #167 owns Core publication,
+discovery. #166 implements producer compatibility metadata; #167 owns Core publication,
 supersession, withdrawal, and catalog reconciliation.

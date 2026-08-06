@@ -36,6 +36,9 @@ scoreform = "scoreform.cli:main"
 [project.entry-points."paper_data_suite.modules"]
 scoreform = "scoreform.pds_module:get_module_profile"
 
+[project.entry-points."paper_data_suite.publication_producers"]
+scoreform = "scoreform.pds_publication:get_publication_producer_profile"
+
 [tool.setuptools]
 packages = ["scoreform"]
 

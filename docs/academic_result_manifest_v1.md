@@ -98,12 +98,14 @@ drive-qualified, backslash, traversal, empty-component, or alternate symlink
 spellings are not representable. The assignment source is explicitly
 unversioned (`contract_version: null`). The routed result history is schema `"2"`.
 
-These byte snapshots are distinct from Core's optional publication
-`ModuleRecordRef`. A future registration or publication may refer to the native
+These byte snapshots are distinct from Core's optional Publication Record
+`ModuleRecordRef`. The Academic Work Registration refers to the native
 assignment as `module_id=scoreform`, `record_kind=assignment`,
-`record_id=assignment_id`, with null/unversioned contract version. A
-`results.csv` row has no durable native record ID and must not be advertised as a
-Core `ModuleRecordRef`.
+`record_id=assignment_id`, with null/unversioned contract version. The installed
+ScoreForm publication profile advertises no source-record support rows, so a
+compatible ScoreForm Publication Record must use `source_record=None`. A
+`results.csv` row has no durable native record ID and must not be advertised as
+a Core `ModuleRecordRef`.
 
 ## Assignment and question evidence
 
@@ -127,8 +129,8 @@ ID and may be null when all alignments are empty. Native construction must have
 validated each ID against that Core standards profile. The mappings are question
 alignment metadata only. They are not ratings, proficiency, rubric scores,
 mastery, Grades, or selected cumulative evidence. No alignment may be inferred
-from text or another assignment. A future producer profile may advertise
-`points`, `question_evidence`, and `multiple_attempts`; it must not advertise
+from text or another assignment. The installed producer profile advertises
+`points`, `question_evidence`, and `multiple_attempts`; it does not advertise
 `standards_ratings` for this contract.
 
 The assignment answer key is deliberately absent. Per-response correctness is
@@ -271,5 +273,5 @@ preserve attempts and non-score response states, and apply an explicit
 consumer-owned attempt-selection, grading, proficiency, period, and reporting
 policy. This contract does not register Academic Work, create or query Core
 Publication Records, write workspace manifests, calculate digests from workspace
-state, publish or withdraw records, implement a producer entry point, infer Grades
+state, publish or withdraw records, discover or invoke the producer profile, infer Grades
 or proficiency, or depend on Meridian.

@@ -35,6 +35,11 @@ The source record is unversioned because ScoreForm's active native assignment
 JSON is unversioned. Registration does not change that JSON contract or embed
 intent, lifecycle, registry identity, revision, or timestamps in it.
 
+This registration source is not a Publication Record source. The installed
+ScoreForm publication profile advertises no source-record contract rows, so a
+compatible future ScoreForm Publication Record must use `source_record=None`.
+The manifest retains its own exact assignment and result-history byte snapshots.
+
 Academic intent must be selected explicitly from `formative`, `summative`,
 `diagnostic`, `practice`, `feedback_only`, and `reporting_only`. Lifecycle must
 be selected explicitly from `planned`, `active`, `closed`, and `cancelled`.
@@ -81,10 +86,10 @@ be registered.
 
 ## Later publication boundary
 
-A future Publication Record must reference the exact current registration
-revision. A stale revision and a cancelled current registration cannot be used
+A future Publication Record must use an absent `source_record` and reference the
+exact current registration revision. A stale revision and a cancelled current registration cannot be used
 for publication; a closed registration remains canonical history. Registration
 itself creates neither a publication nor Grade membership. Manifest generation
 is a separate explicit operation implemented by #165 and does not require or
-update registration. Producer-profile advertisement is owned by #166;
-publication, supersession, and withdrawal are owned by #167.
+update registration. The metadata-only producer profile is implemented by #166;
+publication, supersession, and withdrawal remain owned by #167.
