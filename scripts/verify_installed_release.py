@@ -1,4 +1,4 @@
-"""Verify installed ScoreForm metadata and Core module-profile discovery."""
+"""Verify installed ScoreForm metadata and independent Core profile discovery."""
 
 from __future__ import annotations
 
@@ -6,10 +6,19 @@ import argparse
 import importlib
 import inspect
 import sys
+from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
 
+from pds_core.academic_work_registrations import AcademicWorkRegistration
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
+from pds_core.publication_compatibility import (
+    build_publication_producer_registry,
+    discover_publication_producer_profiles,
+    evaluate_publication_compatibility,
+    validate_publication_producer_profile,
+)
+from pds_core.publication_records import PublicationRecord
 from pds_core.routing_models import (
     ModuleRecordRef,
     ModuleWorkRef,
@@ -96,6 +105,7 @@ def main() -> int:
         "scoreform.cli_academic_work",
         "scoreform.academic_result_manifest_generation",
         "scoreform.cli_manifest",
+        "scoreform.pds_publication",
     ):
         importlib.import_module(module_name)
 
@@ -161,7 +171,135 @@ def main() -> int:
     ]
     if discovered != [first]:
         raise SystemExit("Core did not discover exactly one equivalent ScoreForm profile")
-    forbidden = [name for name in sys.modules if "quillan" in name.lower() or "concord" in name.lower()]
+
+    publication_entries = [
+        entry
+        for entry in metadata.entry_points(
+            group="paper_data_suite.publication_producers"
+        )
+        if entry.name == "scoreform"
+    ]
+    if len(publication_entries) != 1:
+        raise SystemExit(
+            "expected one ScoreForm publication-producer entry point, found "
+            f"{len(publication_entries)}"
+        )
+    publication_entry = publication_entries[0]
+    expected_publication_value = (
+        "scoreform.pds_publication:get_publication_producer_profile"
+    )
+    if publication_entry.value != expected_publication_value:
+        raise SystemExit(
+            "unexpected ScoreForm publication entry-point value: "
+            f"{publication_entry.value}"
+        )
+    publication_provider = publication_entry.load()
+    if inspect.signature(publication_provider).parameters:
+        raise SystemExit("ScoreForm publication profile provider must take no arguments")
+    publication_first = validate_publication_producer_profile(
+        publication_provider()
+    )
+    publication_second = validate_publication_producer_profile(
+        publication_provider()
+    )
+    if publication_first != publication_second:
+        raise SystemExit("ScoreForm publication profile provider is not repeatable")
+    expected_publication = {
+        "module_id": "scoreform",
+        "display_name": "ScoreForm",
+        "supported_core_publication_schema_versions": frozenset({"1"}),
+        "supported_academic_work_contract_versions": frozenset(
+            {"scoreform_academic_work_v1"}
+        ),
+    }
+    for field, value in expected_publication.items():
+        if getattr(publication_first, field) != value:
+            raise SystemExit(
+                f"publication profile mismatch for {field}: "
+                f"{getattr(publication_first, field)!r}"
+            )
+    if len(publication_first.publication_contracts) != 1:
+        raise SystemExit("ScoreForm publication profile must contain one support row")
+    support = publication_first.publication_contracts[0]
+    if (
+        support.publication_kind != "academic_result_set"
+        or support.manifest_contract_versions
+        != frozenset({"scoreform_academic_result_manifest_v1"})
+        or support.supported_capabilities
+        != frozenset({"points", "question_evidence", "multiple_attempts"})
+        or support.source_record_contracts != ()
+        or support.allows_missing_source_record is not True
+    ):
+        raise SystemExit("ScoreForm publication support row is not exact")
+
+    publication_profiles = [
+        profile
+        for profile in discover_publication_producer_profiles()
+        if profile.module_id == "scoreform"
+    ]
+    if publication_profiles != [publication_first]:
+        raise SystemExit(
+            "Core did not discover exactly one equivalent ScoreForm publication profile"
+        )
+    if (
+        build_publication_producer_registry().get("scoreform")
+        != publication_first
+    ):
+        raise SystemExit("Core publication registry did not resolve ScoreForm")
+
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+    work = ModuleWorkRef("scoreform", "class1", "quiz1")
+    academic_registration = AcademicWorkRegistration(
+        schema_version="1",
+        record_type="academic_work_registration",
+        work=work,
+        registration_revision=1,
+        producer_contract_version="scoreform_academic_work_v1",
+        title="Quiz 1",
+        work_kind="assignment",
+        academic_intent="summative",
+        lifecycle="active",
+        created_at=now,
+        updated_at=now,
+        source_records=(
+            ModuleRecordRef("scoreform", "assignment", "quiz1", None),
+        ),
+    )
+    publication = PublicationRecord(
+        schema_version="1",
+        record_type="publication_record",
+        publication_id="pub_" + "1" * 32,
+        work=work,
+        source_record=None,
+        publication_kind="academic_result_set",
+        capabilities=("points", "question_evidence", "multiple_attempts"),
+        record_set_id="academic_results",
+        record_set_revision=1,
+        manifest_contract_version="scoreform_academic_result_manifest_v1",
+        manifest_path=(
+            "classes/class1/modules/scoreform/work/quiz1/"
+            "exports/manifests/academic_results/1.json"
+        ),
+        manifest_digest_algorithm="sha256",
+        manifest_digest="0" * 64,
+        published_at=now,
+        academic_work_registration_revision=1,
+        supersedes_publication_id=None,
+    )
+    compatibility = evaluate_publication_compatibility(
+        publication, publication_first, academic_registration
+    )
+    if not compatibility.compatible or compatibility.codes:
+        raise SystemExit(
+            f"installed ScoreForm compatibility evaluation failed: {compatibility.codes}"
+        )
+    if publication.source_record is not None:
+        raise SystemExit("synthetic ScoreForm publication source record must be absent")
+
+    sibling_roots = {"quillan", "concord", "portia", "pds_meridian"}
+    forbidden = [
+        name for name in sys.modules if name.split(".", 1)[0] in sibling_roots
+    ]
     if forbidden:
         raise SystemExit(f"profile discovery imported sibling modules: {forbidden}")
     if args.workspace.exists():
@@ -175,7 +313,10 @@ def main() -> int:
         origin = Path(module_file).resolve()
         if "site-packages" not in {part.lower() for part in origin.parts}:
             raise SystemExit(f"module did not import from isolated installation: {origin}")
-    print(f"ScoreForm {args.version}; pds-core {core_version}; profile discovery passed")
+    print(
+        f"ScoreForm {args.version}; pds-core {core_version}; "
+        "routing/publication profile discovery and compatibility passed"
+    )
     return 0
 
 

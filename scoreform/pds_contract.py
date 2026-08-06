@@ -1,7 +1,7 @@
-"""Stable ScoreForm-owned constants for the PDS2 integration boundary.
+"""Stable ScoreForm-owned constants for installed Core integration boundaries.
 
-This side-effect-free module defines the current module profile, PDS2 page,
-route-registration, and dispatch boundary.
+This side-effect-free module defines shared identities used by the routing,
+Academic Work, manifest, and publication compatibility contracts.
 """
 
 from pds_core.module_profiles import CORE_ROUTING_CONTRACT_VERSION
@@ -12,6 +12,10 @@ from pds_core.routing_models import (
 
 SCOREFORM_MODULE_ID = "scoreform"
 SCOREFORM_DISPLAY_NAME = "ScoreForm"
+SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION = "scoreform_academic_work_v1"
+ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION = (
+    "scoreform_academic_result_manifest_v1"
+)
 ANSWER_SHEET_PAGE_RECORD_KIND = "answer_sheet_page"
 ANSWER_SHEET_PAGE_CONTRACT_VERSION = "1"
 

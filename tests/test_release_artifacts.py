@@ -13,6 +13,7 @@ from scripts.verify_installed_release import (
 from scripts.verify_release_artifacts import (
     ArtifactValidationError,
     validate_dist,
+    validate_entry_points_text,
     validate_member_names,
     validate_package_metadata,
     validate_sdist,
@@ -43,6 +44,33 @@ def test_release_member_validation_accepts_expected_sources():
             "scoreform-0.9.1/examples/sample_roster_english9_p2.csv",
         ]
     )
+
+
+def test_release_entry_point_metadata_requires_routing_and_publication_groups():
+    validate_entry_points_text(
+        """[paper_data_suite.publication_producers]\r
+scoreform = scoreform.pds_publication:get_publication_producer_profile\r
+\r
+[paper_data_suite.modules]\r
+scoreform = scoreform.pds_module:get_module_profile\r
+""",
+        "fixture wheel",
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[paper_data_suite.modules]\nscoreform = scoreform.pds_module:get_module_profile\n",
+        """[paper_data_suite.modules]\nscoreform = scoreform.pds_module:get_module_profile\n
+[paper_data_suite.publication_producers]\nscoreform = scoreform.pds_publication:wrong\n""",
+        """[paper_data_suite.modules]\nscoreform = scoreform.pds_module:get_module_profile\n
+[paper_data_suite.publication_producers]\nother = scoreform.pds_publication:get_publication_producer_profile\n""",
+    ],
+)
+def test_release_entry_point_metadata_rejects_missing_or_wrong_profile(text):
+    with pytest.raises(ArtifactValidationError):
+        validate_entry_points_text(text, "fixture wheel")
 
 
 @pytest.mark.parametrize(

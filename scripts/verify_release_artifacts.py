@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import re
 import tarfile
 import zipfile
@@ -33,6 +34,14 @@ FORBIDDEN_PARTS = {
 FORBIDDEN_SUFFIXES = {".diff", ".patch", ".pdf", ".pyc", ".pyo"}
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
+EXPECTED_ENTRY_POINTS = {
+    "paper_data_suite.modules": {
+        "scoreform": "scoreform.pds_module:get_module_profile"
+    },
+    "paper_data_suite.publication_producers": {
+        "scoreform": "scoreform.pds_publication:get_publication_producer_profile"
+    },
+}
 
 
 class ArtifactValidationError(Exception):
@@ -150,6 +159,27 @@ def validate_package_metadata(text: str, version: str, label: str) -> None:
     validate_core_requirement_strings(requirements, label)
 
 
+def validate_entry_points_text(text: str, label: str) -> None:
+    parser = configparser.ConfigParser(interpolation=None, strict=True)
+    parser.optionxform = str
+    try:
+        parser.read_string(text)
+    except configparser.Error as error:
+        raise ArtifactValidationError(
+            f"{label} contains invalid entry-point metadata: {error}"
+        ) from error
+    for group, expected in EXPECTED_ENTRY_POINTS.items():
+        if not parser.has_section(group):
+            raise ArtifactValidationError(
+                f"{label} is missing entry-point group {group}"
+            )
+        actual = dict(parser.items(group))
+        if actual != expected:
+            raise ArtifactValidationError(
+                f"{label} has incorrect {group} entry points: {actual!r}"
+            )
+
+
 def validate_wheel(path: Path, version: str) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -163,14 +193,12 @@ def validate_wheel(path: Path, version: str) -> None:
         validate_package_metadata(
             archive.read(metadata_names[0]).decode("utf-8"), version, path.name
         )
-        entry_text = archive.read(entry_names[0]).decode("utf-8")
-        required = (
-            "[paper_data_suite.modules]\n"
-            "scoreform = scoreform.pds_module:get_module_profile"
+        validate_entry_points_text(
+            archive.read(entry_names[0]).decode("utf-8"), path.name
         )
-        if required not in entry_text.replace("\r\n", "\n"):
+        if "scoreform/pds_publication.py" not in names:
             raise ArtifactValidationError(
-                f"{path.name} is missing the exact ScoreForm module entry point"
+                f"{path.name} is missing scoreform/pds_publication.py"
             )
 
 
@@ -192,6 +220,17 @@ def validate_sdist(path: Path, version: str) -> None:
         validate_package_metadata(
             extracted.read().decode("utf-8"), version, path.name
         )
+        root = f"scoreform-{version}"
+        required_members = {
+            f"{root}/scoreform/pds_publication.py",
+            f"{root}/pyproject.toml",
+        }
+        names = {member.name.replace("\\", "/") for member in members}
+        missing = sorted(required_members - names)
+        if missing:
+            raise ArtifactValidationError(
+                f"{path.name} is missing required source member(s): {', '.join(missing)}"
+            )
 
 
 def validate_dist(dist: Path, version: str) -> tuple[Path, Path]:

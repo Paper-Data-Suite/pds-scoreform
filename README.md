@@ -105,6 +105,22 @@ supports routing contract `1`, PDS2, registration schema `1`, and active routes.
 ScoreForm production code imports no sibling-module implementation; foreign
 dispatch results remain opaque.
 
+### Installed publication producer profile
+
+Publication compatibility is discovered independently through:
+
+```text
+paper_data_suite.publication_producers
+    scoreform = scoreform.pds_publication:get_publication_producer_profile
+```
+
+The immutable profile advertises Core Publication schema `1`, Academic Work
+contract `scoreform_academic_work_v1`, academic-result manifest contract
+`scoreform_academic_result_manifest_v1`, and the `points`, `question_evidence`,
+and `multiple_attempts` capabilities. Discovery is metadata-only: it does not
+read a workspace, generate a manifest, register work, or publish anything. See
+[`docs/publication_producer_profile.md`](docs/publication_producer_profile.md).
+
 ### Retained scanning and results
 
 Core retains the original source bytes under
@@ -315,6 +331,7 @@ Follow applicable school, district, state, and federal privacy requirements.
 - `docs/academic_result_manifest_v1.md` — immutable producer-owned academic-result manifest contract
 - `docs/academic_result_manifest_generation.md` — exact-byte generation, validation, replay, and storage
 - `docs/publication_revision_policy.md` — production identity, replay, revision, supersession, withdrawal, and recovery policy
+- `docs/publication_producer_profile.md` — installed publication compatibility metadata and source boundaries
 - `docs/release_checklist.md` — preparation and publication gates
 - `docs/physical_acceptance_test.md` — mandatory paper procedure
 - `RELEASE_NOTES_v0.9.1.md` — reviewed GitHub Release body

@@ -9,6 +9,11 @@ Its stable production identity and immutable revision-transition rules are in
 is active and pure; durable generation/replay is active, while Core publication,
 supersession, and withdrawal commands remain future work.
 
+The installed publication compatibility declaration is documented in
+[`publication_producer_profile.md`](publication_producer_profile.md). It is an
+immutable Core `PublicationProducerProfile` returned by an installed provider,
+not a serialized ScoreForm schema.
+
 ScoreForm Academic Work Registration is defined in
 [`academic_work_registration.md`](academic_work_registration.md). Its exact
 mapping fixes `module_id="scoreform"`, producer contract
@@ -16,6 +21,29 @@ mapping fixes `module_id="scoreform"`, producer contract
 `record_kind="assignment"` and `contract_version=None`. The title is a snapshot
 from canonical `assignment.json`; academic intent and lifecycle are explicit.
 The native assignment JSON remains unversioned and its shape is unchanged.
+
+## Core 0.6 publication producer compatibility matrix
+
+| Namespace or field | Exact supported value |
+|---|---|
+| Entry-point group/name | `paper_data_suite.publication_producers` / `scoreform` |
+| Provider | `scoreform.pds_publication:get_publication_producer_profile` |
+| Core Publication Record schema | `1` |
+| Academic Work producer contract | `scoreform_academic_work_v1` |
+| Publication kind | `academic_result_set` |
+| Manifest contract | `scoreform_academic_result_manifest_v1` |
+| Capabilities | `points`, `question_evidence`, `multiple_attempts` |
+| Publication source-record support | no rows; `source_record=None` required |
+
+The assignment source belongs to the Academic Work Registration. Exact
+`assignment.json` and schema-2 `results.csv` snapshots belong to the manifest.
+Question standards alignments are metadata rather than `standards_ratings`.
+Criterion, moderation, and intervention capabilities are unsupported.
+
+The package version, Core routing contract, PDS2 QR schema, route-registration
+schema, Publication Record schema, Academic Work Registration schema, Academic
+Work producer contract, manifest contract, routed-results schema, and Core
+publication compatibility contract are independent version namespaces.
 
 > v0.9.1 current-only boundary: managed work is module-qualified, generated and
 > scanned routed sheets use PDS2, routed results use schema version 2, and Core

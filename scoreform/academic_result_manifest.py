@@ -19,16 +19,19 @@ from pds_core.identifiers import validate_identifier
 
 from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT
 from scoreform.layouts import require_layout
+from scoreform.pds_contract import (
+    ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+    SCOREFORM_MODULE_ID,
+)
 
 RECORD_TYPE = "scoreform_academic_result_manifest"
-CONTRACT_VERSION = "scoreform_academic_result_manifest_v1"
-PRODUCER_MODULE_ID = "scoreform"
+CONTRACT_VERSION = ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION
+PRODUCER_MODULE_ID = SCOREFORM_MODULE_ID
 ROUTED_RESULTS_SCHEMA_VERSION = "2"
 ASSIGNMENT_SOURCE_PATH = "assignment.json"
 RESULTS_HISTORY_SOURCE_PATH = "results.csv"
 
 ACADEMIC_RESULT_MANIFEST_RECORD_TYPE = RECORD_TYPE
-ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION = CONTRACT_VERSION
 
 RESULT_ORIGINS = frozenset(
     {"pds2_scan", "plain_paper_manual", "scan_review_manual"}
