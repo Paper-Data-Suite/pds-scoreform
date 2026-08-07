@@ -3,6 +3,9 @@ from __future__ import annotations
 import pytest
 
 from scoreform import menu_publication
+from scoreform.academic_result_publication import (
+    ScoreFormAcademicResultPublicationConflictError,
+)
 
 
 def test_assignment_selection_cancellation_creates_no_state(tmp_path, monkeypatch, capsys):
@@ -98,3 +101,57 @@ def test_exact_menu_confirmation_wrong_or_cancelled_creates_no_state(
     assert not called
     assert not (tmp_path / "registry").exists()
     assert not (tmp_path / "exports/manifests").exists()
+
+
+def test_catalog_lock_path_is_not_exposed_by_menu(
+    tmp_path, monkeypatch, capsys
+):
+    assignment = {
+        "assignment_id": "quiz1",
+        "assignment": {"title": "Quiz"},
+    }
+    monkeypatch.setattr(
+        menu_publication,
+        "_select_assignment",
+        lambda: ("class1", assignment),
+    )
+    monkeypatch.setattr(
+        menu_publication.workspace,
+        "get_scoreform_workspace_root",
+        lambda: tmp_path,
+    )
+
+    class State:
+        producer_head_revision = 1
+        publications = ()
+        withdrawals = ()
+        head = None
+        catalog_available = False
+        catalog_rows = ()
+
+    monkeypatch.setattr(
+        menu_publication,
+        "load_scoreform_publication_series_status",
+        lambda *_args, **_kwargs: State(),
+    )
+    private_path = tmp_path / "registry" / ".locks" / "catalog.lock"
+    error = ScoreFormAcademicResultPublicationConflictError(
+        f"Academic catalog rebuild lock already exists: {private_path}"
+    )
+    monkeypatch.setattr(
+        menu_publication,
+        "rebuild_full_academic_catalog",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+    answers = iter(["8", "REBUILD"])
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda _prompt="": next(answers),
+    )
+
+    assert menu_publication.launch_academic_result_publications_menu() == 1
+    output = capsys.readouterr().out
+    assert "conflicts with current canonical state" in output
+    assert str(tmp_path) not in output
+    assert str(private_path) not in output
+    assert "Traceback" not in output

@@ -11,8 +11,13 @@ from scoreform import workspace
 from scoreform.academic_result_publication import (
     AcademicResultPublicationResult,
     AcademicResultWithdrawalResult,
+    ScoreFormAcademicResultPublicationConflictError,
     ScoreFormAcademicResultPublicationError,
+    ScoreFormAcademicResultPublicationIntegrityError,
+    ScoreFormAcademicResultPublicationNotFoundError,
     ScoreFormAcademicResultPublicationPartialSuccessError,
+    ScoreFormAcademicResultPublicationValidationError,
+    ScoreFormAcademicResultPublicationWriteError,
     load_scoreform_publication,
     load_scoreform_publication_series_status,
     publish_scoreform_academic_results,
@@ -38,6 +43,22 @@ def print_publication_help() -> None:
     print()
     print("Writes are explicit. Core owns publication IDs and canonical records.")
     print("Output never displays students, manifest content, or withdrawal reasons.")
+
+
+def _publication_error_summary(
+    error: ScoreFormAcademicResultPublicationError,
+) -> str:
+    if isinstance(error, ScoreFormAcademicResultPublicationValidationError):
+        return "Publication request is invalid."
+    if isinstance(error, ScoreFormAcademicResultPublicationNotFoundError):
+        return "Required publication state was not found."
+    if isinstance(error, ScoreFormAcademicResultPublicationConflictError):
+        return "Publication operation conflicts with current canonical state."
+    if isinstance(error, ScoreFormAcademicResultPublicationIntegrityError):
+        return "Publication state failed integrity validation."
+    if isinstance(error, ScoreFormAcademicResultPublicationWriteError):
+        return "Publication operation could not be completed safely."
+    return "Publication operation failed."
 
 
 def _parse_options(args: Sequence[str], required: tuple[str, ...]) -> dict[str, str]:
@@ -249,7 +270,10 @@ def run_publication(args: Sequence[str]) -> int:
         _print_withdrawal_result(withdrawal_result)
         return 0
     except ScoreFormAcademicResultPublicationPartialSuccessError as error:
-        print(f"Error: {error}")
+        print(
+            "Error: Publication operation left durable state but did not "
+            "complete verification or reconciliation."
+        )
         partial = error.state
         if partial.canonical_state_confirmed:
             print(
@@ -273,13 +297,23 @@ def run_publication(args: Sequence[str]) -> int:
             print(f"publication ID: {partial.publication.publication_id}")
         print(f"recommended next action: {partial.recommended_next_action}")
         return 1
-    except (ScoreFormAcademicResultPublicationError, AcademicCatalogError, ValueError, TypeError) as error:
+    except ScoreFormAcademicResultPublicationError as error:
+        print(f"Error: {_publication_error_summary(error)}")
+        print()
+        print(PUBLICATION_USAGE)
+        return 1
+    except AcademicCatalogError:
+        print("Error: Academic catalog operation failed safely.")
+        print()
+        print(PUBLICATION_USAGE)
+        return 1
+    except (ValueError, TypeError) as error:
         print(f"Error: {error}")
         print()
         print(PUBLICATION_USAGE)
         return 1
-    except Exception as error:
-        print(f"Error: Publication operation failed: {error}")
+    except Exception:
+        print("Error: Publication operation failed unexpectedly.")
         print()
         print(PUBLICATION_USAGE)
         return 1

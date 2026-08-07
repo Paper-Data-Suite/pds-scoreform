@@ -92,3 +92,24 @@ def test_explicit_catalog_cli_failures_are_traceback_free(
     output = capsys.readouterr().out
     assert "Error:" in output
     assert "Traceback" not in output
+
+
+def test_catalog_lock_path_is_not_exposed_by_cli(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("SCOREFORM_WORKSPACE_ROOT", str(tmp_path))
+    private_path = tmp_path / "registry" / ".locks" / "catalog.lock"
+    error = ScoreFormAcademicResultPublicationConflictError(
+        f"Academic catalog rebuild lock already exists: {private_path}"
+    )
+    monkeypatch.setattr(
+        cli_publication_module,
+        "rebuild_full_academic_catalog",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+    assert run_publication(["rebuild-catalog"]) == 1
+    output = capsys.readouterr().out
+    assert "conflicts with current canonical state" in output
+    assert str(tmp_path) not in output
+    assert str(private_path) not in output
+    assert "Traceback" not in output

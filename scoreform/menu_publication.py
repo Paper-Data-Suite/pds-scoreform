@@ -12,8 +12,13 @@ from pds_core.publication_records import PublicationRecord, PublicationWithdrawa
 
 from scoreform import workspace
 from scoreform.academic_result_publication import (
+    ScoreFormAcademicResultPublicationConflictError,
     ScoreFormAcademicResultPublicationError,
+    ScoreFormAcademicResultPublicationIntegrityError,
+    ScoreFormAcademicResultPublicationNotFoundError,
     ScoreFormAcademicResultPublicationPartialSuccessError,
+    ScoreFormAcademicResultPublicationValidationError,
+    ScoreFormAcademicResultPublicationWriteError,
     load_scoreform_publication,
     load_scoreform_publication_series_status,
     publish_scoreform_academic_results,
@@ -67,6 +72,22 @@ def _positive_revision(prompt: str) -> int:
     if not value.isdecimal() or value == "0" or str(int(value)) != value:
         raise ValueError("revision must be a canonical positive integer.")
     return int(value)
+
+
+def _publication_error_summary(
+    error: ScoreFormAcademicResultPublicationError,
+) -> str:
+    if isinstance(error, ScoreFormAcademicResultPublicationValidationError):
+        return "Publication request is invalid."
+    if isinstance(error, ScoreFormAcademicResultPublicationNotFoundError):
+        return "Required publication state was not found."
+    if isinstance(error, ScoreFormAcademicResultPublicationConflictError):
+        return "Publication operation conflicts with current canonical state."
+    if isinstance(error, ScoreFormAcademicResultPublicationIntegrityError):
+        return "Publication state failed integrity validation."
+    if isinstance(error, ScoreFormAcademicResultPublicationWriteError):
+        return "Publication operation could not be completed safely."
+    return "Publication operation failed."
 
 
 def _summary(
@@ -213,7 +234,10 @@ def launch_academic_result_publications_menu() -> int:
         print("Cancelled: no publication state was changed.")
         return 0
     except ScoreFormAcademicResultPublicationPartialSuccessError as error:
-        print(f"Error: {error}")
+        print(
+            "Error: Publication operation left durable state but did not "
+            "complete verification or reconciliation."
+        )
         if error.state.canonical_state_confirmed:
             print(
                 "Warning: canonical Core state is confirmed, but later "
@@ -234,7 +258,13 @@ def launch_academic_result_publications_menu() -> int:
             )
         print(f"Recommended next action: {error.state.recommended_next_action}")
         return 1
-    except (ScoreFormAcademicResultPublicationError, AcademicCatalogError, ValueError, TypeError) as error:
+    except ScoreFormAcademicResultPublicationError as error:
+        print(f"Error: {_publication_error_summary(error)}")
+        return 1
+    except AcademicCatalogError:
+        print("Error: Academic catalog operation failed safely.")
+        return 1
+    except (ValueError, TypeError) as error:
         print(f"Error: {error}")
         return 1
 
