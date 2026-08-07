@@ -18,8 +18,11 @@ validates, converts, and serializes in-memory values without resolving a
 workspace, reading native files, writing a manifest, importing another producer,
 or accessing Core registry state. Workspace generation is implemented separately
 by `scoreform.academic_result_manifest_generation`; explicit Core publication is
-implemented by `scoreform.academic_result_publication`. The checked-in fixture
-is a normative byte example, not evidence that Meridian consumption is implemented.
+implemented by `scoreform.academic_result_publication`. Consumer-neutral parsing
+of already obtained immutable bytes is exposed by
+`scoreform.academic_result_reader`, which delegates to this contract and requires
+exact canonical bytes. The checked-in fixture remains a normative byte example;
+consumer-specific Meridian or portfolio policy is not implemented here.
 
 Academic Work Registration is a separate explicit workflow. Manifest generation
 now validates and hashes exact native bytes, validates retained evidence, uses

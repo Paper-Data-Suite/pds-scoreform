@@ -3,7 +3,10 @@
 The active immutable publication projection is specified separately in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That
 ScoreForm-owned contract, immutable workspace generation, and explicit Core
-publication orchestration are implemented.
+publication orchestration are implemented. Consumer-neutral parsing and exact
+native-result lookup for already obtained canonical bytes are exposed separately
+by [`academic_result_reader.md`](academic_result_reader.md); the reader adds no
+serialized fields or second schema.
 Its stable production identity and immutable revision-transition rules are in
 [`publication_revision_policy.md`](publication_revision_policy.md). The policy
 is active and pure; durable generation/replay, Core publication, supersession,

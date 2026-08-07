@@ -96,16 +96,21 @@ def test_release_artifact_script_is_repo_relative():
     assert Path("scripts/verify_release_artifacts.py").is_file()
 
 
-def test_clean_install_contract_names_publication_runtime_and_cli_boundaries():
+def test_clean_install_contract_names_reader_publication_and_cli_boundaries():
     verifier = Path("scripts/verify_installed_release.py").read_text(encoding="utf-8")
     installer = Path("scripts/validate_release_install.ps1").read_text(encoding="utf-8")
+    artifact_verifier = Path("scripts/verify_release_artifacts.py").read_text(
+        encoding="utf-8"
+    )
     for module in (
+        "scoreform.academic_result_reader",
         "scoreform.academic_result_publication",
         "scoreform.cli_publication",
         "scoreform.menu_publication",
     ):
         assert module in verifier
         assert module in installer
+    assert "scoreform/academic_result_reader.py" in artifact_verifier
     for command in (
         "publication --help",
         '"status", "publish", "supersede", "republish-after-withdrawal"',
