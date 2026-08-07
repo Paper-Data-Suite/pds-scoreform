@@ -74,9 +74,15 @@ policy foundations are implemented. Current issue status is:
 #165 immutable manifest generation — complete
 #166 publication producer profile — complete
 #167 publication workflows — complete
-#168 consumer-neutral reader — remaining
+#168 consumer-neutral reader — complete
 #169 installed end-to-end acceptance — remaining
 ```
+The consumer-neutral Academic Result reader is active at
+`scoreform.academic_result_reader`. It accepts already obtained immutable bytes,
+requires canonical ScoreForm serialization, and performs exact source, student,
+attempt, question, and response lookup without selecting an attempt or applying
+consumer policy.
+
 The pure producer allocation, replay, append-history, supersession-requirement,
 withdrawal, and recovery decisions are active in
 [`publication_revision_policy.md`](publication_revision_policy.md). They do not

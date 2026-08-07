@@ -101,6 +101,7 @@ def main() -> int:
         "pds_core.academic_work_registrations",
         "pds_core.publication_records",
         "pds_core.publication_compatibility",
+        "scoreform.academic_result_reader",
         "scoreform.academic_work_registration",
         "scoreform.cli_academic_work",
         "scoreform.academic_result_manifest_generation",
@@ -111,6 +112,32 @@ def main() -> int:
         "scoreform.pds_publication",
     ):
         importlib.import_module(module_name)
+
+    reader = importlib.import_module("scoreform.academic_result_reader")
+    expected_reader_public = (
+        "AcademicResultManifest",
+        "AcademicResultSourceName",
+        "AcademicResultSourceSnapshot",
+        "AssignmentSourceSnapshot",
+        "Attempt",
+        "Question",
+        "Response",
+        "ResultsHistorySourceSnapshot",
+        "ScoreFormAcademicResultReaderDecodeError",
+        "ScoreFormAcademicResultReaderError",
+        "ScoreFormAcademicResultReaderNotFoundError",
+        "ScoreFormAcademicResultReaderValidationError",
+        "StudentResults",
+        "lookup_academic_result_attempt",
+        "lookup_academic_result_question",
+        "lookup_academic_result_response",
+        "lookup_academic_result_source",
+        "lookup_academic_result_student",
+        "read_academic_result_manifest",
+        "validate_academic_result_manifest",
+    )
+    if getattr(reader, "__all__", None) != expected_reader_public:
+        raise SystemExit("installed ScoreForm academic-result reader surface mismatch")
 
     entries = [
         entry
@@ -299,7 +326,14 @@ def main() -> int:
     if publication.source_record is not None:
         raise SystemExit("synthetic ScoreForm publication source record must be absent")
 
-    sibling_roots = {"quillan", "concord", "portia", "pds_meridian"}
+    sibling_roots = {
+        "quillan",
+        "concord",
+        "portia",
+        "meridian",
+        "pds_meridian",
+        "vitrine",
+    }
     forbidden = [
         name for name in sys.modules if name.split(".", 1)[0] in sibling_roots
     ]

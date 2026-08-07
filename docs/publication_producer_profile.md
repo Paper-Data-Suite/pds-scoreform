@@ -60,9 +60,9 @@ publication is valid, current, authorized, or consumable. After canonical
 publication, ScoreForm uses this profile only for metadata compatibility against
 the exact referenced registration revision. Discovery remains nonmutating and is
 not authorization. Issue #167 implements publication, supersession, and
-withdrawal workflows. Issue #168 owns the
-consumer-neutral manifest reader. Issue #169 owns installed end-to-end producer
-acceptance.
+withdrawal workflows. Issue #168 implements the consumer-neutral manifest reader
+without adding a parser callback to this metadata-only profile. Issue #169 owns
+installed end-to-end producer acceptance.
 
 The Core package version, routing contract, QR schema, route-registration
 schema, Publication Record schema, Academic Work Registration schema and

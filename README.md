@@ -197,6 +197,13 @@ rebuild the disposable catalog when repair is needed. The corresponding direct
 commands are under `scoreform publication`. Publication does not calculate a
 Grade, select an attempt, or calculate proficiency.
 
+Authorized consumers can parse already obtained immutable manifest bytes through
+the consumer-neutral `scoreform.academic_result_reader` API. The reader requires
+exact canonical ScoreForm bytes and provides exact source, student, attempt,
+question, and response lookup without Core discovery, filesystem access, attempt
+selection, grading, or portfolio policy. See
+[`docs/academic_result_reader.md`](docs/academic_result_reader.md).
+
 With the repository development environment active and ScoreForm installed in
 it, run `scoreform` to launch the teacher menu. The direct-source compatibility
 form is `python .\main.py menu`; bare `python .\main.py` prints help rather than

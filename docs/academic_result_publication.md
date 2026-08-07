@@ -58,3 +58,9 @@ Original Core exceptions remain available through exception chaining.
 Read-only `status`, `list`, and `show` do not build a missing catalog. The direct
 commands are available under `scoreform publication`; run
 `scoreform publication help` for their exact grammar.
+
+Publication and reading remain separate boundaries. A Core-backed consumer first
+authorizes access and verifies the canonical Publication Record path and digest
+through Core, then passes the already obtained immutable bytes to
+`scoreform.academic_result_reader`. The reader does not discover publications,
+choose a current head, inspect withdrawal state, or replace Core verification.

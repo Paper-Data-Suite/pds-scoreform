@@ -198,6 +198,7 @@ def validate_wheel(path: Path, version: str) -> None:
         )
         required_modules = {
             "scoreform/pds_publication.py",
+            "scoreform/academic_result_reader.py",
             "scoreform/academic_result_publication.py",
             "scoreform/cli_publication.py",
             "scoreform/menu_publication.py",
@@ -230,6 +231,7 @@ def validate_sdist(path: Path, version: str) -> None:
         root = f"scoreform-{version}"
         required_members = {
             f"{root}/scoreform/pds_publication.py",
+            f"{root}/scoreform/academic_result_reader.py",
             f"{root}/scoreform/academic_result_publication.py",
             f"{root}/scoreform/cli_publication.py",
             f"{root}/scoreform/menu_publication.py",
