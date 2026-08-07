@@ -204,6 +204,13 @@ question, and response lookup without Core discovery, filesystem access, attempt
 selection, grading, or portfolio policy. See
 [`docs/academic_result_reader.md`](docs/academic_result_reader.md).
 
+Release readiness now also runs the complete academic-result producer lifecycle
+from the clean installed ScoreForm wheel against the exact Core 0.6 baseline:
+native synthetic results, registration, immutable manifests, publication,
+catalog verification, public reading, supersession, withdrawal, and registry
+audit. See
+[`docs/installed_producer_acceptance.md`](docs/installed_producer_acceptance.md).
+
 With the repository development environment active and ScoreForm installed in
 it, run `scoreform` to launch the teacher menu. The direct-source compatibility
 form is `python .\main.py menu`; bare `python .\main.py` prints help rather than

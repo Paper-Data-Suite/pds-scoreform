@@ -31,7 +31,12 @@ function Invoke-Checked {
 }
 
 function Test-InstalledArtifact {
-    param([string]$Venv, [string]$Artifact, [string]$Label)
+    param(
+        [string]$Venv,
+        [string]$Artifact,
+        [string]$Label,
+        [switch]$RunProducerAcceptance
+    )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
     $Workspace = Join-Path $Root "$Label-workspace-must-not-exist"
@@ -92,6 +97,24 @@ function Test-InstalledArtifact {
         if (Test-Path -LiteralPath $Workspace) {
             throw "$Label import/help/version/profile discovery created workspace data."
         }
+
+        if ($RunProducerAcceptance) {
+            $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
+            if (Test-Path -LiteralPath $AcceptanceWorkspace) {
+                throw "$Label producer-acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $AcceptanceWorkspace
+            Invoke-Checked "Run $Label installed producer acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_producer_acceptance.py") `
+                    --workspace $AcceptanceWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $AcceptanceWorkspace -PathType Container)) {
+                throw "$Label producer acceptance did not create its expected workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
     }
     finally {
         Pop-Location
@@ -109,7 +132,8 @@ try {
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "wheel-venv") `
         -Artifact $Wheel[0].FullName `
-        -Label "wheel"
+        -Label "wheel" `
+        -RunProducerAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `

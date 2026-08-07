@@ -6,7 +6,9 @@ ScoreForm-owned contract, immutable workspace generation, and explicit Core
 publication orchestration are implemented. Consumer-neutral parsing and exact
 native-result lookup for already obtained canonical bytes are exposed separately
 by [`academic_result_reader.md`](academic_result_reader.md); the reader adds no
-serialized fields or second schema.
+serialized fields or second schema. Clean-wheel integration of those contracts
+is verified by
+[`installed_producer_acceptance.md`](installed_producer_acceptance.md).
 Its stable production identity and immutable revision-transition rules are in
 [`publication_revision_policy.md`](publication_revision_policy.md). The policy
 is active and pure; durable generation/replay, Core publication, supersession,

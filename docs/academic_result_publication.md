@@ -64,3 +64,8 @@ authorizes access and verifies the canonical Publication Record path and digest
 through Core, then passes the already obtained immutable bytes to
 `scoreform.academic_result_reader`. The reader does not discover publications,
 choose a current head, inspect withdrawal state, or replace Core verification.
+
+The integrated installed lifecycle is exercised from the clean ScoreForm wheel by
+[`installed_producer_acceptance.md`](installed_producer_acceptance.md), including
+exact replay, successor supersession, final withdrawal, catalog reconciliation,
+and Core registry audit.
