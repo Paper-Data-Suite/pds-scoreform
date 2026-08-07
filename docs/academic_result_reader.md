@@ -188,5 +188,7 @@ The reader is ordinary package code and requires no new entry point or dependenc
 Wheel and source-distribution validation require the module to be present, and
 clean-install validation imports it without creating workspace or registry state.
 
-The complete clean-wheel create/register/publish/read/supersede-or-withdraw
-producer lifecycle remains assigned to issue #169.
+The complete clean-wheel producer lifecycle is verified by
+[`installed_producer_acceptance.md`](installed_producer_acceptance.md). That
+acceptance feeds Core-verified immutable bytes through this public reader while
+preserving separate attempts and keeping consumer policy out of ScoreForm.
