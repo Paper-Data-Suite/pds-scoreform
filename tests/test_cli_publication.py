@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+import scoreform.cli_publication as cli_publication_module
+from scoreform.academic_result_publication import (
+    ScoreFormAcademicResultPublicationConflictError,
+    ScoreFormAcademicResultPublicationIntegrityError,
+    ScoreFormAcademicResultPublicationValidationError,
+    ScoreFormAcademicResultPublicationWriteError,
+)
 from scoreform.cli import main
 from scoreform.cli_publication import run_publication
 
@@ -61,3 +68,27 @@ def test_publication_parser_rejects_invalid_input(args, tmp_path, monkeypatch, c
     assert run_publication(args) == 1
     assert "Error:" in capsys.readouterr().out
     assert not (tmp_path / "registry").exists()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ScoreFormAcademicResultPublicationValidationError("validation"),
+        ScoreFormAcademicResultPublicationConflictError("conflict"),
+        ScoreFormAcademicResultPublicationIntegrityError("integrity"),
+        ScoreFormAcademicResultPublicationWriteError("write"),
+    ],
+)
+def test_explicit_catalog_cli_failures_are_traceback_free(
+    tmp_path, monkeypatch, capsys, error
+):
+    monkeypatch.setenv("SCOREFORM_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        cli_publication_module,
+        "rebuild_full_academic_catalog",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+    assert run_publication(["rebuild-catalog"]) == 1
+    output = capsys.readouterr().out
+    assert "Error:" in output
+    assert "Traceback" not in output

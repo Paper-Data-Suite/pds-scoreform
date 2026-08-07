@@ -8,9 +8,12 @@ from pathlib import Path
 import pytest
 from pds_core.academic_catalog import (
     AcademicCatalogBuildError,
+    AcademicCatalogCompatibilityError,
     AcademicCatalogConflictError,
+    AcademicCatalogIntegrityError,
     AcademicCatalogReadError,
     AcademicCatalogSourceError,
+    AcademicCatalogValidationError,
 )
 from pds_core.publication_compatibility import PublicationCompatibilityResult
 from pds_core.publication_storage import (
@@ -35,6 +38,7 @@ from scoreform.academic_result_publication import (
     ScoreFormAcademicResultPublicationConflictError,
     ScoreFormAcademicResultPublicationIntegrityError,
     ScoreFormAcademicResultPublicationPartialSuccessError,
+    ScoreFormAcademicResultPublicationValidationError,
     ScoreFormAcademicResultPublicationWriteError,
     load_scoreform_publication_series_status,
     publish_scoreform_academic_results,
@@ -412,6 +416,7 @@ def test_public_result_models_are_frozen_slotted_and_validate_types(tmp_path):
         manifest=state.producer_head, canonical_state="confirmed",
         catalog_rebuild_attempted=True, catalog_replacement_completed=True,
         catalog_verification_completed=True, recommended_next_action="none",
+        catalog_build=result.catalog.build,
     )
     assert not hasattr(partial, "__dict__")
     with pytest.raises(FrozenInstanceError):
@@ -493,7 +498,7 @@ def test_catalog_lock_is_never_removed_by_scoreform(tmp_path):
     lock = academic_catalog_lock_path(tmp_path)
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("owned elsewhere", encoding="utf-8")
-    with pytest.raises(ScoreFormAcademicResultPublicationWriteError):
+    with pytest.raises(ScoreFormAcademicResultPublicationConflictError):
         rebuild_full_academic_catalog(tmp_path)
     assert lock.read_text(encoding="utf-8") == "owned elsewhere"
 
@@ -1129,3 +1134,458 @@ def test_withdrawal_reason_is_not_printed_by_routine_cli_or_menu(
     cli_publication._print_withdrawal_result(result)
     menu_publication._summary(result.publication, result.withdrawal, result.catalog.publication)
     assert private_reason not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "dimension",
+    [
+        "producer_contract",
+        "work_kind",
+        "no_sources",
+        "two_sources",
+        "wrong_source_kind",
+        "wrong_source_id",
+        "versioned_source",
+        "cancelled",
+    ],
+)
+def test_incompatible_current_registration_fails_before_core_write(
+    tmp_path, monkeypatch, dimension
+):
+    paths, manifest = _prepared(tmp_path)
+    registration = publication_module.load_current_academic_work_registration(
+        tmp_path, paths.work_ref
+    )
+    assert registration is not None
+    expected_source = registration.source_records[0]
+    if dimension == "producer_contract":
+        incompatible = replace(
+            registration,
+            producer_contract_version="other_academic_work_v1",
+        )
+    elif dimension == "work_kind":
+        incompatible = replace(registration, work_kind="assessment")
+    elif dimension == "no_sources":
+        incompatible = replace(registration, source_records=())
+    elif dimension == "two_sources":
+        incompatible = replace(
+            registration,
+            source_records=(
+                expected_source,
+                ModuleRecordRef("scoreform", "assignment", "other", None),
+            ),
+        )
+    elif dimension == "wrong_source_kind":
+        incompatible = replace(
+            registration,
+            source_records=(
+                ModuleRecordRef("scoreform", "other", "quiz1", None),
+            ),
+        )
+    elif dimension == "wrong_source_id":
+        incompatible = replace(
+            registration,
+            source_records=(
+                ModuleRecordRef("scoreform", "assignment", "other", None),
+            ),
+        )
+    elif dimension == "versioned_source":
+        incompatible = replace(
+            registration,
+            source_records=(
+                ModuleRecordRef("scoreform", "assignment", "quiz1", "source_v1"),
+            ),
+        )
+    else:
+        incompatible = replace(registration, lifecycle="cancelled")
+
+    monkeypatch.setattr(
+        publication_module,
+        "load_current_academic_work_registration",
+        lambda *_args, **_kwargs: incompatible,
+    )
+    core_called = False
+    catalog_called = False
+
+    def forbidden_core(*_args, **_kwargs):
+        nonlocal core_called
+        core_called = True
+        raise AssertionError("Core publication must not run")
+
+    def forbidden_catalog(*_args, **_kwargs):
+        nonlocal catalog_called
+        catalog_called = True
+        raise AssertionError("Catalog rebuild must not run")
+
+    monkeypatch.setattr(
+        publication_module, "publish_manifest_revision", forbidden_core
+    )
+    monkeypatch.setattr(
+        publication_module, "rebuild_academic_catalog", forbidden_catalog
+    )
+    expected_error = (
+        ScoreFormAcademicResultPublicationConflictError
+        if dimension == "cancelled"
+        else ScoreFormAcademicResultPublicationIntegrityError
+    )
+    with pytest.raises(expected_error):
+        publish_scoreform_academic_results(
+            tmp_path,
+            "class1",
+            "quiz1",
+            manifest_revision=manifest.revision,
+        )
+    assert not core_called
+    assert not catalog_called
+    assert not (tmp_path / "registry/publications").exists()
+    assert paths.academic_result_manifests_dir.joinpath("1.json").exists()
+
+
+@pytest.mark.parametrize(
+    "dimension",
+    ["source_record", "manifest_contract", "capabilities", "manifest_path"],
+)
+def test_canonical_publication_contract_is_strict_on_all_read_and_write_surfaces(
+    tmp_path, monkeypatch, dimension
+):
+    _paths, manifest = _prepared(tmp_path)
+    created = publish_scoreform_academic_results(
+        tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+    )
+    publication = created.publication
+    if dimension == "source_record":
+        contradictory = replace(
+            publication,
+            source_record=ModuleRecordRef(
+                "scoreform", "assignment", "quiz1", None
+            ),
+        )
+    elif dimension == "manifest_contract":
+        contradictory = replace(
+            publication,
+            manifest_contract_version="other_manifest_v1",
+        )
+    elif dimension == "capabilities":
+        contradictory = replace(publication, capabilities=("points",))
+    else:
+        contradictory = replace(
+            publication,
+            manifest_path=publication_module.academic_result_manifest_relative_path(
+                publication.work, 2
+            ),
+        )
+
+    monkeypatch.setattr(
+        publication_module,
+        "get_canonical_publication_record",
+        lambda *_args, **_kwargs: contradictory,
+    )
+    with pytest.raises(ScoreFormAcademicResultPublicationIntegrityError):
+        publication_module.load_scoreform_publication(
+            tmp_path, "class1", "quiz1", publication.publication_id
+        )
+
+    monkeypatch.setattr(
+        publication_module,
+        "list_publication_record_set",
+        lambda *_args, **_kwargs: (contradictory,),
+    )
+    with pytest.raises(ScoreFormAcademicResultPublicationIntegrityError):
+        load_scoreform_publication_series_status(
+            tmp_path, "class1", "quiz1"
+        )
+
+    core_withdraw_called = False
+
+    def forbidden_withdraw(*_args, **_kwargs):
+        nonlocal core_withdraw_called
+        core_withdraw_called = True
+        raise AssertionError("Withdrawal must not run")
+
+    monkeypatch.setattr(
+        publication_module, "withdraw_publication", forbidden_withdraw
+    )
+    with pytest.raises(ScoreFormAcademicResultPublicationIntegrityError):
+        withdraw_scoreform_academic_result_publication(
+            tmp_path,
+            "class1",
+            "quiz1",
+            publication_id=publication.publication_id,
+            reason="Should not run",
+        )
+    assert not core_withdraw_called
+
+    assert export_scoreform_result_models(
+        (_result(student_id="student2", answer="B"),),
+        workspace_root=tmp_path,
+    ).succeeded
+    successor = generate_academic_result_manifest(
+        tmp_path, "class1", "quiz1"
+    )
+    core_supersede_called = False
+
+    def forbidden_supersede(*_args, **_kwargs):
+        nonlocal core_supersede_called
+        core_supersede_called = True
+        raise AssertionError("Supersession must not run")
+
+    monkeypatch.setattr(
+        publication_module, "supersede_manifest_revision", forbidden_supersede
+    )
+    with pytest.raises(ScoreFormAcademicResultPublicationIntegrityError):
+        supersede_scoreform_academic_results(
+            tmp_path,
+            "class1",
+            "quiz1",
+            manifest_revision=successor.revision,
+            expected_current_publication_id=publication.publication_id,
+        )
+    assert not core_supersede_called
+
+
+def test_preexisting_catalog_does_not_imply_replacement_after_publish_failure(
+    tmp_path, monkeypatch
+):
+    _paths, manifest = _prepared(tmp_path)
+    rebuild_full_academic_catalog(tmp_path)
+    catalog_path = tmp_path / "registry/catalog.sqlite"
+    assert catalog_path.is_file()
+
+    def fail(_root):
+        raise AcademicCatalogConflictError("injected lock")
+
+    monkeypatch.setattr(publication_module, "rebuild_academic_catalog", fail)
+    with pytest.raises(
+        ScoreFormAcademicResultPublicationPartialSuccessError
+    ) as caught:
+        publish_scoreform_academic_results(
+            tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+        )
+    state = caught.value.state
+    assert catalog_path.is_file()
+    assert state.catalog_rebuild_attempted
+    assert not state.catalog_replacement_completed
+    assert not state.catalog_verification_completed
+    assert state.catalog_build is None
+    assert isinstance(state.catalog_error, AcademicCatalogConflictError)
+
+
+def test_preexisting_catalog_does_not_imply_replacement_after_withdrawal_failure(
+    tmp_path, monkeypatch
+):
+    _paths, manifest = _prepared(tmp_path)
+    publication = publish_scoreform_academic_results(
+        tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+    ).publication
+    catalog_path = tmp_path / "registry/catalog.sqlite"
+    assert catalog_path.is_file()
+
+    def fail(_root):
+        raise AcademicCatalogConflictError("injected lock")
+
+    monkeypatch.setattr(publication_module, "rebuild_academic_catalog", fail)
+    with pytest.raises(
+        ScoreFormAcademicResultPublicationPartialSuccessError
+    ) as caught:
+        withdraw_scoreform_academic_result_publication(
+            tmp_path,
+            "class1",
+            "quiz1",
+            publication_id=publication.publication_id,
+            reason="Durable withdrawal",
+        )
+    state = caught.value.state
+    assert load_publication_withdrawal(
+        tmp_path, publication.publication_id
+    ) is not None
+    assert catalog_path.is_file()
+    assert state.catalog_rebuild_attempted
+    assert not state.catalog_replacement_completed
+    assert state.catalog_build is None
+
+
+@pytest.mark.parametrize("stage", ["query_failure", "row_contradiction"])
+def test_successful_catalog_replacement_is_retained_when_later_verification_fails(
+    tmp_path, monkeypatch, stage
+):
+    _paths, manifest = _prepared(tmp_path)
+    if stage == "query_failure":
+        monkeypatch.setattr(
+            publication_module,
+            "query_publication_catalog",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AcademicCatalogReadError("injected query failure")
+            ),
+        )
+    else:
+        monkeypatch.setattr(
+            publication_module,
+            "query_publication_catalog",
+            lambda *_args, **_kwargs: (),
+        )
+    with pytest.raises(
+        ScoreFormAcademicResultPublicationPartialSuccessError
+    ) as caught:
+        publish_scoreform_academic_results(
+            tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+        )
+    state = caught.value.state
+    assert state.catalog_rebuild_attempted
+    assert state.catalog_replacement_completed
+    assert not state.catalog_verification_completed
+    assert state.catalog_build is not None
+    assert state.catalog_error is not None
+
+
+def test_healthy_manifest_is_verified_before_withdrawal(tmp_path, monkeypatch):
+    _paths, manifest = _prepared(tmp_path)
+    publication = publish_scoreform_academic_results(
+        tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+    ).publication
+    real_verify = publication_module.verify_publication_manifest
+    calls = 0
+
+    def observe(root, record):
+        nonlocal calls
+        calls += 1
+        return real_verify(root, record)
+
+    monkeypatch.setattr(
+        publication_module, "verify_publication_manifest", observe
+    )
+    result = withdraw_scoreform_academic_result_publication(
+        tmp_path,
+        "class1",
+        "quiz1",
+        publication_id=publication.publication_id,
+        reason="Verified evidence",
+    )
+    assert calls == 1
+    assert result.manifest_verification == "verified"
+
+
+@pytest.mark.parametrize(
+    ("damage", "expected_status"),
+    [
+        ("digest", "digest_mismatch_or_unsafe"),
+        ("missing", "missing"),
+    ],
+)
+def test_damaged_or_missing_manifest_withdrawal_is_nonblocking_and_private(
+    tmp_path, capsys, damage, expected_status
+):
+    paths, manifest = _prepared(tmp_path)
+    publication = publish_scoreform_academic_results(
+        tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+    ).publication
+    manifest_path = paths.academic_result_manifests_dir / "1.json"
+    publication_path = (
+        tmp_path
+        / "registry/publications"
+        / f"{publication.publication_id}.json"
+    )
+    publication_bytes = publication_path.read_bytes()
+    if damage == "digest":
+        manifest_path.write_bytes(b"damaged")
+    else:
+        manifest_path.unlink()
+
+    result = withdraw_scoreform_academic_result_publication(
+        tmp_path,
+        "class1",
+        "quiz1",
+        publication_id=publication.publication_id,
+        reason="Evidence unavailable",
+    )
+    assert result.manifest_verification == expected_status
+    assert publication_path.read_bytes() == publication_bytes
+    if damage == "digest":
+        assert manifest_path.read_bytes() == b"damaged"
+    else:
+        assert not manifest_path.exists()
+
+    cli_publication._print_withdrawal_result(result)
+    output = capsys.readouterr().out
+    assert "could not be verified" in output
+    assert str(tmp_path) not in output
+    assert "Traceback" not in output
+
+
+@pytest.mark.parametrize(
+    ("core_error", "local_error"),
+    [
+        (
+            AcademicCatalogValidationError("validation"),
+            ScoreFormAcademicResultPublicationValidationError,
+        ),
+        (
+            AcademicCatalogConflictError("conflict"),
+            ScoreFormAcademicResultPublicationConflictError,
+        ),
+        (
+            AcademicCatalogSourceError("source"),
+            ScoreFormAcademicResultPublicationIntegrityError,
+        ),
+        (
+            AcademicCatalogIntegrityError("integrity"),
+            ScoreFormAcademicResultPublicationIntegrityError,
+        ),
+        (
+            AcademicCatalogCompatibilityError("compatibility"),
+            ScoreFormAcademicResultPublicationIntegrityError,
+        ),
+        (
+            AcademicCatalogReadError("read"),
+            ScoreFormAcademicResultPublicationIntegrityError,
+        ),
+        (
+            AcademicCatalogBuildError("build"),
+            ScoreFormAcademicResultPublicationWriteError,
+        ),
+    ],
+)
+def test_explicit_catalog_errors_are_normalized(
+    tmp_path, monkeypatch, core_error, local_error
+):
+    monkeypatch.setattr(
+        publication_module,
+        "rebuild_academic_catalog",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(core_error),
+    )
+    with pytest.raises(local_error) as caught:
+        rebuild_full_academic_catalog(tmp_path)
+    assert caught.value.__cause__ is core_error
+
+
+def test_series_state_rejects_contradictory_public_invariants(tmp_path):
+    _paths, manifest = _prepared(tmp_path)
+    result = publish_scoreform_academic_results(
+        tmp_path, "class1", "quiz1", manifest_revision=manifest.revision
+    )
+    state = load_scoreform_publication_series_status(
+        tmp_path, "class1", "quiz1"
+    )
+    with pytest.raises(ValueError):
+        replace(state, producer_revisions=(1, 1))
+    with pytest.raises(ValueError):
+        replace(state, producer_head=None)
+    with pytest.raises(ValueError):
+        replace(
+            state,
+            core_head=None,
+            current_selectable_publication=None,
+        )
+    partial = PublicationPartialSuccessState(
+        operation="publish",
+        publication=result.publication,
+        withdrawal=None,
+        manifest=state.producer_head,
+        canonical_state="confirmed",
+        catalog_rebuild_attempted=True,
+        catalog_replacement_completed=True,
+        catalog_verification_completed=False,
+        recommended_next_action="reconcile",
+        catalog_build=result.catalog.build,
+    )
+    with pytest.raises(ValueError):
+        replace(partial, catalog_build=None)

@@ -32,15 +32,22 @@ not allocate repeated manifest revisions.
 
 Withdrawal targets one exact publication ID and delegates creation of the
 separate immutable withdrawal record to Core. ScoreForm never rewrites the
-publication, its manifest, or native assignment/results files. Withdrawal reason
-text is accepted by write workflows but is not echoed by the CLI or menu.
+publication, its manifest, or native assignment/results files. Before withdrawal,
+ScoreForm attempts Core digest/path verification of the bound manifest. Healthy,
+missing, damaged/unsafe, and unreadable evidence are reported as privacy-safe
+diagnostic states; missing or damaged evidence does not block withdrawal and is
+never repaired automatically. Withdrawal reason text is accepted by write
+workflows but is not echoed by the CLI or menu.
 
 Every successful or exactly replayed write reloads canonical state, validates the
 complete series, verifies the exact manifest through Core, loads the referenced
 registration revision, evaluates the installed producer profile, rebuilds the
 full Core catalog, and compares the exact catalog row with canonical state.
 Catalog or post-write verification failures are partial success: durable state is
-not rolled back, and the exact operation can be replayed to reconcile it.
+not rolled back, and the exact operation can be replayed to reconcile it. Partial
+state tracks whether the rebuild was attempted, whether Core actually returned a
+new build result, and whether the exact row was verified; the mere existence of
+an older `catalog.sqlite` never counts as successful replacement.
 
 The frozen, slotted status result distinguishes producer head, Core chain head,
 Core-head withdrawal, current selectable publication, and derived-catalog state.

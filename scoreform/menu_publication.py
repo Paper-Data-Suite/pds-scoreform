@@ -195,6 +195,11 @@ def launch_academic_result_publications_menu() -> int:
                 withdrawal_result.withdrawal,
                 withdrawal_result.catalog.publication,
             )
+            if withdrawal_result.manifest_verification != "verified":
+                print(
+                    "Warning: the publication was withdrawn, but its bound "
+                    "manifest could not be verified. No producer bytes were changed."
+                )
             return 0
         if action == "8":
             if input("Type REBUILD to confirm: ").strip() != "REBUILD":
@@ -209,7 +214,24 @@ def launch_academic_result_publications_menu() -> int:
         return 0
     except ScoreFormAcademicResultPublicationPartialSuccessError as error:
         print(f"Error: {error}")
-        print("Warning: durable state may remain and was not rolled back.")
+        if error.state.canonical_state_confirmed:
+            print(
+                "Warning: canonical Core state is confirmed, but later "
+                "verification or catalog reconciliation failed."
+            )
+        else:
+            print(
+                "Warning: canonical Core state may already be durable; "
+                "reload exact state before retrying."
+            )
+        if (
+            error.state.withdrawal_manifest_verification is not None
+            and error.state.withdrawal_manifest_verification != "verified"
+        ):
+            print(
+                "Warning: the bound manifest could not be verified. "
+                "No producer bytes were changed."
+            )
         print(f"Recommended next action: {error.state.recommended_next_action}")
         return 1
     except (ScoreFormAcademicResultPublicationError, AcademicCatalogError, ValueError, TypeError) as error:

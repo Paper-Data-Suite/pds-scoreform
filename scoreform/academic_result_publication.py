@@ -12,9 +12,16 @@ from pathlib import Path
 from typing import Literal, NoReturn, cast
 
 from pds_core.academic_catalog import (
+    AcademicCatalogBuildError,
     AcademicCatalogBuildResult,
+    AcademicCatalogCompatibilityError,
+    AcademicCatalogConflictError,
     AcademicCatalogError,
+    AcademicCatalogIntegrityError,
     AcademicCatalogNotFoundError,
+    AcademicCatalogReadError,
+    AcademicCatalogSourceError,
+    AcademicCatalogValidationError,
     CatalogPublication,
     PublicationCatalogQuery,
     load_academic_catalog_metadata,
@@ -38,6 +45,9 @@ from pds_core.publication_records import (
     validate_publication_record_series,
 )
 from pds_core.publication_storage import (
+    PublicationManifestError,
+    PublicationManifestIntegrityError,
+    PublicationManifestNotFoundError,
     PublicationStorageError,
     list_publication_record_set,
     verify_publication_manifest,
@@ -59,7 +69,7 @@ from pds_core.registry_services import (
     supersede_manifest_revision,
     withdraw_publication,
 )
-from pds_core.routing_models import ModuleWorkRef
+from pds_core.routing_models import ModuleRecordRef, ModuleWorkRef
 
 from scoreform.academic_result_manifest_generation import (
     AcademicResultManifestGenerationResult,
@@ -70,7 +80,15 @@ from scoreform.academic_result_manifest_generation import (
     list_academic_result_manifest_revisions,
     load_academic_result_manifest_revision,
 )
-from scoreform.pds_contract import ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION
+from scoreform.academic_work_registration import (
+    SCOREFORM_ACADEMIC_WORK_KIND,
+    SCOREFORM_ASSIGNMENT_SOURCE_RECORD_KIND,
+)
+from scoreform.pds_contract import (
+    ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+    SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
+    SCOREFORM_MODULE_ID,
+)
 from scoreform.pds_publication import get_publication_producer_profile
 from scoreform.publication_revision_policy import (
     SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND,
@@ -78,12 +96,25 @@ from scoreform.publication_revision_policy import (
     PublicationSupersessionRequirement,
     require_publication_supersession,
 )
-from scoreform.work_paths import scoreform_work_ref
+from scoreform.work_paths import (
+    academic_result_manifest_relative_path,
+    scoreform_work_ref,
+)
 
 SCOREFORM_PUBLICATION_CAPABILITIES = (
     "multiple_attempts",
     "points",
     "question_evidence",
+)
+
+WithdrawalManifestVerification = Literal[
+    "verified",
+    "missing",
+    "digest_mismatch_or_unsafe",
+    "unreadable",
+]
+_WITHDRAWAL_MANIFEST_VERIFICATIONS = frozenset(
+    {"verified", "missing", "digest_mismatch_or_unsafe", "unreadable"}
 )
 
 
@@ -177,18 +208,64 @@ class ScoreFormPublicationSeriesState:
             raise TypeError("core_head_withdrawal must be a PublicationWithdrawal or None.")
         if not isinstance(self.derived_catalog_available, bool):
             raise TypeError("derived_catalog_available must be Boolean.")
-        if any(not isinstance(item, CatalogPublication) for item in self.derived_catalog_rows):
-            raise TypeError("derived_catalog_rows must contain CatalogPublication values.")
+        if any(
+            not isinstance(item, CatalogPublication)
+            for item in self.derived_catalog_rows
+        ):
+            raise TypeError(
+                "derived_catalog_rows must contain CatalogPublication values."
+            )
+        if tuple(sorted(set(self.producer_revisions))) != self.producer_revisions:
+            raise ValueError(
+                "producer_revisions must be unique and strictly ascending."
+            )
+        if (self.producer_head is None) != (not self.producer_revisions):
+            raise ValueError(
+                "producer_head presence must agree with producer_revisions."
+            )
+        if (
+            self.producer_head is not None
+            and self.producer_head.revision != self.producer_revisions[-1]
+        ):
+            raise ValueError(
+                "producer_head must be the greatest producer revision."
+            )
+        try:
+            validated_series = validate_publication_record_series(self.publications)
+        except PublicationRecordError as error:
+            raise ValueError("publications do not form a valid Core series.") from error
+        for publication in validated_series:
+            _validate_scoreform_publication_record(
+                publication,
+                expected_work=self.work,
+            )
+        publication_ids = {
+            publication.publication_id for publication in self.publications
+        }
+        withdrawal_ids = tuple(
+            withdrawal.publication_id for withdrawal in self.withdrawals
+        )
+        if len(set(withdrawal_ids)) != len(withdrawal_ids):
+            raise ValueError("withdrawals must not contain duplicate publication IDs.")
+        if not set(withdrawal_ids).issubset(publication_ids):
+            raise ValueError("withdrawals must belong to publications in the series.")
+        expected_head = _series_head(self.publications)
+        if self.core_head != expected_head:
+            raise ValueError("core_head disagrees with the canonical supersession chain.")
         if self.core_head_withdrawal is not None and (
             self.core_head is None
             or self.core_head_withdrawal.publication_id != self.core_head.publication_id
         ):
             raise ValueError("core_head_withdrawal must belong to core_head.")
         expected_selectable = (
-            self.core_head if self.core_head is not None and self.core_head_withdrawal is None else None
+            self.core_head
+            if self.core_head is not None and self.core_head_withdrawal is None
+            else None
         )
         if self.current_selectable_publication != expected_selectable:
-            raise ValueError("current_selectable_publication disagrees with Core-head state.")
+            raise ValueError(
+                "current_selectable_publication disagrees with Core-head state."
+            )
 
     @property
     def head(self) -> PublicationRecord | None:
@@ -256,6 +333,7 @@ class AcademicResultWithdrawalResult:
     publication: PublicationRecord
     withdrawal: PublicationWithdrawal
     catalog: PublicationCatalogReconciliation
+    manifest_verification: WithdrawalManifestVerification
 
     def __post_init__(self) -> None:
         if self.disposition not in {"created", "existing"}:
@@ -266,6 +344,8 @@ class AcademicResultWithdrawalResult:
             raise TypeError("withdrawal must be a PublicationWithdrawal.")
         if not isinstance(self.catalog, PublicationCatalogReconciliation):
             raise TypeError("catalog must be a PublicationCatalogReconciliation.")
+        if self.manifest_verification not in _WITHDRAWAL_MANIFEST_VERIFICATIONS:
+            raise ValueError("manifest_verification is invalid.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,6 +361,9 @@ class PublicationPartialSuccessState:
     catalog_replacement_completed: bool
     catalog_verification_completed: bool
     recommended_next_action: str
+    catalog_build: AcademicCatalogBuildResult | None = None
+    catalog_error: Exception | None = None
+    withdrawal_manifest_verification: WithdrawalManifestVerification | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.operation, str) or not self.operation:
@@ -304,6 +387,24 @@ class PublicationPartialSuccessState:
             raise ValueError("catalog replacement requires a rebuild attempt.")
         if self.catalog_verification_completed and not self.catalog_replacement_completed:
             raise ValueError("catalog verification requires completed replacement.")
+        if self.catalog_replacement_completed and self.catalog_build is None:
+            raise ValueError(
+                "completed catalog replacement requires its build result."
+            )
+        if self.catalog_build is not None and not isinstance(
+            self.catalog_build, AcademicCatalogBuildResult
+        ):
+            raise TypeError("catalog_build must be an AcademicCatalogBuildResult or None.")
+        if self.catalog_error is not None and not isinstance(
+            self.catalog_error, Exception
+        ):
+            raise TypeError("catalog_error must be an Exception or None.")
+        if (
+            self.withdrawal_manifest_verification is not None
+            and self.withdrawal_manifest_verification
+            not in _WITHDRAWAL_MANIFEST_VERIFICATIONS
+        ):
+            raise ValueError("withdrawal_manifest_verification is invalid.")
         if not isinstance(self.recommended_next_action, str) or not self.recommended_next_action:
             raise ValueError("recommended_next_action must be nonempty.")
 
@@ -337,6 +438,41 @@ def _work(class_id: str, assignment_id: str) -> ModuleWorkRef:
         raise ScoreFormAcademicResultPublicationValidationError(str(error)) from error
 
 
+def _validate_scoreform_publication_record(
+    publication: PublicationRecord,
+    *,
+    expected_work: ModuleWorkRef,
+) -> PublicationRecord:
+    if not isinstance(publication, PublicationRecord):
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Canonical publication has the wrong model type."
+        )
+    try:
+        expected_path = academic_result_manifest_relative_path(
+            expected_work,
+            publication.record_set_revision,
+        )
+    except (TypeError, ValueError) as error:
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Canonical publication has an invalid producer revision."
+        ) from error
+    if (
+        publication.work != expected_work
+        or publication.publication_kind
+        != SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND
+        or publication.record_set_id != SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID
+        or publication.source_record is not None
+        or publication.manifest_contract_version
+        != ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION
+        or publication.capabilities != SCOREFORM_PUBLICATION_CAPABILITIES
+        or publication.manifest_path != expected_path
+    ):
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Canonical publication contradicts ScoreForm's exact production contract."
+        )
+    return publication
+
+
 def _series_head(records: tuple[PublicationRecord, ...]) -> PublicationRecord | None:
     try:
         series = validate_publication_record_series(records)
@@ -359,7 +495,7 @@ def _series_head(records: tuple[PublicationRecord, ...]) -> PublicationRecord | 
 
 def _load_series(root: str | Path, work: ModuleWorkRef) -> tuple[PublicationRecord, ...]:
     try:
-        return cast(
+        records = cast(
             tuple[PublicationRecord, ...],
             list_publication_record_set(
                 root,
@@ -370,6 +506,12 @@ def _load_series(root: str | Path, work: ModuleWorkRef) -> tuple[PublicationReco
         )
     except PublicationStorageError as error:
         raise ScoreFormAcademicResultPublicationIntegrityError(str(error)) from error
+    for publication in records:
+        _validate_scoreform_publication_record(
+            publication,
+            expected_work=work,
+        )
+    return records
 
 
 def _catalog_query(work: ModuleWorkRef) -> PublicationCatalogQuery:
@@ -448,15 +590,10 @@ def load_scoreform_publication(
         withdrawal = get_canonical_publication_withdrawal(workspace_root, publication_id)
     except RegistryServiceError as error:
         _raise_registry(error)
-    if (
-        publication.work != work
-        or publication.publication_kind
-        != SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND
-        or publication.record_set_id != SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID
-    ):
-        raise ScoreFormAcademicResultPublicationValidationError(
-            "Publication does not belong to the selected ScoreForm academic-result series."
-        )
+    _validate_scoreform_publication_record(
+        publication,
+        expected_work=work,
+    )
     return publication, withdrawal
 
 
@@ -493,6 +630,35 @@ def _current_registration(
         raise ScoreFormAcademicResultPublicationNotFoundError(
             "No current Academic Work Registration exists."
         )
+    if not isinstance(registration, AcademicWorkRegistration):
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Current Academic Work Registration has the wrong model type."
+        )
+    expected_source = ModuleRecordRef(
+        module_id=SCOREFORM_MODULE_ID,
+        record_kind=SCOREFORM_ASSIGNMENT_SOURCE_RECORD_KIND,
+        record_id=work.work_id,
+        contract_version=None,
+    )
+    if registration.work != work:
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Current Academic Work Registration has the wrong work identity."
+        )
+    if (
+        registration.producer_contract_version
+        != SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION
+    ):
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Current Academic Work Registration has an unsupported producer contract."
+        )
+    if registration.work_kind != SCOREFORM_ACADEMIC_WORK_KIND:
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Current Academic Work Registration has the wrong work kind."
+        )
+    if registration.source_records != (expected_source,):
+        raise ScoreFormAcademicResultPublicationIntegrityError(
+            "Current Academic Work Registration has the wrong assignment source."
+        )
     if registration.lifecycle == "cancelled":
         raise ScoreFormAcademicResultPublicationConflictError(
             "A cancelled Academic Work Registration cannot be published."
@@ -521,6 +687,130 @@ def _request(
         raise ScoreFormAcademicResultPublicationValidationError(str(error)) from error
 
 
+class _CatalogReconciliationFailure(Exception):
+    def __init__(
+        self,
+        error: Exception,
+        *,
+        build: AcademicCatalogBuildResult | None,
+        query_completed: bool,
+    ) -> None:
+        super().__init__(str(error))
+        self.error = error
+        self.build = build
+        self.query_completed = query_completed
+
+
+def _raise_catalog(error: AcademicCatalogError) -> NoReturn:
+    if isinstance(error, AcademicCatalogValidationError):
+        raise ScoreFormAcademicResultPublicationValidationError(str(error)) from error
+    if isinstance(error, AcademicCatalogNotFoundError):
+        raise ScoreFormAcademicResultPublicationNotFoundError(str(error)) from error
+    if isinstance(error, AcademicCatalogConflictError):
+        raise ScoreFormAcademicResultPublicationConflictError(str(error)) from error
+    if isinstance(
+        error,
+        (
+            AcademicCatalogSourceError,
+            AcademicCatalogIntegrityError,
+            AcademicCatalogCompatibilityError,
+            AcademicCatalogReadError,
+        ),
+    ):
+        raise ScoreFormAcademicResultPublicationIntegrityError(str(error)) from error
+    if isinstance(error, AcademicCatalogBuildError):
+        raise ScoreFormAcademicResultPublicationWriteError(str(error)) from error
+    raise ScoreFormAcademicResultPublicationWriteError(str(error)) from error
+
+
+def _reconcile_scoreform_publication_catalog(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    publication: PublicationRecord,
+    withdrawal: PublicationWithdrawal | None,
+) -> PublicationCatalogReconciliation:
+    try:
+        build = rebuild_academic_catalog(workspace_root)
+    except AcademicCatalogError as error:
+        raise _CatalogReconciliationFailure(
+            error,
+            build=None,
+            query_completed=False,
+        ) from error
+    try:
+        rows = query_publication_catalog(workspace_root, _catalog_query(work))
+    except AcademicCatalogError as error:
+        raise _CatalogReconciliationFailure(
+            error,
+            build=build,
+            query_completed=False,
+        ) from error
+    try:
+        matches = tuple(
+            row for row in rows if row.publication_id == publication.publication_id
+        )
+        if len(matches) != 1:
+            raise ScoreFormAcademicResultPublicationIntegrityError(
+                "Rebuilt catalog does not contain exactly one row for the publication."
+            )
+        row = matches[0]
+        head = _series_head(_load_series(workspace_root, work))
+        expected_head = (
+            head is not None
+            and head.publication_id == publication.publication_id
+        )
+        expected_withdrawn = withdrawal is not None
+        canonical_values = (
+            row.work,
+            row.source_record,
+            row.publication_kind,
+            row.capabilities,
+            row.record_set_id,
+            row.record_set_revision,
+            row.manifest_contract_version,
+            row.manifest_path,
+            row.manifest_digest_algorithm,
+            row.manifest_digest,
+            row.published_at,
+            row.academic_work_registration_revision,
+            row.supersedes_publication_id,
+        )
+        record_values = (
+            publication.work,
+            publication.source_record,
+            publication.publication_kind,
+            publication.capabilities,
+            publication.record_set_id,
+            publication.record_set_revision,
+            publication.manifest_contract_version,
+            publication.manifest_path,
+            publication.manifest_digest_algorithm,
+            publication.manifest_digest,
+            publication.published_at,
+            publication.academic_work_registration_revision,
+            publication.supersedes_publication_id,
+        )
+        if (
+            canonical_values != record_values
+            or row.is_series_head != expected_head
+            or row.is_withdrawn != expected_withdrawn
+            or row.withdrawn_at
+            != (withdrawal.withdrawn_at if withdrawal else None)
+            or row.is_current_selectable
+            != (expected_head and not expected_withdrawn)
+        ):
+            raise ScoreFormAcademicResultPublicationIntegrityError(
+                "Rebuilt catalog row disagrees with canonical publication state."
+            )
+        return PublicationCatalogReconciliation(build=build, publication=row)
+    except Exception as error:
+        raise _CatalogReconciliationFailure(
+            error,
+            build=build,
+            query_completed=True,
+        ) from error
+
+
 def rebuild_scoreform_publication_catalog(
     workspace_root: str | Path,
     class_id: str,
@@ -533,60 +823,23 @@ def rebuild_scoreform_publication_catalog(
         workspace_root, class_id, assignment_id, publication_id
     )
     try:
-        build = rebuild_academic_catalog(workspace_root)
-        rows = query_publication_catalog(workspace_root, _catalog_query(work))
-    except AcademicCatalogError as error:
-        raise ScoreFormAcademicResultPublicationWriteError(str(error)) from error
-    matches = tuple(row for row in rows if row.publication_id == publication_id)
-    if len(matches) != 1:
-        raise ScoreFormAcademicResultPublicationIntegrityError(
-            "Rebuilt catalog does not contain exactly one row for the publication."
+        return _reconcile_scoreform_publication_catalog(
+            workspace_root,
+            work,
+            publication,
+            withdrawal,
         )
-    row = matches[0]
-    head = _series_head(_load_series(workspace_root, work))
-    expected_head = head is not None and head.publication_id == publication_id
-    expected_withdrawn = withdrawal is not None
-    canonical_values = (
-        row.work,
-        row.source_record,
-        row.publication_kind,
-        row.capabilities,
-        row.record_set_id,
-        row.record_set_revision,
-        row.manifest_contract_version,
-        row.manifest_path,
-        row.manifest_digest_algorithm,
-        row.manifest_digest,
-        row.published_at,
-        row.academic_work_registration_revision,
-        row.supersedes_publication_id,
-    )
-    record_values = (
-        publication.work,
-        publication.source_record,
-        publication.publication_kind,
-        publication.capabilities,
-        publication.record_set_id,
-        publication.record_set_revision,
-        publication.manifest_contract_version,
-        publication.manifest_path,
-        publication.manifest_digest_algorithm,
-        publication.manifest_digest,
-        publication.published_at,
-        publication.academic_work_registration_revision,
-        publication.supersedes_publication_id,
-    )
-    if (
-        canonical_values != record_values
-        or row.is_series_head != expected_head
-        or row.is_withdrawn != expected_withdrawn
-        or row.withdrawn_at != (withdrawal.withdrawn_at if withdrawal else None)
-        or row.is_current_selectable != (expected_head and not expected_withdrawn)
-    ):
+    except _CatalogReconciliationFailure as failure:
+        if isinstance(failure.error, AcademicCatalogError):
+            _raise_catalog(failure.error)
+        if isinstance(
+            failure.error,
+            ScoreFormAcademicResultPublicationError,
+        ):
+            raise failure.error from failure
         raise ScoreFormAcademicResultPublicationIntegrityError(
-            "Rebuilt catalog row disagrees with canonical publication state."
-        )
-    return PublicationCatalogReconciliation(build=build, publication=row)
+            "Catalog reconciliation failed after Core rebuilt the catalog."
+        ) from failure.error
 
 
 def rebuild_full_academic_catalog(
@@ -596,7 +849,7 @@ def rebuild_full_academic_catalog(
     try:
         return rebuild_academic_catalog(workspace_root)
     except AcademicCatalogError as error:
-        raise ScoreFormAcademicResultPublicationWriteError(str(error)) from error
+        _raise_catalog(error)
 
 
 def _verify_publication_result(
@@ -610,7 +863,6 @@ def _verify_publication_result(
     supersession_requirement: PublicationSupersessionRequirement | None = None,
 ) -> AcademicResultPublicationResult:
     catalog_attempted = False
-    catalog_installed = False
     try:
         canonical, withdrawal = load_scoreform_publication(
             root, work.class_id, work.work_id, service.publication.publication_id
@@ -644,10 +896,33 @@ def _verify_publication_result(
                 + ", ".join(compatibility.codes)
             )
         catalog_attempted = True
-        catalog = rebuild_scoreform_publication_catalog(
-            root, work.class_id, work.work_id, canonical.publication_id
-        )
-        catalog_installed = True
+        try:
+            catalog = _reconcile_scoreform_publication_catalog(
+                root,
+                work,
+                canonical,
+                withdrawal,
+            )
+        except _CatalogReconciliationFailure as failure:
+            state = PublicationPartialSuccessState(
+                operation=operation,
+                publication=canonical,
+                withdrawal=withdrawal,
+                manifest=stored,
+                canonical_state="confirmed",
+                catalog_rebuild_attempted=True,
+                catalog_replacement_completed=failure.build is not None,
+                catalog_verification_completed=False,
+                recommended_next_action=(
+                    "Replay the exact operation or run rebuild-catalog."
+                ),
+                catalog_build=failure.build,
+                catalog_error=failure.error,
+            )
+            raise ScoreFormAcademicResultPublicationPartialSuccessError(
+                "Core publication is durable but catalog reconciliation failed.",
+                state,
+            ) from failure.error
         return AcademicResultPublicationResult(
             operation=operation,
             disposition=service.disposition,
@@ -662,10 +937,6 @@ def _verify_publication_result(
     except ScoreFormAcademicResultPublicationPartialSuccessError:
         raise
     except Exception as error:
-        if catalog_attempted:
-            catalog_installed = (
-                Path(root) / "registry" / "catalog.sqlite"
-            ).is_file()
         state = PublicationPartialSuccessState(
             operation=operation,
             publication=service.publication,
@@ -673,12 +944,15 @@ def _verify_publication_result(
             manifest=stored,
             canonical_state="confirmed",
             catalog_rebuild_attempted=catalog_attempted,
-            catalog_replacement_completed=catalog_installed,
+            catalog_replacement_completed=False,
             catalog_verification_completed=False,
-            recommended_next_action="Replay the exact operation or run rebuild-catalog.",
+            recommended_next_action=(
+                "Replay the exact operation or run rebuild-catalog."
+            ),
+            catalog_error=error if catalog_attempted else None,
         )
         raise ScoreFormAcademicResultPublicationPartialSuccessError(
-            "Core publication is durable but post-write verification or catalog reconciliation failed.",
+            "Core publication is durable but post-write verification failed.",
             state,
         ) from error
 
@@ -924,6 +1198,11 @@ def republish_scoreform_academic_results_after_withdrawal(
                 catalog_replacement_completed=partial.catalog_replacement_completed,
                 catalog_verification_completed=partial.catalog_verification_completed,
                 recommended_next_action=partial.recommended_next_action,
+                catalog_build=partial.catalog_build,
+                catalog_error=partial.catalog_error,
+                withdrawal_manifest_verification=(
+                    partial.withdrawal_manifest_verification
+                ),
             ),
         ) from error
     except ScoreFormAcademicResultPublicationError as error:
@@ -956,6 +1235,21 @@ def republish_scoreform_academic_results_after_withdrawal(
     )
 
 
+def _verify_manifest_for_withdrawal(
+    workspace_root: str | Path,
+    publication: PublicationRecord,
+) -> WithdrawalManifestVerification:
+    try:
+        verify_publication_manifest(workspace_root, publication)
+        return "verified"
+    except PublicationManifestNotFoundError:
+        return "missing"
+    except PublicationManifestIntegrityError:
+        return "digest_mismatch_or_unsafe"
+    except (PublicationManifestError, OSError):
+        return "unreadable"
+
+
 def withdraw_scoreform_academic_result_publication(
     workspace_root: str | Path,
     class_id: str,
@@ -964,9 +1258,13 @@ def withdraw_scoreform_academic_result_publication(
     publication_id: str,
     reason: str,
 ) -> AcademicResultWithdrawalResult:
-    """Withdraw one exact publication without reading or changing its manifest."""
+    """Withdraw one exact publication without rewriting producer evidence."""
     publication, _ = load_scoreform_publication(
         workspace_root, class_id, assignment_id, publication_id
+    )
+    manifest_verification = _verify_manifest_for_withdrawal(
+        workspace_root,
+        publication,
     )
     catalog_attempted = False
     try:
@@ -975,7 +1273,10 @@ def withdraw_scoreform_academic_result_publication(
             PublicationWithdrawalRequest(publication_id=publication_id, reason=reason),
         )
     except RegistryServiceError as error:
-        _raise_registry(error)
+        _raise_registry(
+            error,
+            withdrawal_manifest_verification=manifest_verification,
+        )
     try:
         canonical, withdrawal = load_scoreform_publication(
             workspace_root, class_id, assignment_id, publication_id
@@ -992,15 +1293,43 @@ def withdraw_scoreform_academic_result_publication(
             _load_series(workspace_root, canonical.work)
         )
         catalog_attempted = True
-        catalog = rebuild_scoreform_publication_catalog(
-            workspace_root, class_id, assignment_id, publication_id
-        )
+        try:
+            catalog = _reconcile_scoreform_publication_catalog(
+                workspace_root,
+                canonical.work,
+                canonical,
+                withdrawal,
+            )
+        except _CatalogReconciliationFailure as failure:
+            state = PublicationPartialSuccessState(
+                operation="withdraw",
+                publication=canonical,
+                withdrawal=withdrawal,
+                manifest=None,
+                canonical_state="confirmed",
+                catalog_rebuild_attempted=True,
+                catalog_replacement_completed=failure.build is not None,
+                catalog_verification_completed=False,
+                recommended_next_action=(
+                    "Replay the exact withdrawal or run rebuild-catalog."
+                ),
+                catalog_build=failure.build,
+                catalog_error=failure.error,
+                withdrawal_manifest_verification=manifest_verification,
+            )
+            raise ScoreFormAcademicResultPublicationPartialSuccessError(
+                "Core withdrawal is durable but catalog reconciliation failed.",
+                state,
+            ) from failure.error
         return AcademicResultWithdrawalResult(
             disposition=service.disposition,
             publication=canonical,
             withdrawal=service.withdrawal,
             catalog=catalog,
+            manifest_verification=manifest_verification,
         )
+    except ScoreFormAcademicResultPublicationPartialSuccessError:
+        raise
     except Exception as error:
         state = PublicationPartialSuccessState(
             operation="withdraw",
@@ -1009,21 +1338,25 @@ def withdraw_scoreform_academic_result_publication(
             manifest=None,
             canonical_state="confirmed",
             catalog_rebuild_attempted=catalog_attempted,
-            catalog_replacement_completed=(
-                catalog_attempted
-                and (Path(workspace_root) / "registry" / "catalog.sqlite").is_file()
-            ),
+            catalog_replacement_completed=False,
             catalog_verification_completed=False,
-            recommended_next_action="Replay the exact withdrawal or run rebuild-catalog.",
+            recommended_next_action=(
+                "Replay the exact withdrawal or run rebuild-catalog."
+            ),
+            catalog_error=error if catalog_attempted else None,
+            withdrawal_manifest_verification=manifest_verification,
         )
         raise ScoreFormAcademicResultPublicationPartialSuccessError(
-            "Core withdrawal is durable but post-write verification or catalog reconciliation failed.",
+            "Core withdrawal is durable but post-write verification failed.",
             state,
         ) from error
 
 
 def _raise_registry(
-    error: Exception, *, manifest: StoredAcademicResultManifest | None = None
+    error: Exception,
+    *,
+    manifest: StoredAcademicResultManifest | None = None,
+    withdrawal_manifest_verification: WithdrawalManifestVerification | None = None,
 ) -> NoReturn:
     if isinstance(error, RegistryServicePartialSuccessError):
         core = error.state
@@ -1038,7 +1371,12 @@ def _raise_registry(
                 catalog_rebuild_attempted=False,
                 catalog_replacement_completed=False,
                 catalog_verification_completed=False,
-                recommended_next_action="Replay the exact operation to reconcile canonical state.",
+                recommended_next_action=(
+                    "Replay the exact operation to reconcile canonical state."
+                ),
+                withdrawal_manifest_verification=(
+                    withdrawal_manifest_verification
+                ),
             ),
         ) from error
     mappings = (
@@ -1058,6 +1396,7 @@ __all__ = [
     "SCOREFORM_PUBLICATION_CAPABILITIES",
     "AcademicResultPublicationResult",
     "AcademicResultWithdrawalResult",
+    "WithdrawalManifestVerification",
     "PublicationCatalogReconciliation",
     "PublicationPartialSuccessState",
     "ScoreFormPublicationSeriesState",

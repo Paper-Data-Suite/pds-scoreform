@@ -110,6 +110,11 @@ def _print_withdrawal_result(result: AcademicResultWithdrawalResult) -> None:
         result.withdrawal,
         flags=result.catalog.publication,
     )
+    if result.manifest_verification != "verified":
+        print(
+            "Warning: the publication was withdrawn, but its bound manifest "
+            "could not be verified. No producer bytes were changed."
+        )
     print("catalog reconciliation: verified")
 
 
@@ -245,8 +250,25 @@ def run_publication(args: Sequence[str]) -> int:
         return 0
     except ScoreFormAcademicResultPublicationPartialSuccessError as error:
         print(f"Error: {error}")
-        print("Warning: durable state may remain and was not rolled back.")
         partial = error.state
+        if partial.canonical_state_confirmed:
+            print(
+                "Warning: canonical Core state is confirmed, but later "
+                "verification or catalog reconciliation failed."
+            )
+        else:
+            print(
+                "Warning: canonical Core state may already be durable; "
+                "reload exact state before retrying."
+            )
+        if (
+            partial.withdrawal_manifest_verification is not None
+            and partial.withdrawal_manifest_verification != "verified"
+        ):
+            print(
+                "Warning: the bound manifest could not be verified. "
+                "No producer bytes were changed."
+            )
         if partial.publication is not None:
             print(f"publication ID: {partial.publication.publication_id}")
         print(f"recommended next action: {partial.recommended_next_action}")
