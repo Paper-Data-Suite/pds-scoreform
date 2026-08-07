@@ -2,12 +2,12 @@
 
 The active immutable publication projection is specified separately in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). That
-ScoreForm-owned contract and immutable workspace manifest generation are
-implemented, but Core publication is not yet implemented.
+ScoreForm-owned contract, immutable workspace generation, and explicit Core
+publication orchestration are implemented.
 Its stable production identity and immutable revision-transition rules are in
 [`publication_revision_policy.md`](publication_revision_policy.md). The policy
-is active and pure; durable generation/replay is active, while Core publication,
-supersession, and withdrawal commands remain future work.
+is active and pure; durable generation/replay, Core publication, supersession,
+withdrawal, and catalog reconciliation are active.
 
 The installed publication compatibility declaration is documented in
 [`publication_producer_profile.md`](publication_producer_profile.md). It is an
@@ -39,6 +39,16 @@ The assignment source belongs to the Academic Work Registration. Exact
 `assignment.json` and schema-2 `results.csv` snapshots belong to the manifest.
 Question standards alignments are metadata rather than `standards_ratings`.
 Criterion, moderation, and intervention capabilities are unsupported.
+
+ScoreForm maps a selected immutable producer head to Core's
+`PublicationManifestRequest` as follows: registration `work`; `source_record=None`;
+kind `academic_result_set`; capabilities `multiple_attempts`, `points`, and
+`question_evidence`; record-set ID `academic_results`; record-set revision equal
+to the manifest revision; contract `scoreform_academic_result_manifest_v1`;
+the exact workspace-relative manifest path; the exact referenced Academic Work
+Registration revision; and the manifest SHA-256 as `expected_manifest_digest`.
+`PublicationManifestRequest`, Publication Records, withdrawals, and the catalog
+are Core-owned contracts, not ScoreForm-owned serialized schemas.
 
 The package version, Core routing contract, PDS2 QR schema, route-registration
 schema, Publication Record schema, Academic Work Registration schema, Academic

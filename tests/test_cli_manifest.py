@@ -144,6 +144,7 @@ def test_generation_write_boundary_is_only_referenced_by_explicit_surfaces():
         if "generate_academic_result_manifest(" in text:
             references.add(path.name)
     assert references == {
+        "academic_result_publication.py",
         "academic_result_manifest_generation.py",
         "cli_manifest.py",
         "menu_manifest.py",

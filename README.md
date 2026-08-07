@@ -190,6 +190,13 @@ Generating an Academic Result Manifest creates immutable, revision-addressed
 producer bytes. It does not publish those bytes through Core and does not make
 them a Grade.
 
+Academic-result publication follows an explicit sequence: register the work,
+generate an immutable manifest, publish the producer head, generate a successor,
+supersede the exact Core head, withdraw an exact publication when necessary, and
+rebuild the disposable catalog when repair is needed. The corresponding direct
+commands are under `scoreform publication`. Publication does not calculate a
+Grade, select an attempt, or calculate proficiency.
+
 With the repository development environment active and ScoreForm installed in
 it, run `scoreform` to launch the teacher menu. The direct-source compatibility
 form is `python .\main.py menu`; bare `python .\main.py` prints help rather than

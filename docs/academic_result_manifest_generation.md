@@ -120,5 +120,8 @@ Routine output never prints full manifest JSON, student IDs, responses,
 provenance arrays, names, periods, or answer keys. Generation is not invoked by
 registration, assignment setup/editing, sheet generation, scoring, manual entry,
 scan-review resolution, result viewing, import, help, version, or profile
-discovery. #166 implements producer compatibility metadata; #167 owns Core publication,
-supersession, withdrawal, and catalog reconciliation.
+discovery. Ordinary generation never publishes automatically. The sole
+publication workflow allowed to invoke generation is explicit
+`republish-after-withdrawal`, which allocates one successor only when no durable
+unpublished producer successor already exists. All other publication operations
+select existing immutable producer bytes.

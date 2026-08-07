@@ -56,8 +56,11 @@ The returned value only declares versions and capabilities.
 Installed discovery is not authorization. Compatibility evaluation only checks
 the Core envelope, exact referenced registration metadata, and the producer's
 declared support; it does not inspect manifest bytes or prove that a specific
-publication is valid, current, authorized, or consumable. Issue #167 owns
-publication, supersession, and withdrawal workflows. Issue #168 owns the
+publication is valid, current, authorized, or consumable. After canonical
+publication, ScoreForm uses this profile only for metadata compatibility against
+the exact referenced registration revision. Discovery remains nonmutating and is
+not authorization. Issue #167 implements publication, supersession, and
+withdrawal workflows. Issue #168 owns the
 consumer-neutral manifest reader. Issue #169 owns installed end-to-end producer
 acceptance.
 

@@ -104,7 +104,10 @@ def main() -> int:
         "scoreform.academic_work_registration",
         "scoreform.cli_academic_work",
         "scoreform.academic_result_manifest_generation",
+        "scoreform.academic_result_publication",
         "scoreform.cli_manifest",
+        "scoreform.cli_publication",
+        "scoreform.menu_publication",
         "scoreform.pds_publication",
     ):
         importlib.import_module(module_name)

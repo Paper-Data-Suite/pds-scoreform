@@ -196,9 +196,16 @@ def validate_wheel(path: Path, version: str) -> None:
         validate_entry_points_text(
             archive.read(entry_names[0]).decode("utf-8"), path.name
         )
-        if "scoreform/pds_publication.py" not in names:
+        required_modules = {
+            "scoreform/pds_publication.py",
+            "scoreform/academic_result_publication.py",
+            "scoreform/cli_publication.py",
+            "scoreform/menu_publication.py",
+        }
+        missing = sorted(required_modules - set(names))
+        if missing:
             raise ArtifactValidationError(
-                f"{path.name} is missing scoreform/pds_publication.py"
+                f"{path.name} is missing required module(s): {', '.join(missing)}"
             )
 
 
@@ -223,6 +230,9 @@ def validate_sdist(path: Path, version: str) -> None:
         root = f"scoreform-{version}"
         required_members = {
             f"{root}/scoreform/pds_publication.py",
+            f"{root}/scoreform/academic_result_publication.py",
+            f"{root}/scoreform/cli_publication.py",
+            f"{root}/scoreform/menu_publication.py",
             f"{root}/pyproject.toml",
         }
         names = {member.name.replace("\\", "/") for member in members}

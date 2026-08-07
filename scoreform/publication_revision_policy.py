@@ -12,7 +12,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
-from typing import NoReturn
+from typing import NoReturn, cast
 
 from scoreform.academic_result_manifest import (
     AcademicResultManifest,
@@ -325,7 +325,7 @@ def _publication_content(manifest: AcademicResultManifest) -> dict[str, object]:
     record_set = dict(mapping["record_set"])
     del record_set["revision"]
     mapping["record_set"] = record_set
-    return mapping
+    return cast(dict[str, object], mapping)
 
 
 def manifests_have_same_publication_content(

@@ -141,6 +141,13 @@ def run_manifest(args):
     return manifest(args)
 
 
+def run_publication(args):
+    """Load publication management only for its explicit command."""
+    from scoreform.cli_publication import run_publication as publication
+
+    return publication(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -546,6 +553,8 @@ def _main(argv=None, default_to_menu=True):
         return run_academic_work(args)
     elif cmd == "manifest":
         return run_manifest(args)
+    elif cmd == "publication":
+        return run_publication(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

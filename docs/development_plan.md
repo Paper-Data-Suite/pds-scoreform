@@ -63,7 +63,7 @@ The pure, immutable ScoreForm Academic Result Manifest v1 model and canonical
 JSON contract are active and documented in
 [`academic_result_manifest_v1.md`](academic_result_manifest_v1.md). It defines a
 producer-owned publication projection with implemented immutable workspace
-generation; Core publication workflows are not yet implemented.
+generation and explicit Core publication workflows.
 ScoreForm now runs on released Core 0.6 while its installed routing profile
 remains routing contract `1` and QR schema `PDS2`. The manifest and revision
 policy foundations are implemented. Current issue status is:
@@ -73,7 +73,7 @@ policy foundations are implemented. Current issue status is:
 #164 Academic Work Registration — complete
 #165 immutable manifest generation — complete
 #166 publication producer profile — complete
-#167 publication workflows — remaining
+#167 publication workflows — complete
 #168 consumer-neutral reader — remaining
 #169 installed end-to-end acceptance — remaining
 ```
