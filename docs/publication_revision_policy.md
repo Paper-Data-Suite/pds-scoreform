@@ -137,8 +137,9 @@ A later selectable publication explicitly supersedes the exact expected current
 Core Publication Record ID. It retains the complete work identity,
 `publication_kind="academic_result_set"`, `record_set_id="academic_results"`,
 and a greater producer revision. The predecessor is never inferred from revision,
-time, filename, directory order, or opaque IDs. #167 must reload canonical Core
-state and stop on a changed expected head. A withdrawn head remains the chain
+time, filename, directory order, or opaque IDs. The implemented workflow reloads
+the complete validated Core series, calls `require_publication_supersession`,
+passes its exact expected ID to Core, and stops on a changed expected head. A withdrawn head remains the chain
 head and can be explicitly superseded; supersession makes a predecessor
 historical but does not withdraw it.
 
@@ -193,12 +194,17 @@ revision 4
 
 ## Later-issue boundary
 
+Issue #167 is implemented: ScoreForm reconciles exact Core state and creates
+Publication Records, explicit supersessions, withdrawals, and derived-catalog
+repairs. A retry after generation reuses the already allocated unpublished
+successor. The policy module remains pure and performs no workspace writes.
+
 Core 0.6 is adopted by #163 without changing this producer revision policy.
 #164 implements explicit Academic Work Registration through Core 0.6. It does
 not change the revision or supersession semantics in this policy.
 #165 reads and hashes native files, constructs complete manifests, durably writes
 revision-addressed immutable bytes, and enforces allocation failure boundaries.
-#166 advertises producer capability. #167 reconciles exact Core state and creates
+#166 advertises producer capability. #167 implements exact Core reconciliation and creates
 Publication Records, explicit supersessions, and withdrawals. #168–#170 add the
-consumer reader and release acceptance. None of those workflows is implemented
-by this policy module.
+consumer reader and release acceptance. The pure policy functions do not perform
+those filesystem or Core registry operations; the orchestration module does.

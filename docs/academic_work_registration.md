@@ -84,12 +84,13 @@ viewing, discovery, import, help, and version display never create or update
 registration. Generic blank sheets and arbitrary route-free manual work cannot
 be registered.
 
-## Later publication boundary
+## Publication boundary
 
-A future Publication Record must use an absent `source_record` and reference the
-exact current registration revision. A stale revision and a cancelled current registration cannot be used
-for publication; a closed registration remains canonical history. Registration
-itself creates neither a publication nor Grade membership. Manifest generation
-is a separate explicit operation implemented by #165 and does not require or
-update registration. The metadata-only producer profile is implemented by #166;
-publication, supersession, and withdrawal remain owned by #167.
+Each ScoreForm Publication Record uses an absent `source_record` and references
+the exact registration revision that was current when the request was built.
+Publication fails for a missing registration, a cancelled current registration,
+or a concurrent change to the current revision. After Core writes, ScoreForm
+reloads the exact referenced historical revision for compatibility verification;
+it never substitutes a newer current revision. A closed registration remains
+canonical history. Registration itself creates neither a publication nor Grade
+membership, and manifest generation neither requires nor updates registration.

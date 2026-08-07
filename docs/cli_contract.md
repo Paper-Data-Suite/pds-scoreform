@@ -942,3 +942,16 @@ flags. Assignments may contain 1-75 questions and are automatically paged at 15
 questions per physical sheet. The active PDS2 scanner dispatches physical pages
 independently, then assembles complete ScoreForm issuances in authoritative
 logical-page order and writes one schema-v2 row per completed observation.
+
+# Academic Result Publication commands
+
+`scoreform publication` provides explicit `status`, `list`, `show`, `publish`,
+`supersede`, `republish-after-withdrawal`, `withdraw`, and `rebuild-catalog`
+operations. Write output is privacy-minimized: it never prints student-level
+manifest content or withdrawal reason text. Publication IDs and timestamps are
+created only by Core. The teacher menu protects writes with typed confirmations.
+The parser rejects unknown or duplicate options, missing values, positional
+arguments, unsafe work IDs, malformed publication IDs, noncanonical revisions,
+empty withdrawal reasons, unknown actions, and `--force`. Read-only commands do
+not create a missing catalog. Installed `publication` and action-level `--help`
+dispatch is side-effect free.

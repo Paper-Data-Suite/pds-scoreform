@@ -10,6 +10,7 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import cast
 
 from pds_core.routing_models import ModuleWorkRef, validate_module_work_ref
 from pds_core.standards import load_workspace_standards_library
@@ -792,11 +793,14 @@ def build_academic_result_manifest_bytes(
     generated_at: dt.datetime,
 ) -> bytes:
     """Purely construct and canonically serialize one manifest revision."""
-    return manifest_to_canonical_json_bytes(
-        build_academic_result_manifest(
-            context,
-            record_set_revision=record_set_revision,
-            generated_at=generated_at,
+    return cast(
+        bytes,
+        manifest_to_canonical_json_bytes(
+            build_academic_result_manifest(
+                context,
+                record_set_revision=record_set_revision,
+                generated_at=generated_at,
+            )
         )
     )
 

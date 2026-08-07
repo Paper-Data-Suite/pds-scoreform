@@ -1078,6 +1078,7 @@ def launch_assignment_menu():
             print("9. Resolve scan review items")
             print("10. Academic Work Registration")
             print("11. Academic Result Manifests")
+            print("12. Academic Result Publications")
             print_scoreform_navigation_options()
             print()
 
@@ -1166,6 +1167,13 @@ def launch_assignment_menu():
                 )
 
                 launch_academic_result_manifests_menu()
+
+            elif choice == "12":
+                from scoreform.menu_publication import (
+                    launch_academic_result_publications_menu,
+                )
+
+                launch_academic_result_publications_menu()
 
             else:
                 print(f"Invalid selection: {choice}.")

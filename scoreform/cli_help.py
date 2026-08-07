@@ -66,6 +66,14 @@ Usage:
   scoreform manifest show --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
   scoreform manifest validate --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
   scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id>
+  scoreform publication status --class-id <class_id> --assignment-id <assignment_id>
+  scoreform publication list --class-id <class_id> --assignment-id <assignment_id>
+  scoreform publication show --class-id <class_id> --assignment-id <assignment_id> --publication-id <publication_id>
+  scoreform publication publish --class-id <class_id> --assignment-id <assignment_id> --revision <revision>
+  scoreform publication supersede --class-id <class_id> --assignment-id <assignment_id> --revision <revision> --expected-current-publication-id <publication_id>
+  scoreform publication republish-after-withdrawal --class-id <class_id> --assignment-id <assignment_id> --expected-current-publication-id <publication_id>
+  scoreform publication withdraw --class-id <class_id> --assignment-id <assignment_id> --publication-id <publication_id> --reason <reason>
+  scoreform publication rebuild-catalog
   scoreform workspace show
   scoreform workspace set <path>
   scoreform workspace validate
@@ -84,6 +92,7 @@ Usage:
 Commands:
   menu                  Launch the terminal menu.
   manifest              Generate, list, show, or validate immutable result manifests.
+  publication           Manage Core publication, supersession, withdrawal, and catalog workflows.
   generate              Generate a generic template or assignment-based answer sheets.
   regenerate-sheets     Regenerate managed answer sheets from the current roster.
   score                 Score scanned responses.

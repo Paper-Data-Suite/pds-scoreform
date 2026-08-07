@@ -62,16 +62,27 @@ function Test-InstalledArtifact {
         Invoke-Checked "Show $Label installed help flag" { & $VenvScoreForm --help }
         Invoke-Checked "Show $Label installed short help" { & $VenvScoreForm -h }
         Invoke-Checked "Show $Label installed help command" { & $VenvScoreForm help }
+        Invoke-Checked "Show $Label installed publication help" { & $VenvScoreForm publication --help }
+        foreach ($PublicationAction in @(
+            "status", "publish", "supersede", "republish-after-withdrawal",
+            "withdraw", "rebuild-catalog"
+        )) {
+            Invoke-Checked "Show $Label installed publication $PublicationAction help" {
+                & $VenvScoreForm publication $PublicationAction --help
+            }
+        }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_manifest_generation; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
+            "classes",
             "settings\academic_periods",
             "registry\work",
             "registry\publications",
             "registry\withdrawals",
             "registry\catalog.sqlite",
-            "registry\.locks"
+            "registry\.locks",
+            "exports\manifests"
         )
         foreach ($RelativePath in $ForbiddenRegistryPaths) {
             if (Test-Path -LiteralPath (Join-Path $Workspace $RelativePath)) {

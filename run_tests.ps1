@@ -46,7 +46,7 @@ Invoke-Step "Validate tracked release text encoding" {
     & $Python scripts\verify_text_encoding.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
-    & $Python -c "import pds_core; import scoreform; import scoreform.academic_work_registration; import scoreform.cli_academic_work; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
+    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli_academic_work; import scoreform.cli_publication; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
 }
 Invoke-Step "Run focused installed-profile contract tests" {
     & $Python -m pytest @(
