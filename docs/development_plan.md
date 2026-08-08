@@ -1,6 +1,6 @@
 # ScoreForm development plan
 
-## Current architecture (v0.9.1)
+## Current architecture (v0.10.0 release boundary)
 
 This document describes the current implementation boundary. Historical plans
 from the PDS1 era have been removed because they no longer describe supported
@@ -76,7 +76,7 @@ policy foundations are implemented. Current issue status is:
 #167 publication workflows — complete
 #168 consumer-neutral reader — complete
 #169 installed end-to-end acceptance — complete
-#170 compatibility and release audit — remaining
+#170 compatibility and release audit — active release closeout
 ```
 The consumer-neutral Academic Result reader is active at
 `scoreform.academic_result_reader`. It accepts already obtained immutable bytes,
@@ -89,6 +89,12 @@ Clean-wheel producer acceptance is active through
 readiness now proves registration, immutable generation, Core publication and
 catalog projection, producer-owned reading, supersession, withdrawal, and Core
 registry audit together from isolated installed artifacts.
+
+The v0.10.0 release compatibility boundary is documented in
+[`v0.10.0_release_compatibility.md`](v0.10.0_release_compatibility.md). It
+records the exact ScoreForm reader identity required by downstream Meridian
+while preserving Vitrine's downstream ownership of Candidate discovery and
+portfolio policy.
 
 The pure producer allocation, replay, append-history, supersession-requirement,
 withdrawal, and recovery decisions are active in

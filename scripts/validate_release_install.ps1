@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$Python,
-    [string]$Version = "0.9.1",
+    [string]$Version = "0.10.0",
     [string]$ExpectedCoreVersion = "0.6.0"
 )
 

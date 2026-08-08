@@ -69,7 +69,7 @@ def validate_core_runtime_versions(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="0.9.1")
+    parser.add_argument("--version", default="0.10.0")
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--expected-core-version")
     args = parser.parse_args()
@@ -343,7 +343,7 @@ def main() -> int:
         raise SystemExit("profile discovery created workspace state")
 
     scoreform = importlib.import_module("scoreform")
-    for module in (scoreform, pds_core):
+    for module in (scoreform, reader, pds_core):
         module_file = module.__file__
         if module_file is None:
             raise SystemExit(f"installed module has no file origin: {module.__name__}")

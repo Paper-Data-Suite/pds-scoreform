@@ -32,6 +32,23 @@ FORBIDDEN_PARTS = {
     "scans_inbox",
 }
 FORBIDDEN_SUFFIXES = {".diff", ".patch", ".pdf", ".pyc", ".pyo"}
+FORBIDDEN_SIBLING_PARTS = {
+    "meridian",
+    "pds_meridian",
+    "pds-meridian",
+    "vitrine",
+    "pds_vitrine",
+    "pds-vitrine",
+    "quillan",
+    "pds_quillan",
+    "pds-quillan",
+    "concord",
+    "pds_concord",
+    "pds-concord",
+    "portia",
+    "pds_portia",
+    "pds-portia",
+}
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_ENTRY_POINTS = {
@@ -48,6 +65,13 @@ class ArtifactValidationError(Exception):
     """Raised when a release artifact violates the release contract."""
 
 
+class _CaseSensitiveConfigParser(configparser.ConfigParser):
+    """Preserve entry-point option names exactly without method reassignment."""
+
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
+
+
 def _normalized_member(name: str) -> PurePosixPath:
     member = PurePosixPath(name.replace("\\", "/"))
     if member.is_absolute() or ".." in member.parts:
@@ -60,8 +84,13 @@ def validate_member_names(names: list[str]) -> None:
         member = _normalized_member(name)
         lowered_parts = {part.lower() for part in member.parts}
         lowered_name = member.name.lower()
-        if "pds_core" in lowered_parts:
+        if "pds_core" in lowered_parts or "pds-core" in lowered_parts:
             raise ArtifactValidationError(f"artifact bundles pds_core: {name}")
+        sibling_parts = sorted(lowered_parts & FORBIDDEN_SIBLING_PARTS)
+        if sibling_parts:
+            raise ArtifactValidationError(
+                f"artifact bundles sibling package {sibling_parts[0]}: {name}"
+            )
         if lowered_parts & FORBIDDEN_PARTS:
             raise ArtifactValidationError(f"forbidden artifact member: {name}")
         if member.suffix.lower() in FORBIDDEN_SUFFIXES:
@@ -160,8 +189,7 @@ def validate_package_metadata(text: str, version: str, label: str) -> None:
 
 
 def validate_entry_points_text(text: str, label: str) -> None:
-    parser = configparser.ConfigParser(interpolation=None, strict=True)
-    parser.optionxform = str
+    parser = _CaseSensitiveConfigParser(interpolation=None, strict=True)
     try:
         parser.read_string(text)
     except configparser.Error as error:
@@ -267,7 +295,7 @@ def validate_dist(dist: Path, version: str) -> tuple[Path, Path]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path, default=Path("dist"))
-    parser.add_argument("--version", default="0.9.1")
+    parser.add_argument("--version", default="0.10.0")
     args = parser.parse_args()
     try:
         wheel, sdist = validate_dist(args.dist, args.version)

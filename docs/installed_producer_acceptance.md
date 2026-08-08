@@ -21,7 +21,7 @@ The release harness creates a fresh virtual environment and installs:
 
 ```text
 pds-core 0.6.0 wheel
-ScoreForm 0.9.1 wheel
+ScoreForm 0.10.0 wheel
 ```
 
 noneditably. The acceptance script runs from an outside working directory and
