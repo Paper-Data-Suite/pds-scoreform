@@ -2,17 +2,35 @@
 
 ## Project status
 
-ScoreForm 0.9.1 is a pre-1.0, local-first classroom OMR release candidate. It
-generates registered answer sheets and scores retained scans through PDS Core
-0.5. Scan quality affects reliability, and teachers must manually verify every
-result before recording a grade.
+ScoreForm 0.10.0 is the current pre-1.0 release candidate. It generates
+registered answer sheets, scores retained scans through PDS Core 0.6, and
+publishes immutable academic-result evidence through Core-owned publication
+contracts. Scan quality affects reliability, and teachers must manually verify
+every result before recording a grade.
 
 Future planning is tracked in GitHub issues. This document does not promise a
 next version or milestone.
 
+## v0.10.0 — Core 0.6 academic publication integration
+
+The v0.10.0 milestone keeps the v0.9.1 PDS2 routing/scoring foundation and adds:
+
+- released `pds-core>=0.6,<0.7` integration;
+- explicit ScoreForm Academic Work Registration;
+- immutable `scoreform_academic_result_manifest_v1` generation;
+- the installed ScoreForm publication producer profile;
+- Core-owned publication, supersession, withdrawal, and catalog workflows;
+- the consumer-neutral `scoreform.academic_result_reader`;
+- clean-wheel end-to-end producer acceptance preserving multiple attempts;
+- a unique `scoreform 0.10.0` reader distribution identity for downstream
+  consumers without adding Meridian or Vitrine runtime dependencies.
+
+ScoreForm does not select an official attempt, infer proficiency/mastery,
+calculate a course Grade, or decide portfolio candidacy/selection.
+
 ## v0.9.1 — Core 0.5 and PDS2 migration
 
-The v0.9.1 milestone establishes the current architecture:
+The v0.9.1 release established the routing and storage foundation:
 
 - ScoreForm work is stored below
   `classes/<class_id>/modules/scoreform/work/<assignment_id>/`.

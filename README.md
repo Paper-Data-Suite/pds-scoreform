@@ -4,7 +4,7 @@ ScoreForm is a local-first classroom OMR tool for generating printable answer
 sheets and scoring scanned multiple-choice responses through Paper Data Suite
 Core.
 
-Current version: `0.9.1`.
+Current version: `0.10.0`.
 
 ScoreForm is pre-1.0. Scan quality affects reliability, and teachers must
 manually verify results before recording grades. It is not a gradebook, does not
@@ -37,7 +37,7 @@ noneditably:
 
 ```powershell
 python -m pip install .\pds_core-0.6.0-py3-none-any.whl
-python -m pip install .\scoreform-0.9.1-py3-none-any.whl
+python -m pip install .\scoreform-0.10.0-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
@@ -47,6 +47,15 @@ ScoreForm's dependency metadata enforces `pds-core>=0.6,<0.7`, but pip cannot
 download Core 0.6.0 from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
+
+ScoreForm 0.10.0 is the first release identity containing the Core 0.6
+Academic Work/publication contracts and the consumer-neutral
+`scoreform.academic_result_reader`. Downstream consumers should bind to
+the exact released reader version they support rather than infer features
+from an older distribution identity. Portfolio Candidate discovery,
+selection, placement, and Snapshot construction remain downstream policy;
+ScoreForm publishes exact producer evidence only. See
+[`docs/v0.10.0_release_compatibility.md`](docs/v0.10.0_release_compatibility.md).
 
 Adopting Core 0.6 does not by itself register work, generate manifests,
 publish results, build the catalog, or calculate Grades. ScoreForm remains
@@ -282,7 +291,7 @@ route, page, issuance, source-scan, scan artifact, or review identity.
 
 PDS1 and OMR1 sheets are unsupported. Historical schema-v1 routed-result files
 are not migrated. Previously printed legacy sheets cannot be assigned fabricated
-PDS2 routes. Generate new v0.9.1 PDS2 answer sheets for routed scanning.
+PDS2 routes. Generate new v0.10.0 PDS2 answer sheets for routed scanning.
 
 Unsupported payloads may be preserved as exact evidence in a current Core-v2
 review record, but create no locator, request, target, registration, page,
@@ -355,4 +364,5 @@ Follow applicable school, district, state, and federal privacy requirements.
 - `docs/publication_producer_profile.md` — installed publication compatibility metadata and source boundaries
 - `docs/release_checklist.md` — preparation and publication gates
 - `docs/physical_acceptance_test.md` — mandatory paper procedure
-- `RELEASE_NOTES_v0.9.1.md` — reviewed GitHub Release body
+- `RELEASE_NOTES_v0.10.0.md` — v0.10.0 GitHub Release body
+- `RELEASE_NOTES_v0.9.1.md` — historical v0.9.1 GitHub Release body

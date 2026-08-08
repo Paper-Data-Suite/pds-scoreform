@@ -43,26 +43,36 @@ jobs:
         run: python -m ruff check .
       - name: Mypy
         run: python -m mypy scoreform
+      - name: Strict mypy release scripts
+        run: |
+          python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_release_artifacts.py
       - name: Pytest
         run: python -m pytest tests -q
+      - name: Audit v0.10.0 release compatibility boundary
+        run: python scripts/verify_release_compatibility.py
       - name: Build artifacts
         run: python -m build
       - name: Twine check
         run: python -m twine check dist/*
       - name: Inspect artifacts
-        run: python scripts/verify_release_artifacts.py --version 0.9.1 --dist dist
+        run: python scripts/verify_release_artifacts.py --version 0.10.0 --dist dist
       - name: Install wheel noneditable
         run: |
           python -m venv "$RUNNER_TEMP/scoreform-wheel"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl dist/scoreform-0.9.1-*.whl
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl dist/scoreform-0.10.0-*.whl
           "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip check
       - name: Verify installed version and profile
         env:
           PDS_WORKSPACE_ROOT: ${{ runner.temp }}/scoreform-workspace-must-not-exist
         run: |
           test ! -e "$PDS_WORKSPACE_ROOT"
-          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --version | grep -Fx "ScoreForm 0.9.1"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.9.1 --workspace "$PDS_WORKSPACE_ROOT" --expected-core-version 0.6.0
+          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --version | grep -Fx "ScoreForm 0.10.0"
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.10.0 --workspace "$PDS_WORKSPACE_ROOT" --expected-core-version 0.6.0
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
-          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.9.1"
+          "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.10.0"
           test ! -e "$PDS_WORKSPACE_ROOT"
+      - name: Verify installed producer lifecycle
+        run: |
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_producer_acceptance.py \
+            --workspace "$RUNNER_TEMP/scoreform-producer-acceptance" \
+            --version 0.10.0 --expected-core-version 0.6.0

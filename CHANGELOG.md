@@ -16,7 +16,53 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 No changes yet.
 
-## [v0.9.1] - release date pending
+## [v0.10.0] - release date pending
+
+### Added
+
+* Added `scoreform_academic_work_v1` Academic Work Registration and immutable
+  `scoreform_academic_result_manifest_v1` generation for ScoreForm results.
+* Added the installed `paper_data_suite.publication_producers` ScoreForm profile
+  for `academic_result_set` with `points`, `question_evidence`, and
+  `multiple_attempts` capabilities and no fabricated source record.
+* Added Core-owned publication, exact replay, supersession, withdrawal, catalog,
+  and registry-audit workflows while preserving immutable producer history.
+* Added the consumer-neutral `scoreform.academic_result_reader` for canonical
+  bytes and exact source/student/attempt/question/response lookup.
+* Added clean-wheel end-to-end producer acceptance from native synthetic results
+  through registration, manifests, publication, reader verification,
+  supersession, withdrawal, catalog reconciliation, and Core audit.
+* Added a v0.10.0 release compatibility audit that mechanically enforces the
+  Core range, exact producer profile, explicit-attempt reader boundary, and
+  sibling-module isolation required by downstream consumers.
+
+### Changed
+
+* Upgraded the runtime/release contract from PDS Core 0.5 to
+  `pds-core>=0.6,<0.7`, qualified against the exact released Core 0.6.0 wheel.
+* Assigned the Core 0.6 publication/reader implementation the unique
+  `scoreform 0.10.0` distribution identity instead of reusing the historical
+  `0.9.1` identity.
+
+### Compatibility
+
+* ScoreForm preserves every producer attempt and non-score response state and
+  applies no latest/highest/best/official attempt policy.
+* Standards IDs remain alignments; ScoreForm does not infer proficiency,
+  mastery, course Grades, or portfolio eligibility.
+* ScoreForm has no Meridian, Vitrine, Quillan, Concord, or Portia runtime
+  dependency. Meridian may bind to the exact released 0.10.0 reader identity,
+  while Vitrine Candidate discovery remains downstream policy.
+
+### Testing
+
+* Release readiness validates the exact Core 0.6 dependency range, artifact
+  contents, clean wheel/sdist installations, installed producer profiles,
+  installed reader origin, and the full installed producer lifecycle.
+* The mandatory real printed-and-scanned release acceptance remains an
+  owner-operated gate before v0.10.0 publication.
+
+## [v0.9.1] - 2026-07-17
 
 ### Added
 

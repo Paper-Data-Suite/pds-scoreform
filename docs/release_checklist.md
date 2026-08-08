@@ -1,75 +1,136 @@
-# ScoreForm v0.9.1 release checklist
+# ScoreForm v0.10.0 release checklist
 
-Publication remains blocked until the project owner completes the final paper
-test and explicitly authorizes release. Codex may prepare implementation,
-automated tests, review material, and instructions, but may not claim a
-physical pass or mark the physical-acceptance item complete.
+Issue #170 is the release closeout for the Core 0.6 academic-publication
+milestone. Publication remains blocked until the project owner completes the
+required source-menu rehearsal and physical paper test, the release-preparation
+PR is merged, the exact merged artifacts pass final verification, and the
+project owner explicitly authorizes release.
 
-## Review and pre-build normal-use acceptance
+Use synthetic identities only. Do not commit generated PDFs, filled sheets,
+scans, classroom results, diagnostic images, or machine-specific paths.
 
-- [x] implementation is complete
-- [x] focused automated tests pass
-- [x] complete diff is reviewed
-- [x] project owner rehearsed the normal teacher menu from the source checkout
-- [x] rehearsal covered **Roster Management** > **Create a class roster**
-- [x] rehearsal covered **Assignment Management** > **Create an assignment**
-- [x] rehearsal covered **Generate answer sheets** and the new
-  **Open class packet for printing** action
-- [x] project owner visually inspected every packet page and at least one
-  individual PDF
-- [x] rehearsal covered retained PDS2 **Score scanned responses** through the
-  normal menu
-- [x] identical scan content appended zero new attempts
-- [x] **View assignment results** showed the correct student, score, total, and
-  one attempt in its compact terminal summary
-- [x] the actual `results.csv` was separately inspected and had the required
-  teacher-first prefix, contiguous question pairs, then page/provenance columns
-- [x] single-assignment regeneration opened the individual-sheets folder
-- [x] generic blank-template generation and opening worked
-- [ ] reviewed corrections are committed and merged
+## Integrated milestone baseline
 
-The normal-use rehearsal is deliberately before the release build. It is not
-the final physical acceptance test.
+- [x] #161 Academic Result Manifest v1 is merged
+- [x] #162 publication revision/supersession policy is merged
+- [x] #163 released Core 0.6 adoption is merged
+- [x] #164 Academic Work Registration is merged
+- [x] #165 immutable manifest generation is merged
+- [x] #166 publication producer profile is merged
+- [x] #167 publication/supersession/withdrawal workflows are merged
+- [x] #168 consumer-neutral reader is merged
+- [x] #169 clean-wheel installed producer acceptance is merged
+- [ ] #170 compatibility/release preparation diff is reviewed
 
-## Authoritative gate, artifacts, and installed smoke
+## Release identity and policy audit
 
-- [ ] authoritative automated release gate passes on the merged commit
+- [ ] package/release identity is exactly `scoreform 0.10.0`
+- [ ] `pds-core>=0.6,<0.7` is the only live Core runtime range
+- [ ] exact Core 0.6.0 wheel is the release qualification baseline
+- [ ] no live Core 0.5 compatibility constraint remains
+- [ ] no sibling PDS runtime dependency/import remains
+- [ ] no automatic latest/highest/best/official attempt selection exists
+- [ ] no standards rating/proficiency/mastery inference exists
+- [ ] no course Grade policy exists
+- [ ] no portfolio Candidate/eligibility/selection/placement policy exists
+- [ ] installed producer profile matches the frozen v0.10.0 contract
+- [ ] installed `scoreform.academic_result_reader` imports successfully
+- [ ] all attempts and non-score response states remain independently readable
+
+## Project-owner source-menu rehearsal
+
+The prior release rehearsal does not satisfy this release because runtime,
+dependency, publication, and package identity changed after that candidate.
+
+- [ ] create a fresh disposable synthetic workspace
+- [ ] run the teacher menu from the v0.10.0 release-preparation source checkout
+- [ ] create the synthetic roster through **Roster Management**
+- [ ] create the synthetic assignment through **Assignment Management**
+- [ ] generate answer sheets through the teacher menu
+- [ ] open/visually inspect every class-packet page and at least one individual PDF
+- [ ] process a supported retained PDS2 scan through the normal menu
+- [ ] identical scan content appends zero new attempts
+- [ ] results viewer shows the expected student, score, total, and attempt count
+- [ ] actual schema-v2 `results.csv` column order is inspected
+- [ ] blank/Return post-generation behavior is rehearsed
+- [ ] direct generation/regeneration commands remain prompt-free
+- [ ] exact interpreter version used for the rehearsal is recorded
+
+See `docs/physical_acceptance_test.md` for the exact procedure.
+
+## Authoritative automated gate and artifacts
+
+- [ ] `run_tests.ps1` passes on the reviewed release-preparation commit
 - [ ] Python 3.11 minimum-version CI/release testing passes
-- [ ] GitHub Actions pass on the corrections pull request
-- [ ] working tree is clean before building
+- [ ] release compatibility audit passes
+- [ ] strict mypy passes for changed release scripts
+- [ ] GitHub Actions pass on the release-preparation PR
+- [ ] working tree is clean before candidate build
 - [ ] candidate commit and tree are recorded
-- [ ] wheel and source distribution are built from that exact commit
-- [ ] `twine check` and artifact-content audit pass
-- [ ] artifact hashes are recorded
-- [ ] clean noneditable PDS Core and ScoreForm wheel installation passes
-- [ ] installed module profile and import/help/version boundaries pass
-- [ ] installed standard, multipage, and compact smokes pass
-- [ ] installed normal-menu smoke passes
+- [ ] exactly one v0.10.0 wheel and one v0.10.0 sdist are built
+- [ ] `twine check` passes
+- [ ] artifact-content audit passes
+- [ ] artifact SHA-256 values are recorded
+- [ ] clean noneditable Core 0.6.0 + ScoreForm 0.10.0 wheel install passes
+- [ ] installed routing/publication profile discovery passes
+- [ ] installed reader import and exact CLI version checks pass
+- [ ] #169 installed producer acceptance passes under the 0.10.0 identity
+- [ ] clean sdist installation/profile/import smoke passes
 
-Package support remains `Python >=3.11`. The project-owner menu and physical
-tests may use Python 3.11, 3.12, 3.13, 3.14, or a later compatible interpreter;
-record the exact version used.
+## Merge, final candidate freeze, physical acceptance, and authorization
 
-## Physical acceptance and authorization
+The established ScoreForm physical-release order is merge first, then rebuild
+and qualify the exact reconciled release commit, then run the real paper test.
+Do not perform the authoritative physical acceptance against an unmerged branch
+artifact.
 
-- [ ] project owner runs the exact reviewed installed wheel through the real
-  printed-and-scanned workflow
+- [ ] release-preparation PR is squash-merged
+- [ ] local `main` is reconciled and clean
+- [ ] reconciled `main` equals `origin/main`
+- [ ] final release commit and tree are recorded
+- [ ] authoritative release gate passes again on the reconciled release commit
+- [ ] final v0.10.0 wheel/sdist and SHA-256 values are recorded from that commit
+- [ ] clean noneditable installation of the exact final wheel passes
+- [ ] project owner installs that exact recorded v0.10.0 final candidate wheel
+- [ ] project owner runs the required real printed-and-scanned workflow
 - [ ] physical-paper acceptance passes
 - [ ] sanitized physical result is recorded
 - [ ] project owner explicitly authorizes release
 
 Any runtime, package, dependency, layout, routing, scoring, assembly,
-result-contract, or menu-workflow change after this paper test invalidates it.
-Documentation-only recording of a completed result does not require another
-paper run.
+result-contract, menu-workflow, build-script, behavioral-test, or runtime-smoke
+change after the paper test invalidates it. Documentation-only recording of the
+completed result does not require another paper run.
 
-## Publication
+## Tag and GitHub Release
 
-- [ ] tagged commit is verified
-- [ ] GitHub Release is created
-- [ ] release assets and hashes are verified
-- [ ] no package-index publication occurred
-- [ ] #147 is closed
-- [ ] #137 is closed
-- [ ] v0.9.1 milestone is closed
-- [ ] post-release clean installation passes
+Only after physical acceptance and explicit owner authorization:
+
+- [ ] `v0.10.0` tag points to the exact physically qualified release commit
+- [ ] tag is pushed without rewriting an existing release tag
+- [ ] GitHub Release is created from `v0.10.0`
+- [ ] wheel/sdist assets attached to the GitHub Release are the verified artifacts
+- [ ] release asset SHA-256 values match the physically qualified final artifacts
+- [ ] no package-index publication occurs
+
+## Post-release verification
+
+- [ ] released Core 0.6.0 wheel and ScoreForm 0.10.0 wheel are downloaded into a fresh directory
+- [ ] released ScoreForm wheel installs noneditably in a fresh venv
+- [ ] `pip check` passes
+- [ ] installed metadata reports exactly `scoreform 0.10.0`
+- [ ] `scoreform --version` reports exactly `ScoreForm 0.10.0`
+- [ ] `scoreform version` reports exactly `ScoreForm 0.10.0`
+- [ ] `scoreform.academic_result_reader` imports from installed site-packages
+- [ ] installed routing profile discovery succeeds
+- [ ] installed publication producer profile discovery succeeds
+- [ ] bounded installed reader/profile smoke passes
+- [ ] #169 producer lifecycle is re-run against the released wheel when practical
+- [ ] Meridian #9 exact `scoreform 0.10.0` reader identity is verified/unblocked
+- [ ] Vitrine non-regression boundary is verified
+- [ ] #170 is closed
+- [ ] #160/milestone v0.10.0 is closed only after all release verification passes
+
+ScoreForm and PDS Core use GitHub Release wheel assets. Core 0.6.0 is not
+published to PyPI, and ScoreForm v0.10.0 must not introduce package-index
+publication merely to satisfy a downstream consumer.

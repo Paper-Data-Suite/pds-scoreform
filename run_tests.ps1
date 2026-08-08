@@ -27,7 +27,7 @@ function Invoke-Step {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-Write-Host "=== ScoreForm v0.9.1 Release Readiness ===" -ForegroundColor Cyan
+Write-Host "=== ScoreForm v0.10.0 Release Readiness ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
 Invoke-Step "Require Python 3.11+" {
@@ -44,6 +44,9 @@ Invoke-Step "Compile ScoreForm" {
 }
 Invoke-Step "Validate tracked release text encoding" {
     & $Python scripts\verify_text_encoding.py
+}
+Invoke-Step "Audit v0.10.0 release compatibility boundary" {
+    & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
     & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli_academic_work; import scoreform.cli_publication; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
@@ -80,6 +83,18 @@ Invoke-Step "Run Ruff" {
 }
 Invoke-Step "Run mypy" {
     & $Python -m mypy scoreform
+}
+Invoke-Step "Run strict mypy on release scripts" {
+    & $Python -m mypy @(
+        "--follow-imports=skip",
+        "--disallow-untyped-defs",
+        "--disallow-incomplete-defs",
+        "--check-untyped-defs",
+        "scripts\verify_release_compatibility.py",
+        "scripts\verify_installed_release.py",
+        "scripts\verify_installed_producer_acceptance.py",
+        "scripts\verify_release_artifacts.py"
+    )
 }
 
 if (Test-Path -LiteralPath $VenvScoreForm -PathType Leaf) {
@@ -580,7 +595,7 @@ Invoke-Step "Check release artifacts with twine" {
     & $Python -m twine check .\dist\*
 }
 Invoke-Step "Validate release artifact names, metadata, and contents" {
-    & $Python scripts\verify_release_artifacts.py --version 0.9.1 --dist .\dist
+    & $Python scripts\verify_release_artifacts.py --version 0.10.0 --dist .\dist
 }
 $CoreWheelRoot = $null
 $CoreExportRoot = $null
@@ -627,7 +642,7 @@ try {
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
-            -Python $Python -Version 0.9.1
+            -Python $Python -Version 0.10.0
     }
 }
 finally {
@@ -662,17 +677,17 @@ finally {
 }
 Invoke-Step "Verify exact CLI version output" {
     $VersionOutput = & $ScoreForm --version
-    if (($VersionOutput -join "`n") -ne "ScoreForm 0.9.1") { exit 1 }
+    if (($VersionOutput -join "`n") -ne "ScoreForm 0.10.0") { exit 1 }
 }
 Invoke-Step "Check Git whitespace" {
     git diff --check
 }
 Invoke-Step "Report release artifact SHA-256" {
     Get-FileHash -Algorithm SHA256 -LiteralPath @(
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.9.1-*.whl" -File).FullName,
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.9.1.tar.gz" -File).FullName
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.10.0-*.whl" -File).FullName,
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.10.0.tar.gz" -File).FullName
     ) | Format-Table -AutoSize
 }
 
 Write-Host ""
-Write-Host "All ScoreForm v0.9.1 release-readiness checks passed." -ForegroundColor Green
+Write-Host "All ScoreForm v0.10.0 release-readiness checks passed." -ForegroundColor Green

@@ -1,4 +1,4 @@
-# ScoreForm v0.9.1 physical acceptance test
+# ScoreForm v0.10.0 physical acceptance test
 
 Publication is blocked until the project owner completes this test with a wheel
 built from the clean reviewed candidate commit, reports a pass, and explicitly
@@ -102,10 +102,12 @@ Only after the focused tests, complete diff review, owner rehearsal, and visual
 inspection pass may the corrections be merged and the authoritative release
 gate and artifact build begin.
 
-### Completed source-menu rehearsal — 2026-07-17
+### Historical v0.9.1 source-menu rehearsal — 2026-07-17
 
-The project owner completed the pre-build source-menu rehearsal with sanitized
-synthetic data. This was a source-menu rehearsal, not final paper acceptance.
+The project owner completed this rehearsal for the historical v0.9.1 candidate.
+It remains useful evidence about the teacher workflow, but it does **not** satisfy
+the v0.10.0 rehearsal or physical-release gate because runtime, Core dependency,
+publication, and package identity changed afterward.
 
 ```text
 Class: menu_rehearsal
@@ -140,7 +142,7 @@ $CandidateTree = git rev-parse "HEAD^{tree}"
 if (git status --short) { throw "The physical candidate must be a clean commit." }
 
 powershell -ExecutionPolicy Bypass -File .\run_tests.ps1
-$ScoreFormWheels = @(Get-ChildItem .\dist\scoreform-0.9.1-*.whl -File)
+$ScoreFormWheels = @(Get-ChildItem .\dist\scoreform-0.10.0-*.whl -File)
 if ($ScoreFormWheels.Count -ne 1) { throw "Expected exactly one ScoreForm wheel." }
 $ScoreFormWheel = $ScoreFormWheels[0]
 $ScoreFormWheelHash = (Get-FileHash -LiteralPath $ScoreFormWheel.FullName `
@@ -170,7 +172,7 @@ Copy the verified Core wheel and the exact candidate ScoreForm wheel into a new
 temporary test directory, then run:
 
 ```powershell
-$TestRoot = Join-Path $env:TEMP "scoreform-v0.9.1-physical-acceptance"
+$TestRoot = Join-Path $env:TEMP "scoreform-v0.10.0-physical-acceptance"
 if (Test-Path -LiteralPath $TestRoot) {
     throw "Choose a new empty physical-test directory: $TestRoot"
 }
@@ -178,7 +180,7 @@ New-Item -ItemType Directory -Path $TestRoot | Out-Null
 
 # Copy the two verified wheel files into $TestRoot before continuing.
 $CoreWheel = Get-Item (Join-Path $TestRoot "pds_core-0.6.0-py3-none-any.whl")
-$CandidateWheel = Get-Item (Join-Path $TestRoot "scoreform-0.9.1-py3-none-any.whl")
+$CandidateWheel = Get-Item (Join-Path $TestRoot "scoreform-0.10.0-py3-none-any.whl")
 if ((Get-FileHash $CandidateWheel.FullName -Algorithm SHA256).Hash -ne $ScoreFormWheelHash) {
     throw "The copied ScoreForm wheel is not the recorded candidate wheel."
 }
@@ -237,7 +239,7 @@ The copied `assignment.json` has exactly this content:
 ```json
 {
   "assignment_id": "physical_acceptance_30",
-  "title": "ScoreForm v0.9.1 Physical Acceptance",
+  "title": "ScoreForm v0.10.0 Physical Acceptance",
   "question_count": 30,
   "choices": ["A", "B", "C", "D"],
   "layout_id": "standard_15q_abcd_v1",
