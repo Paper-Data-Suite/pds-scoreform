@@ -545,10 +545,28 @@ def _preflight_target_destination(
 
 
 def _revalidate_source_for_commit(
+    workspace_root: str | Path,
     source: AssignmentCopySource,
     *,
     standards_library: StandardsLibrary | None,
 ) -> None:
+    try:
+        _preflight_source_directory_chain(workspace_root, source.work_root)
+    except AssignmentCopyError as error:
+        raise AssignmentCopyConflictError(
+            "Source path became unsafe after the copy preview: "
+            f"{error}"
+        ) from error
+
+    if source.assignment_path.is_symlink():
+        raise AssignmentCopyConflictError(
+            "Source assignment.json became a symbolic link after the copy preview."
+        )
+    if not source.assignment_path.exists() or not source.assignment_path.is_file():
+        raise AssignmentCopyConflictError(
+            "Source assignment.json is no longer a regular file after the copy preview."
+        )
+
     try:
         current_bytes = source.assignment_path.read_bytes()
     except OSError as error:
@@ -628,6 +646,7 @@ def _revalidate_plan_before_commit(
         )
 
     _revalidate_source_for_commit(
+        workspace_root,
         plan.source,
         standards_library=standards_library,
     )

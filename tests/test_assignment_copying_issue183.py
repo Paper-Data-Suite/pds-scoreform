@@ -744,3 +744,44 @@ def test_source_rejects_symlinked_ancestor_in_canonical_path_chain(
             "unit_1_quiz",
         )
 
+@pytest.mark.parametrize("link_target", ["ancestor", "assignment"])
+def test_commit_rejects_source_link_change_after_preview_before_any_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    link_target: str,
+) -> None:
+    from scoreform.assignment_copying import commit_assignment_copy
+
+    _write_source(tmp_path)
+    _write_roster(tmp_path, "english10_p4")
+    source = load_assignment_copy_source(
+        tmp_path,
+        "english10_p2",
+        "unit_1_quiz",
+    )
+    plan = plan_assignment_copy(
+        tmp_path,
+        source,
+        target_class_ids=("english10_p4",),
+        target_assignment_id="unit_1_quiz",
+    )
+
+    linked_path = (
+        source.work_root.parent
+        if link_target == "ancestor"
+        else source.assignment_path
+    )
+    original_is_symlink = Path.is_symlink
+
+    def report_new_link(path: Path) -> bool:
+        if path == linked_path:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", report_new_link)
+
+    with pytest.raises(AssignmentCopyConflictError, match="after the copy preview"):
+        commit_assignment_copy(tmp_path, plan)
+
+    assert not plan.targets[0].work_root.exists()
+
