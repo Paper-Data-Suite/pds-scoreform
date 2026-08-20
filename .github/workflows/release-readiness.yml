@@ -46,6 +46,14 @@ jobs:
       - name: Strict mypy release scripts
         run: |
           python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_release_artifacts.py
+      - name: Strict mypy assignment-copy installed acceptance
+        run: |
+          python -m mypy \
+            --follow-imports=skip \
+            --disallow-untyped-defs \
+            --disallow-incomplete-defs \
+            --check-untyped-defs \
+            scripts/verify_installed_assignment_copy_acceptance.py
       - name: Pytest
         run: python -m pytest tests -q
       - name: Audit v0.10.0 release compatibility boundary
@@ -71,6 +79,11 @@ jobs:
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.10.0"
           test ! -e "$PDS_WORKSPACE_ROOT"
+      - name: Verify installed assignment copying
+        run: |
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_assignment_copy_acceptance.py \
+            --workspace "$RUNNER_TEMP/scoreform-assignment-copy-acceptance" \
+            --version 0.10.0 --expected-core-version 0.6.0
       - name: Verify installed producer lifecycle
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_producer_acceptance.py \

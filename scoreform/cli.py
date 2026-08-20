@@ -148,6 +148,13 @@ def run_publication(args):
     return publication(args)
 
 
+def run_assignment_copy(args):
+    """Load safe assignment copying only for its explicit command."""
+    from scoreform.cli_assignment_copy import run_assignment_copy as assignment_copy
+
+    return assignment_copy(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -555,6 +562,8 @@ def _main(argv=None, default_to_menu=True):
         return run_manifest(args)
     elif cmd == "publication":
         return run_publication(args)
+    elif cmd == "copy-assignment":
+        return run_assignment_copy(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1
