@@ -1101,9 +1101,9 @@ def test_republication_failure_after_generation_reuses_successor_on_retry(
             expected_withdrawn_head_publication_id=first.publication.publication_id,
         )
     assert caught.value.state.publication is None
-    assert [path.name for path in paths.academic_result_manifests_dir.glob("*.json")] == [
-        "1.json", "2.json"
-    ]
+    assert sorted(
+        path.name for path in paths.academic_result_manifests_dir.glob("*.json")
+    ) == ["1.json", "2.json"]
     monkeypatch.setattr(
         publication_module, "supersede_scoreform_academic_results", real_supersede
     )
@@ -1113,9 +1113,9 @@ def test_republication_failure_after_generation_reuses_successor_on_retry(
     )
     assert retry.publication.record_set_revision == 2
     assert retry.manifest_generation is None
-    assert [path.name for path in paths.academic_result_manifests_dir.glob("*.json")] == [
-        "1.json", "2.json"
-    ]
+    assert sorted(
+        path.name for path in paths.academic_result_manifests_dir.glob("*.json")
+    ) == ["1.json", "2.json"]
     assert load_publication_withdrawal(tmp_path, first.publication.publication_id) is not None
 
 
