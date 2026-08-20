@@ -60,6 +60,11 @@ Usage:
   scoreform validate-roster <roster.csv>
   scoreform setup-assignment <assignment.json> <roster.csv>
   scoreform copy-assignment --source-class-id <class_id> --source-assignment-id <assignment_id> --target-assignment-id <assignment_id> --target-class-id <class_id> [--target-class-id <class_id> ...] [--title <title>] [--apply]
+  scoreform preset list
+  scoreform preset show --preset-id <preset_id>
+  scoreform preset save --preset-id <preset_id> --source-class-id <class_id> --source-assignment-id <assignment_id> [--label <label>] [--apply]
+  scoreform preset apply --preset-id <preset_id> --target-assignment-id <assignment_id> --title <title> --target-class-id <class_id> [--target-class-id <class_id> ...] [--apply]
+  scoreform preset delete --preset-id <preset_id> [--apply]
   scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
   scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
   scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
@@ -104,6 +109,7 @@ Commands:
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
   copy-assignment       Plan or explicitly create safe assignment copies across classes.
+  preset                List, save, inspect, apply, or delete reusable setup presets.
   academic-work         Show, register, or explicitly update Academic Work metadata.
   workspace             View or configure the shared PDS workspace root.
   school-year           View, open, or close the active PDS school year.
@@ -152,6 +158,8 @@ Examples:
   scoreform validate-assignment examples\\sample_assignment.json
   scoreform validate-roster examples\\sample_roster_english9_p2.csv
   scoreform copy-assignment --source-class-id english10_p2 --source-assignment-id unit_1_quiz --target-assignment-id unit_1_quiz --target-class-id english10_p4
+  scoreform preset save --preset-id short_quiz --source-class-id english10_p2 --source-assignment-id unit_1_quiz
+  scoreform preset apply --preset-id short_quiz --target-assignment-id unit_2_quiz --title "Unit 2 Quiz" --target-class-id english10_p4
   scoreform workspace show
   scoreform workspace set "C:\\Users\\teacher\\Paper Data Suite"
   scoreform workspace validate

@@ -35,7 +35,8 @@ function Test-InstalledArtifact {
         [string]$Venv,
         [string]$Artifact,
         [string]$Label,
-        [switch]$RunProducerAcceptance
+        [switch]$RunProducerAcceptance,
+        [switch]$RunPresetAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -77,7 +78,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -96,6 +97,24 @@ function Test-InstalledArtifact {
         }
         if (Test-Path -LiteralPath $Workspace) {
             throw "$Label import/help/version/profile discovery created workspace data."
+        }
+
+        if ($RunPresetAcceptance) {
+            $PresetAcceptanceWorkspace = Join-Path $Root "$Label-preset-acceptance-workspace"
+            if (Test-Path -LiteralPath $PresetAcceptanceWorkspace) {
+                throw "$Label preset-acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $PresetAcceptanceWorkspace
+            Invoke-Checked "Run $Label installed assignment-preset acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_assignment_preset_acceptance.py") `
+                    --workspace $PresetAcceptanceWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $PresetAcceptanceWorkspace -PathType Container)) {
+                throw "$Label preset acceptance did not create its expected workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
         if ($RunProducerAcceptance) {
@@ -133,7 +152,8 @@ try {
         -Venv (Join-Path $Root "wheel-venv") `
         -Artifact $Wheel[0].FullName `
         -Label "wheel" `
-        -RunProducerAcceptance
+        -RunProducerAcceptance `
+        -RunPresetAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `

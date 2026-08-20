@@ -1087,6 +1087,7 @@ def launch_assignment_menu():
             print("11. Academic Result Manifests")
             print("12. Academic Result Publications")
             print("13. Copy an assignment")
+            print("14. Assessment setup presets")
             print_scoreform_navigation_options()
             print()
 
@@ -1188,6 +1189,13 @@ def launch_assignment_menu():
                 prompt_copy_assignment()
                 print()
                 pause_for_user()
+
+            elif choice == "14":
+                from scoreform.menu_assignment_presets import (
+                    launch_assignment_presets_menu,
+                )
+
+                launch_assignment_presets_menu()
 
             else:
                 print(f"Invalid selection: {choice}.")
