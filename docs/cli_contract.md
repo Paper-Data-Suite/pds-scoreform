@@ -955,3 +955,55 @@ arguments, unsafe work IDs, malformed publication IDs, noncanonical revisions,
 empty withdrawal reasons, unknown actions, and `--force`. Read-only commands do
 not create a missing catalog. Installed `publication` and action-level `--help`
 dispatch is side-effect free.
+
+## Assignment copying
+
+The normative safety/ownership contract is documented in
+[`assignment_copying.md`](assignment_copying.md).
+
+Issue #183 adds a prompt-free direct planning and execution surface for safe
+cross-class assignment reuse:
+
+```powershell
+scoreform copy-assignment `
+  --source-class-id english10_p2 `
+  --source-assignment-id unit_1_quiz `
+  --target-assignment-id unit_1_quiz `
+  --target-class-id english10_p4
+
+scoreform copy-assignment `
+  --source-class-id english10_p2 `
+  --source-assignment-id unit_1_quiz `
+  --target-assignment-id unit_1_quiz `
+  --target-class-id english10_p4 `
+  --target-class-id english10_p6 `
+  --apply
+```
+
+Without `--apply`, the command is strictly non-mutating. It validates the exact
+source assignment, current standards references, target Core rosters, target
+work identities, and known shared Core registration/publication conflicts, then
+prints the complete reusable assignment definition and every planned target.
+
+`--target-class-id` is repeatable and preserves the caller's order. The source
+assignment ID may be reused in a different Core class because ScoreForm work
+identity is class-qualified. A same-class copy requires a distinct unused target
+assignment ID.
+
+`--apply` is the only mutation switch. Before the first write, ScoreForm
+revalidates the exact reviewed source bytes, candidate definition, target roster
+summaries, standards references, and all destinations. Assignment copy is
+create-only: an existing target work root is a conflict. There is deliberately
+no `--overwrite` or `--force` mode.
+
+Successful targets receive only a fresh managed ScoreForm assignment/work
+layout. The operation does not copy or create rosters, answer sheets, issuances,
+pages, routes, scans, scan-review history, result attempts, Academic Work
+Registration, manifests, Publication Records, or debug/export history.
+
+Predictable validation and collision failures are detected before the first
+write. If an unexpected runtime write failure occurs after an earlier target was
+durably created, the command reports partial success, keeps the successful
+target, identifies the failed target, leaves later targets unattempted, and
+returns nonzero. It does not pretend to provide cross-target filesystem
+rollback.

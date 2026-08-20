@@ -488,6 +488,13 @@ def _validate_staged_assignment(assignment):
     return validate_assignment_data(assignment) is not None
 
 
+def prompt_copy_assignment():
+    """Compatibility wrapper for the teacher-facing assignment copy workflow."""
+    from scoreform.menu_assignment_copy import prompt_copy_assignment as copy_assignment
+
+    return copy_assignment()
+
+
 def prompt_edit_assignment():
     """Interactive workflow for staging and saving edits to an assignment."""
     print_menu_header("Edit an Assignment")
@@ -1079,6 +1086,7 @@ def launch_assignment_menu():
             print("10. Academic Work Registration")
             print("11. Academic Result Manifests")
             print("12. Academic Result Publications")
+            print("13. Copy an assignment")
             print_scoreform_navigation_options()
             print()
 
@@ -1174,6 +1182,12 @@ def launch_assignment_menu():
                 )
 
                 launch_academic_result_publications_menu()
+
+            elif choice == "13":
+                clear_screen()
+                prompt_copy_assignment()
+                print()
+                pause_for_user()
 
             else:
                 print(f"Invalid selection: {choice}.")
