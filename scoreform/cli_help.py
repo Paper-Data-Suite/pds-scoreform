@@ -59,6 +59,7 @@ Usage:
   scoreform validate-assignment <assignment.json>
   scoreform validate-roster <roster.csv>
   scoreform setup-assignment <assignment.json> <roster.csv>
+  scoreform bulk-edit-assignment --class-id <class_id> --assignment-id <assignment_id> [--answer-key-text <text> | --answer-key-csv <path> | --answer-key-json <path>] [--alignment-text <text> | --alignment-csv <path> | --alignment-json <path>] [--standards-profile-id <profile_id>] [--apply]
   scoreform copy-assignment --source-class-id <class_id> --source-assignment-id <assignment_id> --target-assignment-id <assignment_id> --target-class-id <class_id> [--target-class-id <class_id> ...] [--title <title>] [--apply]
   scoreform preset list
   scoreform preset show --preset-id <preset_id>
@@ -108,6 +109,7 @@ Commands:
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.
   setup-assignment      Create class and assignment folders.
+  bulk-edit-assignment  Plan or atomically apply complete answer-key/alignment replacements.
   copy-assignment       Plan or explicitly create safe assignment copies across classes.
   preset                List, save, inspect, apply, or delete reusable setup presets.
   academic-work         Show, register, or explicitly update Academic Work metadata.
@@ -157,6 +159,7 @@ Examples:
   scoreform decode-qr classes\\english9_p2\\modules\\scoreform\\work\\rj_act1_quiz\\templates\\class_packet.pdf
   scoreform validate-assignment examples\\sample_assignment.json
   scoreform validate-roster examples\\sample_roster_english9_p2.csv
+  scoreform bulk-edit-assignment --class-id english10_p2 --assignment-id unit_1_quiz --answer-key-text "A B C D"
   scoreform copy-assignment --source-class-id english10_p2 --source-assignment-id unit_1_quiz --target-assignment-id unit_1_quiz --target-class-id english10_p4
   scoreform preset save --preset-id short_quiz --source-class-id english10_p2 --source-assignment-id unit_1_quiz
   scoreform preset apply --preset-id short_quiz --target-assignment-id unit_2_quiz --title "Unit 2 Quiz" --target-class-id english10_p4

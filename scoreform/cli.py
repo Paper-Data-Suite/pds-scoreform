@@ -162,6 +162,13 @@ def run_assignment_preset(args):
     return preset(args)
 
 
+def run_assignment_bulk(args):
+    """Load guarded bulk assignment editing only for its explicit command."""
+    from scoreform.cli_assignment_bulk import run_assignment_bulk as assignment_bulk
+
+    return assignment_bulk(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -569,6 +576,8 @@ def _main(argv=None, default_to_menu=True):
         return run_manifest(args)
     elif cmd == "publication":
         return run_publication(args)
+    elif cmd == "bulk-edit-assignment":
+        return run_assignment_bulk(args)
     elif cmd == "copy-assignment":
         return run_assignment_copy(args)
     elif cmd == "preset":

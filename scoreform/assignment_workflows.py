@@ -20,6 +20,18 @@ from scoreform import (
     workspace,
 )
 from scoreform.assignment import load_assignment, validate_assignment_data
+from scoreform.assignment_bulk_mutation import (
+    AssignmentBulkMutationError,
+    commit_assignment_bulk_mutation,
+    load_assignment_bulk_snapshot,
+    plan_assignment_staged_replacement,
+)
+from scoreform.assignment_bulk_ui import (
+    assignment_uses_standards,
+    print_complete_assignment_preview,
+    prompt_answer_key_entry,
+    prompt_standards_bulk_entry,
+)
 from scoreform.config import MAX_ASSIGNMENT_QUESTION_COUNT as MAX_QUESTION_COUNT
 from scoreform.layouts import DEFAULT_LAYOUT_ID, get_layout
 from scoreform.menu_navigation import (
@@ -170,7 +182,7 @@ def _prompt_edit_assignment_title(assignment):
     return updated, new_title != assignment["title"]
 
 
-def _prompt_edit_assignment_answer_key(assignment):
+def _prompt_edit_assignment_answer_key_fine_grained(assignment):
     updated = dict(assignment)
     updated["answer_key"] = dict(assignment["answer_key"])
     changed = False
@@ -192,7 +204,12 @@ def _prompt_edit_assignment_answer_key(assignment):
                 current_answer = updated["answer_key"][question_key]
                 print(f"Current answer for Q{question_number}: {current_answer}")
 
-                new_answer = input("New answer: ").strip().upper()
+                new_answer_text = input(
+                    "New answer (type BACK to cancel answer-key editing): "
+                ).strip()
+                if new_answer_text.lower() == "back":
+                    return updated, changed
+                new_answer = new_answer_text.upper()
                 if new_answer not in assignment["choices"]:
                     print(
                         "Error: Answer must be one of "
@@ -252,6 +269,14 @@ def _load_selection_library(workspace_root):
     except (StandardsReadError, StandardsValidationError, OSError) as error:
         print(f"Error: Could not load the PDS Core standards library: {error}")
         print("Repair or create standards in PDS Core, then return to ScoreForm.")
+        return None
+
+
+def _load_optional_selection_library(workspace_root):
+    """Load current Core standards when available without noisy optional errors."""
+    try:
+        return load_standards_for_selection(workspace_root)
+    except (StandardsReadError, StandardsValidationError, OSError):
         return None
 
 
@@ -401,7 +426,7 @@ def _run_alignment_loop(assignment, library, available_standards):
             print_invalid_navigation()
 
 
-def _prompt_edit_assignment_standards(assignment, workspace_root):
+def _prompt_edit_assignment_standards_fine_grained(assignment, workspace_root):
     original = assignment
     library = _load_selection_library(workspace_root)
     if library is None:
@@ -433,6 +458,127 @@ def _prompt_edit_assignment_standards(assignment, workspace_root):
     updated, _ = _run_alignment_loop(updated, library, available_standards)
     return updated, updated != original
 
+def _prompt_edit_assignment_answer_key(assignment):
+    """Choose bulk or fine-grained answer-key editing for one staged assignment."""
+    while True:
+        clear_screen()
+        print_menu_header("Edit Answer Key")
+        print("1. Paste complete key")
+        print("2. Import answer-key CSV")
+        print("3. Import answer-key JSON")
+        print("4. Edit one question at a time")
+        print_scoreform_navigation_options()
+        choice = input("Select an option: ").strip()
+        if parse_scoreform_navigation(choice) is not None:
+            return assignment, False
+        if choice == "4":
+            return _prompt_edit_assignment_answer_key_fine_grained(assignment)
+        methods = {"1": "text", "2": "csv", "3": "json"}
+        method = methods.get(choice)
+        if method is None:
+            print(f"Invalid selection: {choice}.")
+            print_invalid_navigation()
+            continue
+
+        value = prompt_answer_key_entry(
+            question_count=assignment["question_count"],
+            choices=assignment["choices"],
+            forced_method=method,
+        )
+        if value is None:
+            return assignment, False
+        updated = dict(assignment)
+        updated["answer_key"] = value.as_assignment_mapping()
+        return updated, updated["answer_key"] != assignment["answer_key"]
+
+
+def _prompt_edit_assignment_standards(assignment, workspace_root):
+    """Choose complete bulk replacement or the existing fine-grained editor."""
+    while True:
+        clear_screen()
+        print_menu_header("Edit Standards Alignment")
+        print("1. Paste complete alignment")
+        print("2. Import alignment CSV")
+        print("3. Import alignment JSON")
+        print("4. Fine-grained standards editor")
+        print_scoreform_navigation_options()
+        choice = input("Select an option: ").strip()
+        if parse_scoreform_navigation(choice) is not None:
+            return assignment, False
+        if choice == "4":
+            return _prompt_edit_assignment_standards_fine_grained(
+                assignment,
+                workspace_root,
+            )
+        methods = {"1": "text", "2": "csv", "3": "json"}
+        method = methods.get(choice)
+        if method is None:
+            print(f"Invalid selection: {choice}.")
+            print_invalid_navigation()
+            continue
+
+        library = _load_selection_library(workspace_root)
+        if library is None:
+            return assignment, False
+        alignment = prompt_standards_bulk_entry(
+            question_count=assignment["question_count"],
+            standards_library=library,
+            current_profile_id=assignment.get("standards_profile_id"),
+            forced_method=method,
+        )
+        if alignment is None:
+            return assignment, False
+
+        updated = dict(assignment)
+        updated["standards"] = alignment.as_assignment_mapping()
+        if alignment.standards_profile_id is None:
+            updated.pop("standards_profile_id", None)
+        else:
+            updated["standards_profile_id"] = alignment.standards_profile_id
+        return updated, updated != assignment
+
+
+def _print_assignment_change_summary(original, candidate):
+    print("Staged differences:")
+    if original.get("title") != candidate.get("title"):
+        print("  title: changed")
+
+    question_count = candidate["question_count"]
+    original_answers = original["answer_key"]
+    candidate_answers = candidate["answer_key"]
+    answer_changes = [
+        question_number
+        for question_number in range(1, question_count + 1)
+        if original_answers.get(question_number, original_answers.get(str(question_number)))
+        != candidate_answers.get(question_number, candidate_answers.get(str(question_number)))
+    ]
+    if answer_changes:
+        print(
+            "  answer key: changed "
+            + ", ".join(f"Q{question_number}" for question_number in answer_changes)
+        )
+
+    original_standards = original.get("standards", {})
+    candidate_standards = candidate.get("standards", {})
+    standards_changes = [
+        question_number
+        for question_number in range(1, question_count + 1)
+        if original_standards.get(
+            question_number,
+            original_standards.get(str(question_number), []),
+        )
+        != candidate_standards.get(
+            question_number,
+            candidate_standards.get(str(question_number), []),
+        )
+    ]
+    if standards_changes:
+        print(
+            "  standards: changed "
+            + ", ".join(f"Q{question_number}" for question_number in standards_changes)
+        )
+    if original.get("standards_profile_id") != candidate.get("standards_profile_id"):
+        print("  standards profile: changed")
 
 def _assignment_record_for_display(class_id, assignment_path, assignment):
     return {
@@ -496,7 +642,7 @@ def prompt_copy_assignment():
 
 
 def prompt_edit_assignment():
-    """Interactive workflow for staging and saving edits to an assignment."""
+    """Interactive staged assignment editing with guarded atomic replacement."""
     print_menu_header("Edit an Assignment")
 
     available_classes = discover_class_rosters()
@@ -555,13 +701,22 @@ def prompt_edit_assignment():
         print(f"Error: {e}")
         return 1
 
-    assignment_path = assignment_record["assignment_path"]
-    loaded_assignment = load_assignment(assignment_path)
-    if loaded_assignment is None:
-        print(f"Error: Could not load assignment: {assignment_path}")
+    workspace_root = workspace.get_scoreform_workspace_root()
+    assignment_id = assignment_record["assignment_id"]
+    standards_library = _load_optional_selection_library(workspace_root)
+    try:
+        snapshot = load_assignment_bulk_snapshot(
+            workspace_root,
+            class_id,
+            assignment_id,
+            standards_library=standards_library,
+        )
+    except AssignmentBulkMutationError as error:
+        print(f"Error: Could not load exact canonical assignment snapshot: {error}")
         return 1
 
-    workspace_root = workspace.get_scoreform_workspace_root()
+    assignment_path = snapshot.assignment_path
+    loaded_assignment = snapshot.assignment
     staged_assignment = _assignment_for_edit(loaded_assignment)
     original_identity = (
         staged_assignment["assignment_id"],
@@ -578,6 +733,7 @@ def prompt_edit_assignment():
     print()
     print("assignment_id, question_count, choices, and layout are not editable here.")
     print("Changes are staged until you choose Save changes.")
+    print("Historical results are never automatically rescored by this editor.")
 
     while True:
         clear_screen()
@@ -636,13 +792,10 @@ def prompt_edit_assignment():
                 print("No standards change staged.")
 
         elif choice == "4":
-            print(format_assignment_for_display(
-                _assignment_record_for_display(
-                    class_id,
-                    assignment_path,
-                    staged_assignment,
-                )
-            ))
+            print_complete_assignment_preview(
+                staged_assignment,
+                class_ids=(class_id,),
+            )
             if dirty:
                 print()
                 print("Unsaved staged changes are shown above.")
@@ -662,18 +815,65 @@ def prompt_edit_assignment():
             if not _validate_staged_assignment(staged_assignment):
                 print("Error: staged assignment validation failed.")
                 continue
-            confirmation = input("Type SAVE to write staged changes: ").strip()
+
+            if assignment_uses_standards(staged_assignment):
+                plan_library = _load_selection_library(workspace_root)
+                if plan_library is None:
+                    continue
+            else:
+                plan_library = None
+            try:
+                plan = plan_assignment_staged_replacement(
+                    snapshot,
+                    staged_assignment,
+                    standards_library=plan_library,
+                )
+            except AssignmentBulkMutationError as error:
+                print(f"Error: Could not build guarded assignment plan: {error}")
+                continue
+
+            clear_screen()
+            print_menu_header("Review Assignment Changes Before Save")
+            _print_assignment_change_summary(
+                loaded_assignment,
+                plan.candidate_assignment,
+            )
+            print()
+            print_complete_assignment_preview(
+                plan.candidate_assignment,
+                class_ids=(class_id,),
+            )
+            print()
+            print(f"Canonical assignment path: {plan.snapshot.assignment_path}")
+            print(f"Reviewed source SHA-256: {plan.snapshot.assignment_sha256}")
+            print("No generated sheets, routes, results, registrations, manifests, or publications are changed by this save.")
+            print()
+            confirmation = input(
+                "Type SAVE to atomically replace this assignment, or BACK to cancel: "
+            ).strip()
             if confirmation != "SAVE":
                 print("Cancelled: save not confirmed.")
                 continue
-            if not write_assignment_json(assignment_path, staged_assignment):
-                print("Error: Failed to save assignment JSON.")
+
+            if assignment_uses_standards(plan.candidate_assignment):
+                commit_library = _load_selection_library(workspace_root)
+                if commit_library is None:
+                    print("Cancelled: current Core standards could not be revalidated.")
+                    continue
+            else:
+                commit_library = None
+            try:
+                persisted = commit_assignment_bulk_mutation(
+                    workspace_root,
+                    plan,
+                    standards_library=commit_library,
+                )
+            except AssignmentBulkMutationError as error:
+                print(f"Error: Assignment was not replaced: {error}")
                 continue
-            saved_assignment = load_assignment(assignment_path)
-            if saved_assignment is None:
-                print("Error: Assignment validation failed after save.")
-                continue
-            print(f"Saved assignment: {assignment_path}")
+
+            saved_assignment = persisted.assignment
+            print(f"Saved assignment: {persisted.assignment_path}")
             if saved_assignment["title"] != loaded_assignment["title"]:
                 try:
                     from scoreform.academic_work_registration import (
@@ -712,7 +912,6 @@ def prompt_edit_assignment():
         else:
             print(f"Invalid selection: {choice}.")
             print_invalid_navigation()
-
 
 def launch_view_assignment_results_menu():
     """Interactive read-only workflow for viewing assignment-local results."""
@@ -815,19 +1014,22 @@ def confirm_assignment_overwrite(path, class_id):
     return response in ['y', 'yes']
 
 
-def prompt_standards_alignment(workspace_root, question_count):
-    """Prompt for assignment-local standards alignment during assignment creation."""
+def _prompt_standards_alignment_choice(workspace_root, question_count):
+    """Return complete creation alignment, or None when the teacher cancels."""
     while True:
         clear_screen()
         print_menu_header("Standards Alignment")
         print("1. Skip standards for now")
-        print("2. Select a PDS Core standards profile and align questions")
+        print("2. Select a PDS Core profile and align questions interactively")
+        print("3. Paste complete alignment")
+        print("4. Import alignment CSV")
+        print("5. Import alignment JSON")
         print_scoreform_navigation_options()
         print()
 
         choice = input("Select an option: ").strip()
         if parse_scoreform_navigation(choice) is not None:
-            return None, initialize_empty_standards_alignment(question_count)
+            return None
         if choice == "1":
             return None, initialize_empty_standards_alignment(question_count)
         if choice == "2":
@@ -849,15 +1051,39 @@ def prompt_standards_alignment(workspace_root, question_count):
             if backed:
                 continue
             return profile.profile_id, aligned["standards"]
+        if choice in {"3", "4", "5"}:
+            library = _load_selection_library(workspace_root)
+            if library is None:
+                continue
+            methods = {"3": "text", "4": "csv", "5": "json"}
+            alignment = prompt_standards_bulk_entry(
+                question_count=question_count,
+                standards_library=library,
+                forced_method=methods[choice],
+            )
+            if alignment is None:
+                continue
+            return (
+                alignment.standards_profile_id,
+                alignment.as_assignment_mapping(),
+            )
 
         print("Invalid selection.")
         print_invalid_navigation()
 
 
+def prompt_standards_alignment(workspace_root, question_count):
+    """Compatibility wrapper preserving the historical two-value return shape."""
+    result = _prompt_standards_alignment_choice(workspace_root, question_count)
+    if result is None:
+        return None, initialize_empty_standards_alignment(question_count)
+    return result
+
 def prompt_create_assignment():
     """Interactive prompt to create assignment JSON files for selected classes.
 
-    Returns 0 on success, 1 on cancellation or error.
+    Returns 0 on success or teacher cancellation, 1 on an operational error.
+    No assignment work is created before the final explicit SAVE confirmation.
     """
     print_menu_header("Create an Assignment for Class(es)")
 
@@ -875,6 +1101,7 @@ def prompt_create_assignment():
 
     selection_text = input("Select class(es), comma-separated: ").strip()
     if parse_scoreform_navigation(selection_text) is not None:
+        print("Cancelled: no assignment state was written.")
         return 0
     try:
         selected_classes = parse_class_selection(selection_text, available_classes)
@@ -886,7 +1113,10 @@ def prompt_create_assignment():
     print_menu_header("Assignment Identity")
     print(f"Classes: {', '.join(record['class_id'] for record in selected_classes)}")
     print()
-    title = input("Assignment title: ").strip()
+    title = input("Assignment title (type BACK to cancel): ").strip()
+    if title.lower() == "back":
+        print("Cancelled: no assignment state was written.")
+        return 0
     if not title:
         print("Error: title is required.")
         return 1
@@ -895,12 +1125,23 @@ def prompt_create_assignment():
     assignment_id = ""
     if is_safe_identifier(suggested_assignment_id):
         print(f"Suggested assignment_id: {suggested_assignment_id}")
-        assignment_id = input("Press Enter to accept, or type a different assignment_id: ").strip()
+        assignment_id = input(
+            "Press Enter to accept, type a different assignment_id, "
+            "or BACK to cancel: "
+        ).strip()
+        if assignment_id.lower() == "back":
+            print("Cancelled: no assignment state was written.")
+            return 0
         if not assignment_id:
             assignment_id = suggested_assignment_id
     else:
         print("Could not create a safe assignment_id suggestion from that title.")
-        assignment_id = input("Enter a valid assignment_id: ").strip()
+        assignment_id = input(
+            "Enter a valid assignment_id (or BACK to cancel): "
+        ).strip()
+        if assignment_id.lower() == "back":
+            print("Cancelled: no assignment state was written.")
+            return 0
 
     if not assignment_id:
         print("Error: assignment_id is required.")
@@ -918,8 +1159,12 @@ def prompt_create_assignment():
     print("Layout:")
     print("1. Standard 15-question A-D")
     print("2. Compact 25-question A-D")
+    print_scoreform_navigation_options()
     while True:
         layout_selection = input("Select layout: ").strip()
+        if parse_scoreform_navigation(layout_selection) is not None:
+            print("Cancelled: no assignment state was written.")
+            return 0
         if layout_selection in {"", "1"}:
             break
         if layout_selection == "2":
@@ -927,14 +1172,18 @@ def prompt_create_assignment():
             break
         print("Error: Select layout 1 or 2.")
     print()
+
     selected_layout = get_layout(layout_id)
     question_count = None
     while question_count is None:
         count_prompt = (
             f"Question count (1-{MAX_QUESTION_COUNT}; "
-            f"{selected_layout.questions_per_page} per page): "
+            f"{selected_layout.questions_per_page} per page; B to cancel): "
         )
         count_input = input(count_prompt).strip()
+        if parse_scoreform_navigation(count_input) is not None:
+            print("Cancelled: no assignment state was written.")
+            return 0
         if not count_input.isdigit():
             print(f"Error: question_count must be an integer from 1 to {MAX_QUESTION_COUNT}.")
             continue
@@ -947,26 +1196,26 @@ def prompt_create_assignment():
     clear_screen()
     print_menu_header("Answer Key")
     print(f"Assignment: {assignment_id}")
-    print()
     print(f"Using question_count: {question_count}")
     print("Using choices: A, B, C, D")
     print()
-
-    answer_key = {}
-
-    for i in range(1, question_count + 1):
-        while True:
-            ans = input(f"Q{i} answer (A/B/C/D): ").strip().upper()
-            if ans in choices:
-                answer_key[str(i)] = ans
-                break
-            print("Error: Answer must be one of A, B, C, or D (case-insensitive). Please try again.")
+    answer_key_value = prompt_answer_key_entry(
+        question_count=question_count,
+        choices=choices,
+    )
+    if answer_key_value is None:
+        print("Cancelled: no assignment state was written.")
+        return 0
 
     workspace_root = workspace.get_scoreform_workspace_root()
-    standards_profile_id, standards_by_question = prompt_standards_alignment(
+    standards_choice = _prompt_standards_alignment_choice(
         workspace_root,
         question_count,
     )
+    if standards_choice is None:
+        print("Cancelled: no assignment state was written.")
+        return 0
+    standards_profile_id, standards_by_question = standards_choice
 
     assignment = {
         "assignment_id": assignment_id,
@@ -974,7 +1223,7 @@ def prompt_create_assignment():
         "question_count": question_count,
         "choices": choices,
         "layout_id": layout_id,
-        "answer_key": answer_key,
+        "answer_key": answer_key_value.as_assignment_mapping(),
         "standards": standards_by_question,
     }
     if standards_profile_id is not None:
@@ -983,6 +1232,25 @@ def prompt_create_assignment():
     if normalized_assignment is None:
         print("Error: Assignment validation failed before saving.")
         return 1
+
+    clear_screen()
+    print_menu_header("Review Assignment Before Save")
+    print_complete_assignment_preview(
+        normalized_assignment,
+        class_ids=tuple(record["class_id"] for record in selected_classes),
+    )
+    print()
+    print("No assignment state has been written yet.")
+    print("Generated sheets, routes, results, registrations, manifests, and publications are not changed here.")
+    print_scoreform_navigation_options()
+    print()
+    confirmation = input(
+        "Type SAVE to create/update the selected assignment file(s), or BACK to cancel: "
+    ).strip()
+    if confirmation != "SAVE":
+        print("Cancelled: final SAVE was not confirmed.")
+        print("No assignment state was written.")
+        return 0
 
     clear_screen()
     print_menu_header("Save Assignment")
@@ -1001,16 +1269,25 @@ def prompt_create_assignment():
             continue
         output_path = os.fspath(paths.assignment_path)
 
+        existing_snapshot = None
         if paths.assignment_path.is_symlink():
             print(f"Error: Existing assignment path is a symbolic link: {output_path}")
             skipped_paths.append(output_path)
             continue
         if paths.assignment_path.exists():
-            existing_assignment = load_assignment(paths.assignment_path)
-            if existing_assignment is None:
-                print(f"Error: Existing assignment is invalid: {output_path}")
+            existing_library = _load_optional_selection_library(workspace_root)
+            try:
+                existing_snapshot = load_assignment_bulk_snapshot(
+                    workspace_root,
+                    class_id,
+                    assignment_id,
+                    standards_library=existing_library,
+                )
+            except AssignmentBulkMutationError as error:
+                print(f"Error: Existing assignment is not safely editable: {error}")
                 skipped_paths.append(output_path)
                 continue
+            existing_assignment = existing_snapshot.assignment
             immutable_fields = ("assignment_id", "question_count", "choices", "layout_id")
             if any(
                 existing_assignment.get(field) != normalized_assignment.get(field)
@@ -1026,6 +1303,35 @@ def prompt_create_assignment():
         if not confirm_assignment_overwrite(output_path, class_id):
             print(f"Skipped: {output_path}")
             skipped_paths.append(output_path)
+            continue
+
+        if existing_snapshot is not None:
+            if assignment_uses_standards(normalized_assignment) or assignment_uses_standards(
+                existing_snapshot.assignment
+            ):
+                replacement_library = _load_selection_library(workspace_root)
+                if replacement_library is None:
+                    skipped_paths.append(output_path)
+                    continue
+            else:
+                replacement_library = None
+            try:
+                replacement_plan = plan_assignment_staged_replacement(
+                    existing_snapshot,
+                    normalized_assignment,
+                    standards_library=replacement_library,
+                )
+                persisted = commit_assignment_bulk_mutation(
+                    workspace_root,
+                    replacement_plan,
+                    standards_library=replacement_library,
+                )
+            except AssignmentBulkMutationError as error:
+                print(f"Error: Existing assignment was not replaced safely: {error}")
+                skipped_paths.append(output_path)
+                continue
+            print(f"Atomically replaced assignment: {persisted.assignment_path}")
+            written_paths.append(output_path)
             continue
 
         try:
@@ -1066,7 +1372,6 @@ def prompt_create_assignment():
         print(f"  {path}")
 
     return 0
-
 
 def launch_assignment_menu():
     """Assignment management submenu."""
