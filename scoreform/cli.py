@@ -155,6 +155,13 @@ def run_assignment_copy(args):
     return assignment_copy(args)
 
 
+def run_assignment_preset(args):
+    """Load assessment setup presets only for their explicit command."""
+    from scoreform.cli_assignment_presets import run_assignment_preset as preset
+
+    return preset(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -564,6 +571,8 @@ def _main(argv=None, default_to_menu=True):
         return run_publication(args)
     elif cmd == "copy-assignment":
         return run_assignment_copy(args)
+    elif cmd == "preset":
+        return run_assignment_preset(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1

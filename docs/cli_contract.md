@@ -185,6 +185,34 @@ options only. They are not implemented or reserved interfaces.
 
 ## Current Command Surface
 
+### Assessment Setup Presets
+
+Issue #184 adds a provisional `scoreform preset` namespace for reusable
+non-student assessment configuration:
+
+```powershell
+scoreform preset list
+scoreform preset show --preset-id <preset_id>
+scoreform preset save --preset-id <preset_id> --source-class-id <class_id> --source-assignment-id <assignment_id> [--label <label>] [--apply]
+scoreform preset apply --preset-id <preset_id> --target-assignment-id <assignment_id> --title <title> --target-class-id <class_id> [--target-class-id <class_id> ...] [--apply]
+scoreform preset delete --preset-id <preset_id> [--apply]
+```
+
+`list` and `show` are read-only. `save`, `apply`, and `delete` are plan-only
+unless `--apply` is explicit. There is no `--force` or `--overwrite` mode.
+
+Presets are ScoreForm-owned workspace-level records under
+`modules/scoreform/presets/`, not class-qualified assignment work. They contain
+only reusable layout/question/key/alignment configuration and no class, roster,
+student, scan, result, route, registration, manifest, or publication state.
+
+Applying a preset creates a fresh normal class-qualified assignment after
+current Core roster/standards authority and target cleanliness are validated.
+It does not generate answer sheets or create downstream academic-result state.
+
+The full contract and acceptance boundary are documented in
+[`assignment_setup_presets.md`](assignment_setup_presets.md).
+
 ### Academic Work Registration
 
 ```text
