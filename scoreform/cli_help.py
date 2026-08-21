@@ -47,6 +47,7 @@ Usage:
   scoreform menu
   scoreform generate
   scoreform generate <assignment.json> --rosters <roster.csv> [more rosters...]
+  scoreform generate-batch --target <class_id>/<assignment_id> [--target <class_id>/<assignment_id> ...] [--apply]
   scoreform regenerate-sheets --class-id <class_id> --assignment-id <assignment_id>
   scoreform regenerate-sheets --class-id <class_id> --all-assignments
   scoreform score <scan.pdf>
@@ -101,6 +102,7 @@ Commands:
   manifest              Generate, list, show, or validate immutable result manifests.
   publication           Manage Core publication, supersession, withdrawal, and catalog workflows.
   generate              Generate a generic template or assignment-based answer sheets.
+  generate-batch        Plan or explicitly execute answer-sheet generation for exact managed targets.
   regenerate-sheets     Regenerate managed answer sheets from the current roster.
   score                 Score scanned responses.
   list-scan-review      List unresolved and deferred ScoreForm scan review items.
@@ -155,6 +157,7 @@ Scoring modes:
 Examples:
   scoreform
   scoreform generate examples\\sample_assignment.json --rosters examples\\sample_roster_english9_p2.csv
+  scoreform generate-batch --target english10_p2/unit_2_quiz --target english10_p4/unit_2_quiz
   scoreform score scans_inbox\\class_packet.pdf
   scoreform decode-qr classes\\english9_p2\\modules\\scoreform\\work\\rj_act1_quiz\\templates\\class_packet.pdf
   scoreform validate-assignment examples\\sample_assignment.json

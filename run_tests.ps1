@@ -49,7 +49,7 @@ Invoke-Step "Audit v0.10.0 release compatibility boundary" {
     & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
-    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.assignment_presets; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
+    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
 }
 Invoke-Step "Run focused installed-profile contract tests" {
     & $Python -m pytest @(
@@ -95,6 +95,7 @@ Invoke-Step "Run strict mypy on release scripts" {
         "scripts\verify_installed_producer_acceptance.py",
         "scripts\verify_installed_assignment_preset_acceptance.py",
         "scripts\verify_installed_assignment_bulk_entry_acceptance.py",
+        "scripts\verify_installed_multi_class_generation_acceptance.py",
         "scripts\verify_release_artifacts.py"
     )
 }

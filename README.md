@@ -174,6 +174,7 @@ commands include:
 scoreform generate
 scoreform generate <assignment.json> --rosters <roster.csv> [more rosters...]
 scoreform regenerate-sheets --class-id <class_id> --assignment-id <assignment_id>
+scoreform generate-batch --target <class_id>/<assignment_id> [--target <class_id>/<assignment_id> ...] [--apply]
 scoreform decode-qr <scan.pdf-or-image>
 scoreform score <scan.pdf-or-image>
 scoreform list-scan-review [--include-resolved] [--limit <n>]
@@ -203,6 +204,15 @@ unless `--apply` is explicit. Existing managed assignments use exact-snapshot,
 guarded atomic replacement, and changing the definition does not rescore results
 or regenerate downstream state. See
 [`docs/assignment_bulk_entry.md`](docs/assignment_bulk_entry.md).
+
+Multi-class generation planning lets a teacher select several exact managed
+`<class_id, assignment_id>` targets, review the complete expected PDF/page/route
+workload once, and generate them through the existing exact physical-generation
+service. The direct `scoreform generate-batch` command is plan-only unless
+`--apply` is explicit. Planning allocates no physical identity; execution uses
+fresh artifact, issuance, page, and Core route IDs for every physical copy and
+reports clean, partial, failed, and not-attempted targets truthfully. See
+[`docs/multi_class_generation.md`](docs/multi_class_generation.md).
 
 Generating an Academic Result Manifest creates immutable, revision-addressed
 producer bytes. It does not publish those bytes through Core and does not make

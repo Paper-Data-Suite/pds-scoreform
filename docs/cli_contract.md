@@ -241,6 +241,41 @@ are not regenerated or changed.
 The complete format, diagnostic, preview, persistence, and acceptance contract is
 documented in [`assignment_bulk_entry.md`](assignment_bulk_entry.md).
 
+### Multi-class generation planning
+
+Issue #186 adds a prompt-free multi-target managed-generation command:
+
+```powershell
+scoreform generate-batch --target <class_id>/<assignment_id> [--target <class_id>/<assignment_id> ...] [--apply]
+```
+
+Targets are explicit exact class/assignment pairs and preserve caller order.
+Exact duplicate targets are rejected. The command does not infer copy lineage,
+require cross-target assignment equality, discover implicit targets, or provide
+a force/overwrite mode.
+
+Without `--apply`, the command builds a complete read-only readiness plan and
+prints expected students/pages/PDFs/routes plus all blockers. Planning creates no
+issuance/page/route/PDF state and allocates no reusable physical identity. A
+known-blocked plan returns nonzero and cannot partially start under `--apply`.
+
+With `--apply`, the reviewed plan is revalidated before target 1 and every later
+target is revalidated immediately before execution. Physical generation remains
+delegated to the existing exact managed generation service. Target-local failure
+may preserve earlier durable successes and allow later independent targets to
+continue; shared unsafe failure marks remaining targets not attempted. One batch
+may share a generation correlation ID, but every physical artifact, issuance,
+page, and Core route ID remains fresh.
+
+The teacher-facing Generate Answer Sheets menu exposes the same planner and
+executor through an in-memory target basket and requires exact `GENERATE`
+confirmation. Existing `generate` and `regenerate-sheets` direct commands remain
+available.
+
+The complete planning, identity, failure-isolation, privacy, and installed
+acceptance contract is documented in
+[`multi_class_generation.md`](multi_class_generation.md).
+
 ### Academic Work Registration
 
 ```text

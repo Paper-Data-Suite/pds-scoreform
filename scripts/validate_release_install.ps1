@@ -37,7 +37,8 @@ function Test-InstalledArtifact {
         [string]$Label,
         [switch]$RunProducerAcceptance,
         [switch]$RunPresetAcceptance,
-        [switch]$RunBulkEntryAcceptance
+        [switch]$RunBulkEntryAcceptance,
+        [switch]$RunMultiClassGenerationAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -79,7 +80,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -136,6 +137,24 @@ function Test-InstalledArtifact {
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
+        if ($RunMultiClassGenerationAcceptance) {
+            $MultiClassAcceptanceWorkspace = Join-Path $Root "$Label-multi-class-generation-acceptance-workspace"
+            if (Test-Path -LiteralPath $MultiClassAcceptanceWorkspace) {
+                throw "$Label multi-class generation acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $MultiClassAcceptanceWorkspace
+            Invoke-Checked "Run $Label installed multi-class generation acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_multi_class_generation_acceptance.py") `
+                    --workspace $MultiClassAcceptanceWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $MultiClassAcceptanceWorkspace -PathType Container)) {
+                throw "$Label multi-class generation acceptance did not create its expected workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
         if ($RunProducerAcceptance) {
             $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
             if (Test-Path -LiteralPath $AcceptanceWorkspace) {
@@ -173,7 +192,8 @@ try {
         -Label "wheel" `
         -RunProducerAcceptance `
         -RunPresetAcceptance `
-        -RunBulkEntryAcceptance
+        -RunBulkEntryAcceptance `
+        -RunMultiClassGenerationAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `
