@@ -22,10 +22,12 @@ choose the official attempt or grade, and does not provide LMS export.
 - module ID: `scoreform`
 - routed-results schema: `2`
 
-Python 3.11 CI and release testing verifies the minimum supported version. The
-package metadata remains `requires-python = ">=3.11"`; local menu and physical
-testing may use any interpreter satisfying that metadata, including Python
-3.12, 3.13, or 3.14, and must record the exact interpreter version used.
+Routine CI validates Windows and Ubuntu on Python 3.11 through 3.14. Python 3.11
+remains the minimum supported interpreter and source-compatibility floor; testing
+newer interpreters does not raise that minimum. The heavyweight `Release
+readiness` workflow remains the canonical packaging and installed-acceptance gate
+rather than being multiplied across every matrix cell. See
+[`docs/continuous_integration.md`](docs/continuous_integration.md).
 
 ## Installation
 
