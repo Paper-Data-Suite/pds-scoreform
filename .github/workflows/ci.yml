@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install Poppler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Install pinned Poppler (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.02.0-0/Release-26.02.0-0.zip"
+          $archive = Join-Path $env:RUNNER_TEMP "poppler-windows-v26.02.0-0.zip"
+          $destination = Join-Path $env:RUNNER_TEMP "poppler-windows-v26.02.0-0"
+
+          Invoke-WebRequest -Uri $url -OutFile $archive -ErrorAction Stop
+
+          $actualHash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expectedHash = "993e4a94376ed712fafc7058d724ea0b943d118bbd2305cd9ed55174eb85cda5"
+          if ($actualHash -ne $expectedHash) {
+            throw "Poppler archive SHA-256 mismatch: $actualHash"
+          }
+
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $pdftoppm = Get-ChildItem $destination -Recurse -Filter pdftoppm.exe | Select-Object -First 1
+          if ($null -eq $pdftoppm) {
+            throw "Authenticated Poppler archive did not contain pdftoppm.exe."
+          }
+
+          $pdftoppm.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & (Join-Path $pdftoppm.DirectoryName "pdfinfo.exe") -v
+
+      - name: Download released Core 0.6.0
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          from urllib.request import urlretrieve
+
+          url = "https://github.com/Paper-Data-Suite/pds-core/releases/download/v0.6.0/pds_core-0.6.0-py3-none-any.whl"
+          destination = Path(os.environ["RUNNER_TEMP"]) / "pds_core-0.6.0-py3-none-any.whl"
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          urlretrieve(url, destination)
+
+      - name: Authenticate released Core 0.6.0
+        run: python scripts/verify_core_wheel.py "${{ runner.temp }}/pds_core-0.6.0-py3-none-any.whl"
+
+      - name: Install ScoreForm development environment
+        run: |
+          python -m pip install "${{ runner.temp }}/pds_core-0.6.0-py3-none-any.whl"
+          python -m pip install -e ".[dev]"
+
+      - name: Remove checkout build residue
+        shell: python
+        run: |
+          from pathlib import Path
+          import shutil
+
+          for path in (Path("build"), Path("dist"), Path("scoreform.egg-info")):
+              if path.exists():
+                  shutil.rmtree(path)
+
+      - name: Verify installed dependency boundary
+        shell: python
+        run: |
+          from importlib.metadata import version
+
+          if version("pds-core") != "0.6.0":
+              raise SystemExit(f"expected installed pds-core 0.6.0; found {version('pds-core')}")
+
+      - name: Dependency check
+        run: python -m pip check
+
+      - name: Full pytest
+        run: >-
+          python -m pytest tests
+          --basetemp "${{ runner.temp }}/pds-scoreform-pytest"
+          -o cache_dir="${{ runner.temp }}/pytest-cache"
+          -ra
+
+      - name: Ruff
+        env:
+          RUFF_CACHE_DIR: ${{ runner.temp }}/ruff-cache
+        run: python -m ruff check .
+
+      - name: Mypy
+        run: >-
+          python -m mypy scoreform
+          --python-version "${{ matrix.python }}"
+          --cache-dir "${{ runner.temp }}/mypy-cache"
+
+      - name: Release compatibility
+        run: python scripts/verify_release_compatibility.py
+
+      - name: Repository hygiene
+        shell: pwsh
+        run: |
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git diff --cached --exit-code
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $status = git status --porcelain --untracked-files=all
+          if ($status) {
+            $status
+            throw "Validation left tracked or untracked repository residue."
+          }
