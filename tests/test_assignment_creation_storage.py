@@ -23,7 +23,7 @@ def test_assignment_creation_writes_canonical_work_and_reports_partial_failure(
         lambda: tmp_path,
     )
     monkeypatch.setattr(assignment_workflows, "clear_screen", lambda: None)
-    responses = iter(["1,2", "Unit Quiz", "", "", "1", "A", "1"])
+    responses = iter(["1,2", "Unit Quiz", "", "", "1", "4", "A", "USE", "1", "SAVE"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert assignment_workflows.prompt_create_assignment() == 0

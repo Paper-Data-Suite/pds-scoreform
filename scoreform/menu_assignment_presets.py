@@ -15,6 +15,7 @@ from pds_core.standards import (
 from pds_core.standards_selection import load_standards_for_selection
 
 from scoreform import workspace
+from scoreform.assignment_bulk_ui import prompt_answer_key_entry
 from scoreform.assignment_presets import (
     AssignmentPresetApplicationPlan,
     AssignmentPresetApplicationResult,
@@ -366,10 +367,14 @@ def prompt_create_preset_manually() -> int:
     layout_id, question_count = layout_and_count
 
     choices = ["A", "B", "C", "D"]
-    answer_key = _prompt_answer_key(question_count, choices)
-    if answer_key is None:
+    answer_key_value = prompt_answer_key_entry(
+        question_count=question_count,
+        choices=choices,
+    )
+    if answer_key_value is None:
         print("Cancelled: no preset was saved.")
         return 0
+    answer_key = answer_key_value.as_assignment_mapping()
 
     from scoreform.assignment_workflows import prompt_standards_alignment
 

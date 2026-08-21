@@ -212,8 +212,10 @@ def test_manual_preset_creation_does_not_require_class(
             "Manual Quiz",
             "1",
             "2",
+            "4",
             "A",
             "B",
+            "USE",
             "SAVE",
         ]
     )
@@ -407,6 +409,7 @@ def test_manual_preset_answer_prompt_uses_back_word_not_valid_b_answer(
             "Cancelled Quiz",
             "1",
             "2",
+            "4",
             "A",
             "BACK",
         ]

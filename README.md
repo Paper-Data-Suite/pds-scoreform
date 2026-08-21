@@ -181,6 +181,7 @@ scoreform resolve-scan-review <failure_id> --action <action>
 scoreform validate-assignment <assignment.json>
 scoreform validate-roster <roster.csv>
 scoreform setup-assignment <assignment.json> <roster.csv>
+scoreform bulk-edit-assignment --class-id <class_id> --assignment-id <assignment_id> [answer-key source] [alignment source] [--standards-profile-id <profile_id>] [--apply]
 scoreform academic-work show --class-id <class_id> --assignment-id <assignment_id>
 scoreform academic-work register --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle>
 scoreform academic-work update --class-id <class_id> --assignment-id <assignment_id> --academic-intent <intent> --lifecycle <lifecycle> --expected-current-revision <revision>
@@ -194,6 +195,14 @@ scoreform scan-filing show|set|reset
 scoreform --help
 scoreform --version
 ```
+
+Fast assignment setup supports complete answer-key and standards-alignment
+replacement from concise paste, CSV, or JSON. Guided workflows preview normalized
+values before staging; the direct `bulk-edit-assignment` command is plan-only
+unless `--apply` is explicit. Existing managed assignments use exact-snapshot,
+guarded atomic replacement, and changing the definition does not rescore results
+or regenerate downstream state. See
+[`docs/assignment_bulk_entry.md`](docs/assignment_bulk_entry.md).
 
 Generating an Academic Result Manifest creates immutable, revision-addressed
 producer bytes. It does not publish those bytes through Core and does not make

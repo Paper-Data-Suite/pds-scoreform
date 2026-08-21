@@ -213,6 +213,34 @@ It does not generate answer sheets or create downstream academic-result state.
 The full contract and acceptance boundary are documented in
 [`assignment_setup_presets.md`](assignment_setup_presets.md).
 
+### Fast answer-key and standards alignment entry
+
+Issue #185 adds the prompt-free guarded assignment-definition command:
+
+```powershell
+scoreform bulk-edit-assignment --class-id <class_id> --assignment-id <assignment_id> [answer-key source] [alignment source] [--standards-profile-id <profile_id>] [--apply]
+```
+
+Answer-key sources are `--answer-key-text`, `--answer-key-csv`, and
+`--answer-key-json`. Alignment sources are `--alignment-text`,
+`--alignment-csv`, and `--alignment-json`. At most one source of each kind may
+be supplied and at least one key/alignment source is required. Key and alignment
+inputs are complete replacements, not partial patches.
+
+Without `--apply`, the command validates the exact managed assignment and current
+Core standards authority, prints the complete normalized key/alignment plus the
+original/candidate digests, and writes nothing. `--apply` uses exact snapshot
+stale-state checks and guarded atomic replacement of only canonical
+`assignment.json`. There is no `--force` or `--overwrite` mode.
+
+The same parser/preview semantics are used by guided assignment creation/editing
+and the preset workflows. Historical results are not rescored; generated sheets,
+Academic Work Registration, manifests, publications, scans, and attempt history
+are not regenerated or changed.
+
+The complete format, diagnostic, preview, persistence, and acceptance contract is
+documented in [`assignment_bulk_entry.md`](assignment_bulk_entry.md).
+
 ### Academic Work Registration
 
 ```text

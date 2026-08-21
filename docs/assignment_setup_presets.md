@@ -138,6 +138,11 @@ Inside A-D answer-key entry, `B` remains the valid answer choice B. The explicit
 word `BACK` cancels that answer-entry sequence; `M`/`Q` retain navigation
 behavior.
 
+Issue #185 extends manual preset creation with the shared bulk answer-key entry
+methods (paste, CSV, JSON, or per-question). A valid bulk key receives the same
+complete normalized preview and explicit `USE` staging boundary as normal
+assignment creation. See [`assignment_bulk_entry.md`](assignment_bulk_entry.md).
+
 ## Standards authority
 
 Presets store references, not copied Core standards definitions.
@@ -213,6 +218,11 @@ The teacher may create the assignment exactly as shown or stage edits to title,
 answer key, or standards alignment before confirmation. Those staged edits
 apply only to the new assignment candidate and do not silently update the saved
 preset.
+
+Issue #185 routes preset answer-key/alignment editing and staged preset-derived
+assignment editing through the same shared bulk parsers and previews used by
+normal assignments. #184's exact preset snapshot and guarded plan/commit
+semantics remain unchanged.
 
 Final mutation boundaries use exact confirmations:
 
@@ -309,9 +319,11 @@ dependency.
 
 ## Relationship to neighboring v0.11 issues
 
+Issue #185 extends #184 with shared bulk/paste/CSV/JSON key and alignment entry
+without changing preset storage, independence, or concurrency semantics.
+
 Issue #184 does not implement:
 
-- #185 bulk/paste/CSV/JSON key and alignment entry;
 - #186 multi-class answer-sheet generation;
 - #187 the final task-oriented Assignment Management redesign;
 - #188 recent/active context;

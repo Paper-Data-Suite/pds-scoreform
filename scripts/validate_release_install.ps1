@@ -36,7 +36,8 @@ function Test-InstalledArtifact {
         [string]$Artifact,
         [string]$Label,
         [switch]$RunProducerAcceptance,
-        [switch]$RunPresetAcceptance
+        [switch]$RunPresetAcceptance,
+        [switch]$RunBulkEntryAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -78,7 +79,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -113,6 +114,24 @@ function Test-InstalledArtifact {
             }
             if (-not (Test-Path -LiteralPath $PresetAcceptanceWorkspace -PathType Container)) {
                 throw "$Label preset acceptance did not create its expected workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
+        if ($RunBulkEntryAcceptance) {
+            $BulkAcceptanceWorkspace = Join-Path $Root "$Label-bulk-entry-acceptance-workspace"
+            if (Test-Path -LiteralPath $BulkAcceptanceWorkspace) {
+                throw "$Label bulk-entry acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $BulkAcceptanceWorkspace
+            Invoke-Checked "Run $Label installed assignment bulk-entry acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_assignment_bulk_entry_acceptance.py") `
+                    --workspace $BulkAcceptanceWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $BulkAcceptanceWorkspace -PathType Container)) {
+                throw "$Label bulk-entry acceptance did not create its expected workspace."
             }
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
@@ -153,7 +172,8 @@ try {
         -Artifact $Wheel[0].FullName `
         -Label "wheel" `
         -RunProducerAcceptance `
-        -RunPresetAcceptance
+        -RunPresetAcceptance `
+        -RunBulkEntryAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `
