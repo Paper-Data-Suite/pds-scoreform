@@ -76,6 +76,15 @@ class GenerateCommandResult:
     blank_template_path: Path | None = None
 
 
+def launch_multi_class_generation_menu():
+    """Lazy adapter to the #186 teacher-facing multi-target workflow."""
+    from scoreform.multi_class_generation_ui import (
+        launch_multi_class_generation_menu as launch,
+    )
+
+    return launch()
+
+
 class ManagedAnswerSheetGenerationFailure(RuntimeError):
     """Carry structured generation state through regeneration entry points."""
 
@@ -132,7 +141,15 @@ def _generation_failure_lines(
 
 
 def regenerate_answer_sheets_for_assignment(
-    class_id, assignment_id, workspace_root=None, *, generation_id=None
+    class_id,
+    assignment_id,
+    workspace_root=None,
+    *,
+    generation_id=None,
+    used_artifact_ids=None,
+    used_issuance_ids=None,
+    used_page_ids=None,
+    used_route_ids=None,
 ):
     """Regenerate one assignment from its current managed roster and assignment."""
     if not is_safe_identifier(class_id):
@@ -188,6 +205,10 @@ def regenerate_answer_sheets_for_assignment(
         class_packet_path=packet_path,
         student_filename=student_pdf_filename,
         generation_id=generation_id,
+        used_artifact_ids=used_artifact_ids,
+        used_issuance_ids=used_issuance_ids,
+        used_page_ids=used_page_ids,
+        used_route_ids=used_route_ids,
     )
     if not generation_result.success:
         raise ManagedAnswerSheetGenerationFailure(generation_result)
@@ -727,6 +748,7 @@ def launch_generate_menu():
             print_menu_header("Generate Answer Sheets")
             print("1. Generate answer sheets for an existing class assignment")
             print("2. Generate a generic blank template")
+            print("3. Plan generation for multiple classes/assignments")
             print_scoreform_navigation_options()
             print()
 
@@ -734,7 +756,7 @@ def launch_generate_menu():
             print()
 
             navigation = parse_scoreform_navigation(choice)
-            if navigation is not None or choice == "3":
+            if navigation is not None:
                 return 0
 
             if choice == "1":
@@ -837,6 +859,9 @@ def launch_generate_menu():
                         operation.blank_template_path,
                     )
                 return operation.exit_code
+
+            elif choice == "3":
+                return launch_multi_class_generation_menu()
 
             else:
                 print(f"Invalid selection: {choice}.")

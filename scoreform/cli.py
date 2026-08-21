@@ -102,6 +102,15 @@ def run_regenerate_sheets(args):
     return run_regenerate_sheets(args)
 
 
+def run_generate_batch(args):
+    """Load multi-class generation planning only for its explicit command."""
+    from scoreform.cli_multi_class_generation import (
+        run_generate_batch as generate_batch,
+    )
+
+    return generate_batch(args)
+
+
 def run_score(args):
     """Load scoring only when the scoring command is selected."""
     from scoreform.cli_score import run_score as score
@@ -548,6 +557,8 @@ def _main(argv=None, default_to_menu=True):
         return launch_menu()
     elif cmd == "generate":
         return run_generate(args)
+    elif cmd == "generate-batch":
+        return run_generate_batch(args)
     elif cmd == "regenerate-sheets":
         return run_regenerate_sheets(args)
     elif cmd == "score":

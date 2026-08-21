@@ -439,9 +439,11 @@ def plan_answer_sheet_artifact(
     *,
     output_kind: str,
     generation_id: str,
+    used_artifact_ids: set[str] | None = None,
     used_issuance_ids: set[str] | None = None,
     used_page_ids: set[str] | None = None,
     used_route_ids: set[str] | None = None,
+    artifact_id_generator: Callable[[], str] = generate_artifact_id,
     route_id_generator: Callable[[], str] = generate_route_id,
     collision_retries: int = 32,
 ) -> AnswerSheetArtifactPlan:
@@ -468,7 +470,18 @@ def plan_answer_sheet_artifact(
             )
             for student in selected_students
         )
-        artifact_id = generate_artifact_id()
+        artifact_ids = used_artifact_ids if used_artifact_ids is not None else set()
+        for _attempt in range(collision_retries):
+            artifact_id = artifact_id_generator()
+            if artifact_id in artifact_ids:
+                continue
+            artifact_ids.add(artifact_id)
+            break
+        else:
+            raise AnswerSheetGenerationPreflightError(
+                "Could not allocate a fresh answer-sheet artifact ID after "
+                f"{collision_retries} attempts."
+            )
         issuance_ids = used_issuance_ids if used_issuance_ids is not None else set()
         page_ids = used_page_ids if used_page_ids is not None else set()
         route_ids = used_route_ids if used_route_ids is not None else set()
@@ -849,6 +862,11 @@ def generate_managed_answer_sheets(
     class_packet_path: str | Path,
     student_filename: Callable[[Mapping[str, object]], str],
     generation_id: str | None = None,
+    used_artifact_ids: set[str] | None = None,
+    used_issuance_ids: set[str] | None = None,
+    used_page_ids: set[str] | None = None,
+    used_route_ids: set[str] | None = None,
+    artifact_id_generator: Callable[[], str] = generate_artifact_id,
     route_id_generator: Callable[[], str] = generate_route_id,
 ) -> AnswerSheetGenerationResult:
     """Generate individual artifacts then one packet under one generation ID."""
@@ -859,9 +877,10 @@ def generate_managed_answer_sheets(
             "Managed roster must contain at least one student."
         )
     students = tuple(students_value)
-    used_issuance_ids: set[str] = set()
-    used_page_ids: set[str] = set()
-    used_route_ids: set[str] = set()
+    artifact_ids = used_artifact_ids if used_artifact_ids is not None else set()
+    issuance_ids = used_issuance_ids if used_issuance_ids is not None else set()
+    page_ids = used_page_ids if used_page_ids is not None else set()
+    route_ids = used_route_ids if used_route_ids is not None else set()
     results: list[AnswerSheetArtifactResult] = []
 
     artifact_requests = [
@@ -881,9 +900,11 @@ def generate_managed_answer_sheets(
                 output_path,
                 output_kind=output_kind,
                 generation_id=selected_generation_id,
-                used_issuance_ids=used_issuance_ids,
-                used_page_ids=used_page_ids,
-                used_route_ids=used_route_ids,
+                used_artifact_ids=artifact_ids,
+                used_issuance_ids=issuance_ids,
+                used_page_ids=page_ids,
+                used_route_ids=route_ids,
+                artifact_id_generator=artifact_id_generator,
                 route_id_generator=route_id_generator,
             )
         except AnswerSheetGenerationPreflightError as error:
