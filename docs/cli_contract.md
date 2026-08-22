@@ -16,9 +16,10 @@ may change before a stable release.
 This document covers command-line behavior. ScoreForm file formats and schema
 contracts are documented in [`schema_contracts.md`](schema_contracts.md).
 
-This is a compatibility and development contract, not a redesign. It does not
-change scoring, QR handling, result routing, workspace routing, menu structure,
-or file formats.
+This is a compatibility and development contract. Issue #187 reorganizes the
+interactive Assignment Management information architecture, but it does not change
+scoring, QR handling, result routing, workspace routing, direct CLI command
+semantics, or file formats.
 
 The installed `scoreform` command is the preferred interface. The
 `python main.py ...` wrapper remains available for source-checkout and backward
@@ -70,6 +71,32 @@ ScoreForm intentionally has two interaction layers.
    operations.
 
 The two layers do not require one-to-one parity.
+
+### Task-oriented Assignment Management
+
+The ordinary Assignment Management surface is bounded to seven teacher goals:
+
+```text
+1. Create / Copy / Edit Assessments
+2. Print Answer Sheets
+3. Process Scans
+4. Review Results
+5. Enter Plain-Paper Results
+6. Share Results
+7. Advanced Tools
+```
+
+Create/copy/edit/preset workflows remain exact existing ScoreForm operations.
+Print Answer Sheets delegates directly to the current Generate Answer Sheets
+workflow. Process Scans contains current scoring and scan-review operations.
+Review Results and Enter Plain-Paper Results launch their existing workflows
+directly. Share Results groups the exact Academic Work Registration, Academic
+Result Manifest, and Academic Result Publication operations; it is not yet the
+guided Share Results with Meridian workflow and does not import Meridian.
+Advanced Tools contains assignment-file validation and QR decoding. All existing
+direct CLI commands remain available. B/M/Q continue to use PDS Core shared
+navigation, and merely entering or leaving a grouping screen creates no domain
+state.
 
 The menu should prioritize:
 
@@ -124,8 +151,7 @@ issuance are reloaded and cross-validated before the locator and target are
 written to the resolution.
 
 `manual_entry` requires answer-by-answer review and confirmation, so the direct
-command points teachers to **Assignment Management > Resolve Scan Review
-Items**. The same menu supports all actions. It uses compact list, detail,
+command points teachers to **Assignment Management > Process Scans > Resolve scan review items**. The same menu supports all actions. It uses compact list, detail,
 action, input, and result screens and returns to the active list after a change.
 
 ## Stability Categories

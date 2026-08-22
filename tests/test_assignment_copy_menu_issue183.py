@@ -203,26 +203,28 @@ def test_teacher_copy_workflow_collision_fails_without_overwrite(
     assert not target.assignment_path.exists()
 
 
-def test_assignment_menu_exposes_copy_without_renumbering_existing_actions(
+def test_assignment_menu_routes_copy_through_definition_group(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    from scoreform import menu_assignment_tasks
+
     observed: list[str] = []
-    inputs = iter(["13", "B"])
+    inputs = iter(["1", "2", "B", "B"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
     monkeypatch.setattr(assignment_workflows, "clear_screen", lambda: None)
     monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
     monkeypatch.setattr(
-        assignment_workflows,
-        "prompt_copy_assignment",
-        lambda: observed.append("copy") or 0,
+        menu_assignment_tasks,
+        "_run_copy_assignment",
+        lambda **_kwargs: observed.append("copy"),
     )
 
     assert assignment_workflows.launch_assignment_menu() == 0
 
     assert observed == ["copy"]
     output = capsys.readouterr().out
-    assert "1. Create an assignment" in output
-    assert "12. Academic Result Publications" in output
-    assert "13. Copy an assignment" in output
+    assert "1. Create / Copy / Edit Assessments" in output
+    assert "2. Copy an assignment" in output
+    assert "13. Copy an assignment" not in output

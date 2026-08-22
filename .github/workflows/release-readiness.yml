@@ -45,7 +45,7 @@ jobs:
         run: python -m mypy scoreform
       - name: Strict mypy release scripts
         run: |
-          python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_installed_assignment_preset_acceptance.py             scripts/verify_installed_assignment_bulk_entry_acceptance.py             scripts/verify_installed_multi_class_generation_acceptance.py             scripts/verify_release_artifacts.py
+          python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_installed_assignment_preset_acceptance.py             scripts/verify_installed_assignment_bulk_entry_acceptance.py             scripts/verify_installed_multi_class_generation_acceptance.py             scripts/verify_installed_task_oriented_assignment_menu_acceptance.py             scripts/verify_release_artifacts.py
       - name: Strict mypy assignment-copy installed acceptance
         run: |
           python -m mypy \
@@ -98,6 +98,11 @@ jobs:
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_multi_class_generation_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-multi-class-generation-acceptance" \
+            --version 0.10.0 --expected-core-version 0.6.0
+      - name: Verify installed task-oriented Assignment Management
+        run: |
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_task_oriented_assignment_menu_acceptance.py \
+            --workspace "$RUNNER_TEMP/scoreform-task-oriented-assignment-menu-must-not-exist" \
             --version 0.10.0 --expected-core-version 0.6.0
       - name: Verify installed producer lifecycle
         run: |

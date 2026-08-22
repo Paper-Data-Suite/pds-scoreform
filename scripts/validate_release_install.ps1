@@ -38,7 +38,8 @@ function Test-InstalledArtifact {
         [switch]$RunProducerAcceptance,
         [switch]$RunPresetAcceptance,
         [switch]$RunBulkEntryAcceptance,
-        [switch]$RunMultiClassGenerationAcceptance
+        [switch]$RunMultiClassGenerationAcceptance,
+        [switch]$RunTaskOrientedAssignmentMenuAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -80,7 +81,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -155,6 +156,24 @@ function Test-InstalledArtifact {
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
+        if ($RunTaskOrientedAssignmentMenuAcceptance) {
+            $TaskMenuWorkspace = Join-Path $Root "$Label-task-oriented-assignment-menu-must-not-exist"
+            if (Test-Path -LiteralPath $TaskMenuWorkspace) {
+                throw "$Label task-oriented menu workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $TaskMenuWorkspace
+            Invoke-Checked "Run $Label installed task-oriented Assignment Management acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_task_oriented_assignment_menu_acceptance.py") `
+                    --workspace $TaskMenuWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (Test-Path -LiteralPath $TaskMenuWorkspace) {
+                throw "$Label task-oriented Assignment Management acceptance created workspace state."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
         if ($RunProducerAcceptance) {
             $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
             if (Test-Path -LiteralPath $AcceptanceWorkspace) {
@@ -193,7 +212,8 @@ try {
         -RunProducerAcceptance `
         -RunPresetAcceptance `
         -RunBulkEntryAcceptance `
-        -RunMultiClassGenerationAcceptance
+        -RunMultiClassGenerationAcceptance `
+        -RunTaskOrientedAssignmentMenuAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `
