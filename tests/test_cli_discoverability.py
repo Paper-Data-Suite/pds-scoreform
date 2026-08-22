@@ -154,7 +154,7 @@ def test_menu_generate_generic_template_remains_available(tmp_path, monkeypatch,
         generated.append(True)
 
     monkeypatch.setattr(generate_workflows, "generate_template", fake_generate_template)
-    responses = iter(["1", "4", "2", "", "b", "5"])
+    responses = iter(["1", "2", "2", "", "b", "5"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
 
     assert scoreform.cli.launch_menu() == 0
@@ -245,15 +245,20 @@ def test_assignment_management_menu_contains_teacher_workflows():
     output = combined_output(result)
     assert "Assignment Management" in output
     assert "ScoreForm\nAssignment Management" in output
-    assert "1. Create an assignment" in output
-    assert "2. Edit an assignment" in output
-    assert "3. Validate an assignment file" in output
-    assert "4. Generate answer sheets" in output
-    assert "5. Score scanned responses" in output
-    assert "6. View assignment results" in output
-    assert "7. Decode QR from a file" in output
-    assert "8. Enter Plain-Paper Results" in output
-    assert "9. Resolve scan review items" in output
+    assert "1. Create / Copy / Edit Assessments" in output
+    assert "2. Print Answer Sheets" in output
+    assert "3. Process Scans" in output
+    assert "4. Review Results" in output
+    assert "5. Enter Plain-Paper Results" in output
+    assert "6. Share Results" in output
+    assert "7. Advanced Tools" in output
+    assert "1. Create an assignment" not in output
+    assert "3. Validate an assignment file" not in output
+    assert "4. Generate answer sheets" not in output
+    assert "5. Score scanned responses" not in output
+    assert "6. View assignment results" not in output
+    assert "7. Decode QR from a file" not in output
+    assert "9. Resolve scan review items" not in output
     assert output.count("B. Back") == 1
     assert output.count("M. Main Menu") == 1
     assert output.count("Q. Quit") == 3  # initial main, submenu, redrawn main
@@ -292,7 +297,7 @@ def test_menu_selection_does_not_strip_quotes():
 def test_assignment_submenu_validate_assignment_accepts_quoted_path():
     result = run_main_command(
         "menu",
-        input_text='1\n3\n"examples/sample_assignment.json"\n\nb\n5\n',
+        input_text='1\n7\n1\n"examples/sample_assignment.json"\n\nb\nb\n5\n',
     )
 
     assert result.returncode == 0
@@ -358,7 +363,7 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     (scans_dir / "class_packet_period2.jpg").write_text("synthetic scan", encoding="utf-8")
 
     run_score_calls = []
-    responses = iter(["1", "5", "1", "2", "1", "b", "5"])
+    responses = iter(["1", "3", "1", "1", "2", "1", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
@@ -386,7 +391,7 @@ def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_pa
 
     pauses = []
     run_score_calls = []
-    responses = iter(["1", "5", "1", "99", "2", "custom_scan.pdf", "1", "b", "5"])
+    responses = iter(["1", "3", "1", "1", "99", "2", "custom_scan.pdf", "1", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
@@ -405,12 +410,14 @@ def test_menu_score_manual_scoring_with_explicit_output_preserves_quoted_path_no
     run_score_calls = []
     responses = iter([
         "1",
-        "5",
+        "3",
+        "1",
         "2",
         '"Downloads/my scan.pdf"',
         "2",
         '"answer key.json"',
         '"results.csv"',
+        "b",
         "b",
         "5",
     ])
@@ -426,7 +433,7 @@ def test_menu_score_manual_scoring_with_explicit_output_preserves_quoted_path_no
 
 def test_menu_score_manual_scoring_with_answer_key_only(monkeypatch):
     run_score_calls = []
-    responses = iter(["1", "5", "2", "scan.pdf", "2", "answer_key.json", "", "b", "5"])
+    responses = iter(["1", "3", "1", "2", "scan.pdf", "2", "answer_key.json", "", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
@@ -440,7 +447,7 @@ def test_menu_score_manual_scoring_with_answer_key_only(monkeypatch):
 def test_menu_score_manual_scoring_rejects_blank_answer_key(monkeypatch, capsys):
     pauses = []
     run_score_calls = []
-    responses = iter(["1", "5", "2", "scan.pdf", "2", "", "3", "b", "5"])
+    responses = iter(["1", "3", "1", "2", "scan.pdf", "2", "", "3", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
@@ -458,7 +465,7 @@ def test_menu_score_manual_scoring_rejects_blank_answer_key(monkeypatch, capsys)
 def test_menu_score_invalid_scoring_mode_returns_to_mode_selection(monkeypatch, capsys):
     pauses = []
     run_score_calls = []
-    responses = iter(["1", "5", "2", "scan.pdf", "9", "3", "b", "5"])
+    responses = iter(["1", "3", "1", "2", "scan.pdf", "9", "3", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
@@ -476,7 +483,7 @@ def test_menu_score_invalid_scoring_mode_returns_to_mode_selection(monkeypatch, 
 
 def test_menu_decode_qr_runs_from_assignment_management(monkeypatch):
     decode_calls = []
-    responses = iter(["1", "7", '"scan with qr.pdf"', "b", "5"])
+    responses = iter(["1", "7", "2", '"scan with qr.pdf"', "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)

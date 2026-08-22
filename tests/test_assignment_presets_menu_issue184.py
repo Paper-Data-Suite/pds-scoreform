@@ -101,11 +101,11 @@ def workspace_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def test_assignment_management_exposes_temporary_preset_option_14(
+def test_assignment_management_groups_presets_with_definition_tasks(
     monkeypatch: pytest.MonkeyPatch,
     capsys,
 ) -> None:
-    responses = iter(["14", "b", "b"])
+    responses = iter(["1", "b", "b"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(assignment_workflows, "clear_screen", lambda: None)
     monkeypatch.setattr(assignment_workflows, "pause_for_user", lambda: None)
@@ -114,7 +114,9 @@ def test_assignment_management_exposes_temporary_preset_option_14(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "14. Assessment setup presets" in output
+    assert "1. Create / Copy / Edit Assessments" in output
+    assert "4. Assessment setup presets" in output
+    assert "14. Assessment setup presets" not in output
 
 
 def test_preset_submenu_lists_all_bounded_teacher_tasks(

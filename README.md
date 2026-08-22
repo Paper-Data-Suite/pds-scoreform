@@ -169,8 +169,27 @@ export-failure batches do not file automatically.
 
 ## Commands
 
-Run `scoreform` with no arguments for the teacher menu. Important direct
-commands include:
+Run `scoreform` with no arguments for the teacher menu. Assignment Management is
+organized around recognizable teacher tasks rather than implementation operations:
+
+```text
+1. Create / Copy / Edit Assessments
+2. Print Answer Sheets
+3. Process Scans
+4. Review Results
+5. Enter Plain-Paper Results
+6. Share Results
+7. Advanced Tools
+```
+
+Create/copy/edit/preset operations live under the first group; scan scoring and
+review live under Process Scans; validation and QR decoding live under Advanced
+Tools. Share Results groups the existing exact registration, manifest, and
+publication steps and does not automatically send results to Meridian. Existing
+direct CLI commands remain available for automation, diagnostics, recovery, and
+power-user use.
+
+Important direct commands include:
 
 ```text
 scoreform generate

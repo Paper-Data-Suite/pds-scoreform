@@ -11,14 +11,7 @@ from pds_core.standards_selection import (
     resolve_profile_standard_selection,
 )
 
-from scoreform import (
-    generate_workflows,
-    menu_manual_entry,
-    menu_scan_review,
-    menu_scoring,
-    qr_workflows,
-    workspace,
-)
+from scoreform import workspace
 from scoreform.assignment import load_assignment, validate_assignment_data
 from scoreform.assignment_bulk_mutation import (
     AssignmentBulkMutationError,
@@ -60,7 +53,6 @@ from scoreform.workflows import (
     clear_screen,
     discover_class_assignments,
     discover_class_rosters,
-    normalize_path_input,
     parse_class_selection,
     parse_single_selection,
     pause_for_user,
@@ -1374,140 +1366,12 @@ def prompt_create_assignment():
     return 0
 
 def launch_assignment_menu():
-    """Assignment management submenu."""
-    try:
-        while True:
-            clear_screen()
-            print_menu_header("Assignment Management")
-            print("1. Create an assignment")
-            print("2. Edit an assignment")
-            print("3. Validate an assignment file")
-            print("4. Generate answer sheets")
-            print("5. Score scanned responses")
-            print("6. View assignment results")
-            print("7. Decode QR from a file")
-            print("8. Enter Plain-Paper Results")
-            print("9. Resolve scan review items")
-            print("10. Academic Work Registration")
-            print("11. Academic Result Manifests")
-            print("12. Academic Result Publications")
-            print("13. Copy an assignment")
-            print("14. Assessment setup presets")
-            print_scoreform_navigation_options()
-            print()
+    """Launch task-oriented Assignment Management navigation."""
+    from scoreform.menu_assignment_tasks import (
+        launch_assignment_menu as launch_task_oriented_assignment_menu,
+    )
 
-            choice = input("Select an option: ").strip()
-            print()
-
-            if parse_scoreform_navigation(choice) is not None:
-                return 0
-
-            if choice == "1":
-                clear_screen()
-                prompt_create_assignment()
-                print()
-                pause_for_user()
-
-            elif choice == "2":
-                clear_screen()
-                prompt_edit_assignment()
-                print()
-                pause_for_user()
-
-            elif choice == "3":
-                clear_screen()
-                print_menu_header("Validate an Assignment File")
-                assignment_path = normalize_path_input(input("Assignment JSON path: "))
-                if not assignment_path:
-                    print("Assignment file path is required.")
-                    print()
-                    pause_for_user()
-                    continue
-
-                assignment = load_assignment(assignment_path)
-                if assignment is None:
-                    print()
-                    pause_for_user()
-                    continue
-                print("Assignment file is valid.")
-                print(assignment)
-                print()
-                pause_for_user()
-
-            elif choice == "4":
-                generate_workflows.launch_generate_menu()
-
-            elif choice == "5":
-                input_file = menu_scoring.prompt_scoring_input_file()
-                if input_file:
-                    menu_scoring.prompt_scoring_mode(input_file)
-
-            elif choice == "6":
-                clear_screen()
-                launch_view_assignment_results_menu()
-                print()
-                pause_for_user()
-
-            elif choice == "7":
-                clear_screen()
-                print_menu_header("Decode QR from a File")
-                input_file = normalize_path_input(input("File path: "))
-                if not input_file:
-                    print("File path is required.")
-                    print()
-                    pause_for_user()
-                    continue
-
-                qr_workflows.run_decode_qr([input_file])
-                print()
-                pause_for_user()
-
-            elif choice == "8":
-                menu_manual_entry.launch_manual_entry_menu()
-
-            elif choice == "9":
-                menu_scan_review.launch_scan_review_menu()
-
-            elif choice == "10":
-                from scoreform.menu_academic_work import (
-                    launch_academic_work_registration_menu,
-                )
-
-                launch_academic_work_registration_menu()
-
-            elif choice == "11":
-                from scoreform.menu_manifest import (
-                    launch_academic_result_manifests_menu,
-                )
-
-                launch_academic_result_manifests_menu()
-
-            elif choice == "12":
-                from scoreform.menu_publication import (
-                    launch_academic_result_publications_menu,
-                )
-
-                launch_academic_result_publications_menu()
-
-            elif choice == "13":
-                clear_screen()
-                prompt_copy_assignment()
-                print()
-                pause_for_user()
-
-            elif choice == "14":
-                from scoreform.menu_assignment_presets import (
-                    launch_assignment_presets_menu,
-                )
-
-                launch_assignment_presets_menu()
-
-            else:
-                print(f"Invalid selection: {choice}.")
-                print_invalid_navigation()
-                print()
-                pause_for_user()
-
-    except KeyboardInterrupt:
-        print("\nExiting assignment menu.")
-        return 0
+    return launch_task_oriented_assignment_menu(
+        clear_screen_fn=clear_screen,
+        pause_for_user_fn=pause_for_user,
+    )
