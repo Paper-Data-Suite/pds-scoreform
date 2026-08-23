@@ -98,6 +98,34 @@ direct CLI commands remain available. B/M/Q continue to use PDS Core shared
 navigation, and merely entering or leaving a grouping screen creates no domain
 state.
 
+#### Session-scoped assignment context
+
+Assignment Management also exposes the non-numbered `C. Assignment Context`
+utility. One interactive ScoreForm process may retain one active exact
+`<class_id, assignment_id>` and a five-item most-recently-used list. Duplicate
+activation moves an identity to the front rather than creating another entry.
+The teacher may select another canonical assignment, choose a valid recent
+assignment, clear the active identity, or clear recent history explicitly.
+
+This context is convenience state, not a new record family or source of authority.
+It is never written to a context/history file and stores no roster, student,
+response, score, result, scan, attempt, issuance, route, manifest, or publication
+payload. A new process starts with empty context. A workspace change clears prior
+context, and every reuse resolves the exact identity again through current
+canonical ScoreForm/Core discovery. Missing, invalid, or mismatched work fails
+closed and requires normal selection; ScoreForm does not guess a replacement.
+
+Compatible single-assignment menu workflows may reuse the active assignment,
+including edit, existing-assignment answer-sheet generation, result review,
+plain-paper result entry, copy/preset source selection, and the existing exact
+Academic Work/manifest/publication menus. Multi-target workflows never choose an
+arbitrary output as active context. Routed scanning does not establish context in
+this issue; the guided scan-to-results work owns that later transition.
+
+`B` preserves valid session context, and `M` returns to the iterative Main Menu
+without recursively creating a new session. Direct CLI commands remain explicit,
+prompt-free, deterministic, and completely independent of interactive context.
+
 The menu should prioritize:
 
 * assignment creation and management;

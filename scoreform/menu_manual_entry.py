@@ -59,44 +59,58 @@ def _prompt_responses(assignment):
     return responses
 
 
-def launch_manual_entry_menu():
-    """Select a class and assignment, then enter one or more student results."""
-    clear_screen()
-    print_menu_header("Enter Plain-Paper Results")
-    classes = discover_class_rosters()
-    if not classes:
-        print("No class rosters found.")
-        print("Create a class roster first, then return to this option.")
-        return 1
+def launch_manual_entry_menu(context_session=None):
+    """Select one assignment, then enter one or more student results."""
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
 
-    print("Select Class:")
-    for index, record in enumerate(classes, start=1):
-        student_count = len(record["roster"].get("students", []))
-        print(f"{index}. {record['class_id']} ({student_count} students)")
-    print_scoreform_navigation_options()
-    class_record = _select_record("Select class: ", classes, "class")
-    if class_record is None:
-        return 0
+        assignment_record = select_assignment_for_workflow(
+            context_session,
+            clear_screen_fn=clear_screen,
+            offer_switch=True,
+            workflow_title="Enter Plain-Paper Results",
+        )
+        if assignment_record is None:
+            return 0
+        class_id = assignment_record["class_id"]
+        class_record = {"roster_path": assignment_record["roster_path"]}
+    else:
+        clear_screen()
+        print_menu_header("Enter Plain-Paper Results")
+        classes = discover_class_rosters()
+        if not classes:
+            print("No class rosters found.")
+            print("Create a class roster first, then return to this option.")
+            return 1
 
-    class_id = class_record["class_id"]
-    assignments = discover_class_assignments(class_id)
-    if not assignments:
-        print(f"No assignments found for class '{class_id}'.")
-        print("Create an assignment first, then return to this option.")
-        return 1
+        print("Select Class:")
+        for index, record in enumerate(classes, start=1):
+            student_count = len(record["roster"].get("students", []))
+            print(f"{index}. {record['class_id']} ({student_count} students)")
+        print_scoreform_navigation_options()
+        class_record = _select_record("Select class: ", classes, "class")
+        if class_record is None:
+            return 0
 
-    clear_screen()
-    print_menu_header("Enter Plain-Paper Results")
-    print(f"Class: {class_id}\n")
-    print("Select Assignment:")
-    for index, record in enumerate(assignments, start=1):
-        print(f"{index}. {record['assignment_id']} - {record['assignment']['title']}")
-    print_scoreform_navigation_options()
-    assignment_record = _select_record(
-        "Select assignment: ", assignments, "assignment"
-    )
-    if assignment_record is None:
-        return 0
+        class_id = class_record["class_id"]
+        assignments = discover_class_assignments(class_id)
+        if not assignments:
+            print(f"No assignments found for class '{class_id}'.")
+            print("Create an assignment first, then return to this option.")
+            return 1
+
+        clear_screen()
+        print_menu_header("Enter Plain-Paper Results")
+        print(f"Class: {class_id}\n")
+        print("Select Assignment:")
+        for index, record in enumerate(assignments, start=1):
+            print(f"{index}. {record['assignment_id']} - {record['assignment']['title']}")
+        print_scoreform_navigation_options()
+        assignment_record = _select_record(
+            "Select assignment: ", assignments, "assignment"
+        )
+        if assignment_record is None:
+            return 0
 
     assignment = load_assignment(assignment_record["assignment_path"])
     if assignment is None:

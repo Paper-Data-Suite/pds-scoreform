@@ -52,7 +52,19 @@ def _summary(stored) -> None:
     print(f"attempt count: {attempts}")
 
 
-def _select_assignment():
+def _select_assignment(context_session=None):
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
+
+        record = select_assignment_for_workflow(
+            context_session,
+            offer_switch=True,
+            workflow_title="Academic Result Manifests",
+        )
+        if record is None:
+            return None
+        return record["class_id"], record
+
     classes = discover_class_rosters()
     if not classes:
         print("No valid classes found.")
@@ -80,11 +92,15 @@ def _select_assignment():
     return class_id, parse_single_selection(choice, assignments, "assignment")
 
 
-def launch_academic_result_manifests_menu() -> int:
+def launch_academic_result_manifests_menu(context_session=None) -> int:
     """Run privacy-minimized read/generate operations for one managed assignment."""
     print_menu_header("Academic Result Manifests")
     try:
-        selected = _select_assignment()
+        selected = (
+            _select_assignment()
+            if context_session is None
+            else _select_assignment(context_session=context_session)
+        )
         if selected is None:
             print("Cancelled: no manifest state was created.")
             return 0

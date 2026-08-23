@@ -165,7 +165,7 @@ def _print_save_from_assignment_preview(
     print("No preset state has been written yet.")
 
 
-def prompt_create_preset_from_assignment() -> int:
+def prompt_create_preset_from_assignment(context_session=None) -> int:
     """Create one independent preset from one exact canonical assignment."""
 
     try:
@@ -174,60 +174,76 @@ def prompt_create_preset_from_assignment() -> int:
         print(f"Error: {error}")
         return 1
 
-    classes = discover_class_rosters(workspace_root=root)
-    if not classes:
-        print("No class rosters found.")
-        return 1
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
 
-    clear_screen()
-    print_menu_header("Create Preset from Assignment")
-    print("Source class")
-    for index, class_record in enumerate(classes, start=1):
-        print(f"{index}. {class_record['class_id']}")
-    print_scoreform_navigation_options()
-    print()
-    selection = input("Select source class: ").strip()
-    if _navigation_is_back(selection):
-        print("Cancelled: no preset was saved.")
-        return 0
-    try:
-        class_record = parse_single_selection(selection, classes, "source class")
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
-    class_id = cast(str, class_record["class_id"])
-
-    assignments = discover_class_assignments(class_id, workspace_root=root)
-    if not assignments:
-        print(f"No assignments found for class '{class_id}'.")
-        return 1
-
-    clear_screen()
-    print_menu_header("Create Preset from Assignment")
-    print(f"Source class: {class_id}")
-    for index, assignment_record in enumerate(assignments, start=1):
-        assignment = cast(dict[str, object], assignment_record["assignment"])
-        print(
-            f"{index}. {assignment_record['assignment_id']} - "
-            f"{assignment.get('title', '')}"
+        assignment_record = select_assignment_for_workflow(
+            context_session,
+            clear_screen_fn=clear_screen,
+            offer_switch=True,
+            workflow_title="Create Preset from Assignment",
         )
-    print_scoreform_navigation_options()
-    print()
-    selection = input("Select source assignment: ").strip()
-    if _navigation_is_back(selection):
-        print("Cancelled: no preset was saved.")
-        return 0
-    try:
-        assignment_record = parse_single_selection(
-            selection,
-            assignments,
-            "source assignment",
-        )
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
+        if assignment_record is None:
+            print("Cancelled: no preset was saved.")
+            return 0
+        class_id = cast(str, assignment_record["class_id"])
+        assignment_id = cast(str, assignment_record["assignment_id"])
+    else:
+        classes = discover_class_rosters(workspace_root=root)
+        if not classes:
+            print("No class rosters found.")
+            return 1
 
-    assignment_id = cast(str, assignment_record["assignment_id"])
+        clear_screen()
+        print_menu_header("Create Preset from Assignment")
+        print("Source class")
+        for index, class_record in enumerate(classes, start=1):
+            print(f"{index}. {class_record['class_id']}")
+        print_scoreform_navigation_options()
+        print()
+        selection = input("Select source class: ").strip()
+        if _navigation_is_back(selection):
+            print("Cancelled: no preset was saved.")
+            return 0
+        try:
+            class_record = parse_single_selection(selection, classes, "source class")
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
+        class_id = cast(str, class_record["class_id"])
+
+        assignments = discover_class_assignments(class_id, workspace_root=root)
+        if not assignments:
+            print(f"No assignments found for class '{class_id}'.")
+            return 1
+
+        clear_screen()
+        print_menu_header("Create Preset from Assignment")
+        print(f"Source class: {class_id}")
+        for index, assignment_record in enumerate(assignments, start=1):
+            assignment = cast(dict[str, object], assignment_record["assignment"])
+            print(
+                f"{index}. {assignment_record['assignment_id']} - "
+                f"{assignment.get('title', '')}"
+            )
+        print_scoreform_navigation_options()
+        print()
+        selection = input("Select source assignment: ").strip()
+        if _navigation_is_back(selection):
+            print("Cancelled: no preset was saved.")
+            return 0
+        try:
+            assignment_record = parse_single_selection(
+                selection,
+                assignments,
+                "source assignment",
+            )
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
+
+        assignment_id = cast(str, assignment_record["assignment_id"])
+
     preset_id = input("Preset ID (B to cancel): ").strip()
     if _navigation_is_back(preset_id):
         print("Cancelled: no preset was saved.")
@@ -979,7 +995,7 @@ def prompt_apply_preset() -> int:
     return 0 if result.complete else 1
 
 
-def launch_assignment_presets_menu() -> int:
+def launch_assignment_presets_menu(context_session=None) -> int:
     """Temporary v0.11 preset submenu pending #187's menu reorganization."""
 
     try:
@@ -1001,7 +1017,7 @@ def launch_assignment_presets_menu() -> int:
                 return 0
 
             if choice == "1":
-                prompt_create_preset_from_assignment()
+                prompt_create_preset_from_assignment(context_session=context_session)
                 pause_for_user()
             elif choice == "2":
                 prompt_create_preset_manually()

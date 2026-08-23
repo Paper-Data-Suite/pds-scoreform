@@ -218,7 +218,7 @@ def _navigation_is_back(value: str) -> bool:
     return parse_scoreform_navigation(value) is NavigationChoice.BACK
 
 
-def prompt_copy_assignment() -> int:
+def prompt_copy_assignment(context_session=None) -> int:
     """Guide a teacher through one reviewed, create-only assignment copy."""
     try:
         root = Path(workspace.get_scoreform_workspace_root())
@@ -226,71 +226,86 @@ def prompt_copy_assignment() -> int:
         print(f"Error: {error}")
         return 1
 
-    clear_screen()
-    print_menu_header("Copy an Assignment")
-
     available_classes = discover_class_rosters(workspace_root=root)
     if not available_classes:
         print("No class rosters found.")
         print("Create a class roster first, then return to this option.")
         return 1
 
-    print("Source class")
-    _print_class_choices(available_classes)
-    print_scoreform_navigation_options()
-    print()
-    source_class_selection = input("Select source class: ").strip()
-    if _navigation_is_back(source_class_selection):
-        print("Cancelled: no assignment was copied.")
-        return 0
-    try:
-        source_class = parse_single_selection(
-            source_class_selection,
-            available_classes,
-            "source class",
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
+
+        source_assignment_record = select_assignment_for_workflow(
+            context_session,
+            clear_screen_fn=clear_screen,
+            offer_switch=True,
+            workflow_title="Copy an Assignment",
         )
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
+        if source_assignment_record is None:
+            print("Cancelled: no assignment was copied.")
+            return 0
+        source_class_id = cast(str, source_assignment_record["class_id"])
+        source_assignment_id = cast(str, source_assignment_record["assignment_id"])
+    else:
+        clear_screen()
+        print_menu_header("Copy an Assignment")
+        print("Source class")
+        _print_class_choices(available_classes)
+        print_scoreform_navigation_options()
+        print()
+        source_class_selection = input("Select source class: ").strip()
+        if _navigation_is_back(source_class_selection):
+            print("Cancelled: no assignment was copied.")
+            return 0
+        try:
+            source_class = parse_single_selection(
+                source_class_selection,
+                available_classes,
+                "source class",
+            )
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
 
-    source_class_id = cast(str, source_class["class_id"])
-    source_assignments = discover_class_assignments(
-        source_class_id,
-        workspace_root=root,
-    )
-    if not source_assignments:
-        print(f"No assignments found for class '{source_class_id}'.")
-        return 1
-
-    clear_screen()
-    print_menu_header("Copy an Assignment")
-    print(f"Source class: {source_class_id}")
-    print()
-    print("Source assignment")
-    for index, assignment_record in enumerate(source_assignments, start=1):
-        assignment = cast(dict[str, object], assignment_record["assignment"])
-        print(
-            f"{index}. {assignment_record['assignment_id']} - "
-            f"{assignment.get('title', '')}"
+        source_class_id = cast(str, source_class["class_id"])
+        source_assignments = discover_class_assignments(
+            source_class_id,
+            workspace_root=root,
         )
-    print_scoreform_navigation_options()
-    print()
+        if not source_assignments:
+            print(f"No assignments found for class '{source_class_id}'.")
+            return 1
 
-    source_assignment_selection = input("Select source assignment: ").strip()
-    if _navigation_is_back(source_assignment_selection):
-        print("Cancelled: no assignment was copied.")
-        return 0
-    try:
-        source_assignment_record = parse_single_selection(
-            source_assignment_selection,
-            source_assignments,
-            "source assignment",
-        )
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
+        clear_screen()
+        print_menu_header("Copy an Assignment")
+        print(f"Source class: {source_class_id}")
+        print()
+        print("Source assignment")
+        for index, assignment_record in enumerate(source_assignments, start=1):
+            assignment = cast(dict[str, object], assignment_record["assignment"])
+            print(
+                f"{index}. {assignment_record['assignment_id']} - "
+                f"{assignment.get('title', '')}"
+            )
+        print_scoreform_navigation_options()
+        print()
 
-    source_assignment_id = cast(str, source_assignment_record["assignment_id"])
+        source_assignment_selection = input("Select source assignment: ").strip()
+        if _navigation_is_back(source_assignment_selection):
+            print("Cancelled: no assignment was copied.")
+            return 0
+        try:
+            source_assignment_record = parse_single_selection(
+                source_assignment_selection,
+                source_assignments,
+                "source assignment",
+            )
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
+
+        source_assignment_id = cast(str, source_assignment_record["assignment_id"])
+
     standards_library, standards_error = _load_optional_standards_library(root)
     try:
         source = load_assignment_copy_source(

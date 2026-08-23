@@ -740,7 +740,7 @@ def run_generate(args):
     return _run_generate_operation(args).exit_code
 
 
-def launch_generate_menu():
+def launch_generate_menu(context_session=None):
     """Teacher-centered generate submenu for interactive menu use."""
     try:
         while True:
@@ -760,64 +760,81 @@ def launch_generate_menu():
                 return 0
 
             if choice == "1":
-                clear_screen()
-                print_menu_header("Generate Answer Sheets")
-                available_classes = discover_class_rosters()
-                if not available_classes:
-                    print("No class rosters found. Create a class roster first from the Roster Management menu.")
-                    pause_for_user()
-                    return 1
-
-                print("Available classes:")
-                for index, class_record in enumerate(available_classes, start=1):
-                    print(f"{index}. {class_record['class_id']}")
-                print_scoreform_navigation_options()
-                print()
-
-                try:
-                    selection = input("Select class: ")
-                    if parse_scoreform_navigation(selection) is not None:
-                        continue
-                    class_record = parse_single_selection(
-                        selection,
-                        available_classes,
-                        "class",
+                if context_session is not None:
+                    from scoreform.menu_assignment_context import (
+                        select_assignment_for_workflow,
                     )
-                except ValueError as e:
-                    print(f"Error: {e}")
-                    pause_for_user()
-                    return 1
 
-                class_id = class_record["class_id"]
-                available_assignments = discover_class_assignments(class_id)
-                if not available_assignments:
-                    print(f"No assignments found for class '{class_id}'. Create an assignment first from the Assignment Management menu.")
-                    pause_for_user()
-                    return 1
-
-                clear_screen()
-                print_menu_header("Generate Answer Sheets")
-                print(f"Class: {class_id}")
-                print()
-                print("Available assignments:")
-                for index, assignment_record in enumerate(available_assignments, start=1):
-                    print(f"{index}. {assignment_record['assignment_id']}")
-                print_scoreform_navigation_options()
-                print()
-
-                try:
-                    selection = input("Select assignment: ")
-                    if parse_scoreform_navigation(selection) is not None:
-                        continue
-                    assignment_record = parse_single_selection(
-                        selection,
-                        available_assignments,
-                        "assignment",
+                    assignment_record = select_assignment_for_workflow(
+                        context_session,
+                        clear_screen_fn=clear_screen,
+                        offer_switch=True,
+                        workflow_title="Generate Answer Sheets",
                     )
-                except ValueError as e:
-                    print(f"Error: {e}")
-                    pause_for_user()
-                    return 1
+                    if assignment_record is None:
+                        continue
+                    class_id = assignment_record["class_id"]
+                    roster_path = assignment_record["roster_path"]
+                else:
+                    clear_screen()
+                    print_menu_header("Generate Answer Sheets")
+                    available_classes = discover_class_rosters()
+                    if not available_classes:
+                        print("No class rosters found. Create a class roster first from the Roster Management menu.")
+                        pause_for_user()
+                        return 1
+
+                    print("Available classes:")
+                    for index, class_record in enumerate(available_classes, start=1):
+                        print(f"{index}. {class_record['class_id']}")
+                    print_scoreform_navigation_options()
+                    print()
+
+                    try:
+                        selection = input("Select class: ")
+                        if parse_scoreform_navigation(selection) is not None:
+                            continue
+                        class_record = parse_single_selection(
+                            selection,
+                            available_classes,
+                            "class",
+                        )
+                    except ValueError as e:
+                        print(f"Error: {e}")
+                        pause_for_user()
+                        return 1
+
+                    class_id = class_record["class_id"]
+                    roster_path = class_record["roster_path"]
+                    available_assignments = discover_class_assignments(class_id)
+                    if not available_assignments:
+                        print(f"No assignments found for class '{class_id}'. Create an assignment first from the Assignment Management menu.")
+                        pause_for_user()
+                        return 1
+
+                    clear_screen()
+                    print_menu_header("Generate Answer Sheets")
+                    print(f"Class: {class_id}")
+                    print()
+                    print("Available assignments:")
+                    for index, assignment_record in enumerate(available_assignments, start=1):
+                        print(f"{index}. {assignment_record['assignment_id']}")
+                    print_scoreform_navigation_options()
+                    print()
+
+                    try:
+                        selection = input("Select assignment: ")
+                        if parse_scoreform_navigation(selection) is not None:
+                            continue
+                        assignment_record = parse_single_selection(
+                            selection,
+                            available_assignments,
+                            "assignment",
+                        )
+                    except ValueError as e:
+                        print(f"Error: {e}")
+                        pause_for_user()
+                        return 1
 
                 assignment_id = assignment_record["assignment_id"]
                 clear_screen()
@@ -837,7 +854,7 @@ def launch_generate_menu():
                     [
                         assignment_record["assignment_path"],
                         "--rosters",
-                        class_record["roster_path"],
+                        roster_path,
                     ]
                 )
                 if operation.exit_code == 0 and operation.managed_outputs:

@@ -14,6 +14,7 @@ from pds_core.school_years import (
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
+from scoreform.assignment_context import AssignmentContextSession
 from scoreform.cli_help import (
     get_version,  # noqa: F401 - compatibility re-export
     print_help,
@@ -467,7 +468,11 @@ def launch_workspace_menu():
         return 0
 
 
-def launch_menu():
+def launch_menu(context_session=None):
+    """Launch one iterative menu session with reusable assignment context."""
+    session = (
+        AssignmentContextSession() if context_session is None else context_session
+    )
     try:
         while True:
             clear_screen()
@@ -489,39 +494,42 @@ def launch_menu():
                 print("Goodbye.")
                 return 0
 
-            if choice == "1":
-                from scoreform.assignment_workflows import launch_assignment_menu
+            try:
+                if choice == "1":
+                    from scoreform.assignment_workflows import launch_assignment_menu
 
-                launch_assignment_menu()
+                    launch_assignment_menu(context_session=session)
 
-            elif choice == "2":
-                from scoreform.roster_workflows import launch_roster_menu
+                elif choice == "2":
+                    from scoreform.roster_workflows import launch_roster_menu
 
-                launch_roster_menu()
+                    launch_roster_menu()
 
-            elif choice == "3":
-                launch_workspace_menu()
+                elif choice == "3":
+                    launch_workspace_menu()
 
-            elif choice == "4":
-                clear_screen()
-                print_menu_help()
-                pause_for_user()
+                elif choice == "4":
+                    clear_screen()
+                    print_menu_help()
+                    pause_for_user()
 
-            elif choice == "5":
-                print("Goodbye.")
-                return 0
+                elif choice == "5":
+                    print("Goodbye.")
+                    return 0
 
-            else:
-                print(f"Invalid selection: {choice}. Please choose a listed option or Q.")
-                print()
-                pause_for_user()
-
+                else:
+                    print(
+                        f"Invalid selection: {choice}. "
+                        "Please choose a listed option or Q."
+                    )
+                    print()
+                    pause_for_user()
+            except ReturnToMainMenu:
+                continue
 
     except QuitPDS:
         print("Goodbye.")
         return 0
-    except ReturnToMainMenu:
-        return launch_menu()
     except KeyboardInterrupt:
         print("\nExiting menu.")
         return 0
