@@ -7,6 +7,11 @@ from collections.abc import Callable, Sequence
 from pds_core.menu_navigation import NavigationChoice
 
 from scoreform import workflows
+from scoreform.assignment_context import AssignmentContextSession
+from scoreform.menu_assignment_context import (
+    format_active_context_lines,
+    launch_assignment_context_menu,
+)
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -23,6 +28,7 @@ def _menu_choice(
     *,
     clear_screen_fn: UiCallback,
     intro: Sequence[str] = (),
+    extra_options: Sequence[str] = (),
 ) -> str:
     """Render one controlled task menu and return the raw teacher selection."""
     clear_screen_fn()
@@ -32,6 +38,8 @@ def _menu_choice(
     if intro:
         print()
     for option in options:
+        print(option)
+    for option in extra_options:
         print(option)
     print_scoreform_navigation_options()
     print()
@@ -46,54 +54,69 @@ def _invalid(choice: str, *, pause_for_user_fn: UiCallback) -> None:
 
 
 def _run_create_assignment(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     from scoreform.assignment_workflows import prompt_create_assignment
 
     clear_screen_fn()
-    prompt_create_assignment()
+    prompt_create_assignment(context_session=context_session)
     print()
     pause_for_user_fn()
 
 
 def _run_copy_assignment(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     from scoreform.menu_assignment_copy import prompt_copy_assignment
 
     clear_screen_fn()
-    prompt_copy_assignment()
+    prompt_copy_assignment(context_session=context_session)
     print()
     pause_for_user_fn()
 
 
 def _run_edit_assignment(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     from scoreform.assignment_workflows import prompt_edit_assignment
 
     clear_screen_fn()
-    prompt_edit_assignment()
+    prompt_edit_assignment(context_session=context_session)
     print()
     pause_for_user_fn()
 
 
 def _run_assignment_presets(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.menu_assignment_presets import launch_assignment_presets_menu
 
-    launch_assignment_presets_menu()
+    launch_assignment_presets_menu(context_session=context_session)
 
 
 def _run_print_answer_sheets(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.generate_workflows import launch_generate_menu
 
-    launch_generate_menu()
+    launch_generate_menu(context_session=context_session)
 
 
 def _run_score_scans(
@@ -117,50 +140,65 @@ def _run_scan_review(
 
 
 def _run_review_results(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     from scoreform.assignment_workflows import launch_view_assignment_results_menu
 
     clear_screen_fn()
-    launch_view_assignment_results_menu()
+    launch_view_assignment_results_menu(context_session=context_session)
     print()
     pause_for_user_fn()
 
 
 def _run_plain_paper_results(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.menu_manual_entry import launch_manual_entry_menu
 
-    launch_manual_entry_menu()
+    launch_manual_entry_menu(context_session=context_session)
 
 
 def _run_academic_work_registration(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.menu_academic_work import launch_academic_work_registration_menu
 
-    launch_academic_work_registration_menu()
+    launch_academic_work_registration_menu(context_session=context_session)
 
 
 def _run_academic_result_manifests(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.menu_manifest import launch_academic_result_manifests_menu
 
-    launch_academic_result_manifests_menu()
+    launch_academic_result_manifests_menu(context_session=context_session)
 
 
 def _run_academic_result_publications(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform.menu_publication import launch_academic_result_publications_menu
 
-    launch_academic_result_publications_menu()
+    launch_academic_result_publications_menu(context_session=context_session)
 
 
 def _run_validate_assignment_file(
@@ -208,6 +246,7 @@ def launch_assessment_definition_menu(
     *,
     clear_screen_fn: UiCallback | None = None,
     pause_for_user_fn: UiCallback | None = None,
+    context_session: AssignmentContextSession | None = None,
 ) -> int:
     """Group assignment definition/reuse tasks without owning their semantics."""
     clear = workflows.clear_screen if clear_screen_fn is None else clear_screen_fn
@@ -229,13 +268,29 @@ def launch_assessment_definition_menu(
             return 0
 
         if choice == "1":
-            _run_create_assignment(clear_screen_fn=clear, pause_for_user_fn=pause)
+            _run_create_assignment(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
         elif choice == "2":
-            _run_copy_assignment(clear_screen_fn=clear, pause_for_user_fn=pause)
+            _run_copy_assignment(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
         elif choice == "3":
-            _run_edit_assignment(clear_screen_fn=clear, pause_for_user_fn=pause)
+            _run_edit_assignment(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
         elif choice == "4":
-            _run_assignment_presets(clear_screen_fn=clear, pause_for_user_fn=pause)
+            _run_assignment_presets(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
         else:
             _invalid(choice, pause_for_user_fn=pause)
 
@@ -274,6 +329,7 @@ def launch_share_results_menu(
     *,
     clear_screen_fn: UiCallback | None = None,
     pause_for_user_fn: UiCallback | None = None,
+    context_session: AssignmentContextSession | None = None,
 ) -> int:
     """Group the existing exact result-publication lifecycle operations."""
     clear = workflows.clear_screen if clear_screen_fn is None else clear_screen_fn
@@ -299,15 +355,21 @@ def launch_share_results_menu(
 
         if choice == "1":
             _run_academic_work_registration(
-                clear_screen_fn=clear, pause_for_user_fn=pause
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
             )
         elif choice == "2":
             _run_academic_result_manifests(
-                clear_screen_fn=clear, pause_for_user_fn=pause
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
             )
         elif choice == "3":
             _run_academic_result_publications(
-                clear_screen_fn=clear, pause_for_user_fn=pause
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
             )
         else:
             _invalid(choice, pause_for_user_fn=pause)
@@ -349,10 +411,14 @@ def launch_assignment_menu(
     *,
     clear_screen_fn: UiCallback | None = None,
     pause_for_user_fn: UiCallback | None = None,
+    context_session: AssignmentContextSession | None = None,
 ) -> int:
     """Launch Assignment Management around bounded, recognizable teacher tasks."""
     clear = workflows.clear_screen if clear_screen_fn is None else clear_screen_fn
     pause = workflows.pause_for_user if pause_for_user_fn is None else pause_for_user_fn
+    session = (
+        AssignmentContextSession() if context_session is None else context_session
+    )
 
     try:
         while True:
@@ -368,32 +434,53 @@ def launch_assignment_menu(
                     "7. Advanced Tools",
                 ),
                 clear_screen_fn=clear,
+                intro=format_active_context_lines(session),
+                extra_options=("C. Assignment Context",),
             )
             navigation = parse_scoreform_navigation(choice)
             if navigation is NavigationChoice.BACK:
                 return 0
+            if choice.lower() == "c":
+                launch_assignment_context_menu(
+                    session,
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                )
+                continue
 
             if choice == "1":
                 launch_assessment_definition_menu(
-                    clear_screen_fn=clear, pause_for_user_fn=pause
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
                 )
             elif choice == "2":
                 _run_print_answer_sheets(
-                    clear_screen_fn=clear, pause_for_user_fn=pause
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
                 )
             elif choice == "3":
                 launch_process_scans_menu(
                     clear_screen_fn=clear, pause_for_user_fn=pause
                 )
             elif choice == "4":
-                _run_review_results(clear_screen_fn=clear, pause_for_user_fn=pause)
+                _run_review_results(
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
+                )
             elif choice == "5":
                 _run_plain_paper_results(
-                    clear_screen_fn=clear, pause_for_user_fn=pause
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
                 )
             elif choice == "6":
                 launch_share_results_menu(
-                    clear_screen_fn=clear, pause_for_user_fn=pause
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
                 )
             elif choice == "7":
                 launch_advanced_tools_menu(

@@ -189,6 +189,16 @@ publication steps and does not automatically send results to Meridian. Existing
 direct CLI commands remain available for automation, diagnostics, recovery, and
 power-user use.
 
+Assignment Management also exposes `C. Assignment Context`. During one interactive
+ScoreForm process, the teacher may keep one active exact `<class_id,
+assignment_id>` and up to five recent assignment identities, switch or clear that
+context explicitly, and continue compatible single-assignment workflows without
+reselecting the same target. Context is session-scoped: a new process starts empty,
+a workspace change clears prior context, and every reused identity is revalidated
+against current canonical workspace records. ScoreForm stores no roster, student,
+response, score, result, scan, or publication payload merely to provide this
+continuity. Direct CLI commands never consume interactive assignment context.
+
 Important direct commands include:
 
 ```text

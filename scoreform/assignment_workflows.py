@@ -633,65 +633,78 @@ def prompt_copy_assignment():
     return copy_assignment()
 
 
-def prompt_edit_assignment():
+def prompt_edit_assignment(context_session=None):
     """Interactive staged assignment editing with guarded atomic replacement."""
-    print_menu_header("Edit an Assignment")
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
 
-    available_classes = discover_class_rosters()
-    if not available_classes:
-        print("No class rosters found.")
-        print("Create a class roster first, then return to this option.")
-        return 1
-
-    print("Available classes:")
-    for index, class_record in enumerate(available_classes, start=1):
-        print(f"{index}. {class_record['class_id']}")
-    print_scoreform_navigation_options()
-    print()
-
-    try:
-        selection = input("Select class: ")
-        if parse_scoreform_navigation(selection) is not None:
-            return 0
-        class_record = parse_single_selection(
-            selection,
-            available_classes,
-            "class",
+        assignment_record = select_assignment_for_workflow(
+            context_session,
+            clear_screen_fn=clear_screen,
+            offer_switch=True,
+            workflow_title="Edit an Assignment",
         )
-    except ValueError as e:
-        print(f"Error: {e}")
-        return 1
-
-    class_id = class_record["class_id"]
-    available_assignments = discover_class_assignments(class_id)
-    if not available_assignments:
-        print(f"No assignments found for class '{class_id}'.")
-        print("Create an assignment first, then return to this option.")
-        return 1
-
-    clear_screen()
-    print_menu_header("Edit an Assignment")
-    print(f"Class: {class_id}")
-    print()
-    print("Available assignments:")
-    for index, assignment_record in enumerate(available_assignments, start=1):
-        title = assignment_record["assignment"].get("title", "")
-        print(f"{index}. {assignment_record['assignment_id']} - {title}")
-    print_scoreform_navigation_options()
-    print()
-
-    try:
-        selection = input("Select assignment: ")
-        if parse_scoreform_navigation(selection) is not None:
+        if assignment_record is None:
             return 0
-        assignment_record = parse_single_selection(
-            selection,
-            available_assignments,
-            "assignment",
-        )
-    except ValueError as e:
-        print(f"Error: {e}")
-        return 1
+        class_id = assignment_record["class_id"]
+    else:
+        print_menu_header("Edit an Assignment")
+
+        available_classes = discover_class_rosters()
+        if not available_classes:
+            print("No class rosters found.")
+            print("Create a class roster first, then return to this option.")
+            return 1
+
+        print("Available classes:")
+        for index, class_record in enumerate(available_classes, start=1):
+            print(f"{index}. {class_record['class_id']}")
+        print_scoreform_navigation_options()
+        print()
+
+        try:
+            selection = input("Select class: ")
+            if parse_scoreform_navigation(selection) is not None:
+                return 0
+            class_record = parse_single_selection(
+                selection,
+                available_classes,
+                "class",
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
+
+        class_id = class_record["class_id"]
+        available_assignments = discover_class_assignments(class_id)
+        if not available_assignments:
+            print(f"No assignments found for class '{class_id}'.")
+            print("Create an assignment first, then return to this option.")
+            return 1
+
+        clear_screen()
+        print_menu_header("Edit an Assignment")
+        print(f"Class: {class_id}")
+        print()
+        print("Available assignments:")
+        for index, assignment_record in enumerate(available_assignments, start=1):
+            title = assignment_record["assignment"].get("title", "")
+            print(f"{index}. {assignment_record['assignment_id']} - {title}")
+        print_scoreform_navigation_options()
+        print()
+
+        try:
+            selection = input("Select assignment: ")
+            if parse_scoreform_navigation(selection) is not None:
+                return 0
+            assignment_record = parse_single_selection(
+                selection,
+                available_assignments,
+                "assignment",
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
 
     workspace_root = workspace.get_scoreform_workspace_root()
     assignment_id = assignment_record["assignment_id"]
@@ -905,65 +918,76 @@ def prompt_edit_assignment():
             print(f"Invalid selection: {choice}.")
             print_invalid_navigation()
 
-def launch_view_assignment_results_menu():
+def launch_view_assignment_results_menu(context_session=None):
     """Interactive read-only workflow for viewing assignment-local results."""
-    print_menu_header("View Assignment Results")
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
 
-    available_classes = discover_class_rosters()
-    if not available_classes:
-        print("No class rosters found.")
-        print("Create a class roster first, then return to this option.")
-        return 1
-
-    print("Available classes:")
-    for index, class_record in enumerate(available_classes, start=1):
-        print(f"{index}. {class_record['class_id']}")
-    print_scoreform_navigation_options()
-    print()
-
-    try:
-        selection = input("Select class: ")
-        if parse_scoreform_navigation(selection) is not None:
-            return 0
-        class_record = parse_single_selection(
-            selection,
-            available_classes,
-            "class",
+        assignment_record = select_assignment_for_workflow(
+            context_session,
+            clear_screen_fn=clear_screen,
         )
-    except ValueError as e:
-        print(f"Error: {e}")
-        return 1
-
-    class_id = class_record["class_id"]
-    available_assignments = discover_class_assignments(class_id)
-    if not available_assignments:
-        print(f"No assignments found for class '{class_id}'.")
-        print("Create an assignment first, then return to this option.")
-        return 1
-
-    clear_screen()
-    print_menu_header("View Assignment Results")
-    print(f"Class: {class_id}")
-    print()
-    print("Available assignments:")
-    for index, assignment_record in enumerate(available_assignments, start=1):
-        title = assignment_record["assignment"].get("title", "")
-        print(f"{index}. {assignment_record['assignment_id']} - {title}")
-    print_scoreform_navigation_options()
-    print()
-
-    try:
-        selection = input("Select assignment: ")
-        if parse_scoreform_navigation(selection) is not None:
+        if assignment_record is None:
             return 0
-        assignment_record = parse_single_selection(
-            selection,
-            available_assignments,
-            "assignment",
-        )
-    except ValueError as e:
-        print(f"Error: {e}")
-        return 1
+        class_id = assignment_record["class_id"]
+    else:
+        print_menu_header("View Assignment Results")
+
+        available_classes = discover_class_rosters()
+        if not available_classes:
+            print("No class rosters found.")
+            print("Create a class roster first, then return to this option.")
+            return 1
+
+        print("Available classes:")
+        for index, class_record in enumerate(available_classes, start=1):
+            print(f"{index}. {class_record['class_id']}")
+        print_scoreform_navigation_options()
+        print()
+
+        try:
+            selection = input("Select class: ")
+            if parse_scoreform_navigation(selection) is not None:
+                return 0
+            class_record = parse_single_selection(
+                selection,
+                available_classes,
+                "class",
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
+
+        class_id = class_record["class_id"]
+        available_assignments = discover_class_assignments(class_id)
+        if not available_assignments:
+            print(f"No assignments found for class '{class_id}'.")
+            print("Create an assignment first, then return to this option.")
+            return 1
+
+        clear_screen()
+        print_menu_header("View Assignment Results")
+        print(f"Class: {class_id}")
+        print()
+        print("Available assignments:")
+        for index, assignment_record in enumerate(available_assignments, start=1):
+            title = assignment_record["assignment"].get("title", "")
+            print(f"{index}. {assignment_record['assignment_id']} - {title}")
+        print_scoreform_navigation_options()
+        print()
+
+        try:
+            selection = input("Select assignment: ")
+            if parse_scoreform_navigation(selection) is not None:
+                return 0
+            assignment_record = parse_single_selection(
+                selection,
+                available_assignments,
+                "assignment",
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
 
     assignment_id = assignment_record["assignment_id"]
     results_csv_path = assignment_record["results_path"]
@@ -1071,7 +1095,7 @@ def prompt_standards_alignment(workspace_root, question_count):
         return None, initialize_empty_standards_alignment(question_count)
     return result
 
-def prompt_create_assignment():
+def prompt_create_assignment(context_session=None):
     """Interactive prompt to create assignment JSON files for selected classes.
 
     Returns 0 on success or teacher cancellation, 1 on an operational error.
@@ -1363,9 +1387,24 @@ def prompt_create_assignment():
     for path in written_paths:
         print(f"  {path}")
 
+    if (
+        context_session is not None
+        and len(selected_classes) == 1
+        and len(written_paths) == 1
+    ):
+        from scoreform.assignment_context import AssignmentContextRef
+
+        context_session.activate(
+            AssignmentContextRef(
+                class_id=selected_classes[0]["class_id"],
+                assignment_id=assignment_id,
+            ),
+            workspace_root=workspace.get_scoreform_workspace_root(),
+        )
+
     return 0
 
-def launch_assignment_menu():
+def launch_assignment_menu(*, context_session=None):
     """Launch task-oriented Assignment Management navigation."""
     from scoreform.menu_assignment_tasks import (
         launch_assignment_menu as launch_task_oriented_assignment_menu,
@@ -1374,4 +1413,5 @@ def launch_assignment_menu():
     return launch_task_oriented_assignment_menu(
         clear_screen_fn=clear_screen,
         pause_for_user_fn=pause_for_user,
+        context_session=context_session,
     )

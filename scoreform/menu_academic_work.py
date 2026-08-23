@@ -70,45 +70,58 @@ def _display_request(request) -> None:
     )
 
 
-def launch_academic_work_registration_menu() -> int:
+def launch_academic_work_registration_menu(context_session=None) -> int:
     """Run one explicit, confirmed registration action for a managed assignment."""
     print_menu_header("Academic Work Registration")
-    classes = discover_class_rosters()
-    if not classes:
-        print("No valid classes found.")
-        return 1
-    print("Available classes:")
-    for index, record in enumerate(classes, start=1):
-        print(f"{index}. {record['class_id']}")
-    print_scoreform_navigation_options()
-    try:
-        choice = input("Select class: ")
-        if parse_scoreform_navigation(choice) is not None:
-            print("Cancelled: no registration state was written.")
-            return 0
-        class_record = parse_single_selection(choice, classes, "class")
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
 
-    class_id = class_record["class_id"]
-    assignments = discover_class_assignments(class_id)
-    if not assignments:
-        print(f"No managed ScoreForm assignments found for class '{class_id}'.")
-        return 1
-    print("Available managed assignments:")
-    for index, record in enumerate(assignments, start=1):
-        print(f"{index}. {record['assignment_id']} - {record['assignment']['title']}")
-    print_scoreform_navigation_options()
-    try:
-        choice = input("Select assignment: ")
-        if parse_scoreform_navigation(choice) is not None:
+        assignment_record = select_assignment_for_workflow(
+            context_session,
+            offer_switch=True,
+            workflow_title="Academic Work Registration",
+        )
+        if assignment_record is None:
             print("Cancelled: no registration state was written.")
             return 0
-        assignment_record = parse_single_selection(choice, assignments, "assignment")
-    except ValueError as error:
-        print(f"Error: {error}")
-        return 1
+        class_id = assignment_record["class_id"]
+    else:
+        classes = discover_class_rosters()
+        if not classes:
+            print("No valid classes found.")
+            return 1
+        print("Available classes:")
+        for index, record in enumerate(classes, start=1):
+            print(f"{index}. {record['class_id']}")
+        print_scoreform_navigation_options()
+        try:
+            choice = input("Select class: ")
+            if parse_scoreform_navigation(choice) is not None:
+                print("Cancelled: no registration state was written.")
+                return 0
+            class_record = parse_single_selection(choice, classes, "class")
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
+
+        class_id = class_record["class_id"]
+        assignments = discover_class_assignments(class_id)
+        if not assignments:
+            print(f"No managed ScoreForm assignments found for class '{class_id}'.")
+            return 1
+        print("Available managed assignments:")
+        for index, record in enumerate(assignments, start=1):
+            print(f"{index}. {record['assignment_id']} - {record['assignment']['title']}")
+        print_scoreform_navigation_options()
+        try:
+            choice = input("Select assignment: ")
+            if parse_scoreform_navigation(choice) is not None:
+                print("Cancelled: no registration state was written.")
+                return 0
+            assignment_record = parse_single_selection(choice, assignments, "assignment")
+        except ValueError as error:
+            print(f"Error: {error}")
+            return 1
 
     assignment_id = assignment_record["assignment_id"]
     assignment_title = assignment_record["assignment"]["title"]

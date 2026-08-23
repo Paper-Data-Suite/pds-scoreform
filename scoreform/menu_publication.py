@@ -39,7 +39,19 @@ from scoreform.workflows import (
 )
 
 
-def _select_assignment() -> tuple[str, dict[str, Any]] | None:
+def _select_assignment(context_session=None) -> tuple[str, dict[str, Any]] | None:
+    if context_session is not None:
+        from scoreform.menu_assignment_context import select_assignment_for_workflow
+
+        record = select_assignment_for_workflow(
+            context_session,
+            offer_switch=True,
+            workflow_title="Academic Result Publications",
+        )
+        if record is None:
+            return None
+        return record["class_id"], record
+
     classes = discover_class_rosters()
     if not classes:
         print("No valid classes found.")
@@ -104,11 +116,15 @@ def _summary(
         print(f"current selectable: {'yes' if flags.is_current_selectable else 'no'}")
 
 
-def launch_academic_result_publications_menu() -> int:
+def launch_academic_result_publications_menu(context_session=None) -> int:
     """Manage one selected assignment's publication series."""
     print_menu_header("Academic Result Publications")
     try:
-        selected = _select_assignment()
+        selected = (
+            _select_assignment()
+            if context_session is None
+            else _select_assignment(context_session=context_session)
+        )
         if selected is None:
             print("Cancelled: no publication state was changed.")
             return 0
