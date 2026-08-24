@@ -383,6 +383,7 @@ def score_image(
                 raise ScoreFormPageScoringError(
                     "Could not write registration-mark diagnostic image.",
                     diagnostic_paths=tuple(diagnostic_paths),
+                    diagnostic_code="diagnostic_write_failed",
                 ) from error
             raise error
         diagnostic_paths.append(debug_corners_filename)
@@ -397,6 +398,7 @@ def score_image(
             raise ScoreFormPageScoringError(
                 "Could not detect the four required registration marks.",
                 diagnostic_paths=tuple(diagnostic_paths),
+                diagnostic_code="registration_marks_missing",
             )
         return None
 

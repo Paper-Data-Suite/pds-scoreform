@@ -422,3 +422,14 @@ Follow applicable school, district, state, and federal privacy requirements.
 The `Process Scans` teacher workflow now continues from retained PDS2 processing into the useful next action without rerunning the scan. Confirmed durable ScoreForm results can open the exact assignment's `Review Results` view without class/assignment reselection; unresolved items can open a review queue scoped to the exact retained `source_scan_id`.
 
 Manual answer-key scoring and deterministic direct CLI scoring remain separate. See [`docs/guided_scan_to_results.md`](docs/guided_scan_to_results.md) for `SF-AC07`, durability, privacy, authority, and physical-acceptance boundaries.
+
+### Teacher-facing scan-quality recovery
+
+ScoreForm's v0.11.0 scan-review workflow now leads with a teacher explanation,
+retained-evidence status, and the safe next action. Raw PDS2 payloads and opaque
+routing/page/issuance details remain available through an explicit technical
+view rather than competing with ordinary recovery guidance.
+
+See [`docs/teacher_scan_quality_recovery.md`](docs/teacher_scan_quality_recovery.md)
+for the `SF-AC08` contract, privacy boundaries, cancellation semantics, and the
+physical acceptance handoff to #195.

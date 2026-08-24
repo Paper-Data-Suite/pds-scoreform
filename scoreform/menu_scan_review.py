@@ -16,6 +16,10 @@ from scoreform.scan_review_resolution import (
     discover_scan_review_items,
     resolve_scan_review_item,
 )
+from scoreform.scan_teacher_diagnostics import (
+    TeacherScanDiagnostic,
+    project_teacher_scan_diagnostic,
+)
 from scoreform.work_paths import scoreform_work_paths
 from scoreform.workflows import clear_screen, pause_for_user, print_menu_header
 
@@ -32,6 +36,123 @@ ACTION_LABELS = {
     "route_selected": "Select existing route",
     "route_corrected": "Correct to existing route",
 }
+
+_CANCELLED_HEADINGS = {
+    "manual_entry": "Manual Entry Cancelled",
+    "manual_marks": "Manual Marks Cancelled",
+    "route_selected": "Route Selection Cancelled",
+    "route_corrected": "Route Correction Cancelled",
+    "evidence_filed": "Evidence Filing Cancelled",
+}
+
+
+def _render_teacher_review(item, diagnostic: TeacherScanDiagnostic) -> None:
+    """Render the bounded primary teacher recovery view."""
+    print_menu_header("Scan Review")
+    print("Problem")
+    print(diagnostic.headline)
+    print(diagnostic.explanation)
+    print()
+    print("Evidence")
+    print(diagnostic.evidence_message)
+    source = item.source_filename
+    if item.source_page_number is not None:
+        source = f"{source}, page {item.source_page_number}"
+    print(f"Source: {source}")
+    if diagnostic.diagnostic_artifacts_available:
+        print("Diagnostic images are available under Technical details.")
+    print()
+    print("Recommended next step")
+    print(diagnostic.guidance)
+    print()
+
+
+def _render_available_actions(
+    actions: tuple[str, ...],
+    *,
+    recommended_actions: tuple[str, ...],
+) -> None:
+    """Render actual recovery actions with bounded recommendation markers."""
+    recommended = set(recommended_actions)
+    print("Available actions")
+    for index, action in enumerate(actions, start=1):
+        marker = " (recommended)" if action in recommended else ""
+        print(f"{index}. {ACTION_LABELS[action]}{marker}")
+    print("T. Technical details")
+
+
+def _render_technical_details(item) -> None:
+    """Render exact read-only recovery internals behind the advanced surface."""
+    print_menu_header("Technical Scan Details")
+    print(f"Failure ID: {item.failure_id}")
+    print(f"Failure record: {_shown(item.failure_metadata_relative_path)}")
+    print(f"Pipeline stage: {_shown(item.stage)}")
+    print(f"Core category: {item.failure_category}")
+    print(f"ScoreForm category: {_shown(item.scoreform_failure_category)}")
+    print(f"Reason: {item.failure_message}")
+    print(f"Source: {item.source_filename}")
+    print(f"Source scan ID: {_shown(item.source_scan_id)}")
+    print(f"Source page: {_shown(item.source_page_number)}")
+    print(f"Source SHA-256: {_shown(item.source_sha256)}")
+    print(f"Retained source: {_shown(item.retained_source_path)}")
+    print(f"Review copy: {_shown(item.review_copy_path)}")
+    identity_label = {
+        "validated_target": "Verified target identity",
+        "validated_locator": "Validated locator identity",
+        "none": "No available identity",
+    }.get(item.identity.source, "No available identity")
+    print(identity_label)
+    print(f"  Class: {_shown(item.identity.class_id)}")
+    print(f"  Assignment: {_shown(item.identity.assignment_id)}")
+    print(f"  Student: {_shown(item.identity.student_id)}")
+    print(f"  Route ID: {_shown(item.identity.route_id)}")
+    print(f"  Page ID: {_shown(item.identity.page_id)}")
+    print(f"  Issuance ID: {_shown(item.identity.issuance_id)}")
+    print(f"  Logical page: {_shown(item.identity.logical_page)}")
+    print(f"  Total pages: {_shown(item.identity.total_pages)}")
+    if item.diagnostic_identity.source == "scoreform_diagnostic":
+        print("Observed diagnostic identity")
+        print(f"  Class: {_shown(item.diagnostic_identity.class_id)}")
+        print(f"  Assignment: {_shown(item.diagnostic_identity.assignment_id)}")
+        print(f"  Student: {_shown(item.diagnostic_identity.student_id)}")
+    print(f"Raw payload: {ascii(item.detected_payload)}")
+    if item.route_locator is not None:
+        print(f"Validated route: {item.route_locator.route_id}")
+    if item.target is not None:
+        print(f"Validated target: {item.target.record_id}")
+    details = item.details
+    if details is not None:
+        print(f"Failure origin: {details.failure_origin}")
+        if details.diagnostic_paths:
+            print("Diagnostic artifacts:")
+            for path in details.diagnostic_paths:
+                print(f"  {path}")
+        if details.diagnostic_errors:
+            print("Diagnostic errors:")
+            for error in details.diagnostic_errors:
+                error_type = _shown(error.get("error_type"))
+                message = _shown(error.get("error_message"))
+                print(f"  {error_type}: {message}")
+    print(f"Resolution history ({len(item.resolution_history)}):")
+    for resolution in item.resolution_history:
+        print(
+            f"  {resolution.resolved_at}: {resolution.resolution_status} / "
+            f"{resolution.resolution_action}"
+        )
+    if item.latest_resolution_details is not None:
+        latest = item.latest_resolution_details
+        if latest.identity_source == "teacher_verified":
+            print("Teacher-verified resolution identity")
+            print(f"  Class: {_shown(latest.identity.get('class_id'))}")
+            print(f"  Assignment: {_shown(latest.identity.get('assignment_id'))}")
+            print(f"  Student: {_shown(latest.identity.get('student_id'))}")
+
+
+def _render_cancelled_action(action: str) -> None:
+    """Report an abandoned review action without implying rollback."""
+    print_menu_header(_CANCELLED_HEADINGS.get(action, "Scan Review Not Updated"))
+    print("No result or resolution record was written.")
+    print("Existing retained evidence and earlier review history remain unchanged.")
 
 
 def _shown(value) -> str:
@@ -273,87 +394,61 @@ def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
             pause_for_user()
             continue
         item = discovery.items[int(choice) - 1]
-        clear_screen()
-        print_menu_header("Scan Review Details")
-        print(f"Category: {item.failure_category}")
-        print(f"Reason: {item.failure_message}")
-        print(f"Source: {item.source_filename}")
-        print(f"Page: {_shown(item.source_page_number)}")
-        identity_label = {
-            "validated_target": "Verified target identity",
-            "validated_locator": "Validated locator identity",
-            "none": "No available identity",
-        }.get(item.identity.source, "No available identity")
-        print(identity_label)
-        print(f"  Class: {_shown(item.identity.class_id)}")
-        print(f"  Assignment: {_shown(item.identity.assignment_id)}")
-        print(f"  Student: {_shown(item.identity.student_id)}")
-        print(f"  Route ID: {_shown(item.identity.route_id)}")
-        print(f"  Page ID: {_shown(item.identity.page_id)}")
-        print(f"  Issuance ID: {_shown(item.identity.issuance_id)}")
-        print(f"  Logical page: {_shown(item.identity.logical_page)}")
-        if item.diagnostic_identity.source == "scoreform_diagnostic":
-            print("Observed diagnostic identity")
-            print(f"  Class: {_shown(item.diagnostic_identity.class_id)}")
-            print(f"  Assignment: {_shown(item.diagnostic_identity.assignment_id)}")
-            print(f"  Student: {_shown(item.diagnostic_identity.student_id)}")
-        print(f"Retained source: {_shown(item.retained_source_path)}")
-        print(f"Raw payload: {ascii(item.detected_payload)}")
-        if item.route_locator is not None:
-            print(f"Validated route: {item.route_locator.route_id}")
-        if item.target is not None:
-            print(f"Validated target: {item.target.record_id}")
-        print(f"Resolution history ({len(item.resolution_history)}):")
-        for resolution in item.resolution_history:
-            print(
-                f"  {resolution.resolved_at}: {resolution.resolution_status} / "
-                f"{resolution.resolution_action}"
+        while True:
+            actions = allowed_review_actions(root, item)
+            diagnostic = project_teacher_scan_diagnostic(
+                item,
+                allowed_actions=actions,
             )
-        if item.latest_resolution_details is not None:
-            details = item.latest_resolution_details
-            if details.identity_source == "teacher_verified":
-                print("Teacher-verified resolution identity")
-                print(f"  Class: {_shown(details.identity.get('class_id'))}")
-                print(
-                    "  Assignment: "
-                    f"{_shown(details.identity.get('assignment_id'))}"
-                )
-                print(f"  Student: {_shown(details.identity.get('student_id'))}")
-        print()
-        actions = allowed_review_actions(root, item)
-        for index, action in enumerate(actions, start=1):
-            print(f"{index}. {ACTION_LABELS[action]}")
-        print_scoreform_navigation_options()
-        print()
-        action_choice = input("Select an action: ").strip()
-        if parse_scoreform_navigation(action_choice) is not None:
-            continue
-        if not action_choice.isdigit() or not 1 <= int(action_choice) <= len(actions):
-            print("Select a listed action.")
-            pause_for_user()
-            continue
-        action = actions[int(action_choice) - 1]
-        try:
-            result = _perform_action(root, item, action)
-        except (ScanReviewError, OSError) as error:
             clear_screen()
-            print_menu_header("Scan Review Not Updated")
-            print(f"Error: {error}")
+            _render_teacher_review(item, diagnostic)
+            _render_available_actions(
+                actions,
+                recommended_actions=diagnostic.recommended_actions,
+            )
+            print_scoreform_navigation_options()
+            print()
+            action_choice = input("Select an action: ").strip()
+            if action_choice.casefold() == "t":
+                clear_screen()
+                _render_technical_details(item)
+                print()
+                pause_for_user()
+                continue
+            if parse_scoreform_navigation(action_choice) is not None:
+                break
+            if (
+                not action_choice.isdigit()
+                or not 1 <= int(action_choice) <= len(actions)
+            ):
+                print("Select a listed action or T for technical details.")
+                pause_for_user()
+                continue
+            action = actions[int(action_choice) - 1]
+            try:
+                result = _perform_action(root, item, action)
+            except (ScanReviewError, OSError) as error:
+                clear_screen()
+                print_menu_header("Scan Review Not Updated")
+                print(f"Error: {error}")
+                print()
+                pause_for_user()
+                break
+            if result is None:
+                clear_screen()
+                _render_cancelled_action(action)
+            else:
+                clear_screen()
+                print_menu_header("Scan Review Updated")
+                print(f"Status: {result.resolution_status}")
+                print(
+                    "Resolution record: "
+                    f"{result.resolution_metadata_relative_path}"
+                )
+                if result.evidence_path:
+                    print(f"Evidence: {result.evidence_path}")
+                if result.result_written:
+                    print("Manual-entry result written to assignment results.")
             print()
             pause_for_user()
-            continue
-        if result is None:
-            clear_screen()
-            print_menu_header("Manual Entry Cancelled")
-            print("No result or resolution record was written.")
-        else:
-            clear_screen()
-            print_menu_header("Scan Review Updated")
-            print(f"Status: {result.resolution_status}")
-            print(f"Resolution record: {result.resolution_metadata_relative_path}")
-            if result.evidence_path:
-                print(f"Evidence: {result.evidence_path}")
-            if result.result_written:
-                print("Manual-entry result written to assignment results.")
-        print()
-        pause_for_user()
+            break

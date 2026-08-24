@@ -373,11 +373,13 @@ def score_authoritative_answer_sheet_page(
         raise
     except Exception as error:
         raise ScoreFormPageScoringError(
-            "One-page OMR processing or diagnostic creation failed."
+            "One-page OMR processing or diagnostic creation failed.",
+            diagnostic_code="omr_processing_failed",
         ) from error
     if raw is None:
         raise ScoreFormPageScoringError(
-            "Could not detect the four required registration marks."
+            "Could not detect the four required registration marks.",
+            diagnostic_code="registration_marks_missing",
         )
     try:
         raw_answers = raw["answers"]
@@ -415,6 +417,7 @@ def score_authoritative_answer_sheet_page(
         )
     except (KeyError, TypeError, ValueError) as error:
         raise ScoreFormPageScoringError(
-            "OMR processing returned malformed page results."
+            "OMR processing returned malformed page results.",
+            diagnostic_code="malformed_page_result",
         ) from error
     return validate_page_dispatch_result(result, valid_choices=layout.choices)

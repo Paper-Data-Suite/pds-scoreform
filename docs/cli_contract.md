@@ -1164,3 +1164,14 @@ Unresolved review from the guided path is filtered by the exact Core `source_sca
 The guided workflow does not choose an official/best/latest attempt, calculate proficiency, or calculate a Grade. It creates no guided-session persistence. Returning after retention does not roll back retained evidence, results, or review records.
 
 The direct CLI remains independent of interactive context: `scoreform score ...` is prompt-free and deterministic, while interactive manual answer-key scoring remains a distinct mode. See `docs/guided_scan_to_results.md`.
+
+## Teacher-facing scan-quality recovery
+
+The interactive scan-review menu uses the `SF-AC08` teacher-first recovery
+projection documented in
+[`teacher_scan_quality_recovery.md`](teacher_scan_quality_recovery.md).
+
+This does not replace or weaken the exact direct `list-scan-review`,
+`resolve-scan-review`, or `score` CLI contracts. Technical identifiers and raw
+payload details remain available through direct CLI/explicit technical recovery
+surfaces.

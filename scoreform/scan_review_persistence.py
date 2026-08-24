@@ -37,12 +37,19 @@ from pds_core.scan_retention import SourceRetentionError
 
 from scoreform.attempt_assembly import ScoreFormRoutedScoringBatch
 from scoreform.module_errors import (
+    ScoreFormAssignmentCompatibilityError,
+    ScoreFormIssuanceAuthorizationError,
+    ScoreFormPageScoringError,
     ScoreFormQrDiagnosticWriteError,
     ScoreFormQrMissingError,
+    ScoreFormRegistrationValidationError,
     ScoreFormRegistryError,
+    ScoreFormRetainedPageError,
+    ScoreFormRouteContextError,
     ScoreFormScanPreflightError,
     ScoreFormSourceMissingError,
     ScoreFormSourceTypeUnsupportedError,
+    ScoreFormTargetIntegrityError,
 )
 from scoreform.pds2_scan_dispatch import Pds2ScanPageOutcome
 from scoreform.scan_review_details import (
@@ -154,6 +161,26 @@ def _cause_chain(error: Exception):
         seen.add(id(current))
         yield current
         current = current.__cause__ or current.__context__
+
+
+def _scoreform_dispatch_category(error: Exception) -> str:
+    """Return stable ScoreForm-owned classification through Core error wrapping."""
+    for item in _cause_chain(error):
+        if isinstance(item, ScoreFormPageScoringError):
+            return item.diagnostic_code
+        if isinstance(item, ScoreFormAssignmentCompatibilityError):
+            return "assignment_incompatible"
+        if isinstance(item, ScoreFormIssuanceAuthorizationError):
+            return "issuance_not_authorized"
+        if isinstance(item, ScoreFormTargetIntegrityError):
+            return "target_integrity"
+        if isinstance(item, ScoreFormRetainedPageError):
+            return "retained_page_invalid"
+        if isinstance(item, ScoreFormRouteContextError):
+            return "route_context_invalid"
+        if isinstance(item, ScoreFormRegistrationValidationError):
+            return "registration_invalid"
+    return "route_dispatch"
 
 
 def _file_mapping(error: Exception) -> tuple[str, str]:
@@ -333,7 +360,7 @@ def _page_metadata(page, provenance, failure_id, created_at, workspace_root=None
             details = _page_details(
                 page,
                 "core_dispatch",
-                "route_dispatch",
+                _scoreform_dispatch_category(outcome.error),
                 outcome.error,
                 workspace_root,
             )
