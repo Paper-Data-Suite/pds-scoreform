@@ -29,17 +29,32 @@ class ScoreFormRetainedPageError(ScoreFormModuleError):
     """Retained-source provenance or page extraction is invalid."""
 
 
+PAGE_SCORING_DIAGNOSTIC_CODES = frozenset(
+    {
+        "page_scoring_error",
+        "registration_marks_missing",
+        "omr_processing_failed",
+        "malformed_page_result",
+        "diagnostic_write_failed",
+    }
+)
+
+
 class ScoreFormPageScoringError(ScoreFormModuleError):
-    """Strict one-page OMR scoring failed."""
+    """Strict one-page OMR scoring failed with a stable ScoreForm diagnosis."""
 
     def __init__(
         self,
         message: str,
         *,
         diagnostic_paths: tuple[str, ...] = (),
+        diagnostic_code: str = "page_scoring_error",
     ) -> None:
         super().__init__(message)
+        if diagnostic_code not in PAGE_SCORING_DIAGNOSTIC_CODES:
+            raise ValueError("diagnostic_code is unsupported.")
         self.diagnostic_paths = tuple(diagnostic_paths)
+        self.diagnostic_code = diagnostic_code
 
 
 class ScoreFormScanDispatchError(ScoreFormModuleError):

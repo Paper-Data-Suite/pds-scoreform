@@ -41,7 +41,8 @@ function Test-InstalledArtifact {
         [switch]$RunMultiClassGenerationAcceptance,
         [switch]$RunTaskOrientedAssignmentMenuAcceptance,
         [switch]$RunRecentAssignmentContextAcceptance,
-        [switch]$RunGuidedScanToResultsAcceptance
+        [switch]$RunGuidedScanToResultsAcceptance,
+        [switch]$RunScanQualityDiagnosticsAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -83,7 +84,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -212,6 +213,24 @@ function Test-InstalledArtifact {
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
+        if ($RunScanQualityDiagnosticsAcceptance) {
+            $ScanQualityWorkspace = Join-Path $Root "$Label-scan-quality-acceptance-workspace"
+            if (Test-Path -LiteralPath $ScanQualityWorkspace) {
+                throw "$Label scan-quality acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $ScanQualityWorkspace
+            Invoke-Checked "Run $Label installed actionable scan-quality recovery acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_scan_quality_diagnostics_acceptance.py") `
+                    --workspace $ScanQualityWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $ScanQualityWorkspace -PathType Container)) {
+                throw "$Label scan-quality acceptance did not create its synthetic workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
         if ($RunProducerAcceptance) {
             $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
             if (Test-Path -LiteralPath $AcceptanceWorkspace) {
@@ -253,7 +272,8 @@ try {
         -RunMultiClassGenerationAcceptance `
         -RunTaskOrientedAssignmentMenuAcceptance `
         -RunRecentAssignmentContextAcceptance `
-        -RunGuidedScanToResultsAcceptance
+        -RunGuidedScanToResultsAcceptance `
+        -RunScanQualityDiagnosticsAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `

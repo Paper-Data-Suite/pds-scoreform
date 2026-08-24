@@ -19,6 +19,12 @@ def _item(**overrides):
         "failure_message": "No QR was detected.",
         "source_filename": "scan.pdf",
         "source_page_number": 1,
+        "source_scan_id": None,
+        "source_sha256": None,
+        "stage": "payload_detection",
+        "review_copy_path": None,
+        "failure_metadata_relative_path": "scans/review/failure1.json",
+        "details": None,
         "class_id": None,
         "assignment_id": None,
         "student_id": None,
@@ -109,7 +115,7 @@ def test_detail_labels_identity_and_escapes_raw_payload(
     monkeypatch.setattr(menu_review, "discover_scan_review_items", lambda _root: discovery)
     monkeypatch.setattr(menu_review, "clear_screen", lambda: None)
     monkeypatch.setattr(menu_review, "pause_for_user", lambda: None)
-    choices = iter(("1", "B", "B"))
+    choices = iter(("1", "T", "B", "B"))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(choices))
 
     assert menu_review.launch_scan_review_menu() == 0
