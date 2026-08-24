@@ -209,15 +209,30 @@ def _perform_action(root, item, action):
     )
 
 
-def launch_scan_review_menu() -> int:
-    """List active items, show one detail view, and resolve or defer it."""
+def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
+    """List active review items, optionally scoped to one exact retained source."""
     root = workspace.get_scoreform_workspace_root()
     while True:
         clear_screen()
-        print_menu_header("Resolve Scan Review Items")
-        discovery = discover_scan_review_items(root)
+        if source_scan_id is None:
+            print_menu_header("Resolve Scan Review Items")
+            discovery = discover_scan_review_items(root)
+        else:
+            print_menu_header("Review This Scan")
+            print("Scope: unresolved or deferred ScoreForm items from this retained scan only.")
+            print()
+            discovery = discover_scan_review_items(
+                root,
+                source_scan_id=source_scan_id,
+            )
         if not discovery.items:
-            print("No unresolved or deferred ScoreForm scan review items.")
+            if source_scan_id is None:
+                print("No unresolved or deferred ScoreForm scan review items.")
+            else:
+                print(
+                    "No unresolved or deferred ScoreForm review items remain "
+                    "for this retained scan."
+                )
             print()
             pause_for_user()
             return 0
@@ -229,7 +244,7 @@ def launch_scan_review_menu() -> int:
                 f"{index}. {item.status}: {item.failure_category} — "
                 f"{item.source_filename}{page}"
             )
-        if discovery.warning_count:
+        if source_scan_id is None and discovery.warning_count:
             print(f"Warning: {discovery.warning_count} review record(s) ignored.")
             print(f"  Invalid failures: {discovery.invalid_failure_count}")
             print(f"  Invalid resolutions: {discovery.invalid_resolution_count}")

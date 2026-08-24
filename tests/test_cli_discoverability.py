@@ -362,12 +362,16 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     (scans_dir / "mixed_scan.pdf").write_text("synthetic scan", encoding="utf-8")
     (scans_dir / "class_packet_period2.jpg").write_text("synthetic scan", encoding="utf-8")
 
-    run_score_calls = []
+    guided_calls = []
     responses = iter(["1", "3", "1", "1", "2", "1", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: None)
-    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(
+        menu_scoring,
+        "launch_guided_scan_to_results",
+        lambda source, **kwargs: guided_calls.append((source, kwargs)) or 0,
+    )
 
     assert scoreform.cli.launch_menu() == 0
 
@@ -380,7 +384,12 @@ def test_menu_score_can_select_scan_from_inbox(tmp_path, monkeypatch, capsys):
     assert "Selected scan:" in output
     assert "Retained PDS2 Core page dispatch (recommended)" in output
     assert "Output CSV path (blank for routed QR-aware default):" not in output
-    assert run_score_calls == [[str(scans_dir / "mixed_scan.pdf")]]
+    assert len(guided_calls) == 1
+    assert guided_calls[0][0] == str(scans_dir / "mixed_scan.pdf")
+    assert isinstance(
+        guided_calls[0][1]["context_session"],
+        scoreform.assignment_context.AssignmentContextSession,
+    )
 
 
 def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_path, monkeypatch, capsys):
@@ -390,20 +399,25 @@ def test_menu_score_invalid_inbox_selection_returns_to_scoring_input_menu(tmp_pa
     (scans_dir / "class_packet.pdf").write_text("synthetic scan", encoding="utf-8")
 
     pauses = []
-    run_score_calls = []
+    guided_calls = []
     responses = iter(["1", "3", "1", "1", "99", "2", "custom_scan.pdf", "1", "b", "b", "5"])
 
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(responses))
     monkeypatch.setattr(menu_scoring, "pause_for_user", lambda: pauses.append("pause"))
-    monkeypatch.setattr(menu_scoring, "run_score", lambda args: run_score_calls.append(args) or 0)
+    monkeypatch.setattr(
+        menu_scoring,
+        "launch_guided_scan_to_results",
+        lambda source, **kwargs: guided_calls.append((source, kwargs)) or 0,
+    )
 
     assert scoreform.cli.launch_menu() == 0
 
     output = capsys.readouterr().out
     assert "Error: Scan selection out of range: 99" in output
     assert output.count("Score Scanned Responses") >= 2
-    assert pauses == ["pause", "pause"]
-    assert run_score_calls == [["custom_scan.pdf"]]
+    assert pauses == ["pause"]
+    assert len(guided_calls) == 1
+    assert guided_calls[0][0] == "custom_scan.pdf"
 
 
 def test_menu_score_manual_scoring_with_explicit_output_preserves_quoted_path_normalization(monkeypatch):

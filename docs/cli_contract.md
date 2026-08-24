@@ -1152,3 +1152,15 @@ durably created, the command reports partial success, keeps the successful
 target, identifies the failed target, leaves later targets unattempted, and
 returns nonzero. It does not pretend to provide cross-target filesystem
 rollback.
+
+## Guided retained scan-to-results
+
+The interactive `Assignment Management -> Process Scans -> Score scanned responses` retained-PDS2 mode is a guided teacher workflow. It executes the same structured retained routed-scoring operation once, then uses its durable outcomes to offer result review and/or unresolved-item review.
+
+A ScoreForm result target is eligible for guided assignment context only when result export reports it as newly appended or already present. The exact `<class_id, assignment_id>` is canonically re-resolved before activation. One durable target requires no class/assignment reselection; multiple targets require explicit teacher choice.
+
+Unresolved review from the guided path is filtered by the exact Core `source_scan_id` for that intake event. The ordinary global scan-review command/menu remains available.
+
+The guided workflow does not choose an official/best/latest attempt, calculate proficiency, or calculate a Grade. It creates no guided-session persistence. Returning after retention does not roll back retained evidence, results, or review records.
+
+The direct CLI remains independent of interactive context: `scoreform score ...` is prompt-free and deterministic, while interactive manual answer-key scoring remains a distinct mode. See `docs/guided_scan_to_results.md`.

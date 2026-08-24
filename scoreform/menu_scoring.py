@@ -5,7 +5,9 @@ import os
 from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
+from scoreform.assignment_context import AssignmentContextSession
 from scoreform.cli_score import run_score
+from scoreform.guided_scan_workflow import launch_guided_scan_to_results
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -97,17 +99,19 @@ def prompt_scoring_input_file():
             pause_for_user()
 
 
-def run_menu_qr_aware_routed_scoring(input_file):
-    """Run the menu's recommended retained PDS2 page-dispatch workflow."""
-    clear_screen()
-    print_menu_header("PDS2 Core Page Dispatch")
-    print("Pages will be retained and dispatched through Core using PDS2 routes.")
-    print("Complete ScoreForm print copies will be assembled and appended as attempts.")
-    print("Missing, duplicate, or conflicting page sets will not be exported.")
-    print()
-    run_score([input_file])
-    print()
-    pause_for_user()
+def run_menu_qr_aware_routed_scoring(
+    input_file,
+    *,
+    context_session: AssignmentContextSession | None = None,
+):
+    """Run the menu's continuous retained PDS2 scan-to-results workflow."""
+    session = (
+        AssignmentContextSession() if context_session is None else context_session
+    )
+    return launch_guided_scan_to_results(
+        input_file,
+        context_session=session,
+    )
 
 
 def run_menu_manual_scoring(input_file):
@@ -141,8 +145,12 @@ def run_menu_manual_scoring(input_file):
     return True
 
 
-def prompt_scoring_mode(input_file):
-    """Prompt for retained PDS2 page dispatch or manual scoring."""
+def prompt_scoring_mode(
+    input_file,
+    *,
+    context_session: AssignmentContextSession | None = None,
+):
+    """Prompt for guided retained PDS2 processing or distinct manual scoring."""
     while True:
         clear_screen()
         print_menu_header("Select Scoring Mode")
@@ -164,7 +172,10 @@ def prompt_scoring_mode(input_file):
             return
 
         if choice == "1":
-            run_menu_qr_aware_routed_scoring(input_file)
+            run_menu_qr_aware_routed_scoring(
+                input_file,
+                context_session=context_session,
+            )
             return
 
         if choice == "2":

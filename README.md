@@ -416,3 +416,9 @@ Follow applicable school, district, state, and federal privacy requirements.
 - `docs/physical_acceptance_test.md` — mandatory paper procedure
 - `RELEASE_NOTES_v0.10.0.md` — v0.10.0 GitHub Release body
 - `RELEASE_NOTES_v0.9.1.md` — historical v0.9.1 GitHub Release body
+
+### Guided retained scan-to-results
+
+The `Process Scans` teacher workflow now continues from retained PDS2 processing into the useful next action without rerunning the scan. Confirmed durable ScoreForm results can open the exact assignment's `Review Results` view without class/assignment reselection; unresolved items can open a review queue scoped to the exact retained `source_scan_id`.
+
+Manual answer-key scoring and deterministic direct CLI scoring remain separate. See [`docs/guided_scan_to_results.md`](docs/guided_scan_to_results.md) for `SF-AC07`, durability, privacy, authority, and physical-acceptance boundaries.
