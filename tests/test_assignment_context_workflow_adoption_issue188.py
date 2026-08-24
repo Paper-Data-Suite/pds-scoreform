@@ -144,12 +144,13 @@ def test_task_routes_propagate_one_exact_context_session(
     assert seen == [session]
 
 
-def test_process_scans_remains_independent_of_assignment_context(
+def test_process_scans_receives_shared_assignment_context_without_mutating_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session = AssignmentContextSession()
     provided = iter(["3", "1", "b", "b"])
     seen_kwargs: list[dict[str, object]] = []
+    before = (session.active, session.recent, session.is_workspace_bound)
 
     def record(**kwargs: object) -> None:
         seen_kwargs.append(kwargs)
@@ -166,4 +167,5 @@ def test_process_scans_remains_independent_of_assignment_context(
         == 0
     )
     assert len(seen_kwargs) == 1
-    assert "context_session" not in seen_kwargs[0]
+    assert seen_kwargs[0]["context_session"] is session
+    assert (session.active, session.recent, session.is_workspace_bound) == before

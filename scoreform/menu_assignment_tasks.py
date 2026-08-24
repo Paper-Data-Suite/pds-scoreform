@@ -120,14 +120,23 @@ def _run_print_answer_sheets(
 
 
 def _run_score_scans(
-    *, clear_screen_fn: UiCallback, pause_for_user_fn: UiCallback
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
 ) -> None:
     del clear_screen_fn, pause_for_user_fn
     from scoreform import menu_scoring
 
+    session = (
+        AssignmentContextSession() if context_session is None else context_session
+    )
     input_file = menu_scoring.prompt_scoring_input_file()
     if input_file:
-        menu_scoring.prompt_scoring_mode(input_file)
+        menu_scoring.prompt_scoring_mode(
+            input_file,
+            context_session=session,
+        )
 
 
 def _run_scan_review(
@@ -299,8 +308,9 @@ def launch_process_scans_menu(
     *,
     clear_screen_fn: UiCallback | None = None,
     pause_for_user_fn: UiCallback | None = None,
+    context_session: AssignmentContextSession | None = None,
 ) -> int:
-    """Group current scan-processing operations without creating a guided flow."""
+    """Group scan processing while preserving one shared assignment context."""
     clear = workflows.clear_screen if clear_screen_fn is None else clear_screen_fn
     pause = workflows.pause_for_user if pause_for_user_fn is None else pause_for_user_fn
 
@@ -318,7 +328,11 @@ def launch_process_scans_menu(
             return 0
 
         if choice == "1":
-            _run_score_scans(clear_screen_fn=clear, pause_for_user_fn=pause)
+            _run_score_scans(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
         elif choice == "2":
             _run_scan_review(clear_screen_fn=clear, pause_for_user_fn=pause)
         else:
@@ -462,7 +476,9 @@ def launch_assignment_menu(
                 )
             elif choice == "3":
                 launch_process_scans_menu(
-                    clear_screen_fn=clear, pause_for_user_fn=pause
+                    clear_screen_fn=clear,
+                    pause_for_user_fn=pause,
+                    context_session=session,
                 )
             elif choice == "4":
                 _run_review_results(

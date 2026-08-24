@@ -1,6 +1,9 @@
 """Scoring command orchestration for retained PDS2 and manual workflows."""
 
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from scoreform import workspace
@@ -18,10 +21,12 @@ from scoreform.pds2_scan_dispatch import (
 )
 from scoreform.results import export_scoreform_attempts, export_to_csv
 from scoreform.scan_filing import (
+    ScanFilingResult,
     file_original_scan_after_success,
     print_scan_filing_result,
 )
 from scoreform.scan_filing_settings import get_scan_filing_mode
+from scoreform.scan_review_models import ScoreFormFailurePersistenceBatch
 from scoreform.scan_review_persistence import (
     format_failure_persistence_summary,
     persist_routed_scoring_failures,
@@ -30,6 +35,47 @@ from scoreform.scoring import (
     ManualScoringSummary,
     process_file,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class RoutedScoringOperationResult:
+    """Structured result of one exact retained PDS2 scoring operation."""
+
+    batch: ScoreFormRoutedScoringBatch | None
+    review: ScoreFormFailurePersistenceBatch | None
+    scan_filing: ScanFilingResult | None = None
+    operation_error: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.operation_error is not None:
+            if not isinstance(self.operation_error, str) or not self.operation_error.strip():
+                raise ValueError("operation_error must be a nonempty string or null.")
+            if self.batch is not None or self.review is not None or self.scan_filing is not None:
+                raise ValueError(
+                    "A terminal routed-scoring operation error cannot carry partial models."
+                )
+            return
+
+        if not isinstance(self.batch, ScoreFormRoutedScoringBatch):
+            raise TypeError("A successful orchestration result requires a routed scoring batch.")
+        if not isinstance(self.review, ScoreFormFailurePersistenceBatch):
+            raise TypeError(
+                "A successful orchestration result requires a failure-persistence batch."
+            )
+        if self.scan_filing is not None and not isinstance(
+            self.scan_filing, ScanFilingResult
+        ):
+            raise TypeError("scan_filing must be a ScanFilingResult or null.")
+
+    @property
+    def exit_code(self) -> int:
+        """Return the historical direct-CLI exit status for this operation."""
+
+        if self.operation_error is not None:
+            return 1
+        assert self.batch is not None
+        assert self.review is not None
+        return 1 if self.review.failures else self.batch.exit_code()
 
 
 def _get_manual_scoring_summary(results_data):
@@ -66,36 +112,81 @@ def _eligible_for_scan_filing(batch: ScoreFormRoutedScoringBatch, output_file) -
     )
 
 
-def _run_routed_scoring(input_file, *, workspace_root: Path, output_file=None):
+def execute_routed_scoring_operation(
+    input_file: str | Path,
+    *,
+    workspace_root: Path,
+    output_file: str | Path | None = None,
+) -> RoutedScoringOperationResult:
+    """Execute retain/dispatch/assemble/export/review/file exactly once.
+
+    This is the structured application boundary shared by the direct CLI and the
+    guided teacher workflow. It deliberately performs no rendering.
+    """
+
     dispatch = process_pds2_scan(input_file, workspace_root=workspace_root)
     if not isinstance(dispatch, Pds2ScanDispatchResult):
-        print("Error: PDS2 scan processing returned an invalid batch result.")
-        return 1
-    print(format_pds2_dispatch_summary(dispatch))
+        return RoutedScoringOperationResult(
+            batch=None,
+            review=None,
+            operation_error="PDS2 scan processing returned an invalid batch result.",
+        )
+
     assembly = assemble_scoreform_attempts(dispatch, workspace_root=workspace_root)
     export = None
     if assembly.completed_attempts:
         export = export_scoreform_attempts(
             assembly,
             workspace_root=workspace_root,
-            explicit_output_file=Path(output_file) if output_file is not None else None,
+            explicit_output_file=(
+                Path(output_file) if output_file is not None else None
+            ),
         )
+
     batch = ScoreFormRoutedScoringBatch(dispatch, assembly, export)
-    print(format_routed_scoring_summary(batch))
-
     review = persist_routed_scoring_failures(batch, input_file, workspace_root)
-    if review.persisted or review.failures:
-        print(format_failure_persistence_summary(review))
 
+    scan_filing = None
     if _eligible_for_scan_filing(batch, output_file):
-        result = file_original_scan_after_success(
+        scan_filing = file_original_scan_after_success(
             [item.routed_result for item in assembly.completed_attempts],
             input_file,
             mode=get_scan_filing_mode(workspace_root),
             workspace_root=workspace_root,
         )
-        print_scan_filing_result(result)
-    return 1 if review.failures else batch.exit_code()
+
+    return RoutedScoringOperationResult(
+        batch=batch,
+        review=review,
+        scan_filing=scan_filing,
+    )
+
+
+def _print_routed_scoring_operation(result: RoutedScoringOperationResult) -> None:
+    """Render the historical technical CLI summaries from a structured result."""
+
+    if result.operation_error is not None:
+        print(f"Error: {result.operation_error}")
+        return
+
+    assert result.batch is not None
+    assert result.review is not None
+    print(format_pds2_dispatch_summary(result.batch.dispatch_result))
+    print(format_routed_scoring_summary(result.batch))
+    if result.review.persisted or result.review.failures:
+        print(format_failure_persistence_summary(result.review))
+    if result.scan_filing is not None:
+        print_scan_filing_result(result.scan_filing)
+
+
+def _run_routed_scoring(input_file, *, workspace_root: Path, output_file=None):
+    result = execute_routed_scoring_operation(
+        input_file,
+        workspace_root=workspace_root,
+        output_file=output_file,
+    )
+    _print_routed_scoring_operation(result)
+    return result.exit_code
 
 
 def run_score(args):
