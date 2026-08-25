@@ -504,18 +504,20 @@ def test_catalog_lock_is_never_removed_by_scoreform(tmp_path):
 
 
 def test_publication_workflows_are_not_invoked_automatically():
-    allowed = {
+    base_allowed = {
         "academic_result_publication.py",
         "cli_publication.py",
         "menu_publication.py",
     }
-    names = (
-        "publish_scoreform_academic_results(",
-        "supersede_scoreform_academic_results(",
-        "republish_scoreform_academic_results_after_withdrawal(",
-        "withdraw_scoreform_academic_result_publication(",
-    )
-    for name in names:
+    allowed_by_operation = {
+        "publish_scoreform_academic_results(": base_allowed
+        | {"guided_share_results.py"},
+        "supersede_scoreform_academic_results(": base_allowed
+        | {"guided_share_results.py"},
+        "republish_scoreform_academic_results_after_withdrawal(": base_allowed,
+        "withdraw_scoreform_academic_result_publication(": base_allowed,
+    }
+    for name, allowed in allowed_by_operation.items():
         references = {
             path.name
             for path in Path("scoreform").glob("*.py")
@@ -531,6 +533,7 @@ def test_publication_workflows_are_not_invoked_automatically():
         "academic_result_manifest_generation.py",
         "academic_result_publication.py",
         "cli_manifest.py",
+        "guided_share_results.py",
         "menu_manifest.py",
     }
     publication_source = Path("scoreform/academic_result_publication.py").read_text(

@@ -108,10 +108,12 @@ def test_share_results_is_explicit_about_existing_publication_steps(
 
     output = capsys.readouterr().out
     assert "Share Results" in output
-    assert "1. Academic Work Registration" in output
-    assert "2. Academic Result Manifests" in output
-    assert "3. Academic Result Publications" in output
-    assert "does not automatically send results to Meridian" in output
+    assert "1. Share Results with Meridian" in output
+    assert "2. Academic Work Registration" in output
+    assert "3. Academic Result Manifests" in output
+    assert "4. Academic Result Publications" in output
+    assert "publishes ScoreForm evidence through Core" in output
+    assert "does not automatically send results to Meridian" not in output
 
 
 def test_advanced_tools_contains_validation_and_qr_diagnostics(
@@ -211,9 +213,10 @@ def test_navigation_only_grouping_is_side_effect_free(
         (["3", "2", "b", "b"], "_run_scan_review"),
         (["4", "b"], "_run_review_results"),
         (["5", "b"], "_run_plain_paper_results"),
-        (["6", "1", "b", "b"], "_run_academic_work_registration"),
-        (["6", "2", "b", "b"], "_run_academic_result_manifests"),
-        (["6", "3", "b", "b"], "_run_academic_result_publications"),
+        (["6", "1", "b", "b"], "_run_share_results_with_meridian"),
+        (["6", "2", "b", "b"], "_run_academic_work_registration"),
+        (["6", "3", "b", "b"], "_run_academic_result_manifests"),
+        (["6", "4", "b", "b"], "_run_academic_result_publications"),
         (["7", "1", "b", "b"], "_run_validate_assignment_file"),
         (["7", "2", "b", "b"], "_run_decode_qr_file"),
     ],

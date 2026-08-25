@@ -49,7 +49,7 @@ Invoke-Step "Audit v0.10.0 release compatibility boundary" {
     & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
-    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
+    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
 }
 Invoke-Step "Run focused installed-profile contract tests" {
     & $Python -m pytest @(
@@ -100,6 +100,7 @@ Invoke-Step "Run strict mypy on release scripts" {
         "scripts\verify_installed_recent_assignment_context_acceptance.py",
         "scripts\verify_installed_guided_scan_to_results_acceptance.py",
         "scripts\verify_installed_scan_quality_diagnostics_acceptance.py",
+        "scripts\verify_installed_share_results_with_meridian_acceptance.py",
         "scripts\verify_release_artifacts.py"
     )
 }
@@ -613,7 +614,7 @@ try {
     if (-not $CoreWheelWasSet) {
         $CoreSource = Join-Path (Split-Path -Parent $RepoRoot) "pds-core"
         if (-not (Test-Path -LiteralPath (Join-Path $CoreSource ".git") -PathType Container)) {
-            throw "Core v0.6.0 tag cannot be exported; set PDS_CORE_WHEEL to the released pds-core 0.6.0 wheel."
+            throw "Core v0.6.3 tag cannot be exported; set PDS_CORE_WHEEL to the released pds-core 0.6.3 wheel."
         }
         $CoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
             "scoreform-core-wheel-" + [guid]::NewGuid().ToString("N")
@@ -623,14 +624,14 @@ try {
         )
         New-Item -ItemType Directory -Path $CoreWheelRoot | Out-Null
         New-Item -ItemType Directory -Path $CoreExportRoot | Out-Null
-        $CoreArchive = Join-Path $CoreExportRoot "pds-core-v0.6.0.zip"
+        $CoreArchive = Join-Path $CoreExportRoot "pds-core-v0.6.3.zip"
         $CoreExport = Join-Path $CoreExportRoot "source"
-        Invoke-Step "Export exact pds-core v0.6.0 tag" {
+        Invoke-Step "Export exact pds-core v0.6.3 tag" {
             git -c "safe.directory=$($CoreSource.Replace('\', '/'))" -C $CoreSource `
-                archive --format=zip --output=$CoreArchive v0.6.0
+                archive --format=zip --output=$CoreArchive v0.6.3
         }
         Expand-Archive -LiteralPath $CoreArchive -DestinationPath $CoreExport
-        Invoke-Step "Build separate pds-core 0.6.0 test wheel" {
+        Invoke-Step "Build separate pds-core 0.6.3 test wheel" {
             $SavedErrorActionPreference = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
             $CoreBuildOutput = & $Python -m build --wheel --outdir $CoreWheelRoot $CoreExport 2>&1
@@ -639,13 +640,13 @@ try {
             $CoreBuildOutput | ForEach-Object { Write-Host $_ }
             if ($CoreBuildExitCode -ne 0) { exit $CoreBuildExitCode }
         }
-        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.6.0-*.whl" -File)
+        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.6.3-*.whl" -File)
         if ($CoreWheels.Count -ne 1) {
-            throw "Expected exactly one pds_core-0.6.0-*.whl from the v0.6.0 export."
+            throw "Expected exactly one pds_core-0.6.3-*.whl from the v0.6.3 export."
         }
         $env:PDS_CORE_WHEEL = $CoreWheels[0].FullName
     }
-    Invoke-Step "Validate exact pds-core 0.6.0 baseline wheel" {
+    Invoke-Step "Validate exact pds-core 0.6.3 reference wheel" {
         & $Python scripts\verify_core_wheel.py $env:PDS_CORE_WHEEL
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {

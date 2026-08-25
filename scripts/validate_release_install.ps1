@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Python,
     [string]$Version = "0.10.0",
-    [string]$ExpectedCoreVersion = "0.6.0"
+    [string]$ExpectedCoreVersion = "0.6.3"
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,7 +42,8 @@ function Test-InstalledArtifact {
         [switch]$RunTaskOrientedAssignmentMenuAcceptance,
         [switch]$RunRecentAssignmentContextAcceptance,
         [switch]$RunGuidedScanToResultsAcceptance,
-        [switch]$RunScanQualityDiagnosticsAcceptance
+        [switch]$RunScanQualityDiagnosticsAcceptance,
+        [switch]$RunShareResultsWithMeridianAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -84,7 +85,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -231,6 +232,24 @@ function Test-InstalledArtifact {
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
+        if ($RunShareResultsWithMeridianAcceptance) {
+            $ShareResultsWorkspace = Join-Path $Root "$Label-share-results-acceptance-workspace"
+            if (Test-Path -LiteralPath $ShareResultsWorkspace) {
+                throw "$Label Share Results acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $ShareResultsWorkspace
+            Invoke-Checked "Run $Label installed Share Results with Meridian acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_share_results_with_meridian_acceptance.py") `
+                    --workspace $ShareResultsWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $ShareResultsWorkspace -PathType Container)) {
+                throw "$Label Share Results acceptance did not create its synthetic workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
         if ($RunProducerAcceptance) {
             $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
             if (Test-Path -LiteralPath $AcceptanceWorkspace) {
@@ -273,7 +292,8 @@ try {
         -RunTaskOrientedAssignmentMenuAcceptance `
         -RunRecentAssignmentContextAcceptance `
         -RunGuidedScanToResultsAcceptance `
-        -RunScanQualityDiagnosticsAcceptance
+        -RunScanQualityDiagnosticsAcceptance `
+        -RunShareResultsWithMeridianAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `

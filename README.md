@@ -31,14 +31,15 @@ rather than being multiplied across every matrix cell. See
 
 ## Installation
 
-PDS Core 0.6.0 is distributed separately through the verified PDS Core `v0.6.0` GitHub
-Release; it was not published to PyPI. Download its wheel and the ScoreForm
+PDS Core 0.6.3 is the current release-qualification reference and is distributed
+separately through the verified PDS Core `v0.6.3` GitHub Release; it is not
+published to PyPI. Download its wheel and the ScoreForm
 wheel, create and activate a Python 3.11+ virtual environment, install Poppler
 so `pdftoppm` is available for PDF scans, then install both distributions
 noneditably:
 
 ```powershell
-python -m pip install .\pds_core-0.6.0-py3-none-any.whl
+python -m pip install .\pds_core-0.6.3-py3-none-any.whl
 python -m pip install .\scoreform-0.10.0-py3-none-any.whl
 python -m pip check
 scoreform --version
@@ -46,7 +47,7 @@ scoreform --help
 ```
 
 ScoreForm's dependency metadata enforces `pds-core>=0.6,<0.7`, but pip cannot
-download Core 0.6.0 from PyPI. A compatible Core wheel must be available to pip
+download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
 
@@ -184,10 +185,13 @@ organized around recognizable teacher tasks rather than implementation operation
 
 Create/copy/edit/preset operations live under the first group; scan scoring and
 review live under Process Scans; validation and QR decoding live under Advanced
-Tools. Share Results groups the existing exact registration, manifest, and
-publication steps and does not automatically send results to Meridian. Existing
-direct CLI commands remain available for automation, diagnostics, recovery, and
-power-user use.
+Tools. Share Results starts with **Share Results with Meridian**, a guided path that
+retains one exact assignment through registration, immutable manifest, and Core
+publication/supersession. Success means the evidence is published through Core
+and available for Meridian to consume; ScoreForm does not invoke Meridian. The
+exact registration, manifest, and publication workflows remain available in the
+same submenu for advanced recovery. Existing direct CLI commands remain
+available for automation, diagnostics, recovery, and power-user use.
 
 Assignment Management also exposes `C. Assignment Context`. During one interactive
 ScoreForm process, the teacher may keep one active exact `<class_id,
@@ -256,6 +260,8 @@ rebuild the disposable catalog when repair is needed. The corresponding direct
 commands are under `scoreform publication`. Publication does not calculate a
 Grade, select an attempt, or calculate proficiency.
 
+The ordinary teacher path is documented in [`docs/share_results_with_meridian.md`](docs/share_results_with_meridian.md).
+
 Authorized consumers can parse already obtained immutable manifest bytes through
 the consumer-neutral `scoreform.academic_result_reader` API. The reader requires
 exact canonical ScoreForm bytes and provides exact source, student, attempt,
@@ -264,7 +270,8 @@ selection, grading, or portfolio policy. See
 [`docs/academic_result_reader.md`](docs/academic_result_reader.md).
 
 Release readiness now also runs the complete academic-result producer lifecycle
-from the clean installed ScoreForm wheel against the exact Core 0.6 baseline:
+and the guided SF-AC10/SF-AC11 sharing journeys from the clean installed ScoreForm
+wheel against the current Core 0.6.3 reference release:
 native synthetic results, registration, immutable manifests, publication,
 catalog verification, public reading, supersession, withdrawal, and registry
 audit. See

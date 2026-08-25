@@ -90,13 +90,20 @@ Create/copy/edit/preset workflows remain exact existing ScoreForm operations.
 Print Answer Sheets delegates directly to the current Generate Answer Sheets
 workflow. Process Scans contains current scoring and scan-review operations.
 Review Results and Enter Plain-Paper Results launch their existing workflows
-directly. Share Results groups the exact Academic Work Registration, Academic
-Result Manifest, and Academic Result Publication operations; it is not yet the
-guided Share Results with Meridian workflow and does not import Meridian.
+directly. Share Results starts with the guided `Share Results with Meridian`
+journey, which retains one exact assignment through Academic Work Registration,
+immutable Academic Result Manifest generation, and exact Core publication or
+supersession. A successful status means results are published through Core and
+available for Meridian to consume; ScoreForm does not import or invoke Meridian.
+The exact registration, manifest, and publication workflows remain available as
+advanced options in the same submenu.
 Advanced Tools contains assignment-file validation and QR decoding. All existing
 direct CLI commands remain available. B/M/Q continue to use PDS Core shared
 navigation, and merely entering or leaving a grouping screen creates no domain
 state.
+
+The guided publication contract, cancellation semantics, and authority
+boundaries are documented in [`share_results_with_meridian.md`](share_results_with_meridian.md).
 
 #### Session-scoped assignment context
 

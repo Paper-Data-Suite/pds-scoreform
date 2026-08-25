@@ -19,7 +19,7 @@ def test_release_paths_include_installed_multi_class_acceptance() -> None:
 
     assert script.replace("/", "\\") in run_tests
     assert script in workflow
-    assert "--expected-core-version 0.6.0" in workflow
+    assert "--expected-core-version 0.6.3" in workflow
     assert "RunMultiClassGenerationAcceptance" in validate_install
     assert "verify_installed_multi_class_generation_acceptance.py" in validate_install
 

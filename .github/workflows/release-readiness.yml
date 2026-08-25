@@ -18,21 +18,17 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Check out PDS Core 0.6.0 source for a separate test wheel
-        uses: actions/checkout@v4
-        with:
-          repository: Paper-Data-Suite/pds-core
-          ref: v0.6.0
-          path: _release_core
       - name: Install Poppler
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
-      - name: Build separate PDS Core wheel
+      - name: Download authenticated published PDS Core 0.6.3 wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python -m pip install build
-          python -m build --wheel --outdir "$RUNNER_TEMP/core-dist" _release_core
-          rm -rf "$GITHUB_WORKSPACE/_release_core"
-          python scripts/verify_core_wheel.py "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl
-          python -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl
+          mkdir -p "$RUNNER_TEMP/core-dist"
+          gh release download v0.6.3 --repo Paper-Data-Suite/pds-core --pattern "pds_core-0.6.3-py3-none-any.whl" --dir "$RUNNER_TEMP/core-dist"
+          echo "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5  $RUNNER_TEMP/core-dist/pds_core-0.6.3-py3-none-any.whl" | sha256sum -c -
+          python scripts/verify_core_wheel.py "$RUNNER_TEMP/core-dist/pds_core-0.6.3-py3-none-any.whl"
+          python -m pip install "$RUNNER_TEMP/core-dist/pds_core-0.6.3-py3-none-any.whl"
       - name: Install development environment
         run: python -m pip install -e ".[dev]"
       - name: Check dependencies
@@ -45,7 +41,7 @@ jobs:
         run: python -m mypy scoreform
       - name: Strict mypy release scripts
         run: |
-          python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_installed_assignment_preset_acceptance.py             scripts/verify_installed_assignment_bulk_entry_acceptance.py             scripts/verify_installed_multi_class_generation_acceptance.py             scripts/verify_installed_task_oriented_assignment_menu_acceptance.py             scripts/verify_installed_recent_assignment_context_acceptance.py             scripts/verify_installed_guided_scan_to_results_acceptance.py             scripts/verify_installed_scan_quality_diagnostics_acceptance.py             scripts/verify_release_artifacts.py
+          python -m mypy             --follow-imports=skip             --disallow-untyped-defs             --disallow-incomplete-defs             --check-untyped-defs             scripts/verify_release_compatibility.py             scripts/verify_installed_release.py             scripts/verify_installed_producer_acceptance.py             scripts/verify_installed_assignment_preset_acceptance.py             scripts/verify_installed_assignment_bulk_entry_acceptance.py             scripts/verify_installed_multi_class_generation_acceptance.py             scripts/verify_installed_task_oriented_assignment_menu_acceptance.py             scripts/verify_installed_recent_assignment_context_acceptance.py             scripts/verify_installed_guided_scan_to_results_acceptance.py             scripts/verify_installed_scan_quality_diagnostics_acceptance.py             scripts/verify_installed_share_results_with_meridian_acceptance.py             scripts/verify_release_artifacts.py
       - name: Strict mypy assignment-copy installed acceptance
         run: |
           python -m mypy \
@@ -67,7 +63,7 @@ jobs:
       - name: Install wheel noneditable
         run: |
           python -m venv "$RUNNER_TEMP/scoreform-wheel"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.0-*.whl dist/scoreform-0.10.0-*.whl
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip install "$RUNNER_TEMP"/core-dist/pds_core-0.6.3-*.whl dist/scoreform-0.10.0-*.whl
           "$RUNNER_TEMP/scoreform-wheel/bin/python" -m pip check
       - name: Verify installed version and profile
         env:
@@ -75,7 +71,7 @@ jobs:
         run: |
           test ! -e "$PDS_WORKSPACE_ROOT"
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --version | grep -Fx "ScoreForm 0.10.0"
-          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.10.0 --workspace "$PDS_WORKSPACE_ROOT" --expected-core-version 0.6.0
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_release.py --version 0.10.0 --workspace "$PDS_WORKSPACE_ROOT" --expected-core-version 0.6.3
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.10.0"
           test ! -e "$PDS_WORKSPACE_ROOT"
@@ -83,44 +79,49 @@ jobs:
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_assignment_copy_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-assignment-copy-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed assignment presets
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_assignment_preset_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-assignment-preset-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed assignment bulk entry
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_assignment_bulk_entry_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-assignment-bulk-entry-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed multi-class generation
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_multi_class_generation_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-multi-class-generation-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed task-oriented Assignment Management
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_task_oriented_assignment_menu_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-task-oriented-assignment-menu-must-not-exist" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed recent/active assignment context
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_recent_assignment_context_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-assignment-context-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed guided scan-to-results
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_guided_scan_to_results_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-guided-scan-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed actionable scan-quality recovery
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_scan_quality_diagnostics_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-scan-quality-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
+      - name: Verify installed Share Results with Meridian
+        run: |
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_share_results_with_meridian_acceptance.py \
+            --workspace "$RUNNER_TEMP/scoreform-share-results-acceptance" \
+            --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed producer lifecycle
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_producer_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-producer-acceptance" \
-            --version 0.10.0 --expected-core-version 0.6.0
+            --version 0.10.0 --expected-core-version 0.6.3
