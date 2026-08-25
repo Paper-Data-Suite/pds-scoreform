@@ -228,9 +228,19 @@ scoreform manifest generate --class-id <class_id> --assignment-id <assignment_id
 scoreform workspace show|set|validate|reset
 scoreform school-year show|open|close
 scoreform scan-filing show|set|reset
+scoreform diagnostics list [--limit <n>] [--format <text|json>]
+scoreform diagnostics show --event-id <event_id> [--format <text|json>]
 scoreform --help
 scoreform --version
 ```
+
+ScoreForm also retains bounded local, privacy-minimal diagnostic events for
+selected failures, partial-success states, verified recoveries, and a small
+number of durable workflow boundaries. The advanced `scoreform diagnostics
+list/show` commands are read-only; the event history is not telemetry, an audit
+log, a student/teacher activity history, or domain authority. Generic event JSON
+contains no student field, answers, scores, raw scans, raw QR payloads, or
+tracebacks. See [`docs/diagnostic_events.md`](docs/diagnostic_events.md).
 
 Fast assignment setup supports complete answer-key and standards-alignment
 replacement from concise paste, CSV, or JSON. Guided workflows preview normalized

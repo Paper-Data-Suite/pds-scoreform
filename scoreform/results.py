@@ -25,6 +25,7 @@ from scoreform.answer_sheet_records import (
 )
 from scoreform.answer_sheet_routes import validate_route_id
 from scoreform.assignment import load_assignment
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.folders import ensure_parent_dir
 from scoreform.module_errors import (
     ScoreFormRoutedResultIntegrityError,
@@ -1724,6 +1725,72 @@ def _export_result_models(
     )
 
 
+def _record_result_export_diagnostics(
+    workspace_root: Path,
+    batch: ScoreFormAttemptExportBatch,
+) -> None:
+    """Record batch-level persistence outcomes without student/result content."""
+    if batch.failures:
+        first = batch.failures[0]
+        if batch.appended_attempts:
+            try_emit_diagnostic_event(
+                workspace_root,
+                component="results",
+                workflow="persist_results",
+                stage="post_write_verify",
+                outcome="partial_success",
+                code="result_persistence_partial_success",
+                exception=first.error,
+            )
+            return
+
+        class_id = (
+            first.class_id
+            if first.class_id not in {"multiple", "explicit"}
+            else None
+        )
+        assignment_id = (
+            first.assignment_id
+            if first.assignment_id not in {"multiple", "explicit"}
+            else None
+        )
+        stage = (
+            "preflight"
+            if first.stage in {"preflight", "not_attempted"}
+            else "write_record"
+        )
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="results",
+            workflow="persist_results",
+            stage=stage,
+            outcome="failure",
+            code="result_persistence_failed",
+            class_id=class_id,
+            assignment_id=assignment_id,
+            exception=first.error,
+        )
+        return
+
+    identities = sorted(
+        {
+            (item.result.class_id, item.result.assignment_id)
+            for item in batch.appended_attempts
+        }
+    )
+    for class_id, assignment_id in identities:
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="results",
+            workflow="persist_results",
+            stage="verify_record",
+            outcome="success",
+            code="result_persistence_verified",
+            class_id=class_id,
+            assignment_id=assignment_id,
+        )
+
+
 def export_scoreform_attempts(
     assembly: Any,
     *,
@@ -1734,20 +1801,26 @@ def export_scoreform_attempts(
     results = tuple(attempt.routed_result for attempt in assembly.completed_attempts)
     if not results:
         return ScoreFormAttemptExportBatch()
-    return _export_result_models(
+    root = Path(workspace_root)
+    batch = _export_result_models(
         results,
-        workspace_root=Path(workspace_root),
+        workspace_root=root,
         explicit_output_file=Path(explicit_output_file)
         if explicit_output_file is not None
         else None,
     )
+    _record_result_export_diagnostics(root, batch)
+    return batch
 
 
 def export_scoreform_result_models(
     results: Sequence[ScoreFormRoutedResult], *, workspace_root: Path
 ) -> ScoreFormAttemptExportBatch:
     """Export validated typed results through the shared schema-v2 writer."""
-    return _export_result_models(tuple(results), workspace_root=Path(workspace_root))
+    root = Path(workspace_root)
+    batch = _export_result_models(tuple(results), workspace_root=root)
+    _record_result_export_diagnostics(root, batch)
+    return batch
 
 
 def export_routed_results(

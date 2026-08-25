@@ -92,6 +92,8 @@ Usage:
   scoreform scan-filing show
   scoreform scan-filing set <copy|move|off>
   scoreform scan-filing reset
+  scoreform diagnostics list [--limit <n>] [--format <text|json>]
+  scoreform diagnostics show --event-id <event_id> [--format <text|json>]
   scoreform help
   scoreform --help
   scoreform version
@@ -118,6 +120,7 @@ Commands:
   workspace             View or configure the shared PDS workspace root.
   school-year           View, open, or close the active PDS school year.
   scan-filing           View or configure ScoreForm scored-copy filing.
+  diagnostics           Read retained privacy-minimal ScoreForm diagnostic events.
   help                  Show this help text.
   version               Show the installed ScoreForm version.
 
@@ -175,6 +178,7 @@ Examples:
   scoreform school-year close
   scoreform scan-filing show
   scoreform scan-filing set move
+  scoreform diagnostics list --limit 20
 
 Notes:
   Running scoreform with no arguments launches the terminal menu.

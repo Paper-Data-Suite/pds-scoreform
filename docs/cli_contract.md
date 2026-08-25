@@ -158,6 +158,33 @@ teacher workflow more technical without adding useful guidance.
 `setup-assignment` is the current example: it remains available to power users,
 developers, and imports, but is not a top-level teacher-facing menu item.
 
+## ScoreForm diagnostic-event commands
+
+Issue #192 adds a direct-CLI-only read surface for bounded ScoreForm-local
+diagnostic events:
+
+```powershell
+scoreform diagnostics list
+scoreform diagnostics list --limit 20
+scoreform diagnostics list --format json
+scoreform diagnostics show --event-id <event_id>
+scoreform diagnostics show --event-id <event_id> --format json
+```
+
+`list` defaults to 50 and is hard-capped at 200. Both commands are read-only:
+they create no event directory, prune nothing, repair nothing, and do not update
+timestamps. A missing event directory is the valid empty state. JSON output
+contains only the fixed schema-v1 event fields.
+
+This command family is intentionally advanced/direct-CLI-only. It is not added
+to routine Assignment Management and provides no delete, clear, tail, watch,
+stream, upload, or send operation.
+
+Diagnostic history is non-authoritative. It cannot determine current scan-review
+attention, result state, publication state, readiness, or grading. Detailed scan
+recovery remains in Core scan-review records; future current attention remains
+owned by #193. See [`diagnostic_events.md`](diagnostic_events.md).
+
 ## Active scan review commands
 
 ScoreForm exposes the durable QR-aware failure queue through:

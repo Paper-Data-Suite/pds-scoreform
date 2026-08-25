@@ -43,6 +43,7 @@ from scoreform.assignment import (
     assignment_from_json_bytes,
     validate_assignment_standard_alignments,
 )
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.page_scoring import ScoredAnswer
 from scoreform.pds_contract import SCOREFORM_MODULE_ID
 from scoreform.publication_revision_policy import (
@@ -1067,7 +1068,13 @@ def generate_academic_result_manifest(
         raise ScoreFormManifestGenerationNotFoundError(
             "Managed ScoreForm assignment does not exist."
         )
-    lock_descriptor, lock_path = _acquire_lock(paths.academic_result_manifests_dir)
+    try:
+        lock_descriptor, lock_path = _acquire_lock(
+            paths.academic_result_manifests_dir
+        )
+    except ScoreFormManifestGenerationError as error:
+        _record_manifest_generation_error(root, work, error)
+        raise
     operation_error: BaseException | None = None
     durable_path: Path | None = None
     durable_revision: int | None = None
@@ -1208,15 +1215,28 @@ def generate_academic_result_manifest(
                 "Manifest revision is durable but final verification failed.", state
             )
             raise partial from error
+        try_emit_diagnostic_event(
+            root,
+            component="publication",
+            workflow="generate_result_manifest",
+            stage="verify_record",
+            outcome="success",
+            code="manifest_revision_created",
+            class_id=work.class_id,
+            assignment_id=work.work_id,
+            path=result_value.path,
+        )
         return result_value
     except ScoreFormManifestGenerationError as error:
         operation_error = error
+        _record_manifest_generation_error(root, work, error)
         raise
     except Exception as error:
         normalized = ScoreFormManifestGenerationIntegrityError(
             "Manifest generation validation or revision planning failed."
         )
         operation_error = normalized
+        _record_manifest_generation_error(root, work, normalized)
         raise normalized from error
     except BaseException as error:
         operation_error = error
@@ -1236,6 +1256,18 @@ def generate_academic_result_manifest(
             )
             if operation_error is None:
                 if durable_path is not None and durable_revision is not None:
+                    try_emit_diagnostic_event(
+                        root,
+                        component="publication",
+                        workflow="generate_result_manifest",
+                        stage="post_write_verify",
+                        outcome="partial_success",
+                        code="manifest_partial_success",
+                        class_id=work.class_id,
+                        assignment_id=work.work_id,
+                        exception=cleanup_error,
+                        path=durable_path,
+                    )
                     state = ManifestGenerationPartialSuccessState(
                         operation="lock_cleanup",
                         work=work,
@@ -1258,6 +1290,9 @@ def generate_academic_result_manifest(
                 cleanup_failure_error._record_lock_cleanup_failure(
                     lock_cleanup_failure
                 )
+                _record_manifest_generation_error(
+                    root, work, cleanup_failure_error
+                )
                 raise cleanup_failure_error from cleanup_error
             if isinstance(operation_error, ScoreFormManifestGenerationError):
                 operation_error._record_lock_cleanup_failure(lock_cleanup_failure)
@@ -1269,6 +1304,34 @@ def generate_academic_result_manifest(
                         operation_error.state,
                         lock_cleanup_failure=lock_cleanup_failure,
                     )
+
+
+def _record_manifest_generation_error(
+    workspace_root: Path,
+    work: ModuleWorkRef,
+    error: ScoreFormManifestGenerationError,
+) -> None:
+    """Record one bounded manifest failure without replacing its outcome."""
+    if isinstance(error, ScoreFormManifestGenerationPartialSuccessError):
+        outcome = "partial_success"
+        code = "manifest_partial_success"
+        path = error.state.path
+    else:
+        outcome = "failure"
+        code = "manifest_generation_failed"
+        path = None
+    try_emit_diagnostic_event(
+        workspace_root,
+        component="publication",
+        workflow="generate_result_manifest",
+        stage="write_record",
+        outcome=outcome,
+        code=code,
+        class_id=work.class_id,
+        assignment_id=work.work_id,
+        exception=error,
+        path=path,
+    )
 
 
 __all__ = [

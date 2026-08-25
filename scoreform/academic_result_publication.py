@@ -84,6 +84,7 @@ from scoreform.academic_work_registration import (
     SCOREFORM_ACADEMIC_WORK_KIND,
     SCOREFORM_ASSIGNMENT_SOURCE_RECORD_KIND,
 )
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.pds_contract import (
     ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
     SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
@@ -904,6 +905,22 @@ def _verify_publication_result(
                 withdrawal,
             )
         except _CatalogReconciliationFailure as failure:
+            try_emit_diagnostic_event(
+                root,
+                component="publication",
+                workflow=(
+                    "publish_results"
+                    if operation == "publish"
+                    else "supersede_results"
+                ),
+                stage="catalog_rebuild",
+                outcome="partial_success",
+                code="catalog_reconciliation_failed",
+                class_id=work.class_id,
+                assignment_id=work.work_id,
+                exception=failure.error,
+                path=stored.path,
+            )
             state = PublicationPartialSuccessState(
                 operation=operation,
                 publication=canonical,
@@ -923,7 +940,7 @@ def _verify_publication_result(
                 "Core publication is durable but catalog reconciliation failed.",
                 state,
             ) from failure.error
-        return AcademicResultPublicationResult(
+        result = AcademicResultPublicationResult(
             operation=operation,
             disposition=service.disposition,
             publication=canonical,
@@ -934,9 +951,46 @@ def _verify_publication_result(
             manifest_generation=generation,
             supersession_requirement=supersession_requirement,
         )
+        if service.disposition == "created" and operation in {"publish", "supersede"}:
+            try_emit_diagnostic_event(
+                root,
+                component="publication",
+                workflow=(
+                    "publish_results"
+                    if operation == "publish"
+                    else "supersede_results"
+                ),
+                stage="post_write_verify",
+                outcome="success",
+                code=(
+                    "publication_verified"
+                    if operation == "publish"
+                    else "supersession_verified"
+                ),
+                class_id=work.class_id,
+                assignment_id=work.work_id,
+                path=stored.path,
+            )
+        return result
     except ScoreFormAcademicResultPublicationPartialSuccessError:
         raise
     except Exception as error:
+        try_emit_diagnostic_event(
+            root,
+            component="publication",
+            workflow=(
+                "publish_results"
+                if operation == "publish"
+                else "supersede_results"
+            ),
+            stage="post_write_verify",
+            outcome="partial_success",
+            code="publication_partial_success",
+            class_id=work.class_id,
+            assignment_id=work.work_id,
+            exception=error,
+            path=stored.path,
+        )
         state = PublicationPartialSuccessState(
             operation=operation,
             publication=service.publication,
@@ -972,6 +1026,13 @@ def publish_scoreform_academic_results(
     try:
         service = publish_manifest_revision(workspace_root, request)
     except RegistryServiceError as error:
+        _record_publication_service_error(
+            workspace_root,
+            work,
+            "publish",
+            stored,
+            error,
+        )
         _raise_registry(error, manifest=stored)
     return _verify_publication_result(
         workspace_root, work, service, stored, "publish"
@@ -1069,6 +1130,13 @@ def supersede_scoreform_academic_results(
             expected_current_publication_id=requirement.expected_current_publication_id,
         )
     except RegistryServiceError as error:
+        _record_publication_service_error(
+            workspace_root,
+            work,
+            "supersede",
+            stored,
+            error,
+        )
         _raise_registry(error, manifest=stored)
     return _verify_publication_result(
         workspace_root,
@@ -1350,6 +1418,40 @@ def withdraw_scoreform_academic_result_publication(
             "Core withdrawal is durable but post-write verification failed.",
             state,
         ) from error
+
+
+def _record_publication_service_error(
+    workspace_root: str | Path,
+    work: ModuleWorkRef,
+    operation: Literal["publish", "supersede"],
+    manifest: StoredAcademicResultManifest,
+    error: RegistryServiceError,
+) -> None:
+    """Record only high-value Core publication conflicts/partial success."""
+    if isinstance(error, RegistryServicePartialSuccessError):
+        outcome = "partial_success"
+        code = "publication_partial_success"
+    elif isinstance(error, RegistryServiceConflictError):
+        outcome = "blocked"
+        code = "publication_conflict"
+    else:
+        return
+    try_emit_diagnostic_event(
+        workspace_root,
+        component="publication",
+        workflow=(
+            "publish_results"
+            if operation == "publish"
+            else "supersede_results"
+        ),
+        stage="write_record",
+        outcome=outcome,
+        code=code,
+        class_id=work.class_id,
+        assignment_id=work.work_id,
+        exception=error,
+        path=manifest.path,
+    )
 
 
 def _raise_registry(

@@ -179,6 +179,13 @@ def run_assignment_bulk(args):
     return assignment_bulk(args)
 
 
+def run_diagnostics(args):
+    """Load read-only ScoreForm diagnostics only for its explicit command."""
+    from scoreform.cli_diagnostics import run_diagnostics as diagnostics
+
+    return diagnostics(args)
+
+
 def run_validate_assignment(args):
     if len(args) != 1:
         print("Usage: scoreform validate-assignment <assignment_json>")
@@ -601,6 +608,8 @@ def _main(argv=None, default_to_menu=True):
         return run_assignment_copy(args)
     elif cmd == "preset":
         return run_assignment_preset(args)
+    elif cmd == "diagnostics":
+        return run_diagnostics(args)
     else:
         print(f"Unknown command: {cmd}")
         return 1
