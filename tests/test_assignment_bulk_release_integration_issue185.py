@@ -19,7 +19,7 @@ def test_release_paths_include_installed_bulk_entry_acceptance() -> None:
 
     assert script.replace("/", "\\") in run_tests
     assert script in workflow
-    assert "--expected-core-version 0.6.0" in workflow
+    assert "--expected-core-version 0.6.3" in workflow
     assert "RunBulkEntryAcceptance" in validate_install
     assert "verify_installed_assignment_bulk_entry_acceptance.py" in validate_install
 

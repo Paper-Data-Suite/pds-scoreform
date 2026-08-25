@@ -20,7 +20,7 @@ break Python 3.11.
 Every matrix cell:
 
 1. installs Poppler using a platform-appropriate deterministic path;
-2. downloads and authenticates the official released PDS Core 0.6.0 wheel;
+2. downloads and authenticates the official released PDS Core 0.6.3 wheel;
 3. installs that Core wheel and ScoreForm's development dependencies;
 4. verifies the installed Core version and runs `pip check`;
 5. runs the complete ordinary pytest suite;
@@ -29,9 +29,9 @@ Every matrix cell:
 8. verifies Git whitespace plus tracked and untracked repository cleanliness.
 
 The Windows Poppler archive is version-pinned and SHA-256 authenticated before
-its executables are added to `PATH`. The Core wheel is authenticated by
-`scripts/verify_core_wheel.py`. CI does not use a sibling editable Core
-checkout.
+its executables are added to `PATH`. The Core 0.6.3 release wheel is also
+SHA-256 authenticated and then validated by `scripts/verify_core_wheel.py`.
+CI does not use a sibling editable Core checkout.
 
 Mypy runs with the Python target of the current matrix cell. The Python 3.11
 cells therefore remain the authoritative type-checking floor, while newer
@@ -87,5 +87,5 @@ single local environment cannot provide.
 - Routine CI currently covers Windows and Ubuntu only; macOS is not implied.
 - ScoreForm continues to declare `pds-core>=0.6,<0.7`.
 - The exact authenticated CI/release baseline for this development line is PDS
-  Core 0.6.0 unless that baseline is deliberately revised in a separate
+  Core 0.6.3 unless that baseline is deliberately revised in a separate
   compatibility change.

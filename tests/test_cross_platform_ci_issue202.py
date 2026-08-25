@@ -26,23 +26,24 @@ def test_ci_has_exact_supported_environment_matrix() -> None:
     assert "python-version: ${{ matrix.python }}" in text
 
 
-def test_ci_authenticates_exact_released_core_baseline() -> None:
+def test_ci_authenticates_exact_released_core_reference() -> None:
     text = _read(CI)
 
     assert (
         "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
-        "v0.6.0/pds_core-0.6.0-py3-none-any.whl"
+        "v0.6.3/pds_core-0.6.3-py3-none-any.whl"
     ) in text
     assert (
-        'Path(os.environ["RUNNER_TEMP"]) / "pds_core-0.6.0-py3-none-any.whl"'
+        'Path(os.environ["RUNNER_TEMP"]) / "pds_core-0.6.3-py3-none-any.whl"'
         in text
     )
     assert (
         'python scripts/verify_core_wheel.py '
-        '"${{ runner.temp }}/pds_core-0.6.0-py3-none-any.whl"'
+        '"${{ runner.temp }}/pds_core-0.6.3-py3-none-any.whl"'
         in text
     )
-    assert 'version("pds-core") != "0.6.0"' in text
+    assert 'version("pds-core") != "0.6.3"' in text
+    assert "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5" in text
     assert "../pds-core" not in text
 
 
@@ -132,7 +133,7 @@ def test_ci_documentation_defines_layering_and_support_boundary() -> None:
     assert "3.11, 3.12, 3.13, 3.14" in text
     assert "Python 3.11 remains the language and package-metadata floor" in text
     assert "pds-core>=0.6,<0.7" in text
-    assert "PDS Core 0.6.0" in text
+    assert "PDS Core 0.6.3" in text
     assert "not" in text and "printer/scanner acceptance" in text
     assert "run_tests.ps1" in text
 

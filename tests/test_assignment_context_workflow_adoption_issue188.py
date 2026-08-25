@@ -112,9 +112,10 @@ def test_offer_switch_can_deliberately_select_another_assignment(
         (["2", "b"], "_run_print_answer_sheets"),
         (["4", "b"], "_run_review_results"),
         (["5", "b"], "_run_plain_paper_results"),
-        (["6", "1", "b", "b"], "_run_academic_work_registration"),
-        (["6", "2", "b", "b"], "_run_academic_result_manifests"),
-        (["6", "3", "b", "b"], "_run_academic_result_publications"),
+        (["6", "1", "b", "b"], "_run_share_results_with_meridian"),
+        (["6", "2", "b", "b"], "_run_academic_work_registration"),
+        (["6", "3", "b", "b"], "_run_academic_result_manifests"),
+        (["6", "4", "b", "b"], "_run_academic_result_publications"),
     ],
 )
 def test_task_routes_propagate_one_exact_context_session(

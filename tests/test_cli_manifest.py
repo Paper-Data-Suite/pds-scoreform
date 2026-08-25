@@ -147,6 +147,7 @@ def test_generation_write_boundary_is_only_referenced_by_explicit_surfaces():
         "academic_result_publication.py",
         "academic_result_manifest_generation.py",
         "cli_manifest.py",
+        "guided_share_results.py",
         "menu_manifest.py",
     }
 

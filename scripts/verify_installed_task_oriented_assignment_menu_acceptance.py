@@ -205,12 +205,13 @@ def _verify_structure() -> None:
         "4. Assessment setup presets",
         "1. Score scanned responses",
         "2. Resolve scan review items",
-        "1. Academic Work Registration",
-        "2. Academic Result Manifests",
-        "3. Academic Result Publications",
+        "1. Share Results with Meridian",
+        "2. Academic Work Registration",
+        "3. Academic Result Manifests",
+        "4. Academic Result Publications",
         "1. Validate an assignment file",
         "2. Decode QR from a file",
-        "does not automatically send results to Meridian",
+        "publishes ScoreForm evidence through Core",
     ):
         _require(expected in grouped, f"grouped operation is missing: {expected}")
 
@@ -254,9 +255,10 @@ def _verify_operation_reachability() -> None:
         (["3", "2", "b", "b"], "_run_scan_review"),
         (["4", "b"], "_run_review_results"),
         (["5", "b"], "_run_plain_paper_results"),
-        (["6", "1", "b", "b"], "_run_academic_work_registration"),
-        (["6", "2", "b", "b"], "_run_academic_result_manifests"),
-        (["6", "3", "b", "b"], "_run_academic_result_publications"),
+        (["6", "1", "b", "b"], "_run_share_results_with_meridian"),
+        (["6", "2", "b", "b"], "_run_academic_work_registration"),
+        (["6", "3", "b", "b"], "_run_academic_result_manifests"),
+        (["6", "4", "b", "b"], "_run_academic_result_publications"),
         (["7", "1", "b", "b"], "_run_validate_assignment_file"),
         (["7", "2", "b", "b"], "_run_decode_qr_file"),
     )

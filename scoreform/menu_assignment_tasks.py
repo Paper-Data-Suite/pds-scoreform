@@ -174,6 +174,23 @@ def _run_plain_paper_results(
     launch_manual_entry_menu(context_session=context_session)
 
 
+def _run_share_results_with_meridian(
+    *,
+    clear_screen_fn: UiCallback,
+    pause_for_user_fn: UiCallback,
+    context_session: AssignmentContextSession | None = None,
+) -> None:
+    from scoreform.menu_share_results import launch_share_results_with_meridian
+
+    launch_share_results_with_meridian(
+        clear_screen_fn=clear_screen_fn,
+        context_session=context_session,
+    )
+    print()
+    pause_for_user_fn()
+
+
+
 def _run_academic_work_registration(
     *,
     clear_screen_fn: UiCallback,
@@ -345,7 +362,7 @@ def launch_share_results_menu(
     pause_for_user_fn: UiCallback | None = None,
     context_session: AssignmentContextSession | None = None,
 ) -> int:
-    """Group the existing exact result-publication lifecycle operations."""
+    """Offer the common guided share journey plus exact advanced workflows."""
     clear = workflows.clear_screen if clear_screen_fn is None else clear_screen_fn
     pause = workflows.pause_for_user if pause_for_user_fn is None else pause_for_user_fn
 
@@ -353,14 +370,17 @@ def launch_share_results_menu(
         choice = _menu_choice(
             "Share Results",
             (
-                "1. Academic Work Registration",
-                "2. Academic Result Manifests",
-                "3. Academic Result Publications",
+                "1. Share Results with Meridian",
+                "2. Academic Work Registration",
+                "3. Academic Result Manifests",
+                "4. Academic Result Publications",
             ),
             clear_screen_fn=clear,
             intro=(
-                "Advanced publication steps using ScoreForm's existing exact workflows.",
-                "This menu does not automatically send results to Meridian.",
+                "The guided action publishes ScoreForm evidence through Core so "
+                "Meridian can consume it.",
+                "Advanced exact registration, manifest, and publication operations "
+                "remain available below.",
             ),
         )
         navigation = parse_scoreform_navigation(choice)
@@ -368,18 +388,24 @@ def launch_share_results_menu(
             return 0
 
         if choice == "1":
-            _run_academic_work_registration(
+            _run_share_results_with_meridian(
                 clear_screen_fn=clear,
                 pause_for_user_fn=pause,
                 context_session=context_session,
             )
         elif choice == "2":
-            _run_academic_result_manifests(
+            _run_academic_work_registration(
                 clear_screen_fn=clear,
                 pause_for_user_fn=pause,
                 context_session=context_session,
             )
         elif choice == "3":
+            _run_academic_result_manifests(
+                clear_screen_fn=clear,
+                pause_for_user_fn=pause,
+                context_session=context_session,
+            )
+        elif choice == "4":
             _run_academic_result_publications(
                 clear_screen_fn=clear,
                 pause_for_user_fn=pause,
