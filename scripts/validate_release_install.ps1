@@ -43,7 +43,8 @@ function Test-InstalledArtifact {
         [switch]$RunRecentAssignmentContextAcceptance,
         [switch]$RunGuidedScanToResultsAcceptance,
         [switch]$RunScanQualityDiagnosticsAcceptance,
-        [switch]$RunShareResultsWithMeridianAcceptance
+        [switch]$RunShareResultsWithMeridianAcceptance,
+        [switch]$RunDiagnosticEventsAcceptance
     )
     $VenvPython = Join-Path $Venv "Scripts\python.exe"
     $VenvScoreForm = Join-Path $Venv "Scripts\scoreform.exe"
@@ -76,6 +77,7 @@ function Test-InstalledArtifact {
         Invoke-Checked "Show $Label installed short help" { & $VenvScoreForm -h }
         Invoke-Checked "Show $Label installed help command" { & $VenvScoreForm help }
         Invoke-Checked "Show $Label installed publication help" { & $VenvScoreForm publication --help }
+        Invoke-Checked "Show $Label installed diagnostics help" { & $VenvScoreForm diagnostics --help }
         foreach ($PublicationAction in @(
             "status", "publish", "supersede", "republish-after-withdrawal",
             "withdraw", "rebuild-catalog"
@@ -85,7 +87,7 @@ function Test-InstalledArtifact {
             }
         }
         Invoke-Checked "Import $Label installed public boundaries" {
-            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
+            & $VenvPython -c "import scoreform; import scoreform.academic_result_reader; import scoreform.academic_result_manifest_generation; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.cli; import scoreform.cli_academic_work; import scoreform.cli_manifest; import scoreform.cli_publication; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.diagnostic_events; import scoreform.cli_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_assignment_presets; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import pds_core"
         }
         $ForbiddenRegistryPaths = @(
             "classes",
@@ -250,6 +252,24 @@ function Test-InstalledArtifact {
             $env:PDS_WORKSPACE_ROOT = $Workspace
         }
 
+        if ($RunDiagnosticEventsAcceptance) {
+            $DiagnosticWorkspace = Join-Path $Root "$Label-diagnostic-events-acceptance-workspace"
+            if (Test-Path -LiteralPath $DiagnosticWorkspace) {
+                throw "$Label diagnostic-events acceptance workspace unexpectedly exists."
+            }
+            $env:PDS_WORKSPACE_ROOT = $DiagnosticWorkspace
+            Invoke-Checked "Run $Label installed privacy-conscious diagnostic-event acceptance" {
+                & $VenvPython (Join-Path $RepoRoot "scripts\verify_installed_diagnostic_events_acceptance.py") `
+                    --workspace $DiagnosticWorkspace `
+                    --version $Version `
+                    --expected-core-version $ExpectedCoreVersion
+            }
+            if (-not (Test-Path -LiteralPath $DiagnosticWorkspace -PathType Container)) {
+                throw "$Label diagnostic-event acceptance did not create its synthetic workspace."
+            }
+            $env:PDS_WORKSPACE_ROOT = $Workspace
+        }
+
         if ($RunProducerAcceptance) {
             $AcceptanceWorkspace = Join-Path $Root "$Label-producer-acceptance-workspace"
             if (Test-Path -LiteralPath $AcceptanceWorkspace) {
@@ -293,7 +313,8 @@ try {
         -RunRecentAssignmentContextAcceptance `
         -RunGuidedScanToResultsAcceptance `
         -RunScanQualityDiagnosticsAcceptance `
-        -RunShareResultsWithMeridianAcceptance
+        -RunShareResultsWithMeridianAcceptance `
+        -RunDiagnosticEventsAcceptance
     Test-InstalledArtifact `
         -Venv (Join-Path $Root "sdist-venv") `
         -Artifact $Sdist[0].FullName `

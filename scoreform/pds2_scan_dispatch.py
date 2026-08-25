@@ -32,6 +32,7 @@ from pds_core.scan_retention import (
     retain_source_scan,
 )
 
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.module_errors import (
     ScoreFormDispatchIntegrationError,
     ScoreFormQrMissingError,
@@ -769,6 +770,77 @@ def dispatch_retained_scan(
     )
 
 
+def _record_scan_dispatch_diagnostics(
+    workspace_root: Path,
+    result: Pds2ScanDispatchResult,
+) -> None:
+    """Persist only bounded scan failures; successful pages are not activity history."""
+    if isinstance(result.file_error, ScoreFormDispatchIntegrationError):
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="scan_intake",
+            workflow="process_scan",
+            stage="dispatch",
+            outcome="failure",
+            code="dispatch_integration_failed",
+            exception=result.file_error,
+        )
+
+    for page in result.pages:
+        error: Exception | None = None
+        code: str | None = None
+        stage: str | None = None
+        component = "scan_intake"
+
+        if page.failure_stage == "qr_detection":
+            error = page.error
+            code = (
+                "qr_missing"
+                if isinstance(error, ScoreFormQrMissingError)
+                else "qr_unreadable"
+            )
+            stage = "decode"
+        elif page.failure_stage == "payload_parsing":
+            error = page.error
+            code = "payload_invalid"
+            stage = "parse"
+        elif page.failure_stage in {
+            "request_construction",
+            "core_outcome_validation",
+        }:
+            error = page.error
+            code = "dispatch_integration_failed"
+            stage = "dispatch"
+        elif page.failure_stage == "scoreform_result_validation":
+            error = page.error
+            code = "scoreform_result_invalid"
+            stage = "score"
+            component = "scoring"
+        elif (
+            page.failure_stage is None
+            and isinstance(page.dispatch_outcome, RouteDispatchFailure)
+        ):
+            error = page.dispatch_outcome.error
+            code = "route_dispatch_failed"
+            stage = "dispatch"
+
+        if code is None or stage is None:
+            continue
+
+        locator = page.locator
+        try_emit_diagnostic_event(
+            workspace_root,
+            component=component,
+            workflow="process_scan",
+            stage=stage,
+            outcome="failure",
+            code=code,
+            class_id=(None if locator is None else locator.class_id),
+            assignment_id=(None if locator is None else locator.work_id),
+            exception=error,
+        )
+
+
 def process_pds2_scan(
     source_file: str | Path,
     *,
@@ -776,8 +848,10 @@ def process_pds2_scan(
     registry: ModuleRegistry | None = None,
 ) -> Pds2ScanDispatchResult:
     """Preflight, retain exactly once, then process only the retained source."""
+    diagnostic_root: Path | None = None
     try:
         root = _validate_workspace_root(workspace_root)
+        diagnostic_root = root
         source = validate_pds2_scan_source(source_file)
         selected_registry = (
             build_scoreform_scan_registry()
@@ -785,16 +859,37 @@ def process_pds2_scan(
             else validate_scan_registry(registry)
         )
     except Exception as error:
+        if diagnostic_root is not None:
+            try_emit_diagnostic_event(
+                diagnostic_root,
+                component="scan_intake",
+                workflow="process_scan",
+                stage="preflight",
+                outcome="failure",
+                code="scan_preflight_failed",
+                exception=error,
+            )
         return Pds2ScanDispatchResult(None, file_error=error)
     try:
         retained = retain_source_scan(root, source)
     except SourceRetentionError as error:
+        try_emit_diagnostic_event(
+            root,
+            component="scan_intake",
+            workflow="process_scan",
+            stage="write_record",
+            outcome="failure",
+            code="source_retention_failed",
+            exception=error,
+        )
         return Pds2ScanDispatchResult(
             None,
             registry_module_ids=selected_registry.module_ids(),
             file_error=error,
         )
-    return dispatch_retained_scan(root, retained, registry=selected_registry)
+    result = dispatch_retained_scan(root, retained, registry=selected_registry)
+    _record_scan_dispatch_diagnostics(root, result)
+    return result
 
 
 def format_pds2_dispatch_summary(result: Pds2ScanDispatchResult) -> str:

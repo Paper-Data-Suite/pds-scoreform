@@ -20,6 +20,7 @@ from scoreform.answer_sheet_generation import (
 )
 from scoreform.answer_sheet_records import generate_generation_id
 from scoreform.assignment import AssignmentJsonBytesError, assignment_from_json_bytes
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.layouts import get_layout
 from scoreform.paging import page_count_for_question_count
 from scoreform.roster import LegacyRoster, load_roster
@@ -943,10 +944,32 @@ def execute_multi_class_generation(
             "plan must be a MultiClassGenerationPlan."
         )
     if not plan.ready:
+        first_blocked = plan.blocked_targets[0]
+        try_emit_diagnostic_event(
+            plan.workspace_root,
+            component="generation",
+            workflow="generate_multi_class_answer_sheets",
+            stage="validate_input",
+            outcome="blocked",
+            code="generation_preflight_failed",
+            class_id=first_blocked.target.class_id,
+            assignment_id=first_blocked.target.assignment_id,
+        )
         raise MultiClassGenerationPlanNotReadyError(plan)
 
     freshness = revalidate_multi_class_generation_plan(plan)
     if not freshness.fresh:
+        stale_target = freshness.diagnostics[0].target
+        try_emit_diagnostic_event(
+            plan.workspace_root,
+            component="generation",
+            workflow="generate_multi_class_answer_sheets",
+            stage="validate_input",
+            outcome="blocked",
+            code="generation_conflict",
+            class_id=stale_target.class_id,
+            assignment_id=stale_target.assignment_id,
+        )
         raise MultiClassGenerationStalePlanError(freshness)
 
     identity_registry = _BatchPhysicalIdentityRegistry.empty()
@@ -1028,4 +1051,28 @@ def execute_multi_class_generation(
 
         outcomes.append(_outcome_from_generation_result(refreshed, generation_result))
 
-    return MultiClassGenerationResult(generation_id, tuple(outcomes))
+    result = MultiClassGenerationResult(generation_id, tuple(outcomes))
+    for outcome in result.outcomes:
+        if outcome.clean_success:
+            try_emit_diagnostic_event(
+                plan.workspace_root,
+                component="generation",
+                workflow="generate_multi_class_answer_sheets",
+                stage="verify_record",
+                outcome="success",
+                code="generation_verified",
+                class_id=outcome.target.class_id,
+                assignment_id=outcome.target.assignment_id,
+            )
+        elif outcome.partial_success:
+            try_emit_diagnostic_event(
+                plan.workspace_root,
+                component="generation",
+                workflow="generate_multi_class_answer_sheets",
+                stage="post_write_verify",
+                outcome="partial_success",
+                code="generation_partial_success",
+                class_id=outcome.target.class_id,
+                assignment_id=outcome.target.assignment_id,
+            )
+    return result

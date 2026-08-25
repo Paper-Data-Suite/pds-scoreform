@@ -39,6 +39,7 @@ from scoreform.answer_sheet_routes import (
     validate_route_id,
 )
 from scoreform.assignment import load_assignment
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.manual_entry import build_manual_result, normalize_manual_response
 from scoreform.results import export_scoreform_result_models
 from scoreform.roster import load_roster
@@ -90,6 +91,16 @@ _NO_EVIDENCE_ACTIONS = frozenset(
         "dismissed_duplicate",
         "defer",
         "mixed_assignment",
+    }
+)
+_DIAGNOSTIC_RECOVERY_ACTIONS = frozenset(
+    {
+        "route_selected",
+        "route_corrected",
+        "manual_entry",
+        "manual_marks",
+        "evidence_filed",
+        "dismissed_duplicate",
     }
 )
 _V1_PATTERN = re.compile(rb'"schema_version"\s*:\s*"1"')
@@ -945,6 +956,60 @@ def _resolution_collision(error: ScanResolutionMetadataWriteError) -> bool:
     return isinstance(error.__cause__, FileExistsError)
 
 
+def _diagnostic_review_identity(
+    identity: Mapping[str, object] | None,
+) -> tuple[str | None, str | None]:
+    if not isinstance(identity, Mapping):
+        return None, None
+    class_id = identity.get("class_id")
+    assignment_id = identity.get("assignment_id")
+    return (
+        class_id if isinstance(class_id, str) else None,
+        assignment_id if isinstance(assignment_id, str) else None,
+    )
+
+
+def _record_scan_review_failure(
+    workspace_root: Path,
+    identity: Mapping[str, object] | None,
+    error: Exception,
+    *,
+    partial: bool,
+) -> None:
+    class_id, assignment_id = _diagnostic_review_identity(identity)
+    try_emit_diagnostic_event(
+        workspace_root,
+        component="scan_review",
+        workflow="resolve_scan_review",
+        stage="write_record",
+        outcome="partial_success" if partial else "failure",
+        code="scan_review_resolution_failed",
+        class_id=class_id,
+        assignment_id=assignment_id,
+        exception=error,
+    )
+
+
+def _record_scan_review_recovery(
+    workspace_root: Path,
+    identity: Mapping[str, object] | None,
+    action: str,
+) -> None:
+    if action not in _DIAGNOSTIC_RECOVERY_ACTIONS:
+        return
+    class_id, assignment_id = _diagnostic_review_identity(identity)
+    try_emit_diagnostic_event(
+        workspace_root,
+        component="recovery",
+        workflow="resolve_scan_review",
+        stage="recover",
+        outcome="recovered",
+        code="scan_review_recovered",
+        class_id=class_id,
+        assignment_id=assignment_id,
+    )
+
+
 def resolve_scan_review_item(
     workspace_root: str | Path,
     failure_id: str,
@@ -1121,14 +1186,21 @@ def resolve_scan_review_item(
                 f"{filing.error}; cleanup error: {filing.cleanup_error}"
             )
             if attempt is not None:
-                raise ScanReviewPartialOperationError(
+                partial_error = ScanReviewPartialOperationError(
                     failure_id=failure_id,
                     result_output_path=_relative(root, attempt.output_path),
                     attempt_number=attempt.attempt_number,
                     result_appended=result_written,
                     result_already_present=result_already_present,
                     error=filing_error,
-                ) from filing.error
+                )
+                _record_scan_review_failure(
+                    root,
+                    identity,
+                    partial_error,
+                    partial=True,
+                )
+                raise partial_error from filing.error
             raise filing_error from filing.error
         core_evidence = filing.filed_relative_path
         evidence = {
@@ -1184,7 +1256,7 @@ def resolve_scan_review_item(
             if _resolution_collision(error) and attempt_index + 1 < 8:
                 continue
             break
-        return ScoreFormResolutionResult(
+        result = ScoreFormResolutionResult(
             resolution_id,
             path,
             _relative(root, path),
@@ -1195,16 +1267,31 @@ def resolve_scan_review_item(
             result_already_present=result_already_present,
             evidence_path=core_evidence,
         )
+        _record_scan_review_recovery(root, identity, action)
+        return result
     assert last_error is not None
     if attempt is not None:
-        raise ScanReviewPartialOperationError(
+        partial_error = ScanReviewPartialOperationError(
             failure_id=failure_id,
             result_output_path=_relative(root, attempt.output_path),
             attempt_number=attempt.attempt_number,
             result_appended=result_written,
             result_already_present=result_already_present,
             error=last_error,
-        ) from last_error
+        )
+        _record_scan_review_failure(
+            root,
+            identity,
+            partial_error,
+            partial=True,
+        )
+        raise partial_error from last_error
+    _record_scan_review_failure(
+        root,
+        identity,
+        last_error,
+        partial=False,
+    )
     raise ScanReviewError(
         f"Could not append scan resolution: {sanitize_single_line(str(last_error), fallback='write failed')}"
     ) from last_error

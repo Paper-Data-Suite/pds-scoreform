@@ -52,6 +52,7 @@ from pds_core.registry_services import (
 )
 
 from scoreform.assignment import load_assignment
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.pds_contract import (
     SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
     SCOREFORM_MODULE_ID,
@@ -272,6 +273,12 @@ def register_scoreform_academic_work(
     try:
         result = register_academic_work(workspace_root, request)
     except Exception as error:
+        _record_registration_service_error(
+            workspace_root,
+            class_id,
+            assignment_id,
+            error,
+        )
         _raise_normalized_service_error(error)
     if result.disposition not in {"created", "existing"}:
         raise ScoreFormAcademicWorkRegistrationIntegrityError(
@@ -316,6 +323,12 @@ def update_scoreform_academic_work_registration(
             expected_current_revision=expected_current_revision,
         )
     except Exception as error:
+        _record_registration_service_error(
+            workspace_root,
+            class_id,
+            assignment_id,
+            error,
+        )
         _raise_normalized_service_error(error)
     if result.disposition not in {"updated", "existing"}:
         raise ScoreFormAcademicWorkRegistrationIntegrityError(
@@ -323,6 +336,35 @@ def update_scoreform_academic_work_registration(
         )
     _verify_current(workspace_root, context, result.registration)
     return result
+
+
+def _record_registration_service_error(
+    workspace_root: str | Path,
+    class_id: str,
+    assignment_id: str,
+    error: Exception,
+) -> None:
+    """Record only high-value Core write conflicts without altering their outcome."""
+    if isinstance(error, RegistryServicePartialSuccessError):
+        outcome = "partial_success"
+        code = "registration_partial_success"
+    elif isinstance(error, RegistryServiceConflictError):
+        outcome = "blocked"
+        code = "registration_conflict"
+    else:
+        return
+
+    try_emit_diagnostic_event(
+        workspace_root,
+        component="publication",
+        workflow="register_academic_work",
+        stage="write_record",
+        outcome=outcome,
+        code=code,
+        class_id=class_id,
+        assignment_id=assignment_id,
+        exception=error,
+    )
 
 
 def _verify_current(

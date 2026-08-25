@@ -49,7 +49,7 @@ Invoke-Step "Audit v0.10.0 release compatibility boundary" {
     & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
-    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
+    & $Python -c "import pds_core; import scoreform; import scoreform.academic_result_publication; import scoreform.academic_work_registration; import scoreform.assignment_bulk_entry; import scoreform.assignment_bulk_mutation; import scoreform.cli_assignment_bulk; import scoreform.multi_class_generation; import scoreform.multi_class_generation_ui; import scoreform.cli_multi_class_generation; import scoreform.assignment_presets; import scoreform.assignment_context; import scoreform.guided_scan_results; import scoreform.guided_scan_context; import scoreform.guided_scan_workflow; import scoreform.scan_teacher_diagnostics; import scoreform.diagnostic_events; import scoreform.cli_diagnostics; import scoreform.guided_share_results; import scoreform.menu_share_results; import scoreform.cli_academic_work; import scoreform.cli_assignment_presets; import scoreform.cli_publication; import scoreform.menu_assignment_context; import scoreform.menu_assignment_presets; import scoreform.menu_assignment_tasks; import scoreform.menu_publication; import scoreform.pds_contract; import scoreform.pds_module; import scoreform.pds_publication; import scoreform.cli"
 }
 Invoke-Step "Run focused installed-profile contract tests" {
     & $Python -m pytest @(
@@ -100,6 +100,7 @@ Invoke-Step "Run strict mypy on release scripts" {
         "scripts\verify_installed_recent_assignment_context_acceptance.py",
         "scripts\verify_installed_guided_scan_to_results_acceptance.py",
         "scripts\verify_installed_scan_quality_diagnostics_acceptance.py",
+        "scripts\verify_installed_diagnostic_events_acceptance.py",
         "scripts\verify_installed_share_results_with_meridian_acceptance.py",
         "scripts\verify_release_artifacts.py"
     )
@@ -130,6 +131,7 @@ try {
     Invoke-Step "Show installed CLI short help" { & $ScoreForm -h }
     Invoke-Step "Show installed CLI help command" { & $ScoreForm help }
     Invoke-Step "Show installed preset help" { & $ScoreForm preset --help }
+    Invoke-Step "Show installed diagnostics help" { & $ScoreForm diagnostics --help }
     Invoke-Step "Show installed CLI version" { & $ScoreForm --version }
     Invoke-Step "Show installed CLI version command" { & $ScoreForm version }
     Invoke-Step "Show direct main.py help" { & $Python main.py --help }

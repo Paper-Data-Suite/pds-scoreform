@@ -36,6 +36,7 @@ from scoreform.assignment import (
     validate_assignment_data,
     validate_assignment_standard_alignments,
 )
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.work_paths import ScoreFormWorkPaths, scoreform_work_paths
 
 
@@ -850,11 +851,25 @@ def commit_assignment_copy(
     standards_library: StandardsLibrary | None = None,
 ) -> AssignmentCopyResult:
     """Revalidate and create targets sequentially without rolling back success."""
-    _revalidate_plan_before_commit(
-        workspace_root,
-        plan,
-        standards_library=standards_library,
-    )
+    try:
+        _revalidate_plan_before_commit(
+            workspace_root,
+            plan,
+            standards_library=standards_library,
+        )
+    except AssignmentCopyConflictError as error:
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="assignment",
+            workflow="copy_assignment",
+            stage="validate_input",
+            outcome="blocked",
+            code="assignment_copy_conflict",
+            class_id=plan.source.work.class_id,
+            assignment_id=plan.source.work.work_id,
+            exception=error,
+        )
+        raise
 
     created: list[AssignmentCopyCreatedTarget] = []
     failures: list[AssignmentCopyTargetFailure] = []
@@ -879,13 +894,37 @@ def commit_assignment_copy(
             break
         created.append(created_target)
 
-    return AssignmentCopyResult(
+    result = AssignmentCopyResult(
         source=plan.source,
         candidate=plan.candidate,
         created=tuple(created),
         failures=tuple(failures),
         not_attempted=not_attempted,
     )
+    for created_target in result.created:
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="assignment",
+            workflow="copy_assignment",
+            stage="verify_record",
+            outcome="success",
+            code="assignment_copy_verified",
+            class_id=created_target.work.class_id,
+            assignment_id=created_target.work.work_id,
+        )
+    if result.created and result.failures:
+        failure = result.failures[0]
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="assignment",
+            workflow="copy_assignment",
+            stage="post_write_verify",
+            outcome="partial_success",
+            code="assignment_write_partial_success",
+            class_id=failure.target.work.class_id,
+            assignment_id=failure.target.work.work_id,
+        )
+    return result
 
 def plan_assignment_copy(
     workspace_root: str | Path,
