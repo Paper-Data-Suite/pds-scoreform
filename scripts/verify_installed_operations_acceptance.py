@@ -1,4 +1,4 @@
-"""Clean-wheel installed acceptance for ScoreForm issue #193 operations attention."""
+"""Clean-wheel installed acceptance for ScoreForm issue #194 operations integration."""
 
 from __future__ import annotations
 
@@ -7,7 +7,9 @@ import hashlib
 import importlib
 import importlib.metadata as metadata
 import os
+import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 from typing import cast
 
@@ -17,7 +19,9 @@ from pds_core.module_operations import (
     ModuleAttentionReport,
     ModuleOperationsProfile,
     ModuleOperationsRequest,
+    ModuleReadinessReport,
     invoke_module_attention,
+    invoke_module_readiness,
     validate_module_operations_profile,
 )
 from pds_core.provider_diagnostics import (
@@ -35,6 +39,7 @@ from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
 
 from scoreform.assignment import validate_assignment_data
+from scoreform.assignment_context import AssignmentContextRef, AssignmentContextSession
 from scoreform.diagnostic_events import build_diagnostic_event, record_diagnostic_event
 from scoreform.guided_share_results import (
     commit_share_results_manifest,
@@ -104,6 +109,43 @@ def _inventory(root: Path) -> tuple[tuple[str, str], ...]:
     return tuple(rows)
 
 
+def _readiness_report(
+    profile: ModuleOperationsProfile,
+    request: ModuleOperationsRequest,
+    *,
+    expected_code: str = "module_operations.evaluated",
+) -> ModuleReadinessReport:
+    invocation = invoke_module_readiness(profile, request)
+    _require(
+        invocation.code == expected_code,
+        f"readiness invocation returned {invocation.code!r}, expected {expected_code!r}.",
+    )
+    report = invocation.report
+    _require(
+        isinstance(report, ModuleReadinessReport),
+        "readiness invocation did not return a ModuleReadinessReport.",
+    )
+    return cast(ModuleReadinessReport, report)
+
+
+def _assert_readiness_read_only(
+    profile: ModuleOperationsProfile,
+    request: ModuleOperationsRequest,
+    workspace: Path,
+    *,
+    expected_code: str = "module_operations.evaluated",
+) -> ModuleReadinessReport:
+    before = _inventory(workspace)
+    report = _readiness_report(
+        profile,
+        request,
+        expected_code=expected_code,
+    )
+    after = _inventory(workspace)
+    _require(before == after, "readiness evaluation modified persisted workspace state.")
+    return report
+
+
 def _attention_report(
     profile: ModuleOperationsProfile,
     request: ModuleOperationsRequest,
@@ -135,7 +177,9 @@ def _assert_read_only(
     return report
 
 
-def _assert_private_values_absent(report: ModuleAttentionReport) -> None:
+def _assert_private_values_absent(
+    report: ModuleAttentionReport | ModuleReadinessReport,
+) -> None:
     rendered = repr(report)
     for forbidden in (
         PRIVATE_STUDENT_ID,
@@ -182,8 +226,10 @@ def _load_operations_profile(
 
     for module_name in (
         "scoreform",
+        "scoreform.cli",
         "scoreform.pds_operations",
         "scoreform.attention_provider",
+        "scoreform.readiness_provider",
         "scoreform.attention_model",
         "scoreform.attention_work_discovery",
         "scoreform.attention_scan",
@@ -217,10 +263,7 @@ def _load_operations_profile(
         "ScoreForm operations contract support changed.",
     )
     _require(profile.attention_provider is not None, "attention provider is absent.")
-    _require(
-        profile.readiness_provider is None,
-        "readiness must remain deferred to issue #194.",
-    )
+    _require(profile.readiness_provider is not None, "readiness provider is absent.")
 
     inspected = tuple(
         row
@@ -251,31 +294,162 @@ def _verify_minimum_contract(
 ) -> None:
     missing = base.parent / f"{base.name}-missing"
     _require(not missing.exists(), "minimum-floor missing workspace already exists.")
-    missing_report = _attention_report(
+    missing_request = ModuleOperationsRequest(workspace_root=missing)
+    missing_attention = _attention_report(
         profile,
-        ModuleOperationsRequest(workspace_root=missing),
+        missing_request,
         expected_code="module_operations.evaluation_unavailable",
     )
     _require(
-        missing_report.evaluation == "unavailable"
-        and missing_report.summaries == (),
+        missing_attention.evaluation == "unavailable"
+        and missing_attention.summaries == (),
         "missing workspace must return unavailable with zero attention.",
     )
-    _require(not missing.exists(), "attention evaluation created a missing workspace.")
+    missing_readiness = _readiness_report(
+        profile,
+        missing_request,
+        expected_code="module_operations.evaluation_unavailable",
+    )
+    _require(
+        missing_readiness.evaluation == "unavailable"
+        and missing_readiness.ready is None,
+        "missing workspace must return unavailable readiness with ready=None.",
+    )
+    _require(not missing.exists(), "operations evaluation created a missing workspace.")
 
     empty = base / "empty"
     empty.mkdir(parents=True)
-    report = _assert_read_only(
-        profile,
-        ModuleOperationsRequest(workspace_root=empty),
-        empty,
-    )
+    request = ModuleOperationsRequest(workspace_root=empty)
+    attention = _assert_read_only(profile, request, empty)
     _require(
-        report.evaluation == "evaluated"
-        and report.summaries == ()
-        and report.notices == (),
+        attention.evaluation == "evaluated"
+        and attention.summaries == ()
+        and attention.notices == (),
         "empty installed workspace must evaluate with zero attention.",
     )
+    readiness = _assert_readiness_read_only(profile, request, empty)
+    _require(
+        readiness.evaluation == "evaluated"
+        and readiness.ready is True
+        and readiness.notices == (),
+        "empty installed workspace must be ScoreForm-ready.",
+    )
+
+
+def _verify_installed_launcher(version: str) -> None:
+    distribution = metadata.distribution("scoreform")
+    points = tuple(
+        point
+        for point in distribution.entry_points
+        if point.group == "console_scripts"
+    )
+    _require(
+        len(points) == 1 and points[0].name == "scoreform",
+        "installed ScoreForm distribution must expose exactly one console script.",
+    )
+    _require(
+        points[0].value == "scoreform.cli:main",
+        f"unexpected installed ScoreForm launcher target: {points[0].value}",
+    )
+
+    scripts = sysconfig.get_path("scripts")
+    _require(isinstance(scripts, str) and bool(scripts), "scripts path is unavailable.")
+    launcher = Path(scripts) / ("scoreform.exe" if os.name == "nt" else "scoreform")
+    _require(launcher.is_file(), f"installed ScoreForm launcher is missing: {launcher}")
+
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    environment.pop("PYTHONHOME", None)
+    version_output: str | None = None
+    for args in (("--version",), ("--help",)):
+        result = subprocess.run(
+            (os.fspath(launcher), *args),
+            cwd=Path(sys.prefix),
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30.0,
+        )
+        _require(
+            result.returncode == 0,
+            f"installed ScoreForm launcher probe {args!r} failed: {result.returncode}",
+        )
+        if args == ("--version",):
+            version_output = result.stdout
+    _require(
+        version_output is not None and version in version_output,
+        "installed ScoreForm --version output did not report the installed version.",
+    )
+
+
+
+def _write_valid_roster(workspace: Path, class_id: str) -> None:
+    roster = class_roster_path(workspace, class_id)
+    roster.parent.mkdir(parents=True, exist_ok=True)
+    roster.write_text(
+        "class_id,student_id,last_name,first_name,period\n"
+        f"{class_id},{PRIVATE_STUDENT_ID},Private,Student,acceptance\n",
+        encoding="utf-8",
+    )
+
+
+def _verify_readiness_contexts(
+    profile: ModuleOperationsProfile,
+    workspace: Path,
+) -> None:
+    workspace.mkdir(parents=True)
+    missing_class = _assert_readiness_read_only(
+        profile,
+        ModuleOperationsRequest(
+            workspace_root=workspace,
+            class_id="missing_acceptance_class",
+        ),
+        workspace,
+    )
+    _require(
+        missing_class.ready is False
+        and missing_class.notices
+        and missing_class.notices[0].code == "scoreform_class_not_ready",
+        "missing exact class must be evaluated not-ready.",
+    )
+
+    broken_class = "broken_acceptance_class"
+    broken_roster = class_roster_path(workspace, broken_class)
+    broken_roster.parent.mkdir(parents=True)
+    broken_roster.write_text(
+        "bad_header\nprivate_student_sentinel\n",
+        encoding="utf-8",
+    )
+    broken = _assert_readiness_read_only(
+        profile,
+        ModuleOperationsRequest(workspace_root=workspace, class_id=broken_class),
+        workspace,
+    )
+    _require(broken.ready is False, "malformed authoritative class must be not-ready.")
+    _assert_private_values_absent(broken)
+
+    _write_valid_roster(workspace, SYNTHETIC_CLASS_ID)
+    request = ModuleOperationsRequest(
+        workspace_root=workspace,
+        class_id=SYNTHETIC_CLASS_ID,
+    )
+    ready = _assert_readiness_read_only(profile, request, workspace)
+    _require(ready.ready is True and ready.notices == (), "valid exact class must be ready.")
+
+    session = AssignmentContextSession()
+    session.activate(
+        AssignmentContextRef(SYNTHETIC_CLASS_ID, SYNTHETIC_ASSIGNMENT_ID),
+        workspace_root=workspace,
+    )
+    before_context = (session.active, session.recent)
+    after_context = _assert_readiness_read_only(profile, request, workspace)
+    _require(after_context == ready, "recent assignment context changed readiness.")
+    _require(
+        (session.active, session.recent) == before_context,
+        "readiness evaluation mutated recent assignment context.",
+    )
+
 
 
 def _failure(
@@ -333,6 +507,7 @@ def _verify_scan_attention(
     workspace: Path,
 ) -> None:
     workspace.mkdir(parents=True)
+    _write_valid_roster(workspace, SYNTHETIC_CLASS_ID)
     write_routing_failure_metadata(
         workspace,
         _failure(
@@ -381,6 +556,12 @@ def _verify_scan_attention(
             "scan owner action changed.",
         )
     _assert_private_values_absent(report)
+    readiness_before_event = _assert_readiness_read_only(profile, request, workspace)
+    _require(
+        readiness_before_event.ready is True,
+        "open scan attention must not make a valid class not-ready.",
+    )
+    _assert_private_values_absent(readiness_before_event)
 
     baseline = report
     event = build_diagnostic_event(
@@ -409,6 +590,11 @@ def _verify_scan_attention(
         "changing only diagnostic history changed authoritative attention.",
     )
     _assert_private_values_absent(after_event)
+    readiness_after_event = _assert_readiness_read_only(profile, request, workspace)
+    _require(
+        readiness_after_event == readiness_before_event,
+        "changing only diagnostic history changed readiness.",
+    )
 
 
 def _synthetic_assignment() -> dict[str, object]:
@@ -519,6 +705,11 @@ def _verify_share_attention(
     )
 
     register_report = _assert_read_only(profile, request, workspace)
+    register_readiness = _assert_readiness_read_only(profile, request, workspace)
+    _require(
+        register_readiness.ready is True,
+        "Share Results attention must not make a valid class not-ready.",
+    )
     _single_share_summary(
         register_report,
         "scoreform_results_registration_pending",
@@ -592,8 +783,10 @@ def main(argv: list[str] | None = None) -> int:
             base.parent / "implicit_workspace_must_not_be_used"
         )
         base.mkdir(parents=True)
+        _verify_installed_launcher(options.version)
         _verify_minimum_contract(profile, base)
         if not options.minimum_floor_only:
+            _verify_readiness_contexts(profile, base / "readiness")
             _verify_scan_attention(profile, base / "scan")
             _verify_share_attention(profile, base / "share")
     except (
@@ -607,7 +800,7 @@ def main(argv: list[str] | None = None) -> int:
 
     mode = "minimum-floor" if options.minimum_floor_only else "full current"
     print(
-        "Installed issue #193 module-operations attention acceptance passed "
+        "Installed issue #194 module-operations readiness/attention and launcher acceptance passed "
         f"({mode}; Core {options.expected_core_version})."
     )
     return 0

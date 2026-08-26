@@ -7,6 +7,7 @@ from pds_core.module_operations import (
     ModuleAttentionReport,
     ModuleOperationsProfile,
     ModuleOperationsRequest,
+    ModuleReadinessReport,
     validate_module_operations_profile,
 )
 
@@ -25,6 +26,18 @@ def evaluate_scoreform_attention(
     return _evaluate(request)
 
 
+def evaluate_scoreform_readiness(
+    request: ModuleOperationsRequest,
+    /,
+) -> ModuleReadinessReport:
+    """Lazily evaluate ScoreForm-owned readiness for one neutral Core request."""
+    from scoreform.readiness_provider import (
+        evaluate_scoreform_readiness as _evaluate,
+    )
+
+    return _evaluate(request)
+
+
 def get_module_operations_profile() -> ModuleOperationsProfile:
     """Return ScoreForm's validated Core v1 operations profile."""
     return validate_module_operations_profile(
@@ -33,7 +46,7 @@ def get_module_operations_profile() -> ModuleOperationsProfile:
             supported_core_operations_contract_versions=frozenset(
                 {MODULE_OPERATIONS_CONTRACT_VERSION}
             ),
-            readiness_provider=None,
+            readiness_provider=evaluate_scoreform_readiness,
             attention_provider=evaluate_scoreform_attention,
         )
     )
@@ -41,5 +54,6 @@ def get_module_operations_profile() -> ModuleOperationsProfile:
 
 __all__ = [
     "evaluate_scoreform_attention",
+    "evaluate_scoreform_readiness",
     "get_module_operations_profile",
 ]

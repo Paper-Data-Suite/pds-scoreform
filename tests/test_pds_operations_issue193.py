@@ -10,6 +10,7 @@ from pds_core.module_operations import (
     MODULE_OPERATIONS_CONTRACT_VERSION,
     ModuleOperationsRequest,
     invoke_module_attention,
+    invoke_module_readiness,
     validate_module_operations_profile,
 )
 
@@ -30,7 +31,7 @@ def test_project_declares_core_floor_and_operations_entry_point() -> None:
     }
 
 
-def test_scoreform_operations_profile_is_attention_only_and_valid() -> None:
+def test_scoreform_operations_profile_exposes_attention_and_readiness_and_is_valid() -> None:
     first = validate_module_operations_profile(get_module_operations_profile())
     second = validate_module_operations_profile(get_module_operations_profile())
 
@@ -40,18 +41,32 @@ def test_scoreform_operations_profile_is_attention_only_and_valid() -> None:
         {MODULE_OPERATIONS_CONTRACT_VERSION}
     )
     assert first.attention_provider is not None
-    assert first.readiness_provider is None
+    assert first.readiness_provider is not None
 
 
-def test_operations_profile_does_not_import_deep_attention_implementation() -> None:
-    sys.modules.pop("scoreform.attention_provider", None)
+def test_operations_profile_does_not_import_deep_capability_implementations() -> None:
+    preserved = {
+        name: sys.modules.pop(name, None)
+        for name in (
+            "scoreform.attention_provider",
+            "scoreform.readiness_provider",
+        )
+    }
+    try:
+        from scoreform import pds_operations
 
-    from scoreform import pds_operations
+        profile = pds_operations.get_module_operations_profile()
 
-    profile = pds_operations.get_module_operations_profile()
-
-    assert profile.attention_provider is not None
-    assert "scoreform.attention_provider" not in sys.modules
+        assert profile.attention_provider is not None
+        assert profile.readiness_provider is not None
+        assert "scoreform.attention_provider" not in sys.modules
+        assert "scoreform.readiness_provider" not in sys.modules
+    finally:
+        for name, module in preserved.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
 
 
 def test_missing_workspace_is_unavailable_without_implicit_resolution() -> None:
@@ -110,3 +125,20 @@ def test_core_invocation_accepts_initial_scoreform_attention_report(
     assert result.result_validation == "passed"
     assert result.report is not None
     assert result.report.evaluation == "evaluated"
+
+
+def test_core_invocation_accepts_initial_scoreform_readiness_report(
+    tmp_path: Path,
+) -> None:
+    profile = get_module_operations_profile()
+    request = ModuleOperationsRequest(workspace_root=tmp_path)
+
+    result = invoke_module_readiness(profile, request)
+
+    assert result.code == "module_operations.evaluated"
+    assert result.provider_call_attempted is True
+    assert result.provider_call_succeeded is True
+    assert result.result_validation == "passed"
+    assert result.report is not None
+    assert result.report.evaluation == "evaluated"
+    assert result.report.ready is True

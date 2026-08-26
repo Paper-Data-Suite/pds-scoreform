@@ -135,7 +135,7 @@ and `multiple_attempts` capabilities. Discovery is metadata-only: it does not
 read a workspace, generate a manifest, register work, or publish anything. See
 [`docs/publication_producer_profile.md`](docs/publication_producer_profile.md).
 
-### Installed module-operations attention provider
+### Installed module-operations provider
 
 ScoreForm also exposes a read-only Core v1 operations profile through:
 
@@ -144,7 +144,7 @@ paper_data_suite.module_operations
     scoreform = scoreform.pds_operations:get_module_operations_profile
 ```
 
-The current profile exposes teacher attention only; readiness remains separate work for issue #194. Attention is derived from current canonical scan-review and Share Results state, uses bounded opaque owner actions, and never treats diagnostic-event history or recent-assignment context as domain authority. Querying attention writes nothing. See [`docs/module_operations.md`](docs/module_operations.md).
+The current profile exposes both ScoreForm readiness and teacher attention through the same Core v1 operations profile. Attention is derived from current canonical scan-review and Share Results state, uses bounded opaque owner actions, and never treats diagnostic-event history or recent-assignment context as domain authority. Querying attention writes nothing. See [`docs/module_operations.md`](docs/module_operations.md).
 
 ### Retained scanning and results
 
