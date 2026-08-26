@@ -92,6 +92,27 @@ def validate_core_wheel(path: Path) -> None:
         init_names = [name for name in names if name == "pds_core/__init__.py"]
         if len(init_names) != 1:
             raise ValueError("Core wheel must contain pds_core/__init__.py")
+        operations_names = [
+            name for name in names if name == "pds_core/module_operations.py"
+        ]
+        if len(operations_names) != 1:
+            raise ValueError(
+                "Core 0.6.3 wheel must contain pds_core/module_operations.py"
+            )
+        operations_text = archive.read(operations_names[0]).decode("utf-8")
+        for marker in (
+            'MODULE_OPERATIONS_CONTRACT_VERSION: Final[str] = "1"',
+            'MODULE_OPERATIONS_ENTRY_POINT_GROUP: Final[str] = '
+            '"paper_data_suite.module_operations"',
+            "class ModuleOperationsProfile:",
+            "class ModuleAttentionReport:",
+            "def invoke_module_attention(",
+        ):
+            if marker not in operations_text:
+                raise ValueError(
+                    "Core 0.6.3 module-operations contract is missing "
+                    f"required marker: {marker}"
+                )
         init_text = archive.read(init_names[0]).decode("utf-8")
         if not re.search(
             r'^__version__\s*=\s*["\']0\.6\.3["\']\s*$',

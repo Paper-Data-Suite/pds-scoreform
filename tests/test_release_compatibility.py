@@ -30,6 +30,10 @@ def test_producer_profile_is_exact_downstream_contract() -> None:
     compatibility.validate_producer_profile()
 
 
+def test_operations_profile_is_exact_attention_only_contract() -> None:
+    compatibility.validate_operations_profile()
+
+
 def test_reader_policy_boundary_requires_explicit_attempt_identity() -> None:
     compatibility.validate_reader_policy_boundary()
 

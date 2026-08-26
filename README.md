@@ -13,12 +13,14 @@ choose the official attempt or grade, and does not provide LMS export.
 ## Release contract
 
 - Python: 3.11 or newer
-- PDS Core: `pds-core>=0.6,<0.7`
+- PDS Core: `pds-core>=0.6.2,<0.7`
 - Core routing contract: `1`
 - QR payload schema: `PDS2`
 - route-registration schema: `1`
 - routing-failure and scan-resolution schemas: `2`
 - module entry-point group: `paper_data_suite.modules`
+- module-operations entry-point group: `paper_data_suite.module_operations`
+- module-operations contract: `1`
 - module ID: `scoreform`
 - routed-results schema: `2`
 
@@ -46,7 +48,7 @@ scoreform --version
 scoreform --help
 ```
 
-ScoreForm's dependency metadata enforces `pds-core>=0.6,<0.7`, but pip cannot
+ScoreForm's dependency metadata enforces `pds-core>=0.6.2,<0.7`, but pip cannot
 download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
@@ -132,6 +134,17 @@ contract `scoreform_academic_work_v1`, academic-result manifest contract
 and `multiple_attempts` capabilities. Discovery is metadata-only: it does not
 read a workspace, generate a manifest, register work, or publish anything. See
 [`docs/publication_producer_profile.md`](docs/publication_producer_profile.md).
+
+### Installed module-operations attention provider
+
+ScoreForm also exposes a read-only Core v1 operations profile through:
+
+```text
+paper_data_suite.module_operations
+    scoreform = scoreform.pds_operations:get_module_operations_profile
+```
+
+The current profile exposes teacher attention only; readiness remains separate work for issue #194. Attention is derived from current canonical scan-review and Share Results state, uses bounded opaque owner actions, and never treats diagnostic-event history or recent-assignment context as domain authority. Querying attention writes nothing. See [`docs/module_operations.md`](docs/module_operations.md).
 
 ### Retained scanning and results
 

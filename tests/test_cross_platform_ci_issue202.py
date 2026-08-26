@@ -132,7 +132,7 @@ def test_ci_documentation_defines_layering_and_support_boundary() -> None:
     assert "Ubuntu (`ubuntu-latest`)" in text
     assert "3.11, 3.12, 3.13, 3.14" in text
     assert "Python 3.11 remains the language and package-metadata floor" in text
-    assert "pds-core>=0.6,<0.7" in text
+    assert "pds-core>=0.6.2,<0.7" in text
     assert "PDS Core 0.6.3" in text
     assert "not" in text and "printer/scanner acceptance" in text
     assert "run_tests.ps1" in text
@@ -145,4 +145,4 @@ def test_readme_links_ci_contract_and_keeps_python_floor() -> None:
     assert "Routine CI validates Windows and Ubuntu on Python 3.11 through 3.14." in normalized
     assert "Python 3.11 remains the minimum supported interpreter" in normalized
     assert "docs/continuous_integration.md" in text
-    assert "pds-core>=0.6,<0.7" in text
+    assert "pds-core>=0.6.2,<0.7" in text

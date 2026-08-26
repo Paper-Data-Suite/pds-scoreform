@@ -32,7 +32,7 @@ def test_package_python_and_core_dependency_contract() -> None:
     project = _project_metadata()
 
     assert project["requires-python"] == ">=3.11"
-    assert "pds-core>=0.6,<0.7" in project["dependencies"]
+    assert "pds-core>=0.6.2,<0.7" in project["dependencies"]
 
     version = importlib.metadata.version("pds-core")
     major, minor = (int(part) for part in version.split(".")[:2])
@@ -107,4 +107,4 @@ def test_dependency_files_delegate_to_package_metadata() -> None:
     assert "../pds-core" not in dev_requirements
     assert "..\\pds-core" not in checker
     assert "-m pip check" in checker
-    assert ">=0.6,<0.7" in checker
+    assert ">=0.6.2,<0.7" in checker

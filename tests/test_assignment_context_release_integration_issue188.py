@@ -49,7 +49,7 @@ def test_context_release_slice_preserves_dependency_and_runtime_boundaries() -> 
     pyproject = _text("pyproject.toml")
     context = _text("scoreform/assignment_context.py")
 
-    assert '"pds-core>=0.6,<0.7"' in pyproject
+    assert '"pds-core>=0.6.2,<0.7"' in pyproject
     assert "meridian" not in pyproject.lower()
     assert "meridian" not in context.lower()
     assert "context.json" not in context

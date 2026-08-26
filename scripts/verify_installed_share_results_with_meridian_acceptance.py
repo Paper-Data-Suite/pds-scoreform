@@ -226,8 +226,8 @@ def _verify_installed_provenance(
     )
     _require(
         len(core_requirements) == 1
-        and core_requirements[0].specifier == SpecifierSet(">=0.6,<0.7"),
-        "ScoreForm Core compatibility metadata must remain pds-core>=0.6,<0.7.",
+        and core_requirements[0].specifier == SpecifierSet(">=0.6.2,<0.7"),
+        "ScoreForm Core compatibility metadata must remain pds-core>=0.6.2,<0.7.",
     )
     for module_name in (
         "scoreform",
