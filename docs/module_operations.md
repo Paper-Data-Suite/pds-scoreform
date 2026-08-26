@@ -1,7 +1,7 @@
 # ScoreForm module operations
 
-ScoreForm exposes teacher-attention facts through PDS Core's version-1
-`paper_data_suite.module_operations` contract.
+ScoreForm exposes bounded readiness and teacher-attention facts through PDS Core's
+version-1 `paper_data_suite.module_operations` contract.
 
 The installed entry point is:
 
@@ -10,9 +10,9 @@ paper_data_suite.module_operations
     scoreform = scoreform.pds_operations:get_module_operations_profile
 ```
 
-The profile has module ID `scoreform`, supports Core operations contract `1`,
-and currently exposes `attention_provider` only. `readiness_provider` remains
-`None` until the separate suite doctor/launcher work in issue #194.
+The profile has module ID `scoreform`, supports Core operations contract `1`, and
+exposes both `readiness_provider` and `attention_provider` through one installed
+operations profile.
 
 ## Compatibility
 
@@ -36,13 +36,13 @@ different checks.
 
 ## Ownership boundary
 
-ScoreForm owns the meaning of ScoreForm state and derives attention from current
-authoritative ScoreForm/Core records. Core owns the neutral structures,
+ScoreForm owns the meaning of ScoreForm readiness and ScoreForm attention and derives
+both from current authoritative ScoreForm/Core records. Core owns the neutral structures,
 validation, discovery, invocation, bounds, and provider-failure isolation. A
 suite shell may aggregate and present the resulting summaries, but it must not
 inspect ScoreForm private storage or recreate ScoreForm semantics.
 
-Attention evaluation is observation only. It does not create a workspace,
+Readiness and attention evaluation are observation only. They do not create a workspace,
 register Academic Work, generate manifests, publish or supersede results,
 resolve scan review, score scans, write results, update recent-assignment
 context, emit diagnostic events, launch menus, or execute owner actions.
@@ -64,6 +64,60 @@ and class ID.
 Partial evaluation keeps valid summaries when another source cannot be
 inspected safely and adds one bounded `scoreform_attention_partial` notice.
 Raw exception text and absolute paths are not copied into shared reports.
+
+## Readiness semantics
+
+ScoreForm readiness answers one bounded question: whether ScoreForm can meaningfully
+operate in the exact supplied workspace/class context. It is not an installation,
+version, dependency, executable, or operation-specific health check.
+
+The three result classes are intentionally distinct:
+
+```text
+evaluation="unavailable", ready=None
+    -> the supplied context could not be inspected safely or authoritatively
+
+evaluation="evaluated", ready=False
+    -> ScoreForm inspected the context and found a concrete structural blocker
+
+evaluation="evaluated", ready=True
+    -> the supplied workspace/class context is usable for normal ScoreForm work
+```
+
+Stable readiness notices are:
+
+| Code | Meaning |
+| --- | --- |
+| `scoreform_readiness_unavailable` | readiness could not be evaluated safely |
+| `scoreform_workspace_not_ready` | the inspected workspace has a known blocker |
+| `scoreform_class_not_ready` | the exact requested class is missing or structurally invalid |
+
+A missing workspace is unavailable and is never created. An existing ordinary
+writable workspace is ready even when it contains no classes or ScoreForm work yet.
+A known non-directory or Core-reported non-writable workspace is evaluated not-ready.
+Linked or otherwise uninspectable workspace/class contexts are unavailable rather
+than falsely reported not-ready.
+
+When `class_id` is supplied, ScoreForm inspects only that exact canonical Core class.
+The class must have an ordinary canonical directory and a valid authoritative Core
+roster. Class metadata and pre-existing ScoreForm assignments, module directories,
+answer sheets, results, scans, routes, manifests, or publications are not readiness
+requirements. A valid shared class with no ScoreForm work is therefore ready.
+
+`active_school_year` is validated by Core but does not independently change ScoreForm
+readiness because current ScoreForm class operation does not require a separate
+school-year readiness state machine.
+
+Readiness does not consult attention, diagnostic-event history, or recent/active
+assignment context. It emits no diagnostic events, does not change recent context,
+and performs no writes or external executable probes. Thus a class may truthfully
+return `ready=True` while attention summaries are non-empty.
+
+Suite doctor remains the authority for exact package/Python/Core qualification,
+dependency consistency, provider metadata health, and the `pdftoppm` external
+prerequisite. The Suite launcher remains the authority for manifest-qualified
+application discovery and foreground execution. Readiness neither resolves nor
+launches `scoreform`.
 
 ## Attention taxonomy
 
@@ -185,14 +239,18 @@ Release qualification includes:
 - Core invocation/validation tests;
 - installed-wheel provider discovery outside the source checkout;
 - Core provider diagnostics;
-- absent-workspace and empty-workspace semantics;
+- absent-workspace and empty-workspace readiness/attention semantics;
+- exact existing, missing, and structurally unusable class readiness;
+- `ready=True` together with non-empty ScoreForm attention;
+- diagnostic-history and recent-context noninterference for readiness;
+- installed `scoreform = scoreform.cli:main` launcher metadata and safe `--version`/`--help` probes;
 - installed scan attention and diagnostic-history nonauthority;
 - installed Share Results registration, manifest, publication-pending, and
   already-current projections;
 - minimum-floor installed provider qualification against authenticated Core
   0.6.2; and
-- full current installed operations qualification against authenticated Core
-  0.6.3.
+- full current installed readiness/attention and launcher qualification against
+  authenticated Core 0.6.3.
 
 The dedicated cross-platform operations-wheel CI job runs on Windows and Ubuntu.
 Core 0.6.2 qualification is deliberately narrow to the minimum provider

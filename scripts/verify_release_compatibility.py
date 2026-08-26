@@ -269,9 +269,9 @@ def validate_operations_profile() -> None:
         raise ReleaseCompatibilityError(
             "ScoreForm operations profile must expose attention"
         )
-    if profile.readiness_provider is not None:
+    if profile.readiness_provider is None:
         raise ReleaseCompatibilityError(
-            "ScoreForm readiness must remain deferred to issue #194"
+            "ScoreForm operations profile must expose readiness"
         )
 
 

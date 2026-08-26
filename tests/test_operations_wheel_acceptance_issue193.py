@@ -1,4 +1,4 @@
-"""Release/installed-qualification guards for ScoreForm issue #193."""
+"""Release/installed-qualification guards extended through ScoreForm issue #194."""
 
 from __future__ import annotations
 
@@ -50,14 +50,19 @@ def test_installed_acceptance_requires_exact_operations_contract() -> None:
     )
     assert "scoreform.pds_operations:get_module_operations_profile" in source
     assert 'SpecifierSet(">=0.6.2,<0.7")' in source
-    assert "profile.readiness_provider is None" in source
+    assert "profile.readiness_provider is not None" in source
     assert "module_operations.evaluation_unavailable" in source
+    assert "scoreform_class_not_ready" in source
+    assert "scoreform.cli:main" in source
+    assert '("--version",), ("--help",)' in source
     assert "scoreform_incomplete_attempt" in source
     assert "scoreform_scan_review" in source
     assert "scoreform_results_registration_pending" in source
     assert "scoreform_results_manifest_pending" in source
     assert "scoreform_results_publication_pending" in source
     assert "changing only diagnostic history changed authoritative attention" in source
+    assert "changing only diagnostic history changed readiness" in source
+    assert "recent assignment context changed readiness" in source
 
 
 def test_ci_qualifies_operations_wheel_on_both_platforms_and_core_endpoints() -> None:

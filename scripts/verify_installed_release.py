@@ -14,6 +14,7 @@ from pds_core.academic_work_registrations import AcademicWorkRegistration
 from pds_core.module_operations import (
     ModuleOperationsRequest,
     invoke_module_attention,
+    invoke_module_readiness,
     validate_module_operations_profile,
 )
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
@@ -117,6 +118,7 @@ def main() -> int:
         "scoreform.menu_publication",
         "scoreform.pds_publication",
         "scoreform.pds_operations",
+        "scoreform.readiness_provider",
     ):
         importlib.import_module(module_name)
 
@@ -246,10 +248,11 @@ def main() -> int:
         or operations_first.supported_core_operations_contract_versions
         != frozenset({"1"})
         or operations_first.attention_provider is None
-        or operations_first.readiness_provider is not None
+        or operations_first.readiness_provider is None
     ):
         raise SystemExit(
-            "ScoreForm module-operations profile is not attention-only Core v1"
+            "ScoreForm module-operations profile must expose attention and readiness "
+            "through Core v1"
         )
 
     attention_result = invoke_module_attention(
@@ -264,9 +267,22 @@ def main() -> int:
         raise SystemExit(
             "ScoreForm attention did not report unavailable for absent workspace"
         )
+    readiness_result = invoke_module_readiness(
+        operations_first,
+        ModuleOperationsRequest(workspace_root=args.workspace),
+    )
+    if (
+        readiness_result.code != "module_operations.evaluation_unavailable"
+        or readiness_result.report is None
+        or readiness_result.report.evaluation != "unavailable"
+        or readiness_result.report.ready is not None
+    ):
+        raise SystemExit(
+            "ScoreForm readiness did not report unavailable for absent workspace"
+        )
     if args.workspace.exists():
         raise SystemExit(
-            "module-operations attention inspection created workspace state"
+            "module-operations attention/readiness inspection created workspace state"
         )
 
     publication_entries = [

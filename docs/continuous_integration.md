@@ -52,17 +52,27 @@ distribution, installs the wheel noneditably outside the checkout, and discovers
 ScoreForm through Core's `paper_data_suite.module_operations` entry-point
 contract.
 
-That matrix qualifies both authenticated Core endpoints:
+The same harness qualifies both ScoreForm operations capabilities and verifies
+that the independently installed public launcher remains `scoreform =
+scoreform.cli:main`:
 
-- Core 0.6.2: minimum-floor operations-provider loading, validation, absent and
-  empty workspace semantics, and read-only Core invocation.
-- Core 0.6.3: the full current installed attention acceptance, including scan
-  attention, Share Results attention, diagnostic-history nonauthority, privacy,
-  and zero-write checks.
+- Core 0.6.2: minimum-floor operations-provider loading/validation, both
+  `attention_provider` and `readiness_provider`, missing-workspace unavailable
+  semantics, empty-workspace readiness, zero writes, and safe installed
+  launcher `--version`/`--help` probes.
+- Core 0.6.3: the full current installed readiness/attention acceptance,
+  including exact valid/missing/invalid class contexts, scan attention, Share
+  Results attention, readiness with non-empty attention, diagnostic-history and
+  recent-context nonauthority, privacy, zero-write checks, and installed launcher
+  identity.
 
 This job is intentionally separate from the ordinary 3.11-3.14 source matrix.
-It proves built-artifact compatibility at the new minimum Core floor without
+It proves built-artifact compatibility at the minimum Core floor without
 replacing the exact Core 0.6.3 release-readiness reference.
+
+External prerequisite qualification remains Suite-owned. In particular, this
+operations harness does not reinterpret `pdftoppm` availability as shared
+ScoreForm readiness.
 
 ## Heavyweight release readiness
 
@@ -70,7 +80,9 @@ replacing the exact Core 0.6.3 release-readiness reference.
 gate on Ubuntu/Python 3.11. It owns release-specific work such as distribution
 building, Twine/artifact checks, clean installed wheel validation, installed
 assignment workflow acceptance, installed multi-class generation acceptance,
-and the installed producer lifecycle.
+and the installed producer lifecycle. The installed operations verifier used by
+that gate now validates readiness and attention together while preserving the
+independent ScoreForm launcher contract.
 
 Those expensive checks are intentionally **not** multiplied across all eight
 routine CI environments. A green matrix means the normal repository contract
@@ -109,3 +121,5 @@ single local environment cannot provide.
 - The exact authenticated CI/release baseline for this development line is PDS
   Core 0.6.3 unless that baseline is deliberately revised in a separate
   compatibility change.
+- Exact Suite version/dependency qualification, `pdftoppm` checks, executable
+  resolution, and launcher orchestration remain Paper Data Suite responsibilities.
