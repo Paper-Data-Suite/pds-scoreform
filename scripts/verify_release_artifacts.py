@@ -49,7 +49,7 @@ FORBIDDEN_SIBLING_PARTS = {
     "pds_portia",
     "pds-portia",
 }
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_ENTRY_POINTS = {
     "paper_data_suite.modules": {
@@ -57,6 +57,9 @@ EXPECTED_ENTRY_POINTS = {
     },
     "paper_data_suite.publication_producers": {
         "scoreform": "scoreform.pds_publication:get_publication_producer_profile"
+    },
+    "paper_data_suite.module_operations": {
+        "scoreform": "scoreform.pds_operations:get_module_operations_profile"
     },
 }
 
@@ -152,7 +155,7 @@ def validate_core_requirement_strings(values: list[str], label: str) -> Requirem
         raise ArtifactValidationError(f"{label} pds-core requirement must not use extras")
     if requirement.specifier != EXPECTED_CORE_SPECIFIER:
         raise ArtifactValidationError(
-            f"{label} pds-core requirement must be exactly >=0.6,<0.7"
+            f"{label} pds-core requirement must be exactly >=0.6.2,<0.7"
         )
     return requirement
 
@@ -226,6 +229,8 @@ def validate_wheel(path: Path, version: str) -> None:
         )
         required_modules = {
             "scoreform/pds_publication.py",
+            "scoreform/pds_operations.py",
+            "scoreform/attention_provider.py",
             "scoreform/academic_result_reader.py",
             "scoreform/academic_result_publication.py",
             "scoreform/cli_publication.py",
@@ -259,6 +264,8 @@ def validate_sdist(path: Path, version: str) -> None:
         root = f"scoreform-{version}"
         required_members = {
             f"{root}/scoreform/pds_publication.py",
+            f"{root}/scoreform/pds_operations.py",
+            f"{root}/scoreform/attention_provider.py",
             f"{root}/scoreform/academic_result_reader.py",
             f"{root}/scoreform/academic_result_publication.py",
             f"{root}/scoreform/cli_publication.py",

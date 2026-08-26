@@ -13,7 +13,7 @@ authors = [
   { name = "Stephen Severino" }
 ]
 dependencies = [
-  "pds-core>=0.6,<0.7",
+  "pds-core>=0.6.2,<0.7",
   "opencv-python",
   "numpy",
   "pdf2image",
@@ -38,6 +38,9 @@ scoreform = "scoreform.pds_module:get_module_profile"
 
 [project.entry-points."paper_data_suite.publication_producers"]
 scoreform = "scoreform.pds_publication:get_publication_producer_profile"
+
+[project.entry-points."paper_data_suite.module_operations"]
+scoreform = "scoreform.pds_operations:get_module_operations_profile"
 
 [tool.setuptools]
 packages = ["scoreform"]

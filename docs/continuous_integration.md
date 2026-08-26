@@ -44,6 +44,26 @@ Test, linter, type-checker, and Python bytecode caches are kept outside the
 repository checkout where practical. CI fixtures must be synthetic and the
 workflow is noninteractive.
 
+## Operations-wheel compatibility qualification
+
+CI also runs a dedicated `operations-wheel-qualification` matrix on Windows and
+Ubuntu using Python 3.11. It builds the current ScoreForm wheel and source
+distribution, installs the wheel noneditably outside the checkout, and discovers
+ScoreForm through Core's `paper_data_suite.module_operations` entry-point
+contract.
+
+That matrix qualifies both authenticated Core endpoints:
+
+- Core 0.6.2: minimum-floor operations-provider loading, validation, absent and
+  empty workspace semantics, and read-only Core invocation.
+- Core 0.6.3: the full current installed attention acceptance, including scan
+  attention, Share Results attention, diagnostic-history nonauthority, privacy,
+  and zero-write checks.
+
+This job is intentionally separate from the ordinary 3.11-3.14 source matrix.
+It proves built-artifact compatibility at the new minimum Core floor without
+replacing the exact Core 0.6.3 release-readiness reference.
+
 ## Heavyweight release readiness
 
 `.github/workflows/release-readiness.yml` remains the canonical deep release
@@ -85,7 +105,7 @@ single local environment cannot provide.
 
 - Python package metadata remains `requires-python = ">=3.11"`.
 - Routine CI currently covers Windows and Ubuntu only; macOS is not implied.
-- ScoreForm continues to declare `pds-core>=0.6,<0.7`.
+- ScoreForm continues to declare `pds-core>=0.6.2,<0.7`.
 - The exact authenticated CI/release baseline for this development line is PDS
   Core 0.6.3 unless that baseline is deliberately revised in a separate
   compatibility change.

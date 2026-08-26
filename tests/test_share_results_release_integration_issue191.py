@@ -28,7 +28,7 @@ def test_package_contract_stays_core_06_range_without_meridian_dependency() -> N
         for item in requirements
         if canonicalize_name(item.name) == "pds-core"
     )
-    assert str(core.specifier) in {">=0.6,<0.7", "<0.7,>=0.6"}
+    assert str(core.specifier) in {">=0.6.2,<0.7", "<0.7,>=0.6.2"}
     assert "pds-meridian" not in names
     assert "meridian" not in names
     assert project["version"] == "0.10.0"
@@ -43,7 +43,7 @@ def test_current_docs_describe_guided_core_mediated_sharing() -> None:
     for text in (readme, cli_help, cli_contract, guide):
         assert "Share Results with Meridian" in text
         assert "available for Meridian to consume" in text
-    assert "pds-core>=0.6,<0.7" in guide
+    assert "pds-core>=0.6.2,<0.7" in guide
     assert "pds-core 0.6.3" in guide
     assert "does not mean that Meridian has already imported" in guide
     assert "does **not** import" in guide

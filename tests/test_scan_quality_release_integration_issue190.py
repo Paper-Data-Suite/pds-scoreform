@@ -55,7 +55,7 @@ def test_issue190_preserves_compatibility_and_authority_boundaries() -> None:
     diagnostics = _text("scoreform/scan_teacher_diagnostics.py")
     menu = _text("scoreform/menu_scan_review.py")
 
-    assert 'pds-core>=0.6,<0.7' in pyproject
+    assert 'pds-core>=0.6.2,<0.7' in pyproject
     assert "meridian" not in diagnostics.casefold()
     assert "meridian" not in menu.casefold()
     assert "teacher_diagnostics.json" not in diagnostics

@@ -11,6 +11,11 @@ from importlib import metadata
 from pathlib import Path
 
 from pds_core.academic_work_registrations import AcademicWorkRegistration
+from pds_core.module_operations import (
+    ModuleOperationsRequest,
+    invoke_module_attention,
+    validate_module_operations_profile,
+)
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
 from pds_core.publication_compatibility import (
     build_publication_producer_registry,
@@ -39,7 +44,7 @@ except ModuleNotFoundError:
         validate_core_requirement_strings,
     )
 
-CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6,<0.7")
+CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
 
 
 def core_version_is_supported(value: str) -> bool:
@@ -53,7 +58,7 @@ def validate_core_runtime_versions(
 ) -> None:
     if not core_version_is_supported(distribution_version):
         raise SystemExit(
-            f"installed pds-core does not satisfy >=0.6,<0.7: {distribution_version}"
+            f"installed pds-core does not satisfy >=0.6.2,<0.7: {distribution_version}"
         )
     if module_version != distribution_version:
         raise SystemExit(
@@ -101,6 +106,7 @@ def main() -> int:
         "pds_core.academic_work_registrations",
         "pds_core.publication_records",
         "pds_core.publication_compatibility",
+        "pds_core.module_operations",
         "scoreform.academic_result_reader",
         "scoreform.academic_work_registration",
         "scoreform.cli_academic_work",
@@ -110,6 +116,7 @@ def main() -> int:
         "scoreform.cli_publication",
         "scoreform.menu_publication",
         "scoreform.pds_publication",
+        "scoreform.pds_operations",
     ):
         importlib.import_module(module_name)
 
@@ -201,6 +208,66 @@ def main() -> int:
     ]
     if discovered != [first]:
         raise SystemExit("Core did not discover exactly one equivalent ScoreForm profile")
+
+    operations_entries = [
+        entry
+        for entry in metadata.entry_points(
+            group="paper_data_suite.module_operations"
+        )
+        if entry.name == "scoreform"
+    ]
+    if len(operations_entries) != 1:
+        raise SystemExit(
+            "expected one ScoreForm module-operations entry point, found "
+            f"{len(operations_entries)}"
+        )
+    operations_entry = operations_entries[0]
+    expected_operations_value = (
+        "scoreform.pds_operations:get_module_operations_profile"
+    )
+    if operations_entry.value != expected_operations_value:
+        raise SystemExit(
+            "unexpected ScoreForm operations entry-point value: "
+            f"{operations_entry.value}"
+        )
+    operations_provider = operations_entry.load()
+    if inspect.signature(operations_provider).parameters:
+        raise SystemExit(
+            "ScoreForm module-operations profile provider must take no arguments"
+        )
+    operations_first = validate_module_operations_profile(operations_provider())
+    operations_second = validate_module_operations_profile(operations_provider())
+    if operations_first != operations_second:
+        raise SystemExit(
+            "ScoreForm module-operations profile provider is not repeatable"
+        )
+    if (
+        operations_first.module_id != "scoreform"
+        or operations_first.supported_core_operations_contract_versions
+        != frozenset({"1"})
+        or operations_first.attention_provider is None
+        or operations_first.readiness_provider is not None
+    ):
+        raise SystemExit(
+            "ScoreForm module-operations profile is not attention-only Core v1"
+        )
+
+    attention_result = invoke_module_attention(
+        operations_first,
+        ModuleOperationsRequest(workspace_root=args.workspace),
+    )
+    if (
+        attention_result.code != "module_operations.evaluation_unavailable"
+        or attention_result.report is None
+        or attention_result.report.evaluation != "unavailable"
+    ):
+        raise SystemExit(
+            "ScoreForm attention did not report unavailable for absent workspace"
+        )
+    if args.workspace.exists():
+        raise SystemExit(
+            "module-operations attention inspection created workspace state"
+        )
 
     publication_entries = [
         entry
@@ -352,7 +419,7 @@ def main() -> int:
             raise SystemExit(f"module did not import from isolated installation: {origin}")
     print(
         f"ScoreForm {args.version}; pds-core {core_version}; "
-        "routing/publication profile discovery and compatibility passed"
+        "routing/publication/operations profile discovery and compatibility passed"
     )
     return 0
 

@@ -7,6 +7,10 @@ import inspect
 import tomllib
 from pathlib import Path
 
+from pds_core.module_operations import (
+    MODULE_OPERATIONS_CONTRACT_VERSION,
+    validate_module_operations_profile,
+)
 from pip._vendor.packaging.requirements import Requirement
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
@@ -17,6 +21,7 @@ from scoreform.pds_contract import (
     SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
     SCOREFORM_MODULE_ID,
 )
+from scoreform.pds_operations import get_module_operations_profile
 from scoreform.pds_publication import get_publication_producer_profile
 from scoreform.publication_revision_policy import (
     SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND,
@@ -26,7 +31,7 @@ from scoreform.publication_revision_policy import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RELEASE_VERSION = "0.10.0"
 LEGACY_COLLIDING_VERSION = "0.9.1"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
@@ -166,7 +171,7 @@ def validate_core_dependency() -> None:
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ReleaseCompatibilityError(
-            "ScoreForm must require exactly pds-core>=0.6,<0.7"
+            "ScoreForm must require exactly pds-core>=0.6.2,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
@@ -250,6 +255,26 @@ def validate_producer_profile() -> None:
         raise ReleaseCompatibilityError("ScoreForm publication support row changed")
 
 
+def validate_operations_profile() -> None:
+    profile = validate_module_operations_profile(get_module_operations_profile())
+    if profile.module_id != SCOREFORM_MODULE_ID:
+        raise ReleaseCompatibilityError("operations module identity changed")
+    if profile.supported_core_operations_contract_versions != frozenset(
+        {MODULE_OPERATIONS_CONTRACT_VERSION}
+    ):
+        raise ReleaseCompatibilityError(
+            "Core module-operations contract support changed"
+        )
+    if profile.attention_provider is None:
+        raise ReleaseCompatibilityError(
+            "ScoreForm operations profile must expose attention"
+        )
+    if profile.readiness_provider is not None:
+        raise ReleaseCompatibilityError(
+            "ScoreForm readiness must remain deferred to issue #194"
+        )
+
+
 def validate_reader_policy_boundary() -> None:
     public = tuple(getattr(reader, "__all__", ()))
     required = {
@@ -307,6 +332,7 @@ def validate_release_compatibility() -> None:
     validate_core_dependency()
     validate_sibling_import_isolation()
     validate_producer_profile()
+    validate_operations_profile()
     validate_reader_policy_boundary()
 
 
@@ -319,7 +345,7 @@ def main() -> int:
 
     print(
         "ScoreForm v0.10.0 release compatibility passed: "
-        "Core >=0.6,<0.7; producer profile exact; reader policy-neutral; "
+        "Core >=0.6.2,<0.7; producer/operations profiles exact; reader policy-neutral; "
         "sibling runtime imports absent."
     )
     return 0

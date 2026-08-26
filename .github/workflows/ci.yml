@@ -143,3 +143,63 @@ jobs:
             $status
             throw "Validation left tracked or untracked repository residue."
           }
+
+  operations-wheel-qualification:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        core: ["0.6.2", "0.6.3"]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install operations qualification harness dependency
+        run: python -m pip install build
+
+      - name: Download authenticated released Core endpoint
+        shell: python
+        env:
+          CORE_VERSION: ${{ matrix.core }}
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          from urllib.request import urlretrieve
+
+          version = os.environ["CORE_VERSION"]
+          hashes = {
+              "0.6.2": "b9d5de7d467d18716f415da87f359e940603d9c738a3a9ae9309272ebe78a848",
+              "0.6.3": "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5",
+          }
+          filename = f"pds_core-{version}-py3-none-any.whl"
+          url = (
+              "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
+              f"v{version}/{filename}"
+          )
+          destination = Path(os.environ["RUNNER_TEMP"]) / filename
+          urlretrieve(url, destination)
+          actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+          if actual != hashes[version]:
+              raise SystemExit(
+                  f"Core {version} wheel SHA-256 mismatch: {actual}"
+              )
+
+      - name: Qualify installed ScoreForm operations wheel
+        run: >-
+          python scripts/run_operations_wheel_acceptance.py
+          --repository .
+          --work "${{ runner.temp }}/scoreform-operations-${{ matrix.core }}"
+          --core-wheel "${{ runner.temp }}/pds_core-${{ matrix.core }}-py3-none-any.whl"
+          --expected-core-version "${{ matrix.core }}"

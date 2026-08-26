@@ -59,7 +59,7 @@ def test_guided_scan_release_slice_preserves_runtime_and_schema_boundaries() -> 
     workflow = _text("scoreform/guided_scan_workflow.py")
     context = _text("scoreform/guided_scan_context.py")
 
-    assert '"pds-core>=0.6,<0.7"' in pyproject
+    assert '"pds-core>=0.6.2,<0.7"' in pyproject
     assert "meridian" not in pyproject.lower()
     assert "meridian" not in workflow.lower()
     assert "meridian" not in context.lower()

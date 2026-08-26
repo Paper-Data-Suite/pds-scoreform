@@ -68,12 +68,12 @@ Check-PythonImport "pds_core" "pds-core"
 $coreVersion = & $Python -c "from importlib.metadata import version; print(version('pds-core'))" 2>&1
 if ($LASTEXITCODE -eq 0) {
     Info "Installed pds-core distribution version: $coreVersion"
-    $coreRangeOutput = & $Python -c "from importlib.metadata import version; from pip._vendor.packaging.specifiers import SpecifierSet; value=version('pds-core'); raise SystemExit(0 if value in SpecifierSet('>=0.6,<0.7') else 1)" 2>&1
+    $coreRangeOutput = & $Python -c "from importlib.metadata import version; from pip._vendor.packaging.specifiers import SpecifierSet; value=version('pds-core'); raise SystemExit(0 if value in SpecifierSet('>=0.6.2,<0.7') else 1)" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Pass "pds-core $coreVersion satisfies >=0.6,<0.7."
+        Pass "pds-core $coreVersion satisfies >=0.6.2,<0.7."
     }
     else {
-        Fail "pds-core $coreVersion is incompatible; install a version in >=0.6,<0.7."
+        Fail "pds-core $coreVersion is incompatible; install a version in >=0.6.2,<0.7."
     }
     $coreModuleVersion = & $Python -c "import pds_core; print(pds_core.__version__)" 2>&1
     if ($LASTEXITCODE -ne 0) {
