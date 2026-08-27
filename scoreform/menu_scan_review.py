@@ -244,7 +244,7 @@ def allowed_review_actions(root, item) -> tuple[str, ...]:
 def _perform_action(root, item, action):
     clear_screen()
     print_menu_header(ACTION_LABELS[action])
-    identity = (item.class_id, item.assignment_id, item.student_id)
+    identity = (None, None, None)
     if action in {"manual_entry", "manual_marks"}:
         identity = _prompt_identity(item)
     evidence_path = None
