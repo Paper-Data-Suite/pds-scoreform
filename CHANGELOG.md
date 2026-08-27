@@ -16,7 +16,54 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 No changes yet.
 
-## [v0.10.0] - release date pending
+## [v0.11.0] - release date pending
+
+### Added
+
+* Added safe assignment copying, reusable non-student setup presets, atomic
+  bulk key/alignment entry, and semantic multi-class generation.
+* Added task-oriented Assignment Management and session-scoped active/recent
+  assignment context.
+* Added guided retained PDS2 scan-to-results, teacher-facing recovery, one
+  guided Share Results with Meridian path, privacy-minimal diagnostics, and
+  Core module-operations attention/readiness integration.
+* Added combined installed v0.11 acceptance and project-owner physical
+  printer/scanner qualification, including duplicate idempotency, missing-page
+  recovery, first publication, and exact successor supersession.
+* Added a deterministic #195-to-v0.11.0 wheel-equivalence verifier so a
+  metadata-only version promotion can be distinguished from a runtime change
+  that requires physical retesting.
+
+### Changed
+
+* Finalized the live package/release identity at `scoreform 0.11.0`.
+* Raised the supported Core operations floor to `pds-core>=0.6.2,<0.7` and
+  qualified the complete release path against exact Core 0.6.3.
+* Preserved `scoreform_academic_work_v1`,
+  `scoreform_academic_result_manifest_v1`, `academic_result_set`,
+  `academic_results`, and the exact consumer-neutral reader contract; the
+  distribution-version change does not create a producer schema revision.
+
+### Compatibility
+
+* ScoreForm still preserves all attempts and selects none as official,
+  latest/highest/best, Grade-bearing, or proficiency-bearing evidence.
+* ScoreForm does not import or depend on Meridian, Vitrine, Quillan, Concord,
+  Portia, or `paper-data-suite`.
+* Meridian must separately qualify exact ScoreForm reader version `0.11.0`;
+  its existing exact `0.10.0` adapter binding is not silently broadened.
+* Paper Data Suite v0.1.0 remains an immutable released composition containing
+  its exact ScoreForm 0.10.0 artifact.
+
+### Testing
+
+* Release readiness retains Core 0.6.2 floor qualification, exact Core 0.6.3
+  full qualification, focused installed gates, combined installed acceptance,
+  artifact inspection, clean wheel/sdist installs, and owner-controlled
+  physical acceptance.
+
+
+## [v0.10.0] - 2026-08-08
 
 ### Added
 

@@ -4,7 +4,7 @@ ScoreForm is a local-first classroom OMR tool for generating printable answer
 sheets and scoring scanned multiple-choice responses through Paper Data Suite
 Core.
 
-Current version: `0.10.0`.
+Current version: `0.11.0`.
 
 ScoreForm is pre-1.0. Scan quality affects reliability, and teachers must
 manually verify results before recording grades. It is not a gradebook, does not
@@ -42,7 +42,7 @@ noneditably:
 
 ```powershell
 python -m pip install .\pds_core-0.6.3-py3-none-any.whl
-python -m pip install .\scoreform-0.10.0-py3-none-any.whl
+python -m pip install .\scoreform-0.11.0-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
@@ -53,13 +53,13 @@ download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
 
-ScoreForm 0.10.0 is the first release identity containing the Core 0.6
-Academic Work/publication contracts and the consumer-neutral
-`scoreform.academic_result_reader`. Downstream consumers should bind to
-the exact released reader version they support rather than infer features
-from an older distribution identity. Portfolio Candidate discovery,
-selection, placement, and Snapshot construction remain downstream policy;
-ScoreForm publishes exact producer evidence only. See
+ScoreForm 0.11.0 preserves the Core 0.6 Academic Work/publication contracts
+and the consumer-neutral `scoreform.academic_result_reader` established by the
+historical v0.10.0 release while adding the v0.11 teacher-workflow usability
+layer. Downstream consumers must bind to the exact released reader versions they
+explicitly qualify; the package-version change does not create a new producer
+schema. See [`docs/v0.11.0_release_audit.md`](docs/v0.11.0_release_audit.md).
+The historical v0.10.0 contract audit remains at
 [`docs/v0.10.0_release_compatibility.md`](docs/v0.10.0_release_compatibility.md).
 
 Adopting Core 0.6 does not by itself register work, generate manifests,
@@ -463,3 +463,9 @@ view rather than competing with ordinary recovery guidance.
 See [`docs/teacher_scan_quality_recovery.md`](docs/teacher_scan_quality_recovery.md)
 for the `SF-AC08` contract, privacy boundaries, cancellation semantics, and the
 physical acceptance handoff to #195.
+
+
+## v0.11.0 release records
+
+- [`RELEASE_NOTES_v0.11.0.md`](RELEASE_NOTES_v0.11.0.md) — v0.11.0 GitHub Release body
+- [`docs/v0.11.0_release_audit.md`](docs/v0.11.0_release_audit.md) — final audit and artifact evidence

@@ -1,4 +1,4 @@
-"""Verify the ScoreForm v0.10.0 release compatibility boundary."""
+"""Verify the ScoreForm v0.11.0 release compatibility boundary."""
 
 from __future__ import annotations
 
@@ -29,41 +29,14 @@ from scoreform.publication_revision_policy import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.10.0"
-LEGACY_COLLIDING_VERSION = "0.9.1"
+RELEASE_VERSION = "0.11.0"
+HISTORICAL_RELEASE_VERSION = "0.10.0"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
-SIBLING_DISTRIBUTIONS = frozenset(
-    {
-        "pds-meridian",
-        "meridian",
-        "pds-vitrine",
-        "vitrine",
-        "pds-quillan",
-        "quillan",
-        "pds-concord",
-        "concord",
-        "pds-portia",
-        "portia",
-    }
-)
-SIBLING_IMPORT_ROOTS = frozenset(
-    {
-        "meridian",
-        "pds_meridian",
-        "vitrine",
-        "pds_vitrine",
-        "quillan",
-        "pds_quillan",
-        "concord",
-        "pds_concord",
-        "portia",
-        "pds_portia",
-    }
-)
-STRICT_VERSION_FILES = (
+
+LIVE_VERSION_FILES = (
     Path("pyproject.toml"),
     Path("run_tests.ps1"),
     Path(".github/workflows/release-readiness.yml"),
@@ -79,14 +52,21 @@ STRICT_VERSION_FILES = (
     Path("docs/installed_producer_acceptance.md"),
     Path("docs/release_checklist.md"),
 )
-README_RELEASE_MARKERS = (
-    "Current version: `0.10.0`.",
-    "scoreform-0.10.0-py3-none-any.whl",
-    "Generate new v0.10.0 PDS2 answer sheets",
-    "`RELEASE_NOTES_v0.10.0.md` — v0.10.0 GitHub Release body",
+HISTORICAL_RELEASE_FILES = (
+    Path("RELEASE_NOTES_v0.10.0.md"),
+    Path("docs/v0.10.0_release_compatibility.md"),
+    Path("docs/physical_acceptance_test.md"),
 )
-README_HISTORICAL_MARKER = (
-    "`RELEASE_NOTES_v0.9.1.md` — historical v0.9.1 GitHub Release body"
+REQUIRED_V011_FILES = (
+    Path("RELEASE_NOTES_v0.11.0.md"),
+    Path("docs/v0.11.0_release_audit.md"),
+    Path("scripts/verify_v011_physical_equivalence.py"),
+)
+README_RELEASE_MARKERS = (
+    "Current version: `0.11.0`.",
+    "scoreform-0.11.0-py3-none-any.whl",
+    "RELEASE_NOTES_v0.11.0.md",
+    "v0.11.0_release_audit.md",
 )
 CORE_RUNTIME_RELEASE_FILES = (
     Path("pyproject.toml"),
@@ -104,10 +84,40 @@ FORBIDDEN_CORE_05_MARKERS = (
     "Core 0.5",
     "core 0.5",
 )
+SIBLING_DISTRIBUTIONS = frozenset(
+    {
+        "pds-meridian",
+        "meridian",
+        "pds-vitrine",
+        "vitrine",
+        "pds-quillan",
+        "quillan",
+        "pds-concord",
+        "concord",
+        "pds-portia",
+        "portia",
+        "paper-data-suite",
+    }
+)
+SIBLING_IMPORT_ROOTS = frozenset(
+    {
+        "meridian",
+        "pds_meridian",
+        "vitrine",
+        "pds_vitrine",
+        "quillan",
+        "pds_quillan",
+        "concord",
+        "pds_concord",
+        "portia",
+        "pds_portia",
+        "paper_data_suite",
+    }
+)
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the v0.10.0 release boundary is internally inconsistent."""
+    """Raised when the v0.11.0 release boundary is internally inconsistent."""
 
 
 def _read(relative: Path) -> str:
@@ -126,17 +136,15 @@ def validate_release_identity() -> None:
             f"project version must be {RELEASE_VERSION}"
         )
 
-    for relative in STRICT_VERSION_FILES:
+    for relative in LIVE_VERSION_FILES:
         text = _read(relative)
-        if LEGACY_COLLIDING_VERSION in text:
-            raise ReleaseCompatibilityError(
-                f"live release surface still names {LEGACY_COLLIDING_VERSION}: "
-                f"{relative}"
-            )
         if RELEASE_VERSION not in text:
             raise ReleaseCompatibilityError(
                 f"live release surface does not name {RELEASE_VERSION}: {relative}"
             )
+
+    for relative in REQUIRED_V011_FILES:
+        _read(relative)
 
     readme = _read(Path("README.md"))
     missing_markers = tuple(
@@ -144,21 +152,19 @@ def validate_release_identity() -> None:
     )
     if missing_markers:
         raise ReleaseCompatibilityError(
-            "README is missing authoritative v0.10.0 release marker(s): "
+            "README is missing authoritative v0.11.0 release marker(s): "
             + ", ".join(repr(marker) for marker in missing_markers)
         )
-    legacy_occurrences = readme.count(LEGACY_COLLIDING_VERSION)
-    expected_historical_occurrences = README_HISTORICAL_MARKER.count(
-        LEGACY_COLLIDING_VERSION
-    )
-    if (
-        README_HISTORICAL_MARKER not in readme
-        or legacy_occurrences != expected_historical_occurrences
-    ):
-        raise ReleaseCompatibilityError(
-            "README contains an unclassified 0.9.1 reference; only the explicitly "
-            "historical release-notes entry is allowed"
-        )
+
+    # Historical release evidence must remain historical rather than being
+    # rewritten by a blind version sweep.
+    for relative in HISTORICAL_RELEASE_FILES:
+        text = _read(relative)
+        if HISTORICAL_RELEASE_VERSION not in text:
+            raise ReleaseCompatibilityError(
+                f"historical release surface lost {HISTORICAL_RELEASE_VERSION}: "
+                f"{relative}"
+            )
 
 
 def validate_core_dependency() -> None:
@@ -215,8 +221,8 @@ def validate_sibling_import_isolation() -> None:
             for root in _import_root(node):
                 if root in SIBLING_IMPORT_ROOTS:
                     offenders.append(
-                        f"{path.relative_to(PROJECT_ROOT)}:{getattr(node, 'lineno', '?')} "
-                        f"imports {root}"
+                        f"{path.relative_to(PROJECT_ROOT)}:"
+                        f"{getattr(node, 'lineno', '?')} imports {root}"
                     )
     if offenders:
         raise ReleaseCompatibilityError(
@@ -344,9 +350,10 @@ def main() -> int:
         return 1
 
     print(
-        "ScoreForm v0.10.0 release compatibility passed: "
-        "Core >=0.6.2,<0.7; producer/operations profiles exact; reader policy-neutral; "
-        "sibling runtime imports absent."
+        "ScoreForm v0.11.0 release compatibility passed: "
+        "Core >=0.6.2,<0.7; producer/operations profiles exact; reader "
+        "policy-neutral; sibling runtime imports absent; historical v0.10.0 "
+        "release evidence preserved."
     )
     return 0
 
