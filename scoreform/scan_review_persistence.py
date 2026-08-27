@@ -278,6 +278,46 @@ def _page_core_mapping(page: Pds2ScanPageOutcome) -> tuple[str, str]:
     return "module_handling", "processing_error"
 
 
+def _workspace_diagnostic_paths(
+    values: tuple[str, ...],
+    workspace_root: Path | None,
+) -> tuple[str, ...]:
+    """Normalize diagnostic artifacts without leaking paths or blocking review."""
+    normalized: set[str] = set()
+    root: Path | None = None
+    if workspace_root is not None:
+        try:
+            root = workspace_root.resolve(strict=False)
+        except (OSError, RuntimeError, ValueError):
+            root = None
+
+    for value in values:
+        try:
+            path = Path(value)
+        except (TypeError, ValueError):
+            continue
+
+        if root is None:
+            if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+                continue
+            relative = path.as_posix()
+        else:
+            try:
+                candidate = (path if path.is_absolute() else root / path).resolve(
+                    strict=False
+                )
+                relative = candidate.relative_to(root).as_posix()
+            except (OSError, RuntimeError, ValueError):
+                continue
+
+        if relative and not any(
+            part in {"", ".", ".."} for part in relative.split("/")
+        ):
+            normalized.add(relative)
+
+    return tuple(sorted(normalized))
+
+
 def _page_details(
     page: Pds2ScanPageOutcome,
     origin: str,
@@ -330,23 +370,14 @@ def _page_details(
             else None
         ),
     }
-    diagnostic_paths = []
-    for value in page.diagnostic_paths:
-        path = Path(value)
-        if path.is_absolute():
-            if workspace_root is None:
-                continue
-            try:
-                value = path.resolve(strict=False).relative_to(
-                    workspace_root
-                ).as_posix()
-            except (OSError, RuntimeError, ValueError):
-                continue
-        diagnostic_paths.append(value)
+    diagnostic_paths = _workspace_diagnostic_paths(
+        page.diagnostic_paths,
+        workspace_root,
+    )
     return scoreform_failure_details(
         origin=origin,
         category=category,
-        diagnostic_paths=tuple(diagnostic_paths),
+        diagnostic_paths=diagnostic_paths,
         diagnostic_errors=(*page.diagnostic_errors, error),
         context=context,
     )
@@ -574,7 +605,10 @@ def _occurrences(
                 details=scoreform_failure_details(
                     origin="invalid_page_observation",
                     category="invalid_result_identity",
-                    diagnostic_paths=invalid.diagnostic_paths,
+                    diagnostic_paths=_workspace_diagnostic_paths(
+                        invalid.diagnostic_paths,
+                        workspace_root,
+                    ),
                     diagnostic_errors=(invalid.error,),
                     context={
                         **raw,
@@ -635,7 +669,10 @@ def _occurrences(
                 details=scoreform_failure_details(
                     origin="attempt_assembly",
                     category=failure.category,
-                    diagnostic_paths=failure.diagnostic_paths,
+                    diagnostic_paths=_workspace_diagnostic_paths(
+                        failure.diagnostic_paths,
+                        workspace_root,
+                    ),
                     diagnostic_errors=(failure.error,),
                     context=context,
                 ),
