@@ -16,7 +16,7 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 No changes yet.
 
-## [v0.11.0] - release date pending
+## [v0.11.0] - 2026-08-27
 
 ### Added
 
@@ -37,6 +37,10 @@ No changes yet.
 ### Changed
 
 * Finalized the live package/release identity at `scoreform 0.11.0`.
+* Strengthened `SECURITY.md` for the v0.11 local-first data surface, including
+  retained scans, generated physical materials, diagnostics, backups/sync,
+  repository hygiene, incident response, and Core/ScoreForm/Meridian trust
+  boundaries.
 * Raised the supported Core operations floor to `pds-core>=0.6.2,<0.7` and
   qualified the complete release path against exact Core 0.6.3.
 * Preserved `scoreform_academic_work_v1`,
