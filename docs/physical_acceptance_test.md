@@ -1,5 +1,10 @@
 # ScoreForm v0.10.0 physical acceptance test
 
+> **Historical procedure.** This document remains the v0.10.0 physical
+> acceptance record/procedure. The current v0.11.0 milestone acceptance is
+> `docs/v0.11.0_combined_acceptance.md`; do not use the v0.10.0 Core/version/menu
+> assumptions as a substitute for issue #195.
+
 Publication is blocked until the project owner completes this test with a wheel
 built from the clean reviewed candidate commit, reports a pass, and explicitly
 authorizes release. Use synthetic identities only. Do not commit or upload

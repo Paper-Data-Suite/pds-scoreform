@@ -203,3 +203,83 @@ jobs:
           --work "${{ runner.temp }}/scoreform-operations-${{ matrix.core }}"
           --core-wheel "${{ runner.temp }}/pds_core-${{ matrix.core }}-py3-none-any.whl"
           --expected-core-version "${{ matrix.core }}"
+
+  combined-v011-wheel-qualification:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install combined qualification harness dependency
+        run: python -m pip install build
+
+      - name: Install Poppler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Install pinned Poppler (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/oschwartz10612/poppler-windows/releases/download/v26.02.0-0/Release-26.02.0-0.zip"
+          $archive = Join-Path $env:RUNNER_TEMP "poppler-windows-v26.02.0-0.zip"
+          $destination = Join-Path $env:RUNNER_TEMP "poppler-windows-v26.02.0-0"
+
+          Invoke-WebRequest -Uri $url -OutFile $archive -ErrorAction Stop
+
+          $actualHash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expectedHash = "993e4a94376ed712fafc7058d724ea0b943d118bbd2305cd9ed55174eb85cda5"
+          if ($actualHash -ne $expectedHash) {
+            throw "Poppler archive SHA-256 mismatch: $actualHash"
+          }
+
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $pdftoppm = Get-ChildItem $destination -Recurse -Filter pdftoppm.exe | Select-Object -First 1
+          if ($null -eq $pdftoppm) {
+            throw "Authenticated Poppler archive did not contain pdftoppm.exe."
+          }
+
+          $pdftoppm.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & (Join-Path $pdftoppm.DirectoryName "pdfinfo.exe") -v
+
+      - name: Download authenticated released Core 0.6.3
+        shell: python
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          from urllib.request import urlretrieve
+
+          filename = "pds_core-0.6.3-py3-none-any.whl"
+          url = (
+              "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
+              f"v0.6.3/{filename}"
+          )
+          destination = Path(os.environ["RUNNER_TEMP"]) / filename
+          urlretrieve(url, destination)
+          actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+          expected = "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+          if actual != expected:
+              raise SystemExit(f"Core 0.6.3 wheel SHA-256 mismatch: {actual}")
+
+      - name: Qualify combined installed ScoreForm v0.11 workflow
+        run: >-
+          python scripts/run_v011_combined_wheel_acceptance.py
+          --repository .
+          --work "${{ runner.temp }}/scoreform-v011-combined"
+          --core-wheel "${{ runner.temp }}/pds_core-0.6.3-py3-none-any.whl"
+          --expected-core-version 0.6.3

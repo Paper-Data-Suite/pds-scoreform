@@ -50,6 +50,15 @@ jobs:
             --disallow-incomplete-defs \
             --check-untyped-defs \
             scripts/verify_installed_assignment_copy_acceptance.py
+      - name: Strict mypy #195 combined acceptance
+        run: |
+          python -m mypy \
+            --follow-imports=skip \
+            --disallow-untyped-defs \
+            --disallow-incomplete-defs \
+            --check-untyped-defs \
+            scripts/verify_installed_v011_combined_acceptance.py \
+            scripts/run_v011_combined_wheel_acceptance.py
       - name: Pytest
         run: python -m pytest tests -q
       - name: Audit v0.10.0 release compatibility boundary
@@ -122,6 +131,12 @@ jobs:
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_share_results_with_meridian_acceptance.py \
             --workspace "$RUNNER_TEMP/scoreform-share-results-acceptance" \
+            --version 0.10.0 --expected-core-version 0.6.3
+      - name: Verify combined installed v0.11 workflow
+        run: |
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_v011_combined_acceptance.py \
+            --workspace "$RUNNER_TEMP/scoreform-v011-combined-acceptance" \
+            --repository "$GITHUB_WORKSPACE" \
             --version 0.10.0 --expected-core-version 0.6.3
       - name: Verify installed producer lifecycle
         run: |

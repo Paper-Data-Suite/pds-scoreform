@@ -109,6 +109,17 @@ Invoke-Step "Run strict mypy on release scripts" {
     )
 }
 
+Invoke-Step "Run strict mypy on #195 combined acceptance scripts" {
+    & $Python -m mypy @(
+        "--follow-imports=skip",
+        "--disallow-untyped-defs",
+        "--disallow-incomplete-defs",
+        "--check-untyped-defs",
+        "scripts\verify_installed_v011_combined_acceptance.py",
+        "scripts\run_v011_combined_wheel_acceptance.py"
+    )
+}
+
 if (Test-Path -LiteralPath $VenvScoreForm -PathType Leaf) {
     $ScoreForm = $VenvScoreForm
 }
@@ -657,6 +668,42 @@ try {
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
             -Python $Python -Version 0.10.0
+    }
+
+    $CombinedAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "scoreform-v011-combined-" + [guid]::NewGuid().ToString("N")
+    )
+    try {
+        Invoke-Step "Validate combined installed v0.11 workflow" {
+            & $Python scripts\run_v011_combined_wheel_acceptance.py `
+                --repository $RepoRoot `
+                --work $CombinedAcceptanceRoot `
+                --core-wheel $env:PDS_CORE_WHEEL `
+                --expected-core-version 0.6.3
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $CombinedAcceptanceRoot) {
+            $ResolvedCombinedRoot = [System.IO.Path]::GetFullPath(
+                $CombinedAcceptanceRoot
+            )
+            $ResolvedTempRoot = [System.IO.Path]::GetFullPath(
+                [System.IO.Path]::GetTempPath()
+            )
+            if (
+                -not $ResolvedCombinedRoot.StartsWith(
+                    $ResolvedTempRoot,
+                    [System.StringComparison]::OrdinalIgnoreCase
+                ) -or
+                -not (Split-Path -Leaf $ResolvedCombinedRoot).StartsWith(
+                    "scoreform-v011-combined-",
+                    [System.StringComparison]::Ordinal
+                )
+            ) {
+                throw "Refusing to remove unexpected combined-acceptance root: $ResolvedCombinedRoot"
+            }
+            Remove-Item -LiteralPath $ResolvedCombinedRoot -Recurse -Force
+        }
     }
 }
 finally {

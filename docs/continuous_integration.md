@@ -74,6 +74,30 @@ External prerequisite qualification remains Suite-owned. In particular, this
 operations harness does not reinterpret `pdftoppm` availability as shared
 ScoreForm readiness.
 
+## Combined v0.11 installed-workflow qualification
+
+Issue #195 adds a bounded `combined-v011-wheel-qualification` matrix on Windows
+and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.3 reference
+wheel.
+
+`scripts/run_v011_combined_wheel_acceptance.py` stages the current working tree
+outside the checkout, builds the wheel and sdist, installs ScoreForm
+noneditably, and runs `scripts/verify_installed_v011_combined_acceptance.py`.
+Unlike the focused per-issue installed verifiers, the combined acceptance keeps
+one synthetic workspace across assignment reuse, bulk editing, multi-class
+generation, guided scan success/failure/recovery, publication, readiness with
+attention, diagnostic privacy, direct CLI preservation, and PDS2 provenance.
+
+The combined verifier selects classes, assignments, providers, issuances,
+pages, routes, and publications by semantic identity and expected cardinality.
+It must not treat arbitrary filesystem or entry-point enumeration order as a
+contract.
+
+This job is intentionally bounded to Python 3.11 because the ordinary matrix
+already owns Python 3.11-3.14 runtime breadth. Real printer/scanner acceptance
+remains project-owner work documented in `docs/v0.11.0_combined_acceptance.md`;
+automation must not claim a physical pass.
+
 ## Heavyweight release readiness
 
 `.github/workflows/release-readiness.yml` remains the canonical deep release
