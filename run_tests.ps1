@@ -27,7 +27,7 @@ function Invoke-Step {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-Write-Host "=== ScoreForm v0.10.0 Release Readiness ===" -ForegroundColor Cyan
+Write-Host "=== ScoreForm v0.11.0 Release Readiness ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
 Invoke-Step "Require Python 3.11+" {
@@ -45,7 +45,7 @@ Invoke-Step "Compile ScoreForm" {
 Invoke-Step "Validate tracked release text encoding" {
     & $Python scripts\verify_text_encoding.py
 }
-Invoke-Step "Audit v0.10.0 release compatibility boundary" {
+Invoke-Step "Audit v0.11.0 release compatibility boundary" {
     & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
@@ -620,7 +620,7 @@ Invoke-Step "Check release artifacts with twine" {
     & $Python -m twine check .\dist\*
 }
 Invoke-Step "Validate release artifact names, metadata, and contents" {
-    & $Python scripts\verify_release_artifacts.py --version 0.10.0 --dist .\dist
+    & $Python scripts\verify_release_artifacts.py --version 0.11.0 --dist .\dist
 }
 $CoreWheelRoot = $null
 $CoreExportRoot = $null
@@ -667,7 +667,7 @@ try {
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
-            -Python $Python -Version 0.10.0
+            -Python $Python -Version 0.11.0
     }
 
     $CombinedAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
@@ -738,17 +738,17 @@ finally {
 }
 Invoke-Step "Verify exact CLI version output" {
     $VersionOutput = & $ScoreForm --version
-    if (($VersionOutput -join "`n") -ne "ScoreForm 0.10.0") { exit 1 }
+    if (($VersionOutput -join "`n") -ne "ScoreForm 0.11.0") { exit 1 }
 }
 Invoke-Step "Check Git whitespace" {
     git diff --check
 }
 Invoke-Step "Report release artifact SHA-256" {
     Get-FileHash -Algorithm SHA256 -LiteralPath @(
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.10.0-*.whl" -File).FullName,
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.10.0.tar.gz" -File).FullName
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.11.0-*.whl" -File).FullName,
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.11.0.tar.gz" -File).FullName
     ) | Format-Table -AutoSize
 }
 
 Write-Host ""
-Write-Host "All ScoreForm v0.10.0 release-readiness checks passed." -ForegroundColor Green
+Write-Host "All ScoreForm v0.11.0 release-readiness checks passed." -ForegroundColor Green

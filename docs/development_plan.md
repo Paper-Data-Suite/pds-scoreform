@@ -1,6 +1,6 @@
 # ScoreForm development plan
 
-## Current architecture (v0.10.0 release boundary)
+## Current architecture (v0.11.0 release boundary)
 
 This document describes the current implementation boundary. Historical plans
 from the PDS1 era have been removed because they no longer describe supported
@@ -90,8 +90,8 @@ readiness now proves registration, immutable generation, Core publication and
 catalog projection, producer-owned reading, supersession, withdrawal, and Core
 registry audit together from isolated installed artifacts.
 
-The v0.10.0 release compatibility boundary is documented in
-[`v0.10.0_release_compatibility.md`](v0.10.0_release_compatibility.md). It
+The v0.11.0 release compatibility boundary is documented in
+[`v0.11.0_release_compatibility.md`](v0.11.0_release_compatibility.md). It
 records the exact ScoreForm reader identity required by downstream Meridian
 while preserving Vitrine's downstream ownership of Candidate discovery and
 portfolio policy.
