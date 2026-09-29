@@ -353,9 +353,6 @@ def score_authoritative_answer_sheet_page(
     page = page_context.page
     layout = require_layout(page.layout_id)
     question_count = page.question_end - page.question_start + 1
-    diagnostic_stem = (
-        f"{source_scan_id}_source_{source_page_number}_{page.page_id}"
-    )
     try:
         raw = score_image(
             image,
@@ -365,7 +362,8 @@ def score_authoritative_answer_sheet_page(
             question_count=question_count,
             question_start=page.question_start,
             layout=layout,
-            diagnostic_stem=diagnostic_stem,
+            diagnostic_source_sha256=source_sha256,
+            diagnostic_page_id=page.page_id,
             write_diagnostics=debug_dir is not None,
             raise_on_failure=True,
         )

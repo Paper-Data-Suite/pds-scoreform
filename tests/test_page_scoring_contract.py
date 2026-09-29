@@ -194,6 +194,9 @@ def test_image_source_page_one_can_score_logical_page_two(monkeypatch):
         assert kwargs["page_num"] == 1
         assert kwargs["question_start"] == 16
         assert kwargs["question_count"] == 1
+        assert kwargs["diagnostic_source_sha256"] == "a" * 64
+        assert kwargs["diagnostic_page_id"] == context.page.page_id
+        assert "diagnostic_stem" not in kwargs
         return {
             "score": 1,
             "total_points": 1,
