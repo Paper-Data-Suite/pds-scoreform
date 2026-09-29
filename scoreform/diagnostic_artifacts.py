@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,6 +32,12 @@ _KIND_LABELS: Final[dict[DiagnosticArtifactKind, str]] = {
 }
 _DIAGNOSTIC_NAME_DOMAIN: Final = "scoreform-diagnostic-artifact-v1"
 _SHA256_HEX: Final = frozenset("0123456789abcdef")
+_DIAGNOSTIC_ARTIFACT_STAGES: Final = frozenset(
+    {"encode", "prepare_root", "write", "verify", "collision"}
+)
+_DIAGNOSTIC_EXCEPTION_TYPE_RE: Final = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_.]{0,127}\Z"
+)
 _MAX_KIND_LABEL_LENGTH: Final = max(len(label) for label in _KIND_LABELS.values())
 MAX_DIAGNOSTIC_FILENAME_LENGTH: Final = len(
     "sfdiag_"
@@ -53,6 +60,29 @@ class DiagnosticArtifactWarning:
         init=False,
     )
 
+    def __post_init__(self) -> None:
+        validate_diagnostic_artifact_warning(self)
+
+
+def validate_diagnostic_artifact_warning(
+    warning: DiagnosticArtifactWarning,
+) -> DiagnosticArtifactWarning:
+    """Validate one privacy-bounded diagnostic persistence warning."""
+    if not isinstance(warning, DiagnosticArtifactWarning):
+        raise TypeError("warning must be a DiagnosticArtifactWarning.")
+    _validate_kind(warning.kind)
+    if warning.stage not in _DIAGNOSTIC_ARTIFACT_STAGES:
+        raise ValueError("warning stage is unsupported.")
+    if warning.code != DIAGNOSTIC_ARTIFACT_WRITE_FAILED_CODE:
+        raise ValueError("warning code is unsupported.")
+    if warning.exception_type is not None:
+        if (
+            not isinstance(warning.exception_type, str)
+            or _DIAGNOSTIC_EXCEPTION_TYPE_RE.fullmatch(warning.exception_type) is None
+        ):
+            raise ValueError("warning exception_type is not privacy-bounded.")
+    return warning
+
 
 @dataclass(frozen=True, slots=True)
 class DiagnosticArtifactWriteResult:
@@ -72,8 +102,10 @@ class DiagnosticArtifactWriteResult:
             raise ValueError("result must contain exactly one of path or warning.")
         if self.path is not None and (not isinstance(self.path, str) or not self.path):
             raise TypeError("path must be a nonempty string when present.")
-        if self.warning is not None and self.warning.kind != self.kind:
-            raise ValueError("warning kind must match result kind.")
+        if self.warning is not None:
+            validate_diagnostic_artifact_warning(self.warning)
+            if self.warning.kind != self.kind:
+                raise ValueError("warning kind must match result kind.")
 
 
 def build_diagnostic_artifact_name(

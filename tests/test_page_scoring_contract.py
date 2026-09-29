@@ -8,6 +8,7 @@ import pytest
 
 from scoreform.answer_sheet_persistence import AnswerSheetPageContext
 from scoreform.answer_sheet_records import build_answer_sheet_record_set
+from scoreform.diagnostic_artifacts import DiagnosticArtifactWarning
 from scoreform.module_errors import (
     ScoreFormAssignmentCompatibilityError,
     ScoreFormPageScoringError,
@@ -70,6 +71,7 @@ def test_valid_result_is_returned_unchanged():
         {"answers": (ScoredAnswer(True, "A", True),)},
         {"diagnostic_paths": (Path("debug.png"),)},
         {"diagnostic_paths": ("debug.png", "debug.png")},
+        {"diagnostic_warnings": ("not-a-warning",)},
     ),
 )
 def test_boolean_and_diagnostic_contract_regressions_fail(change):
@@ -189,6 +191,11 @@ def test_image_source_page_one_can_score_logical_page_two(monkeypatch):
         **assignment,
         "answer_key": {number: "A" for number in range(1, 17)},
     }
+    warning = DiagnosticArtifactWarning(
+        kind="warped_page",
+        stage="write",
+        exception_type="PermissionError",
+    )
 
     def fake_score(*args, **kwargs):
         assert kwargs["page_num"] == 1
@@ -196,12 +203,14 @@ def test_image_source_page_one_can_score_logical_page_two(monkeypatch):
         assert kwargs["question_count"] == 1
         assert kwargs["diagnostic_source_sha256"] == "a" * 64
         assert kwargs["diagnostic_page_id"] == context.page.page_id
+        assert callable(kwargs["diagnostic_warning_sink"])
         assert "diagnostic_stem" not in kwargs
         return {
             "score": 1,
             "total_points": 1,
             "answers": [{"Q": 16, "Answer": "A", "Correct": True}],
             "diagnostic_paths": (),
+            "diagnostic_warnings": (warning,),
         }
 
     monkeypatch.setattr("scoreform.page_scoring.score_image", fake_score)
@@ -221,3 +230,36 @@ def test_image_source_page_one_can_score_logical_page_two(monkeypatch):
     assert result.source_page_number == 1
     assert result.logical_page == 2
     assert (result.question_start, result.question_end) == (16, 16)
+    assert result.diagnostic_warnings == (warning,)
+
+
+def test_generic_omr_failure_preserves_prior_diagnostic_warning(monkeypatch):
+    context, assignment = _compatibility_context()
+    warning = DiagnosticArtifactWarning(
+        kind="registration_marks",
+        stage="write",
+        exception_type="PermissionError",
+    )
+
+    def fake_score(*args, **kwargs):
+        kwargs["diagnostic_warning_sink"](warning)
+        raise RuntimeError("synthetic OMR failure")
+
+    monkeypatch.setattr("scoreform.page_scoring.score_image", fake_score)
+    with pytest.raises(ScoreFormPageScoringError) as caught:
+        score_authoritative_answer_sheet_page(
+            np.full((20, 30, 3), 255, np.uint8),
+            page_context=context,
+            assignment=assignment,
+            route_id="rt_" + "6" * 32,
+            source_scan_id="scan_one",
+            source_page_number=1,
+            retained_source_relative_path=(
+                "scans/source/2026-01-02/retained.png"
+            ),
+            source_sha256="a" * 64,
+            debug_dir=None,
+        )
+
+    assert caught.value.diagnostic_code == "omr_processing_failed"
+    assert caught.value.diagnostic_warnings == (warning,)

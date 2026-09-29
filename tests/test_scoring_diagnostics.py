@@ -93,7 +93,7 @@ def test_score_image_diagnostics_do_not_use_cv2_imwrite(tmp_path, monkeypatch):
         assert len(path.name) <= MAX_DIAGNOSTIC_FILENAME_LENGTH
 
 
-def test_warped_diagnostic_failure_preserves_prior_evidence_and_code(
+def test_warped_diagnostic_failure_is_subordinate_to_valid_score(
     tmp_path,
     monkeypatch,
 ):
@@ -122,9 +122,113 @@ def test_warped_diagnostic_failure_preserves_prior_evidence_and_code(
         "scoreform.scoring.write_png_diagnostic_artifact",
         write_with_warped_failure,
     )
-    with pytest.raises(ScoreFormPageScoringError, match="warped") as caught:
+    result = score_image(
+        _image(corners=True),
+        {1: "A"},
+        page_num=1,
+        debug_dir=debug_dir,
+        question_count=1,
+        diagnostic_source_sha256=_SOURCE_SHA,
+        diagnostic_page_id=_PAGE_ID,
+        raise_on_failure=True,
+    )
+
+    assert result["score"] == 0
+    assert result["total_points"] == 1
+    assert result["answers"] == [
+        {"Q": 1, "Answer": "BLANK", "Correct": False}
+    ]
+    paths = result["diagnostic_paths"]
+    assert len(paths) == 1
+    assert Path(paths[0]).is_file()
+    Path(paths[0]).resolve().relative_to(debug_dir.resolve())
+    warnings = result["diagnostic_warnings"]
+    assert len(warnings) == 1
+    assert warnings[0].kind == "warped_page"
+    assert warnings[0].stage == "write"
+    assert warnings[0].code == "diagnostic_artifact_write_failed"
+
+
+def test_valid_score_survives_all_diagnostic_persistence_failures(
+    tmp_path,
+    monkeypatch,
+):
+    debug_dir = tmp_path / "managed" / "debug"
+
+    def fail_diagnostic(_image, **kwargs):
+        filename = build_diagnostic_artifact_name(
+            kind=kwargs["kind"],
+            source_sha256=kwargs["source_sha256"],
+            source_page_number=kwargs["source_page_number"],
+            page_id=kwargs["page_id"],
+        )
+        return DiagnosticArtifactWriteResult(
+            kind=kwargs["kind"],
+            intended_filename=filename,
+            warning=DiagnosticArtifactWarning(
+                kind=kwargs["kind"],
+                stage="write",
+                exception_type="PermissionError",
+            ),
+        )
+
+    monkeypatch.setattr(
+        "scoreform.scoring.write_png_diagnostic_artifact",
+        fail_diagnostic,
+    )
+    result = score_image(
+        _image(corners=True),
+        {1: "A"},
+        page_num=1,
+        debug_dir=debug_dir,
+        question_count=1,
+        diagnostic_source_sha256=_SOURCE_SHA,
+        diagnostic_page_id=_PAGE_ID,
+        raise_on_failure=True,
+    )
+
+    assert result["score"] == 0
+    assert result["total_points"] == 1
+    assert result["answers"] == [
+        {"Q": 1, "Answer": "BLANK", "Correct": False}
+    ]
+    assert result["diagnostic_paths"] == ()
+    assert tuple(warning.kind for warning in result["diagnostic_warnings"]) == (
+        "registration_marks",
+        "warped_page",
+    )
+
+
+def test_registration_failure_remains_primary_when_diagnostic_write_fails(
+    tmp_path,
+    monkeypatch,
+):
+    debug_dir = tmp_path / "managed" / "debug"
+
+    def fail_diagnostic(_image, **kwargs):
+        filename = build_diagnostic_artifact_name(
+            kind=kwargs["kind"],
+            source_sha256=kwargs["source_sha256"],
+            source_page_number=kwargs["source_page_number"],
+            page_id=kwargs["page_id"],
+        )
+        return DiagnosticArtifactWriteResult(
+            kind=kwargs["kind"],
+            intended_filename=filename,
+            warning=DiagnosticArtifactWarning(
+                kind=kwargs["kind"],
+                stage="write",
+                exception_type="PermissionError",
+            ),
+        )
+
+    monkeypatch.setattr(
+        "scoreform.scoring.write_png_diagnostic_artifact",
+        fail_diagnostic,
+    )
+    with pytest.raises(ScoreFormPageScoringError) as caught:
         score_image(
-            _image(corners=True),
+            _image(corners=False),
             {1: "A"},
             page_num=1,
             debug_dir=debug_dir,
@@ -133,12 +237,13 @@ def test_warped_diagnostic_failure_preserves_prior_evidence_and_code(
             diagnostic_page_id=_PAGE_ID,
             raise_on_failure=True,
         )
-    assert caught.value.diagnostic_code == "page_scoring_error"
-    paths = caught.value.diagnostic_paths
-    assert isinstance(paths, tuple)
-    assert len(paths) == 1
-    assert Path(paths[0]).is_file()
-    Path(paths[0]).resolve().relative_to(debug_dir.resolve())
+
+    assert caught.value.diagnostic_code == "registration_marks_missing"
+    assert caught.value.diagnostic_paths == ()
+    assert len(caught.value.diagnostic_warnings) == 1
+    warning = caught.value.diagnostic_warnings[0]
+    assert warning.kind == "registration_marks"
+    assert warning.code == "diagnostic_artifact_write_failed"
 
 
 def test_legacy_diagnostic_stem_is_accepted_but_not_used_as_filename_identity(

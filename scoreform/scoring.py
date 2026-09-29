@@ -14,7 +14,10 @@ from scoreform.config import (
     LOCAL_OUTPUTS_DIR,
     MAX_ASSIGNMENT_QUESTION_COUNT,
 )
-from scoreform.diagnostic_artifacts import write_png_diagnostic_artifact
+from scoreform.diagnostic_artifacts import (
+    DiagnosticArtifactWarning,
+    write_png_diagnostic_artifact,
+)
 from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.module_errors import (
     ScoreFormPageScoringError,
@@ -350,6 +353,7 @@ def score_image(
     diagnostic_stem=None,
     diagnostic_source_sha256=None,
     diagnostic_page_id=None,
+    diagnostic_warning_sink=None,
     write_diagnostics=True,
     raise_on_failure=False,
 ):
@@ -395,6 +399,7 @@ def score_image(
         cv2.circle(debug_img, (cX, cY), 20, (0, 255, 0), 4)  # Selected corners in green
 
     diagnostic_paths: list[str] = []
+    diagnostic_warnings: list[DiagnosticArtifactWarning] = []
     diagnostic_identity = None
     if write_diagnostics:
         # diagnostic_stem remains accepted for call compatibility only. It is
@@ -418,16 +423,13 @@ def score_image(
             page_id=diagnostic_page_id_value,
         )
         if diagnostic.path is None:
-            error = OSError("Could not write registration-mark diagnostic image.")
-            if raise_on_failure:
-                raise ScoreFormPageScoringError(
-                    "Could not write registration-mark diagnostic image.",
-                    diagnostic_paths=tuple(diagnostic_paths),
-                    diagnostic_code="diagnostic_write_failed",
-                ) from error
-            raise error
-        diagnostic_paths.append(diagnostic.path)
-        print(f"Saved {diagnostic.path}")
+            assert diagnostic.warning is not None
+            diagnostic_warnings.append(diagnostic.warning)
+            if diagnostic_warning_sink is not None:
+                diagnostic_warning_sink(diagnostic.warning)
+        else:
+            diagnostic_paths.append(diagnostic.path)
+            print(f"Saved {diagnostic.path}")
 
     if len(corner_centers) != 4:
         print(
@@ -438,6 +440,7 @@ def score_image(
             raise ScoreFormPageScoringError(
                 "Could not detect the four required registration marks.",
                 diagnostic_paths=tuple(diagnostic_paths),
+                diagnostic_warnings=tuple(diagnostic_warnings),
                 diagnostic_code="registration_marks_missing",
             )
         return None
@@ -514,15 +517,13 @@ def score_image(
             page_id=diagnostic_page_id_value,
         )
         if diagnostic.path is None:
-            error = OSError("Could not write warped-page diagnostic image.")
-            if raise_on_failure:
-                raise ScoreFormPageScoringError(
-                    "Could not write warped-page diagnostic image.",
-                    diagnostic_paths=tuple(diagnostic_paths),
-                ) from error
-            raise error
-        diagnostic_paths.append(diagnostic.path)
-        print(f"Saved {diagnostic.path} for visual verification.\n")
+            assert diagnostic.warning is not None
+            diagnostic_warnings.append(diagnostic.warning)
+            if diagnostic_warning_sink is not None:
+                diagnostic_warning_sink(diagnostic.warning)
+        else:
+            diagnostic_paths.append(diagnostic.path)
+            print(f"Saved {diagnostic.path} for visual verification.\n")
 
     return {
         "page_num": page_num,
@@ -530,6 +531,7 @@ def score_image(
         "total_points": question_count,
         "answers": results,
         "diagnostic_paths": tuple(diagnostic_paths),
+        "diagnostic_warnings": tuple(diagnostic_warnings),
     }
 
 

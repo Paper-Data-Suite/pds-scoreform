@@ -1,5 +1,12 @@
 """Typed failures for ScoreForm's Core module boundary."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from scoreform.diagnostic_artifacts import DiagnosticArtifactWarning
+
 
 class ScoreFormModuleError(Exception):
     """Base class for failures raised through the installed module profile."""
@@ -48,12 +55,16 @@ class ScoreFormPageScoringError(ScoreFormModuleError):
         message: str,
         *,
         diagnostic_paths: tuple[str, ...] = (),
+        diagnostic_warnings: tuple[DiagnosticArtifactWarning, ...] = (),
         diagnostic_code: str = "page_scoring_error",
     ) -> None:
         super().__init__(message)
         if diagnostic_code not in PAGE_SCORING_DIAGNOSTIC_CODES:
             raise ValueError("diagnostic_code is unsupported.")
+        if not isinstance(diagnostic_warnings, tuple):
+            raise TypeError("diagnostic_warnings must be an immutable tuple.")
         self.diagnostic_paths = tuple(diagnostic_paths)
+        self.diagnostic_warnings = diagnostic_warnings
         self.diagnostic_code = diagnostic_code
 
 

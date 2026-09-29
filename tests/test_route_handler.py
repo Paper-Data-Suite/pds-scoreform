@@ -249,6 +249,7 @@ def test_handler_uses_core_resolution_and_retained_source(tmp_path, monkeypatch)
             "scans/source/2026-01-02/other.png"
         )},
         {"source_sha256": "b" * 64},
+        {"diagnostic_warnings": ("unsafe-warning",)},
         {"logical_page": True},
         {"source_page_number": True},
     )
