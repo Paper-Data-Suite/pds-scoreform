@@ -27,6 +27,7 @@ from pds_core.scan_retention import retain_source_scan
 
 from scoreform import pds2_scan_dispatch as dispatch_module
 from scoreform import scoring
+from scoreform.diagnostic_artifacts import DiagnosticArtifactWarning
 from scoreform.module_errors import (
     ScoreFormDispatchIntegrationError,
     ScoreFormQrUnreadableError,
@@ -137,6 +138,51 @@ def _scoreform_result(resolution, retained, source_page_number):
         source_sha256=retained.source_sha256,
         diagnostic_paths=(),
     )
+
+
+def test_scoreform_diagnostic_warning_count_uses_successful_results(
+    tmp_path: Path,
+) -> None:
+    retained = _retained(tmp_path)
+    locator = _locator("scoreform", "9")
+    resolution = _registration(tmp_path, locator)
+    base = _scoreform_result(resolution, retained, 1)
+    warned = replace(
+        base,
+        diagnostic_warnings=(
+            DiagnosticArtifactWarning(
+                kind="registration_marks",
+                stage="write",
+                exception_type="PermissionError",
+            ),
+            DiagnosticArtifactWarning(
+                kind="warped_page",
+                stage="encode",
+                exception_type="RuntimeError",
+            ),
+        ),
+    )
+    profile = _profile("scoreform", warned)
+    request = RouteDispatchRequest(locator, retained, 1)
+    success = RouteDispatchSuccess(request, profile, resolution, warned)
+    page = Pds2ScanPageOutcome(
+        1,
+        raw_payload_text=(
+            f"PDS2|m=scoreform|c={locator.class_id}|"
+            f"w={locator.work_id}|r={locator.route_id}"
+        ),
+        locator=locator,
+        dispatch_request=request,
+        dispatch_outcome=success,
+    )
+    dispatch = Pds2ScanDispatchResult(
+        retained,
+        (page,),
+        ("scoreform",),
+    )
+
+    assert dispatch.scoreform_page_score_count == 1
+    assert dispatch.scoreform_diagnostic_warning_count == 2
 
 
 def test_production_registry_builder_returns_fresh_installed_registries() -> None:

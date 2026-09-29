@@ -70,6 +70,7 @@ class GuidedScanSummary:
     targets: tuple[GuidedScanResultTarget, ...]
     scoring_status: str
     outcome: GuidedScanOutcome
+    diagnostic_images_unavailable: int = 0
 
     def __post_init__(self) -> None:
         if (
@@ -97,6 +98,7 @@ class GuidedScanSummary:
             "review_items_persisted",
             "review_persistence_failures",
             "foreign_success_pages",
+            "diagnostic_images_unavailable",
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
@@ -274,6 +276,9 @@ def build_guided_scan_summary(
             export_failures=export_failures,
             foreign_success_pages=foreign_success,
         ),
+        diagnostic_images_unavailable=(
+            dispatch.scoreform_diagnostic_warning_count
+        ),
     )
 
 
@@ -298,6 +303,11 @@ def format_guided_scan_summary(summary: GuidedScanSummary) -> str:
         f"Attempts already recorded: {summary.attempts_already_present}",
         f"Review items queued: {summary.review_items_persisted}",
     ]
+    if summary.diagnostic_images_unavailable:
+        lines.append(
+            "Diagnostic images unavailable: "
+            f"{summary.diagnostic_images_unavailable}"
+        )
     if summary.review_persistence_failures:
         lines.append(
             "Review persistence failures: "
