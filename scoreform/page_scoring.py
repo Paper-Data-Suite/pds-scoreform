@@ -23,6 +23,10 @@ from scoreform.answer_sheet_routes import (
     AnswerSheetRouteValidationError,
     validate_route_id,
 )
+from scoreform.diagnostic_artifacts import (
+    DiagnosticArtifactWarning,
+    validate_diagnostic_artifact_warning,
+)
 from scoreform.layouts import require_layout
 from scoreform.module_errors import (
     ScoreFormAssignmentCompatibilityError,
@@ -66,6 +70,7 @@ class ScoreFormPageDispatchResult:
     retained_source_relative_path: str
     source_sha256: str
     diagnostic_paths: tuple[str, ...]
+    diagnostic_warnings: tuple[DiagnosticArtifactWarning, ...] = ()
 
 
 def validate_assignment_page_compatibility(
@@ -296,6 +301,17 @@ def validate_page_dispatch_result(
         )
     if len(set(result.diagnostic_paths)) != len(result.diagnostic_paths):
         raise ScoreFormPageScoringError("Result diagnostic paths must be unique.")
+    if not isinstance(result.diagnostic_warnings, tuple):
+        raise ScoreFormPageScoringError(
+            "Result diagnostic_warnings must be immutable."
+        )
+    try:
+        for warning in result.diagnostic_warnings:
+            validate_diagnostic_artifact_warning(warning)
+    except (TypeError, ValueError) as error:
+        raise ScoreFormPageScoringError(
+            "Result diagnostic warnings are invalid."
+        ) from error
     return result
 
 
@@ -353,9 +369,7 @@ def score_authoritative_answer_sheet_page(
     page = page_context.page
     layout = require_layout(page.layout_id)
     question_count = page.question_end - page.question_start + 1
-    diagnostic_stem = (
-        f"{source_scan_id}_source_{source_page_number}_{page.page_id}"
-    )
+    diagnostic_warnings: list[DiagnosticArtifactWarning] = []
     try:
         raw = score_image(
             image,
@@ -365,7 +379,9 @@ def score_authoritative_answer_sheet_page(
             question_count=question_count,
             question_start=page.question_start,
             layout=layout,
-            diagnostic_stem=diagnostic_stem,
+            diagnostic_source_sha256=source_sha256,
+            diagnostic_page_id=page.page_id,
+            diagnostic_warning_sink=diagnostic_warnings.append,
             write_diagnostics=debug_dir is not None,
             raise_on_failure=True,
         )
@@ -373,12 +389,14 @@ def score_authoritative_answer_sheet_page(
         raise
     except Exception as error:
         raise ScoreFormPageScoringError(
-            "One-page OMR processing or diagnostic creation failed.",
+            "One-page OMR processing failed.",
+            diagnostic_warnings=tuple(diagnostic_warnings),
             diagnostic_code="omr_processing_failed",
         ) from error
     if raw is None:
         raise ScoreFormPageScoringError(
             "Could not detect the four required registration marks.",
+            diagnostic_warnings=tuple(diagnostic_warnings),
             diagnostic_code="registration_marks_missing",
         )
     try:
@@ -392,6 +410,7 @@ def score_authoritative_answer_sheet_page(
             for item in raw_answers
         )
         diagnostics = tuple(str(path) for path in raw.get("diagnostic_paths", ()))
+        warnings = tuple(raw.get("diagnostic_warnings", ()))
         result = ScoreFormPageDispatchResult(
             route_id=route_id,
             page_id=page.page_id,
@@ -414,6 +433,7 @@ def score_authoritative_answer_sheet_page(
             retained_source_relative_path=retained_source_relative_path,
             source_sha256=source_sha256,
             diagnostic_paths=diagnostics,
+            diagnostic_warnings=warnings,
         )
     except (KeyError, TypeError, ValueError) as error:
         raise ScoreFormPageScoringError(

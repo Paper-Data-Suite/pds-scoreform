@@ -132,8 +132,10 @@ def test_score_image_preserves_existing_debug_outputs(tmp_path, monkeypatch):
     assert result is not None
     assert (debug_dir / "debug_corners_page_1.png").read_text(encoding="utf-8") == "existing"
     assert (debug_dir / "debug_warped_page_1.png").read_text(encoding="utf-8") == "existing"
-    assert (debug_dir / "debug_corners_page_1_2.png").exists()
-    assert (debug_dir / "debug_warped_page_1_2.png").exists()
+    assert not (debug_dir / "debug_corners_page_1_2.png").exists()
+    assert not (debug_dir / "debug_warped_page_1_2.png").exists()
+    assert len(list(debug_dir.glob("sfdiag_corners_*.png"))) == 1
+    assert len(list(debug_dir.glob("sfdiag_warped_*.png"))) == 1
 
 
 def test_score_image_detects_synthetic_marked_answers(tmp_path, monkeypatch):

@@ -1,6 +1,7 @@
 import datetime
 import os
 import re
+import secrets
 from dataclasses import dataclass, field
 
 import cv2
@@ -12,6 +13,10 @@ from scoreform.config import (
     LOCAL_DEBUG_DIR,
     LOCAL_OUTPUTS_DIR,
     MAX_ASSIGNMENT_QUESTION_COUNT,
+)
+from scoreform.diagnostic_artifacts import (
+    DiagnosticArtifactWarning,
+    write_png_diagnostic_artifact,
 )
 from scoreform.layouts import AnswerSheetLayout, get_layout
 from scoreform.module_errors import (
@@ -315,6 +320,27 @@ def _classify_answer_row(row_filled, layout=None):
     return best_letter
 
 
+def _score_image_diagnostic_identity(
+    *,
+    page_num,
+    source_sha256=None,
+    page_id=None,
+):
+    # Return opaque persistence identity for one score_image diagnostic set.
+    if source_sha256 is None:
+        source_sha256 = secrets.token_hex(32)
+    if page_id is None:
+        page_id = "local_score_image"
+    source_page_number = (
+        page_num
+        if isinstance(page_num, int)
+        and not isinstance(page_num, bool)
+        and page_num >= 1
+        else 1
+    )
+    return source_sha256, source_page_number, page_id
+
+
 def score_image(
     img,
     answer_key,
@@ -325,6 +351,9 @@ def score_image(
     layout: AnswerSheetLayout | None = None,
     *,
     diagnostic_stem=None,
+    diagnostic_source_sha256=None,
+    diagnostic_page_id=None,
+    diagnostic_warning_sink=None,
     write_diagnostics=True,
     raise_on_failure=False,
 ):
@@ -370,24 +399,37 @@ def score_image(
         cv2.circle(debug_img, (cX, cY), 20, (0, 255, 0), 4)  # Selected corners in green
 
     diagnostic_paths: list[str] = []
-    stem = page_num if diagnostic_stem is None else diagnostic_stem
+    diagnostic_warnings: list[DiagnosticArtifactWarning] = []
+    diagnostic_identity = None
     if write_diagnostics:
-        debug_corners_filename = f"debug_corners_page_{stem}.png"
-        if debug_dir:
-            os.makedirs(debug_dir, exist_ok=True)
-            debug_corners_filename = os.path.join(debug_dir, debug_corners_filename)
-        debug_corners_filename = non_overwriting_path(debug_corners_filename)
-        if not cv2.imwrite(debug_corners_filename, debug_img):
-            error = OSError("Could not write registration-mark diagnostic image.")
-            if raise_on_failure:
-                raise ScoreFormPageScoringError(
-                    "Could not write registration-mark diagnostic image.",
-                    diagnostic_paths=tuple(diagnostic_paths),
-                    diagnostic_code="diagnostic_write_failed",
-                ) from error
-            raise error
-        diagnostic_paths.append(debug_corners_filename)
-        print(f"Saved {debug_corners_filename}")
+        # diagnostic_stem remains accepted for call compatibility only. It is
+        # intentionally not a filesystem naming input.
+        diagnostic_identity = _score_image_diagnostic_identity(
+            page_num=page_num,
+            source_sha256=diagnostic_source_sha256,
+            page_id=diagnostic_page_id,
+        )
+        (
+            diagnostic_source_sha256_value,
+            diagnostic_source_page_number,
+            diagnostic_page_id_value,
+        ) = diagnostic_identity
+        diagnostic = write_png_diagnostic_artifact(
+            debug_img,
+            diagnostic_root=debug_dir,
+            kind="registration_marks",
+            source_sha256=diagnostic_source_sha256_value,
+            source_page_number=diagnostic_source_page_number,
+            page_id=diagnostic_page_id_value,
+        )
+        if diagnostic.path is None:
+            assert diagnostic.warning is not None
+            diagnostic_warnings.append(diagnostic.warning)
+            if diagnostic_warning_sink is not None:
+                diagnostic_warning_sink(diagnostic.warning)
+        else:
+            diagnostic_paths.append(diagnostic.path)
+            print(f"Saved {diagnostic.path}")
 
     if len(corner_centers) != 4:
         print(
@@ -398,6 +440,7 @@ def score_image(
             raise ScoreFormPageScoringError(
                 "Could not detect the four required registration marks.",
                 diagnostic_paths=tuple(diagnostic_paths),
+                diagnostic_warnings=tuple(diagnostic_warnings),
                 diagnostic_code="registration_marks_missing",
             )
         return None
@@ -464,21 +507,23 @@ def score_image(
 
     # Save a debug image
     if write_diagnostics:
-        debug_filename = f"debug_warped_page_{stem}.png"
-        if debug_dir:
-            os.makedirs(debug_dir, exist_ok=True)
-            debug_filename = os.path.join(debug_dir, debug_filename)
-        debug_filename = non_overwriting_path(debug_filename)
-        if not cv2.imwrite(debug_filename, warped):
-            error = OSError("Could not write warped-page diagnostic image.")
-            if raise_on_failure:
-                raise ScoreFormPageScoringError(
-                    "Could not write warped-page diagnostic image.",
-                    diagnostic_paths=tuple(diagnostic_paths),
-                ) from error
-            raise error
-        diagnostic_paths.append(debug_filename)
-        print(f"Saved {debug_filename} for visual verification.\n")
+        assert diagnostic_identity is not None
+        diagnostic = write_png_diagnostic_artifact(
+            warped,
+            diagnostic_root=debug_dir,
+            kind="warped_page",
+            source_sha256=diagnostic_source_sha256_value,
+            source_page_number=diagnostic_source_page_number,
+            page_id=diagnostic_page_id_value,
+        )
+        if diagnostic.path is None:
+            assert diagnostic.warning is not None
+            diagnostic_warnings.append(diagnostic.warning)
+            if diagnostic_warning_sink is not None:
+                diagnostic_warning_sink(diagnostic.warning)
+        else:
+            diagnostic_paths.append(diagnostic.path)
+            print(f"Saved {diagnostic.path} for visual verification.\n")
 
     return {
         "page_num": page_num,
@@ -486,6 +531,7 @@ def score_image(
         "total_points": question_count,
         "answers": results,
         "diagnostic_paths": tuple(diagnostic_paths),
+        "diagnostic_warnings": tuple(diagnostic_warnings),
     }
 
 

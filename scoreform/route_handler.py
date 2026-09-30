@@ -31,6 +31,8 @@ from scoreform.answer_sheet_routes import (
     answer_sheet_module_details,
 )
 from scoreform.assignment import load_assignment
+from scoreform.diagnostic_artifacts import DiagnosticArtifactWarning
+from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.module_errors import (
     ScoreFormAssignmentCompatibilityError,
     ScoreFormIssuanceAuthorizationError,
@@ -319,6 +321,42 @@ def _authorize_diagnostic_paths(
         ) from error
 
 
+def _emit_diagnostic_artifact_warning_event(
+    workspace_root: Path,
+    *,
+    context: AnswerSheetPageContext,
+    debug_dir: Path,
+    warnings: tuple[DiagnosticArtifactWarning, ...],
+) -> None:
+    # Best-effort page-level observability for subordinate diagnostic failures.
+    if not warnings:
+        return
+    try:
+        exception_type = next(
+            (
+                warning.exception_type
+                for warning in warnings
+                if warning.exception_type is not None
+            ),
+            None,
+        )
+        try_emit_diagnostic_event(
+            workspace_root,
+            component="scoring",
+            workflow="score_scan",
+            stage="diagnostic_persistence",
+            outcome="partial_success",
+            code="diagnostic_artifact_write_failed",
+            class_id=context.page.class_id,
+            assignment_id=context.page.assignment_id,
+            exception_type=exception_type,
+            path=debug_dir,
+        )
+    except Exception:
+        # Diagnostic instrumentation must never replace scoring truth.
+        return
+
+
 def handle_scoreform_route(
     resolution: RouteResolution,
     retained_source: RetainedSourceScan,
@@ -357,8 +395,14 @@ def handle_scoreform_route(
         )
     except ScoreFormPageScoringError as error:
         _authorize_diagnostic_paths(error.diagnostic_paths, debug_dir=debug_dir)
+        _emit_diagnostic_artifact_warning_event(
+            workspace_root,
+            context=context,
+            debug_dir=debug_dir,
+            warnings=error.diagnostic_warnings,
+        )
         raise
-    return _validate_handler_result(
+    validated = _validate_handler_result(
         result,
         resolution=resolution,
         context=context,
@@ -367,3 +411,10 @@ def handle_scoreform_route(
         debug_dir=debug_dir,
         valid_choices=tuple(assignment["choices"]),
     )
+    _emit_diagnostic_artifact_warning_event(
+        workspace_root,
+        context=context,
+        debug_dir=debug_dir,
+        warnings=validated.diagnostic_warnings,
+    )
+    return validated

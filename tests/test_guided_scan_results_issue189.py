@@ -103,6 +103,7 @@ def test_teacher_summary_exposes_counts_and_assignment_targets_not_student_paylo
         ),
         scoring_status="partial_success",
         outcome="partial",
+        diagnostic_images_unavailable=2,
     )
 
     rendered = format_guided_scan_summary(summary)
@@ -112,6 +113,7 @@ def test_teacher_summary_exposes_counts_and_assignment_targets_not_student_paylo
     assert "Attempts recorded: 1" in rendered
     assert "Attempts already recorded: 1" in rendered
     assert "Review items queued: 1" in rendered
+    assert "Diagnostic images unavailable: 2" in rendered
     assert "Other installed modules handled: 1 page(s)" in rendered
     assert "english10 / unit1" in rendered
     for forbidden in (
@@ -125,6 +127,35 @@ def test_teacher_summary_exposes_counts_and_assignment_targets_not_student_paylo
         "source_sha256",
     ):
         assert forbidden not in rendered
+
+
+def test_diagnostic_warning_summary_does_not_downgrade_complete_outcome() -> None:
+    summary = GuidedScanSummary(
+        source_filename="returned_papers.pdf",
+        retention_succeeded=True,
+        source_scan_id="scan_synthetic",
+        source_pages_processed=2,
+        completed_attempts=1,
+        attempts_appended=1,
+        attempts_already_present=0,
+        export_failures=0,
+        review_items_persisted=0,
+        review_persistence_failures=0,
+        foreign_success_pages=0,
+        targets=(
+            GuidedScanResultTarget("english10", "unit1", 1, 0),
+        ),
+        scoring_status="full_success",
+        outcome="complete",
+        diagnostic_images_unavailable=2,
+    )
+
+    rendered = format_guided_scan_summary(summary)
+
+    assert summary.outcome == "complete"
+    assert "Outcome: Complete" in rendered
+    assert "Diagnostic images unavailable: 2" in rendered
+    assert "Review items queued: 0" in rendered
 
 
 def test_source_filename_is_host_independent_and_never_leaks_parent_paths() -> None:

@@ -290,6 +290,14 @@ class Pds2ScanDispatchResult:
         )
 
     @property
+    def scoreform_diagnostic_warning_count(self) -> int:
+        """Count optional diagnostic artifacts unavailable on successful pages."""
+        return sum(
+            len(result.diagnostic_warnings)
+            for result in self.scoreform_page_scores
+        )
+
+    @property
     def other_module_success_count(self) -> int:
         return sum(
             module_id is not None and module_id != "scoreform"

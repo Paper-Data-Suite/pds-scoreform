@@ -105,6 +105,7 @@ _STAGES: Final = frozenset(
         "parse",
         "dispatch",
         "score",
+        "diagnostic_persistence",
         "assemble",
         "write_record",
         "verify_record",
@@ -221,6 +222,10 @@ _CODE_CONTRACTS: Final[dict[str, tuple[str, str]]] = {
     "scoreform_result_invalid": (
         "scoring",
         "Returned ScoreForm page result failed bounded validation.",
+    ),
+    "diagnostic_artifact_write_failed": (
+        "diagnostics",
+        "Optional scoring diagnostic artifact could not be persisted.",
     ),
     "attempt_incomplete": (
         "scoring",
@@ -407,6 +412,7 @@ def build_diagnostic_event(
     class_id: str | None = None,
     assignment_id: str | None = None,
     exception: BaseException | None = None,
+    exception_type: str | None = None,
     workspace_root: str | Path | None = None,
     path: str | Path | None = None,
     occurred_at: datetime | None = None,
@@ -425,6 +431,15 @@ def build_diagnostic_event(
 
     normalized_class = _optional_identifier(class_id, "class_id")
     normalized_assignment = _optional_identifier(assignment_id, "assignment_id")
+    if exception is not None and exception_type is not None:
+        raise DiagnosticEventValidationError(
+            "Provide exception or exception_type, not both."
+        )
+    normalized_exception_type = (
+        _safe_exception_type(exception)
+        if exception_type is None
+        else _validated_exception_type(exception_type)
+    )
 
     if path is not None and workspace_root is None:
         raise DiagnosticEventValidationError(
@@ -457,7 +472,7 @@ def build_diagnostic_event(
         code=code,
         class_id=normalized_class,
         assignment_id=normalized_assignment,
-        exception_type=_safe_exception_type(exception),
+        exception_type=normalized_exception_type,
         safe_summary=safe_summary,
         path_context=path_context,
     )
@@ -696,6 +711,7 @@ def try_emit_diagnostic_event(
     class_id: str | None = None,
     assignment_id: str | None = None,
     exception: BaseException | None = None,
+    exception_type: str | None = None,
     path: str | Path | None = None,
 ) -> DiagnosticEventAttempt:
     """Build and persist one event without ever replacing the primary outcome."""
@@ -709,6 +725,7 @@ def try_emit_diagnostic_event(
             class_id=class_id,
             assignment_id=assignment_id,
             exception=exception,
+            exception_type=exception_type,
             workspace_root=workspace_root if path is not None else None,
             path=path,
         )
@@ -1288,6 +1305,14 @@ def _safe_exception_type(error: BaseException | None) -> str | None:
     if _EXCEPTION_TYPE_RE.fullmatch(name) is None:
         return None
     return name
+
+
+def _validated_exception_type(value: object) -> str:
+    if type(value) is not str or _EXCEPTION_TYPE_RE.fullmatch(value) is None:
+        raise DiagnosticEventValidationError(
+            "exception_type must be a bounded exception class name."
+        )
+    return value
 
 
 def _optional_identifier(value: str | None, field: str) -> str | None:
