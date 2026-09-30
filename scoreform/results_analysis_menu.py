@@ -246,3 +246,126 @@ def launch_student_detail_menu(
             print(f"Invalid selection: {choice}.")
             print_invalid_navigation()
             input_fn("Press Enter to continue...")
+def _select_question(
+    analysis,
+    *,
+    clear_screen_fn: UiCallback,
+    input_fn: InputCallback,
+) -> int | None:
+    from scoreform.results_viewer import format_question_analysis_table
+
+    while True:
+        clear_screen_fn()
+        print(format_question_analysis_table(analysis))
+        print()
+        print("Select a question for response distribution.")
+        print_scoreform_navigation_options()
+        print()
+
+        choice = input_fn("Question number: ").strip()
+        navigation = parse_scoreform_navigation(choice)
+        if navigation is NavigationChoice.BACK:
+            return None
+        if choice.isdigit():
+            question_number = int(choice)
+            if 1 <= question_number <= len(analysis.questions):
+                return question_number
+
+        print(f"Invalid selection: {choice}.")
+        print_invalid_navigation()
+        input_fn("Press Enter to continue...")
+
+
+def launch_question_analysis_menu(
+    rows: Sequence[ScoreFormRoutedResultHistoryRow],
+    assignment: Mapping[str, object],
+    *,
+    class_id: str,
+    clear_screen_fn: UiCallback,
+    input_fn: InputCallback = input,
+) -> int:
+    """Inspect class-level item analysis using recent display attempts."""
+    from scoreform.results_analysis import analyze_class_results
+    from scoreform.results_viewer import format_question_response_distribution
+
+    analysis = analyze_class_results(rows, assignment, class_id=class_id)
+
+    while True:
+        question_number = _select_question(
+            analysis,
+            clear_screen_fn=clear_screen_fn,
+            input_fn=input_fn,
+        )
+        if question_number is None:
+            return 0
+
+        clear_screen_fn()
+        print(format_question_response_distribution(analysis, question_number))
+        print()
+        input_fn("Press Enter to return to Question Analysis...")
+
+
+def _select_class_standard(
+    analysis,
+    *,
+    clear_screen_fn: UiCallback,
+    input_fn: InputCallback,
+) -> str | None:
+    from scoreform.results_viewer import format_class_standards_analysis
+
+    if not analysis.standards:
+        clear_screen_fn()
+        print(format_class_standards_analysis(analysis))
+        print()
+        input_fn("Press Enter to return...")
+        return None
+
+    while True:
+        clear_screen_fn()
+        print(format_class_standards_analysis(analysis))
+        print()
+        print("Select a Standard for contributing-question detail.")
+        print_scoreform_navigation_options()
+        print()
+
+        choice = input_fn("Select Standard: ").strip()
+        navigation = parse_scoreform_navigation(choice)
+        if navigation is NavigationChoice.BACK:
+            return None
+        if choice.isdigit():
+            index = int(choice)
+            if 1 <= index <= len(analysis.standards):
+                return analysis.standards[index - 1].standard_id
+
+        print(f"Invalid selection: {choice}.")
+        print_invalid_navigation()
+        input_fn("Press Enter to continue...")
+
+
+def launch_class_standards_analysis_menu(
+    rows: Sequence[ScoreFormRoutedResultHistoryRow],
+    assignment: Mapping[str, object],
+    *,
+    class_id: str,
+    clear_screen_fn: UiCallback,
+    input_fn: InputCallback = input,
+) -> int:
+    """Inspect descriptive class Standard counts and contributing questions."""
+    from scoreform.results_analysis import analyze_class_results
+    from scoreform.results_viewer import format_class_standard_detail
+
+    analysis = analyze_class_results(rows, assignment, class_id=class_id)
+
+    while True:
+        standard_id = _select_class_standard(
+            analysis,
+            clear_screen_fn=clear_screen_fn,
+            input_fn=input_fn,
+        )
+        if standard_id is None:
+            return 0
+
+        clear_screen_fn()
+        print(format_class_standard_detail(analysis, standard_id))
+        print()
+        input_fn("Press Enter to return to Standards Analysis...")

@@ -243,3 +243,193 @@ def format_student_standard_detail(analysis, standard_id):
             ),
         ]
     )
+def format_question_analysis_table(analysis):
+    """Format class-level question counts from one immutable analysis snapshot."""
+    from scoreform.results_analysis import ClassResultsAnalysis
+
+    if not isinstance(analysis, ClassResultsAnalysis):
+        raise ResultsViewError("Question analysis requires a validated class model.")
+
+    rows = [
+        (
+            f"Q{question.question_number}",
+            str(question.correct),
+            str(question.incorrect),
+            str(question.blank),
+            str(question.ambiguous),
+            str(question.total),
+            _format_percent(question.percent_correct),
+        )
+        for question in analysis.questions
+    ]
+    return "\n".join(
+        [
+            "Question Analysis",
+            "",
+            f"Students represented: {analysis.students_represented}",
+            f"Basis: {analysis.attempt_basis}.",
+            "",
+            _analysis_table(
+                (
+                    "Question",
+                    "Correct",
+                    "Incorrect",
+                    "Blank",
+                    "Ambiguous",
+                    "Total",
+                    "% Correct",
+                ),
+                rows,
+            ),
+        ]
+    )
+
+
+def format_question_response_distribution(analysis, question_number):
+    """Format one question's complete response distribution."""
+    from scoreform.results_analysis import ClassResultsAnalysis
+
+    if not isinstance(analysis, ClassResultsAnalysis):
+        raise ResultsViewError(
+            "Question distribution requires a validated class model."
+        )
+    if (
+        isinstance(question_number, bool)
+        or not isinstance(question_number, int)
+        or not 1 <= question_number <= len(analysis.questions)
+    ):
+        raise ResultsViewError("question_number is outside the assignment range.")
+
+    question = analysis.questions[question_number - 1]
+    rows = [
+        (
+            item.response,
+            str(item.count),
+            "Yes" if item.is_keyed_answer else "",
+        )
+        for item in question.response_distribution
+    ]
+
+    return "\n".join(
+        [
+            f"Q{question.question_number}",
+            f"Correct answer: {question.keyed_answer}",
+            "",
+            _analysis_table(("Response", "Count", "Key"), rows),
+            "",
+            (
+                f"Correct: {question.correct} / {question.total} "
+                f"({_format_percent(question.percent_correct)})"
+            ),
+            f"Basis: {analysis.attempt_basis}.",
+        ]
+    )
+
+
+def format_class_standards_analysis(analysis):
+    """Format descriptive class-level counts by current assignment Standard."""
+    from scoreform.results_analysis import ClassResultsAnalysis
+
+    if not isinstance(analysis, ClassResultsAnalysis):
+        raise ResultsViewError("Standards analysis requires a validated class model.")
+
+    lines = [
+        "Standards Analysis",
+        "",
+        f"Students represented: {analysis.students_represented}",
+        f"Basis: {analysis.attempt_basis}.",
+        f"Standards basis: {analysis.standards_basis}.",
+        "",
+    ]
+
+    rows = [
+        (
+            str(index),
+            standard.standard_id,
+            str(standard.correct),
+            str(standard.responses),
+            _format_percent(standard.percent_correct),
+        )
+        for index, standard in enumerate(analysis.standards, start=1)
+    ]
+    if rows:
+        lines.append(
+            _analysis_table(
+                ("#", "Standard", "Correct", "Responses", "Percent"),
+                rows,
+            )
+        )
+    else:
+        lines.append("No Standards are aligned to this assignment.")
+
+    if analysis.unaligned.responses:
+        lines.extend(
+            [
+                "",
+                (
+                    "Unaligned: "
+                    f"{analysis.unaligned.correct} / {analysis.unaligned.responses} "
+                    f"({_format_percent(analysis.unaligned.percent_correct)})"
+                ),
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            (
+                "These are descriptive response counts, not proficiency or "
+                "Grade determinations."
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def format_class_standard_detail(analysis, standard_id):
+    """Format exact assignment questions contributing to one class Standard."""
+    from scoreform.results_analysis import ClassResultsAnalysis
+
+    if not isinstance(analysis, ClassResultsAnalysis):
+        raise ResultsViewError(
+            "Class Standard detail requires a validated class model."
+        )
+    if not isinstance(standard_id, str) or not standard_id:
+        raise ResultsViewError("standard_id must be a nonempty string.")
+
+    standard = next(
+        (item for item in analysis.standards if item.standard_id == standard_id),
+        None,
+    )
+    if standard is None:
+        raise ResultsViewError(
+            f"Standard {standard_id!r} does not contribute to this analysis."
+        )
+
+    question_lookup = {item.question_number: item for item in analysis.questions}
+    rows = [
+        (
+            f"Q{number}",
+            str(question_lookup[number].correct),
+            str(question_lookup[number].total),
+            _format_percent(question_lookup[number].percent_correct),
+        )
+        for number in standard.question_numbers
+    ]
+
+    return "\n".join(
+        [
+            f"Standard: {standard.standard_id}",
+            (
+                f"Correct responses: {standard.correct} / {standard.responses} "
+                f"({_format_percent(standard.percent_correct)})"
+            ),
+            f"Standards basis: {analysis.standards_basis}.",
+            f"Basis: {analysis.attempt_basis}.",
+            "",
+            _analysis_table(
+                ("Question", "Correct", "Responses", "% Correct"),
+                rows,
+            ),
+        ]
+    )

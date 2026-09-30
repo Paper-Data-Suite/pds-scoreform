@@ -1026,6 +1026,8 @@ def launch_view_assignment_results_menu(context_session=None):
         print(format_assignment_results_table(summary_rows))
         print()
         print("1. Student Detail")
+        print("2. Question Analysis")
+        print("3. Standards Analysis")
         print_scoreform_navigation_options()
         print()
 
@@ -1033,16 +1035,35 @@ def launch_view_assignment_results_menu(context_session=None):
         navigation = parse_scoreform_navigation(choice)
         if navigation is NavigationChoice.BACK:
             return 0
-        if choice == "1":
-            from scoreform.results_analysis_menu import launch_student_detail_menu
+        if choice in {"1", "2", "3"}:
+            from scoreform.results_analysis_menu import (
+                launch_class_standards_analysis_menu,
+                launch_question_analysis_menu,
+                launch_student_detail_menu,
+            )
 
             try:
-                launch_student_detail_menu(
-                    rows,
-                    assignment,
-                    class_id=class_id,
-                    clear_screen_fn=clear_screen,
-                )
+                if choice == "1":
+                    launch_student_detail_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
+                elif choice == "2":
+                    launch_question_analysis_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
+                else:
+                    launch_class_standards_analysis_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
             except ResultsAnalysisError as error:
                 print(f"Error: Could not analyze assignment results: {error}")
                 print()
