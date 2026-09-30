@@ -289,3 +289,87 @@ The owner-operated observation confirms that the committed candidate:
 The automated harness continues to report `physical_acceptance: not_claimed`
 by design. This section records the separate human-operated physical
 observation.
+
+### Supplemental realistic long-name physical replay
+
+After the initial owner-operated physical acceptance, the exact same scanned
+paper bytes were replayed under a more realistic long intake filename:
+
+```text
+issue216_physical_regression_realistic_school_scan_for_diagnostics.pdf
+```
+
+Measured path pressure:
+
+```text
+source filename length: 70
+input path length: 202
+retained PDF path length: 252
+```
+
+The retained PDS2 workflow still completed successfully:
+
+```text
+Batch status: complete_success
+Source pages discovered: 1
+Pages with decoded QR text: 1
+Valid PDS2 locators: 1
+Dispatch successes: 1
+Dispatch failures: 0
+Pre-dispatch failures: 0
+Application integration failures: 0
+ScoreForm pages scored: 1
+Completed attempts: 1
+Assembly failures: 0
+Invalid page observations: 0
+Export failures: 0
+```
+
+Physical OMR again produced:
+
+```text
+Page 1 Final Score: 1/1
+Q1: A (Correct)
+```
+
+Because the scan bytes were identical to the earlier accepted physical scan,
+the routed-result idempotency boundary behaved correctly:
+
+```text
+Attempts appended: 0
+Attempts already present: 1
+```
+
+The create-only diagnostic writer also exercised its collision suffix behavior
+without replacing the earlier physical artifacts:
+
+```text
+sfdiag_corners_ac512b96e65b802d991d.png
+full path length: 243
+
+sfdiag_corners_ac512b96e65b802d991d_02.png
+full path length: 246
+
+sfdiag_warped_d5cc4b18967b73d18608.png
+full path length: 242
+
+sfdiag_warped_d5cc4b18967b73d18608_02.png
+full path length: 245
+```
+
+The only Scan Review record remained the earlier, separate pre-dispatch
+281-character retained-PDF page-count failure. No new review item was created
+by this successful realistic-name replay, and no diagnostic-persistence failure
+entered Scan Review.
+
+Repository text and compatibility verification after the replay also passed:
+
+```text
+Tracked release text is strict UTF-8 with no known mojibake markers.
+ScoreForm v0.11.0 release compatibility passed.
+```
+
+This supplemental replay strengthens the #216 physical acceptance by proving
+the bounded diagnostic path under a deep workspace and realistic source-name
+pressure while simultaneously exercising result idempotency and create-only
+diagnostic collision handling.
