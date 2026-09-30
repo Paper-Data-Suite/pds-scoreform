@@ -14,7 +14,20 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
-No changes yet.
+### Added
+
+* Added privacy-bounded diagnostic-persistence warning events, guided aggregate
+  reporting, and isolated installed-wheel qualification for ScoreForm scoring
+  diagnostics.
+
+### Fixed
+
+* Made optional scoring diagnostic artifacts non-authoritative: diagnostic
+  filenames are bounded and opaque, diagnostic PNGs are encoded before
+  ScoreForm-owned create-only persistence, and diagnostic write failures no
+  longer invalidate otherwise valid routed page scoring or replace substantive
+  OMR failure categories.
+
 
 ## [v0.11.0] - 2026-08-27
 

@@ -283,3 +283,54 @@ jobs:
           --work "${{ runner.temp }}/scoreform-v011-combined"
           --core-wheel "${{ runner.temp }}/pds_core-0.6.3-py3-none-any.whl"
           --expected-core-version 0.6.3
+
+  issue216-wheel-qualification:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install issue 216 qualification harness dependency
+        run: python -m pip install build
+
+      - name: Download authenticated released Core 0.6.3
+        shell: python
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          from urllib.request import urlretrieve
+
+          filename = "pds_core-0.6.3-py3-none-any.whl"
+          url = (
+              "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
+              f"v0.6.3/{filename}"
+          )
+          destination = Path(os.environ["RUNNER_TEMP"]) / filename
+          urlretrieve(url, destination)
+          actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+          expected = "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+          if actual != expected:
+              raise SystemExit(f"Core 0.6.3 wheel SHA-256 mismatch: {actual}")
+
+      - name: Qualify issue 216 installed ScoreForm wheel
+        run: >-
+          python scripts/run_issue216_wheel_acceptance.py
+          --repository .
+          --work "${{ runner.temp }}/scoreform-issue216"
+          --core-wheel "${{ runner.temp }}/pds_core-0.6.3-py3-none-any.whl"
+          --expected-core-version 0.6.3
