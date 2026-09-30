@@ -1,14 +1,11 @@
 """Read-only helpers for displaying strict schema-v2 assignment results."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 from scoreform.module_errors import ScoreFormRoutedResultReadError
-from scoreform.results import (
-    ScoreFormRoutedResultHistoryRow,
-    load_routed_results_history,
-)
+from scoreform.results import load_routed_results_history
+from scoreform.results_analysis import select_recent_display_attempts
 
 MULTIPLE_ATTEMPTS_NOTE = (
     "Note: Recent shows the most recent scored attempt. Attempts shows how many "
@@ -42,32 +39,23 @@ def load_assignment_results(results_csv_path):
 
 
 def summarize_assignment_results(rows):
-    """Return one display summary per student using the latest aware timestamp."""
-    grouped: dict[str, list[ScoreFormRoutedResultHistoryRow]] = {}
-    for row in rows:
-        if not isinstance(row, ScoreFormRoutedResultHistoryRow):
-            raise ResultsViewError("Results must come from the strict history loader.")
-        grouped.setdefault(row.result.student_id, []).append(row)
+    """Return one display summary per student using the shared display-attempt rule."""
+    try:
+        selections = select_recent_display_attempts(rows)
+    except (TypeError, ValueError) as error:
+        raise ResultsViewError(str(error)) from error
 
     summaries = []
-    for student_id in sorted(grouped, key=str.lower):
-        attempts = grouped[student_id]
-        recent = max(
-            attempts,
-            key=lambda row: (
-                datetime.fromisoformat(row.scan_timestamp),
-                row.attempt_number,
-            ),
-        )
-        result = recent.result
+    for selection in selections:
+        result = selection.row.result
         name = ", ".join(part for part in (result.last_name, result.first_name) if part)
         summaries.append(
             AssignmentResultSummary(
-                student_id=student_id,
+                student_id=selection.student_id,
                 name=name,
                 recent=str(result.score),
                 total=str(result.total_points),
-                attempts=len(attempts),
+                attempts=selection.attempt_count,
             )
         )
     return summaries
