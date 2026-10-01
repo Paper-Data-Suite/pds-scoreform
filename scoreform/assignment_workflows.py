@@ -1028,6 +1028,7 @@ def launch_view_assignment_results_menu(context_session=None):
         print("1. Student Detail")
         print("2. Question Analysis")
         print("3. Standards Analysis")
+        print("4. Export Results Report")
         print_scoreform_navigation_options()
         print()
 
@@ -1068,6 +1069,21 @@ def launch_view_assignment_results_menu(context_session=None):
                 print(f"Error: Could not analyze assignment results: {error}")
                 print()
                 pause_for_user()
+            continue
+
+        if choice == "4":
+            from scoreform.results_report_workflow import (
+                launch_results_export_menu,
+            )
+
+            launch_results_export_menu(
+                rows,
+                assignment,
+                class_id=class_id,
+                assignment_id=assignment_id,
+                workspace_root=workspace.get_scoreform_workspace_root(),
+                clear_screen_fn=clear_screen,
+            )
             continue
 
         print(f"Invalid selection: {choice}.")
