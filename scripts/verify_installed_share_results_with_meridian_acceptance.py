@@ -217,8 +217,8 @@ def _verify_installed_provenance(
         "PDS Core module/distribution versions disagree.",
     )
     _require(
-        expected_core_version == "0.6.3",
-        "SF-AC10/SF-AC11 must qualify the current Core 0.6.3 reference release.",
+        expected_core_version == "0.6.4",
+        "SF-AC10/SF-AC11 must qualify the current Core 0.6.4 reference release.",
     )
     requirements = tuple(Requirement(item) for item in (metadata.requires("scoreform") or ()))
     core_requirements = tuple(
@@ -226,8 +226,8 @@ def _verify_installed_provenance(
     )
     _require(
         len(core_requirements) == 1
-        and core_requirements[0].specifier == SpecifierSet(">=0.6.2,<0.7"),
-        "ScoreForm Core compatibility metadata must remain pds-core>=0.6.2,<0.7.",
+        and core_requirements[0].specifier == SpecifierSet(">=0.6.4,<0.7"),
+        "ScoreForm Core compatibility metadata must remain pds-core>=0.6.4,<0.7.",
     )
     for module_name in (
         "scoreform",

@@ -20,6 +20,15 @@ GitHub milestones are project-management buckets. Package versions describe inst
   reporting, and isolated installed-wheel qualification for ScoreForm scoring
   diagnostics.
 
+### Changed
+
+* Raised the active Core dependency floor to `pds-core>=0.6.4,<0.7` because
+  ScoreForm's next release relies on Core v0.6.4's bounded retained-source
+  writer. Routine CI, Release Readiness, installed acceptance, and the local
+  authoritative release gate now qualify against the exact published Core
+  v0.6.4 wheel (`SHA-256: 48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b`) rather than Core v0.6.2/v0.6.3
+  endpoints or a locally rebuilt sibling Core wheel.
+
 ### Fixed
 
 * Made optional scoring diagnostic artifacts non-authoritative: diagnostic

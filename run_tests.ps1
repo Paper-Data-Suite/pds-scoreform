@@ -623,51 +623,43 @@ Invoke-Step "Validate release artifact names, metadata, and contents" {
     & $Python scripts\verify_release_artifacts.py --version 0.11.0 --dist .\dist
 }
 $CoreWheelRoot = $null
-$CoreExportRoot = $null
 $CoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
 $SavedCoreWheel = $env:PDS_CORE_WHEEL
+$ExpectedCoreWheelHash = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
 try {
     if (-not $CoreWheelWasSet) {
-        $CoreSource = Join-Path (Split-Path -Parent $RepoRoot) "pds-core"
-        if (-not (Test-Path -LiteralPath (Join-Path $CoreSource ".git") -PathType Container)) {
-            throw "Core v0.6.3 tag cannot be exported; set PDS_CORE_WHEEL to the released pds-core 0.6.3 wheel."
-        }
         $CoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
             "scoreform-core-wheel-" + [guid]::NewGuid().ToString("N")
         )
-        $CoreExportRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
-            "scoreform-core-export-" + [guid]::NewGuid().ToString("N")
-        )
         New-Item -ItemType Directory -Path $CoreWheelRoot | Out-Null
-        New-Item -ItemType Directory -Path $CoreExportRoot | Out-Null
-        $CoreArchive = Join-Path $CoreExportRoot "pds-core-v0.6.3.zip"
-        $CoreExport = Join-Path $CoreExportRoot "source"
-        Invoke-Step "Export exact pds-core v0.6.3 tag" {
-            git -c "safe.directory=$($CoreSource.Replace('\', '/'))" -C $CoreSource `
-                archive --format=zip --output=$CoreArchive v0.6.3
+        $CoreWheelPath = Join-Path $CoreWheelRoot "pds_core-0.6.4-py3-none-any.whl"
+        $CoreWheelUrl = (
+            "https://github.com/Paper-Data-Suite/pds-core/releases/download/" +
+            "v0.6.4/pds_core-0.6.4-py3-none-any.whl"
+        )
+        Invoke-Step "Download released pds-core 0.6.4 wheel" {
+            Invoke-WebRequest -Uri $CoreWheelUrl -OutFile $CoreWheelPath -ErrorAction Stop
         }
-        Expand-Archive -LiteralPath $CoreArchive -DestinationPath $CoreExport
-        Invoke-Step "Build separate pds-core 0.6.3 test wheel" {
-            $SavedErrorActionPreference = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            $CoreBuildOutput = & $Python -m build --wheel --outdir $CoreWheelRoot $CoreExport 2>&1
-            $CoreBuildExitCode = $LASTEXITCODE
-            $ErrorActionPreference = $SavedErrorActionPreference
-            $CoreBuildOutput | ForEach-Object { Write-Host $_ }
-            if ($CoreBuildExitCode -ne 0) { exit $CoreBuildExitCode }
-        }
-        $CoreWheels = @(Get-ChildItem -LiteralPath $CoreWheelRoot -Filter "pds_core-0.6.3-*.whl" -File)
-        if ($CoreWheels.Count -ne 1) {
-            throw "Expected exactly one pds_core-0.6.3-*.whl from the v0.6.3 export."
-        }
-        $env:PDS_CORE_WHEEL = $CoreWheels[0].FullName
+        $env:PDS_CORE_WHEEL = $CoreWheelPath
     }
-    Invoke-Step "Validate exact pds-core 0.6.3 reference wheel" {
-        & $Python scripts\verify_core_wheel.py $env:PDS_CORE_WHEEL
+
+    $ResolvedCoreWheel = [System.IO.Path]::GetFullPath($env:PDS_CORE_WHEEL)
+    if (-not (Test-Path -LiteralPath $ResolvedCoreWheel -PathType Leaf)) {
+        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.4 wheel."
+    }
+    $ActualCoreWheelHash = (
+        Get-FileHash -Algorithm SHA256 -LiteralPath $ResolvedCoreWheel
+    ).Hash.ToLowerInvariant()
+    if ($ActualCoreWheelHash -ne $ExpectedCoreWheelHash) {
+        throw "Released Core 0.6.4 wheel SHA-256 mismatch: $ActualCoreWheelHash"
+    }
+
+    Invoke-Step "Validate exact released pds-core 0.6.4 reference wheel" {
+        & $Python scripts\verify_core_wheel.py $ResolvedCoreWheel
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
-            -Python $Python -Version 0.11.0
+            -Python $Python -Version 0.11.0 -ExpectedCoreVersion 0.6.4
     }
 
     $CombinedAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
@@ -678,8 +670,8 @@ try {
             & $Python scripts\run_v011_combined_wheel_acceptance.py `
                 --repository $RepoRoot `
                 --work $CombinedAcceptanceRoot `
-                --core-wheel $env:PDS_CORE_WHEEL `
-                --expected-core-version 0.6.3
+                --core-wheel $ResolvedCoreWheel `
+                --expected-core-version 0.6.4
         }
     }
     finally {
@@ -715,25 +707,21 @@ finally {
     }
     if ($null -ne $CoreWheelRoot -and (Test-Path -LiteralPath $CoreWheelRoot)) {
         $ResolvedCoreWheelRoot = [System.IO.Path]::GetFullPath($CoreWheelRoot)
-        $ResolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        $ResolvedTempRoot = [System.IO.Path]::GetFullPath(
+            [System.IO.Path]::GetTempPath()
+        )
         if (
-            -not $ResolvedCoreWheelRoot.StartsWith($ResolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
-            -not (Split-Path -Leaf $ResolvedCoreWheelRoot).StartsWith("scoreform-core-wheel-")
+            -not $ResolvedCoreWheelRoot.StartsWith(
+                $ResolvedTempRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            -not (Split-Path -Leaf $ResolvedCoreWheelRoot).StartsWith(
+                "scoreform-core-wheel-"
+            )
         ) {
             throw "Refusing to remove unexpected Core-wheel root: $ResolvedCoreWheelRoot"
         }
         Remove-Item -LiteralPath $ResolvedCoreWheelRoot -Recurse -Force
-    }
-    if ($null -ne $CoreExportRoot -and (Test-Path -LiteralPath $CoreExportRoot)) {
-        $ResolvedCoreExportRoot = [System.IO.Path]::GetFullPath($CoreExportRoot)
-        $ResolvedTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-        if (
-            -not $ResolvedCoreExportRoot.StartsWith($ResolvedTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
-            -not (Split-Path -Leaf $ResolvedCoreExportRoot).StartsWith("scoreform-core-export-")
-        ) {
-            throw "Refusing to remove unexpected Core-export root: $ResolvedCoreExportRoot"
-        }
-        Remove-Item -LiteralPath $ResolvedCoreExportRoot -Recurse -Force
     }
 }
 Invoke-Step "Verify exact CLI version output" {

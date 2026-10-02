@@ -1,4 +1,4 @@
-"""Verify the ScoreForm v0.11.0 release compatibility boundary."""
+"""Verify the active ScoreForm release compatibility boundary."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from scoreform.publication_revision_policy import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RELEASE_VERSION = "0.11.0"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
@@ -177,7 +177,7 @@ def validate_core_dependency() -> None:
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ReleaseCompatibilityError(
-            "ScoreForm must require exactly pds-core>=0.6.2,<0.7"
+            "ScoreForm must require exactly pds-core>=0.6.4,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
@@ -350,8 +350,8 @@ def main() -> int:
         return 1
 
     print(
-        "ScoreForm v0.11.0 release compatibility passed: "
-        "Core >=0.6.2,<0.7; producer/operations profiles exact; reader "
+        "ScoreForm active release compatibility passed: "
+        "Core >=0.6.4,<0.7; producer/operations profiles exact; reader "
         "policy-neutral; sibling runtime imports absent; historical v0.10.0 "
         "release evidence preserved."
     )

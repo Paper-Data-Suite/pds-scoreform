@@ -88,10 +88,10 @@ def test_combined_acceptance_does_not_delegate_to_focused_verifiers() -> None:
 
 
 def test_combined_runner_authenticates_exact_core_063() -> None:
-    assert CORE_VERSION == "0.6.3"
+    assert CORE_VERSION == "0.6.4"
     assert (
         CORE_WHEEL_SHA256
-        == "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+        == "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
     )
 
 

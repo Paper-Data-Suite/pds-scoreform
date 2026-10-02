@@ -220,8 +220,8 @@ def _load_operations_profile(
     )
     _require(
         len(core) == 1
-        and core[0].specifier == SpecifierSet(">=0.6.2,<0.7"),
-        "installed ScoreForm must declare pds-core>=0.6.2,<0.7.",
+        and core[0].specifier == SpecifierSet(">=0.6.4,<0.7"),
+        "installed ScoreForm must declare pds-core>=0.6.4,<0.7.",
     )
 
     for module_name in (

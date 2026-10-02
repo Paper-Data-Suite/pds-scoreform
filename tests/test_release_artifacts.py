@@ -27,7 +27,7 @@ def _package_metadata(
     name: str = "scoreform",
     version: str = "0.11.0",
     requires_python: str | None = ">=3.11",
-    core_requirements: tuple[str, ...] = ("pds-core>=0.6.2,<0.7",),
+    core_requirements: tuple[str, ...] = ("pds-core>=0.6.4,<0.7",),
 ) -> str:
     lines = ["Metadata-Version: 2.4", f"Name: {name}", f"Version: {version}"]
     if requires_python is not None:
@@ -213,28 +213,28 @@ def test_release_sdist_archive_rejects_links(tmp_path: Path, link_type):
         validate_sdist(sdist, "0.11.0")
 
 
-@pytest.mark.parametrize("version", ["0.6.2", "0.6.3", "0.6.9"])
+@pytest.mark.parametrize("version", ["0.6.4", "0.6.5", "0.6.9"])
 def test_core_release_specifier_accepts_compatible_versions(version):
     assert core_version_is_supported(version)
 
 
 @pytest.mark.parametrize(
-    "version", ["0.5.9", "0.6.0", "0.6.1", "0.7.0", "0.6.2a1"]
+    "version", ["0.5.9", "0.6.2", "0.6.3", "0.7.0", "0.6.4a1"]
 )
 def test_core_release_specifier_rejects_incompatible_versions(version):
     assert not core_version_is_supported(version)
 
 
 def test_core_runtime_versions_accept_exact_baseline():
-    validate_core_runtime_versions("0.6.2", "0.6.2", "0.6.2")
+    validate_core_runtime_versions("0.6.4", "0.6.4", "0.6.4")
 
 
 @pytest.mark.parametrize(
     ("distribution", "module", "expected", "message"),
     [
         ("0.5.9", "0.5.9", None, "does not satisfy"),
-        ("0.6.2", "0.6.3", None, "disagree"),
-        ("0.6.3", "0.6.3", "0.6.2", "expected baseline"),
+        ("0.6.4", "0.6.5", None, "disagree"),
+        ("0.6.5", "0.6.5", "0.6.4", "expected baseline"),
     ],
 )
 def test_core_runtime_versions_reject_incompatible_or_mismatched_values(
@@ -247,7 +247,7 @@ def test_core_runtime_versions_reject_incompatible_or_mismatched_values(
 @pytest.mark.parametrize("label", ["wheel METADATA", "sdist PKG-INFO"])
 def test_correct_artifact_metadata_is_accepted(label):
     validate_package_metadata(
-        _package_metadata(core_requirements=("pds-core <0.7, >=0.6.2",)),
+        _package_metadata(core_requirements=("pds-core <0.7, >=0.6.4",)),
         "0.11.0",
         label,
     )
@@ -259,7 +259,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         (_package_metadata(core_requirements=()), "exactly one pds-core"),
         (
             _package_metadata(core_requirements=("pds-core>=0.6",)),
-            "exactly >=0.6.2,<0.7",
+            "exactly >=0.6.4,<0.7",
         ),
         (
             _package_metadata(
@@ -270,7 +270,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         (
             _package_metadata(
                 core_requirements=(
-                    "pds-core>=0.6.2,<0.7; python_version < '3.12'",
+                    "pds-core>=0.6.4,<0.7; python_version < '3.12'",
                 )
             ),
             "must not use an environment marker",
@@ -281,7 +281,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         ),
         (
             _package_metadata(
-                core_requirements=("pds-core>=0.6.2,<0.7", "pds-core>=0.6.2,<0.7")
+                core_requirements=("pds-core>=0.6.4,<0.7", "pds-core>=0.6.4,<0.7")
             ),
             "exactly one pds-core",
         ),

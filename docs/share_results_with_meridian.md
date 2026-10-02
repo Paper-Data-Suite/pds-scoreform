@@ -77,11 +77,11 @@ Issue #191 originally retained the broader Core 0.6 range. Issue #193 later rais
 
 ```text
 Python >=3.11
-pds-core>=0.6.2,<0.7
+pds-core>=0.6.4,<0.7
 ScoreForm package version 0.10.0 during development
 ```
 
-The current release-qualification reference remains `pds-core 0.6.3`; that does not raise ScoreForm's dependency floor to `pds-core>=0.6.3`. Core 0.6.2 is the minimum release that supplies the module-operations contract now exposed by ScoreForm.
+The current release-qualification reference remains `pds-core 0.6.4`; that does not raise ScoreForm's dependency floor to `pds-core>=0.6.4`. Core 0.6.2 is the minimum release that supplies the module-operations contract now exposed by ScoreForm.
 
 Clean installed acceptance qualifies both ordinary paths:
 
