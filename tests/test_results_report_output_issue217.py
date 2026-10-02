@@ -103,13 +103,14 @@ def test_destination_is_assignment_local_privacy_minimized_and_zero_write(tmp_pa
         class_id="class1",
         assignment_id="quiz1",
         snapshot=snapshot,
+        output_format="json",
     )
 
     after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
     assert after == before
     assert destination.workspace_relative_dir.as_posix() == (
         "classes/class1/modules/scoreform/work/quiz1/exports/"
-        "results_analysis/class_analysis_20260930T233000Z"
+        "results_analysis/class_analysis_json_20260930T233000Z"
     )
     assert "Doe" not in destination.workspace_relative_dir.as_posix()
     assert "Jane" not in destination.workspace_relative_dir.as_posix()
@@ -125,6 +126,7 @@ def test_install_is_create_only_and_changes_only_report_destination(tmp_path):
         class_id="class1",
         assignment_id="quiz1",
         snapshot=snapshot,
+        output_format="json",
     )
     rendered = render_results_report_json(confirmed)
 
@@ -147,6 +149,7 @@ def test_existing_report_directory_is_never_overwritten(tmp_path):
         class_id="class1",
         assignment_id="quiz1",
         snapshot=snapshot,
+        output_format="json",
     )
     destination.report_dir.mkdir(parents=True)
     sentinel = destination.report_dir / "existing.txt"
@@ -171,6 +174,7 @@ def test_planning_rejects_existing_destination_before_generation(tmp_path):
         class_id="class1",
         assignment_id="quiz1",
         snapshot=snapshot,
+        output_format="json",
     )
     first.report_dir.mkdir(parents=True)
 
@@ -183,6 +187,7 @@ def test_planning_rejects_existing_destination_before_generation(tmp_path):
             class_id="class1",
             assignment_id="quiz1",
             snapshot=snapshot,
+            output_format="json",
         )
 
 
@@ -196,6 +201,7 @@ def test_destination_rejects_snapshot_identity_mismatch(tmp_path):
             class_id="other",
             assignment_id="quiz1",
             snapshot=snapshot,
+            output_format="json",
         )
 
     with pytest.raises(ResultsReportOutputError, match="assignment does not match"):
@@ -204,4 +210,5 @@ def test_destination_rejects_snapshot_identity_mismatch(tmp_path):
             class_id="class1",
             assignment_id="other",
             snapshot=snapshot,
+            output_format="json",
         )

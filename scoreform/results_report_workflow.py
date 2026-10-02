@@ -268,6 +268,7 @@ def launch_results_export_menu(
             class_id=class_id,
             assignment_id=assignment_id,
             snapshot=snapshot,
+            output_format=plan.output_format,
         )
 
         clear_screen_fn()
