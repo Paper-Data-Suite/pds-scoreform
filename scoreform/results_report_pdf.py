@@ -32,7 +32,10 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
-from scoreform.results_standard_display import ResultsStandardsProjection
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 PDF_FILENAME = "results_analysis.pdf"
 PDF_MEDIA_TYPE = "application/pdf"
@@ -194,7 +197,10 @@ def _standards_table(
             _percent(standard.percent_correct),
             ", ".join(f"Q{number}" for number in standard.question_numbers),
         ]
-        for standard in standards
+        for standard in order_standard_items(
+            standards,
+            standard_display,
+        )
     )
     if len(data) == 1:
         data.append(["No aligned Standards", "", "", "", ""])

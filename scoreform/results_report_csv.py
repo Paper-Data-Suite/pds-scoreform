@@ -19,7 +19,10 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
-from scoreform.results_standard_display import ResultsStandardsProjection
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 
@@ -145,7 +148,7 @@ def _standards_rows(
             _percent(standard.percent_correct),
             _joined(standard.question_numbers),
         )
-        for standard in standards
+        for standard in order_standard_items(standards, standard_display)
     )
 
 

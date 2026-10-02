@@ -430,6 +430,7 @@ def prepare_class_analysis_snapshot(
     standards_projection = resolve_results_standards_projection(
         _report_standard_ids(assignment_snapshot),
         workspace_root=workspace_root,
+        standards_profile_id=assignment_snapshot.standards_profile_id,
     )
 
     return ResultsReportSnapshot(
@@ -496,6 +497,7 @@ def prepare_student_detail_snapshot(
     standards_projection = resolve_results_standards_projection(
         _report_standard_ids(assignment_snapshot),
         workspace_root=workspace_root,
+        standards_profile_id=assignment_snapshot.standards_profile_id,
     )
 
     return ResultsReportSnapshot(

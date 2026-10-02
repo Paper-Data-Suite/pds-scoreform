@@ -22,6 +22,7 @@ from scoreform.results_analysis import (
 )
 from scoreform.results_standard_display import (
     ResultsStandardsProjection,
+    order_standard_items,
     resolve_results_standards_projection,
 )
 from scoreform.results_viewer import (
@@ -32,6 +33,15 @@ from scoreform.workflows import print_menu_header
 
 UiCallback = Callable[[], None]
 InputCallback = Callable[[str], str]
+
+
+def _assignment_standards_profile_id(
+    assignment: Mapping[str, object],
+) -> str | None:
+    value = assignment.get("standards_profile_id")
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _select_student(
@@ -130,12 +140,16 @@ def _select_standard(
     if not analysis.standards:
         return None
 
+    display_standards = order_standard_items(
+        analysis.standards,
+        standard_display,
+    )
     while True:
         clear_screen_fn()
         print_menu_header("Student Standard Detail")
         print("Standards basis: current assignment alignment")
         print()
-        for index, standard in enumerate(analysis.standards, start=1):
+        for index, standard in enumerate(display_standards, start=1):
             percent = (
                 "—"
                 if standard.percent_correct is None
@@ -154,8 +168,8 @@ def _select_standard(
             return None
         if choice.isdigit():
             index = int(choice)
-            if 1 <= index <= len(analysis.standards):
-                return analysis.standards[index - 1].standard_id
+            if 1 <= index <= len(display_standards):
+                return display_standards[index - 1].standard_id
 
         print(f"Invalid selection: {choice}.")
         print_invalid_navigation()
@@ -199,6 +213,7 @@ def launch_student_detail_menu(
         standard_display = resolve_results_standards_projection(
             (item.standard_id for item in analysis.standards),
             workspace_root=workspace_root,
+            standards_profile_id=_assignment_standards_profile_id(assignment),
         )
 
         while True:
@@ -337,7 +352,11 @@ def _select_class_standard(
 ) -> str | None:
     from scoreform.results_viewer import format_class_standards_analysis
 
-    if not analysis.standards:
+    display_standards = order_standard_items(
+        analysis.standards,
+        standard_display,
+    )
+    if not display_standards:
         clear_screen_fn()
         print(
             format_class_standards_analysis(
@@ -368,8 +387,8 @@ def _select_class_standard(
             return None
         if choice.isdigit():
             index = int(choice)
-            if 1 <= index <= len(analysis.standards):
-                return analysis.standards[index - 1].standard_id
+            if 1 <= index <= len(display_standards):
+                return display_standards[index - 1].standard_id
 
         print(f"Invalid selection: {choice}.")
         print_invalid_navigation()
@@ -393,6 +412,7 @@ def launch_class_standards_analysis_menu(
     standard_display = resolve_results_standards_projection(
         (item.standard_id for item in analysis.standards),
         workspace_root=workspace_root,
+        standards_profile_id=_assignment_standards_profile_id(assignment),
     )
 
     while True:

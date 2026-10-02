@@ -19,7 +19,10 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
-from scoreform.results_standard_display import ResultsStandardsProjection
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 JSON_FILENAME = "results_analysis.json"
@@ -97,7 +100,10 @@ def _student_detail(
         ],
         "standards_analysis": [
             _standard(standard, standard_display)
-            for standard in detail.standards
+            for standard in order_standard_items(
+                detail.standards,
+                standard_display,
+            )
         ],
         "unaligned": _performance(detail.unaligned),
     }
@@ -183,7 +189,10 @@ def _payload(confirmed: ConfirmedResultsReportPlan) -> dict[str, Any]:
             ],
             "standards_analysis": [
                 _standard(standard, snapshot.standards_projection)
-                for standard in analysis.standards
+                for standard in order_standard_items(
+                    analysis.standards,
+                    snapshot.standards_projection,
+                )
             ],
             "unaligned": _performance(analysis.unaligned),
         }

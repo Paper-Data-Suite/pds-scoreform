@@ -6,7 +6,10 @@ from pathlib import Path
 from scoreform.module_errors import ScoreFormRoutedResultReadError
 from scoreform.results import load_routed_results_history
 from scoreform.results_analysis import select_recent_display_attempts
-from scoreform.results_standard_display import ResultsStandardsProjection
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 MULTIPLE_ATTEMPTS_NOTE = (
     "Note: Recent shows the most recent scored attempt. Attempts shows how many "
@@ -113,6 +116,19 @@ def _format_percent(value):
     return "—" if value is None else f"{value}%"
 
 
+def _standards_in_display_order(
+    standards,
+    standard_display,
+):
+    if standard_display is None:
+        return standards
+    if not isinstance(standard_display, ResultsStandardsProjection):
+        raise ResultsViewError(
+            "standard_display must be a ResultsStandardsProjection."
+        )
+    return order_standard_items(standards, standard_display)
+
+
 def _standard_display_label(
     standard_id,
     standard_display,
@@ -172,7 +188,10 @@ def format_student_attempt_detail(analysis, *, standard_display=None):
             str(item.responses),
             _format_percent(item.percent_correct),
         )
-        for item in analysis.standards
+        for item in _standards_in_display_order(
+            analysis.standards,
+            standard_display,
+        )
     ]
     if standard_rows:
         lines.append(
@@ -379,7 +398,13 @@ def format_class_standards_analysis(
             str(standard.responses),
             _format_percent(standard.percent_correct),
         )
-        for index, standard in enumerate(analysis.standards, start=1)
+        for index, standard in enumerate(
+            _standards_in_display_order(
+                analysis.standards,
+                standard_display,
+            ),
+            start=1,
+        )
     ]
     if rows:
         lines.append(
