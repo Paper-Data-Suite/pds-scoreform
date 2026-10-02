@@ -976,7 +976,11 @@ def _exercise_guided_success_and_idempotency(
 ) -> AssignmentContextSession:
     os.environ["PDS_WORKSPACE_ROOT"] = os.fspath(workspace)
     session = AssignmentContextSession()
-    status, output, prompts = _run_guided_scan(source_pdf, session, ["1", "b"])
+    status, output, prompts = _run_guided_scan(
+        source_pdf,
+        session,
+        ["1", "b", "b"],
+    )
     _require(status == 0, f"guided successful scan returned {status}.")
     expected_ref = AssignmentContextRef(COPY_CLASS_ID, COPY_ASSIGNMENT_ID)
     _require(session.active == expected_ref, "guided success did not activate exact context.")
@@ -1195,7 +1199,9 @@ def _exercise_failure_recovery(
 
     recovered_session = AssignmentContextSession()
     recovered_status, recovered_output, _ = _run_guided_scan(
-        source_pdf, recovered_session, ["1", "b"]
+        source_pdf,
+        recovered_session,
+        ["1", "b", "b"],
     )
     _require(recovered_status == 0, "complete rescan did not recover.")
     _require("Attempts recorded: 1" in recovered_output, "complete rescan recorded no attempt.")

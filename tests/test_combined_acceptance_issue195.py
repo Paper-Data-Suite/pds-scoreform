@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -121,18 +122,35 @@ def test_guided_acceptance_uses_core_navigation_token_for_optional_menu_exit() -
     source = Path(
         "scripts/verify_installed_v011_combined_acceptance.py"
     ).read_text(encoding="utf-8")
+    tree = ast.parse(source)
 
-    assert '_run_guided_scan(source_pdf, session, ["1", "b"])' in source
-    assert '_run_guided_scan(partial, failure_session, ["b"])' in source
-    assert 'partial-first-page.pdf' in source
-    assert 'def _first_page_pdf(' in source
-    assert 'dpi=250' in source
-    assert 'partial-first-page.png' not in source
-    assert 'source_pdf, recovered_session, ["1", "b"]' in source
-    assert '_run_guided_scan(source_pdf, session, ["1", "2"])' not in source
-    assert '_run_guided_scan(partial, failure_session, ["2"])' not in source
-    assert '["1", "back"]' not in source
-    assert '["back"]' not in source
+    guided_choices: list[tuple[str, ...]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Name) or node.func.id != "_run_guided_scan":
+            continue
+        if len(node.args) < 3 or not isinstance(node.args[2], ast.List):
+            continue
+        values = tuple(
+            element.value
+            for element in node.args[2].elts
+            if isinstance(element, ast.Constant)
+            and isinstance(element.value, str)
+        )
+        guided_choices.append(values)
+
+    assert guided_choices.count(("1", "b", "b")) == 2
+    assert guided_choices.count(("b",)) == 1
+    assert ("1", "2") not in guided_choices
+    assert ("2",) not in guided_choices
+    assert ("1", "back") not in guided_choices
+    assert ("back",) not in guided_choices
+
+    assert "partial-first-page.pdf" in source
+    assert "def _first_page_pdf(" in source
+    assert "dpi=250" in source
+    assert "partial-first-page.png" not in source
 
 
 
