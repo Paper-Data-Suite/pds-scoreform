@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 from pds_core.menu_navigation import NavigationChoice
 
@@ -18,6 +19,10 @@ from scoreform.results_analysis import (
     analyze_student_attempt,
     select_recent_display_attempts,
     select_student_attempts,
+)
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    resolve_results_standards_projection,
 )
 from scoreform.results_viewer import (
     format_student_attempt_detail,
@@ -118,6 +123,7 @@ def _select_attempt(
 def _select_standard(
     analysis: StudentAttemptAnalysis,
     *,
+    standard_display: ResultsStandardsProjection,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback,
 ) -> str | None:
@@ -136,7 +142,7 @@ def _select_standard(
                 else f"{standard.percent_correct}%"
             )
             print(
-                f"{index}. {standard.standard_id} - "
+                f"{index}. {standard_display.label_for(standard.standard_id)} - "
                 f"{standard.correct}/{standard.responses} ({percent})"
             )
         print_scoreform_navigation_options()
@@ -163,6 +169,7 @@ def launch_student_detail_menu(
     class_id: str,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback = input,
+    workspace_root: str | Path | None = None,
 ) -> int:
     """Inspect one student's exact preserved result attempts without writing state."""
     student_id = _select_student(
@@ -189,10 +196,19 @@ def launch_student_detail_menu(
             class_id=class_id,
             attempt_count=len(attempts),
         )
+        standard_display = resolve_results_standards_projection(
+            (item.standard_id for item in analysis.standards),
+            workspace_root=workspace_root,
+        )
 
         while True:
             clear_screen_fn()
-            print(format_student_attempt_detail(analysis))
+            print(
+                format_student_attempt_detail(
+                    analysis,
+                    standard_display=standard_display,
+                )
+            )
             print()
             print("1. View Standard Detail")
             if len(attempts) > 1:
@@ -215,13 +231,20 @@ def launch_student_detail_menu(
                     continue
                 standard_id = _select_standard(
                     analysis,
+                    standard_display=standard_display,
                     clear_screen_fn=clear_screen_fn,
                     input_fn=input_fn,
                 )
                 if standard_id is None:
                     continue
                 clear_screen_fn()
-                print(format_student_standard_detail(analysis, standard_id))
+                print(
+                    format_student_standard_detail(
+                        analysis,
+                        standard_id,
+                        standard_display=standard_display,
+                    )
+                )
                 print()
                 input_fn("Press Enter to return to Student Detail...")
                 continue
@@ -308,6 +331,7 @@ def launch_question_analysis_menu(
 def _select_class_standard(
     analysis,
     *,
+    standard_display: ResultsStandardsProjection,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback,
 ) -> str | None:
@@ -315,14 +339,24 @@ def _select_class_standard(
 
     if not analysis.standards:
         clear_screen_fn()
-        print(format_class_standards_analysis(analysis))
+        print(
+            format_class_standards_analysis(
+                analysis,
+                standard_display=standard_display,
+            )
+        )
         print()
         input_fn("Press Enter to return...")
         return None
 
     while True:
         clear_screen_fn()
-        print(format_class_standards_analysis(analysis))
+        print(
+            format_class_standards_analysis(
+                analysis,
+                standard_display=standard_display,
+            )
+        )
         print()
         print("Select a Standard for contributing-question detail.")
         print_scoreform_navigation_options()
@@ -349,16 +383,22 @@ def launch_class_standards_analysis_menu(
     class_id: str,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback = input,
+    workspace_root: str | Path | None = None,
 ) -> int:
     """Inspect descriptive class Standard counts and contributing questions."""
     from scoreform.results_analysis import analyze_class_results
     from scoreform.results_viewer import format_class_standard_detail
 
     analysis = analyze_class_results(rows, assignment, class_id=class_id)
+    standard_display = resolve_results_standards_projection(
+        (item.standard_id for item in analysis.standards),
+        workspace_root=workspace_root,
+    )
 
     while True:
         standard_id = _select_class_standard(
             analysis,
+            standard_display=standard_display,
             clear_screen_fn=clear_screen_fn,
             input_fn=input_fn,
         )
@@ -366,6 +406,12 @@ def launch_class_standards_analysis_menu(
             return 0
 
         clear_screen_fn()
-        print(format_class_standard_detail(analysis, standard_id))
+        print(
+            format_class_standard_detail(
+                analysis,
+                standard_id,
+                standard_display=standard_display,
+            )
+        )
         print()
         input_fn("Press Enter to return to Standards Analysis...")

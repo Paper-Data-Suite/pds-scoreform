@@ -6,6 +6,7 @@ from pathlib import Path
 from scoreform.module_errors import ScoreFormRoutedResultReadError
 from scoreform.results import load_routed_results_history
 from scoreform.results_analysis import select_recent_display_attempts
+from scoreform.results_standard_display import ResultsStandardsProjection
 
 MULTIPLE_ATTEMPTS_NOTE = (
     "Note: Recent shows the most recent scored attempt. Attempts shows how many "
@@ -112,7 +113,20 @@ def _format_percent(value):
     return "—" if value is None else f"{value}%"
 
 
-def format_student_attempt_detail(analysis):
+def _standard_display_label(
+    standard_id,
+    standard_display,
+):
+    if standard_display is None:
+        return standard_id
+    if not isinstance(standard_display, ResultsStandardsProjection):
+        raise ResultsViewError(
+            "standard_display must be a ResultsStandardsProjection."
+        )
+    return standard_display.label_for(standard_id)
+
+
+def format_student_attempt_detail(analysis, *, standard_display=None):
     """Format one exact immutable Student Detail analysis for terminal display."""
     from scoreform.results_analysis import StudentAttemptAnalysis
 
@@ -153,7 +167,7 @@ def format_student_attempt_detail(analysis):
     lines.extend(["", "Student Standards Breakdown", ""])
     standard_rows = [
         (
-            item.standard_id,
+            _standard_display_label(item.standard_id, standard_display),
             str(item.correct),
             str(item.responses),
             _format_percent(item.percent_correct),
@@ -195,7 +209,12 @@ def format_student_attempt_detail(analysis):
     return "\n".join(lines)
 
 
-def format_student_standard_detail(analysis, standard_id):
+def format_student_standard_detail(
+    analysis,
+    standard_id,
+    *,
+    standard_display=None,
+):
     """Format contributing questions for one Standard in one selected attempt."""
     from scoreform.results_analysis import StudentAttemptAnalysis
 
@@ -230,7 +249,10 @@ def format_student_standard_detail(analysis, standard_id):
 
     return "\n".join(
         [
-            f"Standard: {standard.standard_id}",
+            (
+                "Standard: "
+                f"{_standard_display_label(standard.standard_id, standard_display)}"
+            ),
             (
                 f"Correct: {standard.correct} / {standard.responses} "
                 f"({_format_percent(standard.percent_correct)})"
@@ -326,7 +348,11 @@ def format_question_response_distribution(analysis, question_number):
     )
 
 
-def format_class_standards_analysis(analysis):
+def format_class_standards_analysis(
+    analysis,
+    *,
+    standard_display=None,
+):
     """Format descriptive class-level counts by current assignment Standard."""
     from scoreform.results_analysis import ClassResultsAnalysis
 
@@ -345,7 +371,10 @@ def format_class_standards_analysis(analysis):
     rows = [
         (
             str(index),
-            standard.standard_id,
+            _standard_display_label(
+                standard.standard_id,
+                standard_display,
+            ),
             str(standard.correct),
             str(standard.responses),
             _format_percent(standard.percent_correct),
@@ -386,7 +415,12 @@ def format_class_standards_analysis(analysis):
     return "\n".join(lines)
 
 
-def format_class_standard_detail(analysis, standard_id):
+def format_class_standard_detail(
+    analysis,
+    standard_id,
+    *,
+    standard_display=None,
+):
     """Format exact assignment questions contributing to one class Standard."""
     from scoreform.results_analysis import ClassResultsAnalysis
 
@@ -419,7 +453,10 @@ def format_class_standard_detail(analysis, standard_id):
 
     return "\n".join(
         [
-            f"Standard: {standard.standard_id}",
+            (
+                "Standard: "
+                f"{_standard_display_label(standard.standard_id, standard_display)}"
+            ),
             (
                 f"Correct responses: {standard.correct} / {standard.responses} "
                 f"({_format_percent(standard.percent_correct)})"

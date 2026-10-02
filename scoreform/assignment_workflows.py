@@ -1050,6 +1050,7 @@ def launch_view_assignment_results_menu(context_session=None):
                         assignment,
                         class_id=class_id,
                         clear_screen_fn=clear_screen,
+                        workspace_root=workspace.get_scoreform_workspace_root(),
                     )
                 elif choice == "2":
                     launch_question_analysis_menu(
@@ -1064,6 +1065,7 @@ def launch_view_assignment_results_menu(context_session=None):
                         assignment,
                         class_id=class_id,
                         clear_screen_fn=clear_screen,
+                        workspace_root=workspace.get_scoreform_workspace_root(),
                     )
             except ResultsAnalysisError as error:
                 print(f"Error: Could not analyze assignment results: {error}")

@@ -257,6 +257,7 @@ def launch_results_export_menu(
             generated_at=clock(),
             student_id=student_id,
             attempt_number=attempt_number,
+            workspace_root=workspace_root,
         )
         plan = prepare_results_report_plan(
             snapshot,

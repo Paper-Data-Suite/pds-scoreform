@@ -19,6 +19,7 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
+from scoreform.results_standard_display import ResultsStandardsProjection
 
 CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 
@@ -133,11 +134,12 @@ def _overview_rows(
 
 def _standards_rows(
     standards: Sequence[StandardPerformance],
+    standard_display: ResultsStandardsProjection,
 ) -> tuple[tuple[object, ...], ...]:
     return tuple(
         (
             standard.standard_id,
-            standard.standard_id,
+            standard_display.label_for(standard.standard_id),
             standard.correct,
             standard.responses,
             _percent(standard.percent_correct),
@@ -271,7 +273,10 @@ def render_results_report_csv(
                         "percent_correct",
                         "question_numbers",
                     ),
-                    _standards_rows(analysis.standards),
+                    _standards_rows(
+                        analysis.standards,
+                        snapshot.standards_projection,
+                    ),
                 ),
             )
         )
@@ -360,7 +365,10 @@ def render_results_report_csv(
                         "percent_correct",
                         "question_numbers",
                     ),
-                    _standards_rows(detail.standards),
+                    _standards_rows(
+                        detail.standards,
+                        snapshot.standards_projection,
+                    ),
                 ),
             )
         )
