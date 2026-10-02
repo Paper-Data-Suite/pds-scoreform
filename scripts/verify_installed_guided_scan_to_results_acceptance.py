@@ -264,7 +264,7 @@ def _verify_guided_success(
     assignment_id: str,
 ) -> None:
     session = AssignmentContextSession()
-    prompts = _PromptRecorder(["1", "2"])
+    prompts = _PromptRecorder(["1", "b", "2"])
     output = io.StringIO()
     with (
         patch("builtins.input", prompts),

@@ -135,16 +135,24 @@ def test_review_results_uses_active_context_without_identity_reselection(
         lambda rows: "RESULT TABLE",
     )
 
-    def unexpected_input(_prompt=""):
-        raise AssertionError("active-context result review must not reselect identity")
+    prompts: list[str] = []
 
-    monkeypatch.setattr("builtins.input", unexpected_input)
+    def review_input(prompt=""):
+        prompts.append(prompt)
+        if prompt == "Select an option: ":
+            return "b"
+        raise AssertionError(
+            f"active-context result review unexpectedly requested identity: {prompt!r}"
+        )
+
+    monkeypatch.setattr("builtins.input", review_input)
 
     assert assignment_workflows.launch_view_assignment_results_menu(
         context_session=session
     ) == 0
 
     output = capsys.readouterr().out
+    assert prompts == ["Select an option: "]
     assert "Using active assignment: english10_p2 / unit_quiz — Unit Quiz" in output
     assert f"Source: {record['results_path']}" in output
     assert "RESULT TABLE" in output

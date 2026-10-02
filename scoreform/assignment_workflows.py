@@ -32,6 +32,7 @@ from scoreform.menu_navigation import (
     print_invalid_navigation,
     print_scoreform_navigation_options,
 )
+from scoreform.results_analysis import ResultsAnalysisError
 from scoreform.results_viewer import (
     ResultsViewError,
     format_assignment_results_table,
@@ -1013,9 +1014,82 @@ def launch_view_assignment_results_menu(context_session=None):
         print("No results have been recorded for this assignment yet.")
         return 0
 
-    summary_rows = summarize_assignment_results(rows)
-    print(format_assignment_results_table(summary_rows))
-    return 0
+    assignment = assignment_record["assignment"]
+
+    while True:
+        clear_screen()
+        print_menu_header("Review Results")
+        print(f"Class: {class_id}")
+        print(f"Assignment: {assignment_id}")
+        print()
+        summary_rows = summarize_assignment_results(rows)
+        print(format_assignment_results_table(summary_rows))
+        print()
+        print("1. Student Detail")
+        print("2. Question Analysis")
+        print("3. Standards Analysis")
+        print("4. Export Results Report")
+        print_scoreform_navigation_options()
+        print()
+
+        choice = input("Select an option: ").strip()
+        navigation = parse_scoreform_navigation(choice)
+        if navigation is NavigationChoice.BACK:
+            return 0
+        if choice in {"1", "2", "3"}:
+            from scoreform.results_analysis_menu import (
+                launch_class_standards_analysis_menu,
+                launch_question_analysis_menu,
+                launch_student_detail_menu,
+            )
+
+            try:
+                if choice == "1":
+                    launch_student_detail_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
+                elif choice == "2":
+                    launch_question_analysis_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
+                else:
+                    launch_class_standards_analysis_menu(
+                        rows,
+                        assignment,
+                        class_id=class_id,
+                        clear_screen_fn=clear_screen,
+                    )
+            except ResultsAnalysisError as error:
+                print(f"Error: Could not analyze assignment results: {error}")
+                print()
+                pause_for_user()
+            continue
+
+        if choice == "4":
+            from scoreform.results_report_workflow import (
+                launch_results_export_menu,
+            )
+
+            launch_results_export_menu(
+                rows,
+                assignment,
+                class_id=class_id,
+                assignment_id=assignment_id,
+                workspace_root=workspace.get_scoreform_workspace_root(),
+                clear_screen_fn=clear_screen,
+            )
+            continue
+
+        print(f"Invalid selection: {choice}.")
+        print_invalid_navigation()
+        print()
+        pause_for_user()
 
 
 def confirm_assignment_overwrite(path, class_id):
