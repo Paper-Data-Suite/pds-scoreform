@@ -6,6 +6,11 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from scoreform.generated_output_opening import (
+    ScoreFormGeneratedOutputOpenError,
+    open_generated_output_file,
+    open_generated_output_folder,
+)
 from scoreform.menu_navigation import (
     parse_scoreform_navigation,
     print_invalid_navigation,
@@ -20,6 +25,7 @@ from scoreform.results_analysis import (
 from scoreform.results_report_csv import render_results_report_csv
 from scoreform.results_report_json import render_results_report_json
 from scoreform.results_report_output import (
+    InstalledResultsReport,
     ResultsReportOutputError,
     install_rendered_results_report,
     plan_results_report_destination,
@@ -197,6 +203,93 @@ def _render_confirmed(confirmed: ConfirmedResultsReportPlan):
     raise ResultsReportingError("Unsupported confirmed report format.")
 
 
+def _print_installed_report_summary(
+    installed: InstalledResultsReport,
+) -> None:
+    print_menu_header("Results Report Created")
+    print(
+        "Report directory: "
+        f"{installed.destination.workspace_relative_dir.as_posix()}"
+    )
+    print("Created files:")
+    for path in installed.workspace_relative_files:
+        print(f"- {path.as_posix()}")
+    print()
+    print("The report remains a local teacher-controlled artifact.")
+
+
+def _post_export_open_menu(
+    installed: InstalledResultsReport,
+    *,
+    workspace_root: str | Path,
+    input_fn: InputCallback,
+    clear_screen_fn: UiCallback,
+) -> None:
+    output_format = installed.destination.output_format
+
+    while True:
+        clear_screen_fn()
+        _print_installed_report_summary(installed)
+        print()
+
+        if output_format == "csv":
+            print("1. Open report folder")
+        else:
+            print("1. Open report")
+            print("2. Open report folder")
+        print_scoreform_navigation_options()
+        print()
+
+        choice = input_fn("Select an option: ").strip()
+        if parse_scoreform_navigation(choice) is not None:
+            return
+
+        action_label: str | None = None
+        try:
+            if output_format == "csv" and choice == "1":
+                action_label = "report folder"
+                open_generated_output_folder(
+                    workspace_root,
+                    installed.destination.workspace_relative_dir,
+                )
+                return
+
+            if output_format != "csv" and choice == "1":
+                action_label = "report"
+                if len(installed.workspace_relative_files) != 1:
+                    print(
+                        "Report was created, but ScoreForm could not identify "
+                        "exactly one report file to open."
+                    )
+                    input_fn("Press Enter to return...")
+                    return
+                open_generated_output_file(
+                    workspace_root,
+                    installed.workspace_relative_files[0],
+                )
+                return
+
+            if output_format != "csv" and choice == "2":
+                action_label = "report folder"
+                open_generated_output_folder(
+                    workspace_root,
+                    installed.destination.workspace_relative_dir,
+                )
+                return
+        except ScoreFormGeneratedOutputOpenError as error:
+            label = action_label or "generated output"
+            print(
+                f"Report was created, but ScoreForm could not open "
+                f"{label}: {error}"
+            )
+            input_fn("Press Enter to return...")
+            return
+
+        print(f"Invalid selection: {choice}.")
+        print_invalid_navigation()
+        print()
+
+
 def launch_results_export_menu(
     rows: Sequence[ScoreFormRoutedResultHistoryRow],
     assignment: Mapping[str, object],
@@ -294,17 +387,12 @@ def launch_results_export_menu(
             rendered,
         )
 
-        clear_screen_fn()
-        print_menu_header("Results Report Created")
-        print(
-            "Report directory: "
-            f"{installed.destination.workspace_relative_dir.as_posix()}"
+        _post_export_open_menu(
+            installed,
+            workspace_root=workspace_root,
+            input_fn=input_fn,
+            clear_screen_fn=clear_screen_fn,
         )
-        print("Created files:")
-        for path in installed.workspace_relative_files:
-            print(f"- {path.as_posix()}")
-        print()
-        print("The report remains a local teacher-controlled artifact.")
         return 0
     except (
         ResultsAnalysisError,
