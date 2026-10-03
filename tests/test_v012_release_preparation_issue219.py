@@ -145,3 +145,11 @@ def test_release_compatibility_summary_names_preserved_v010_v011_history() -> No
 
     assert "historical v0.10.0/v0.11.0 " in source
     assert "historical v0.10.0 " not in source
+
+def test_release_readiness_does_not_reuse_v011_physical_equivalence_bridge() -> None:
+    release = _text(".github/workflows/release-readiness.yml")
+
+    assert "Strict mypy v0.12 combined acceptance" in release
+    assert "verify_installed_v012_combined_acceptance.py" in release
+    assert "run_v012_combined_wheel_acceptance.py" in release
+    assert "verify_v012_physical_equivalence.py" not in release

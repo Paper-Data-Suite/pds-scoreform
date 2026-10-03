@@ -50,14 +50,14 @@ jobs:
             --disallow-incomplete-defs \
             --check-untyped-defs \
             scripts/verify_installed_assignment_copy_acceptance.py
-      - name: Strict mypy #195 combined acceptance
+      - name: Strict mypy v0.12 combined acceptance
         run: |
           python -m mypy \
             --follow-imports=skip \
             --disallow-untyped-defs \
             --disallow-incomplete-defs \
             --check-untyped-defs \
-            scripts/verify_installed_v012_combined_acceptance.py scripts/verify_v012_physical_equivalence.py \
+            scripts/verify_installed_v012_combined_acceptance.py \
             scripts/run_v012_combined_wheel_acceptance.py
       - name: Pytest
         run: python -m pytest tests -q
