@@ -125,3 +125,22 @@ def test_active_compatibility_surfaces_have_no_pre_064_markers() -> None:
 
 def test_historical_v011_release_audit_is_not_rewritten() -> None:
     assert "0.6.3" in _text("docs/v0.11.0_release_audit.md")
+
+def test_core_wheel_version_regex_matches_active_core_064() -> None:
+    source = _text("scripts/verify_core_wheel.py")
+
+    assert r"0\.6\.4" in source
+    assert r"0\.6\.3" not in source
+
+def test_issue193_project_floor_test_tracks_active_core_064() -> None:
+    source = _text("tests/test_pds_operations_issue193.py")
+
+    assert '"pds-core>=0.6.4,<0.7"' in source
+    assert '"pds-core>=0.6.2,<0.7"' not in source
+
+def test_active_release_contract_tests_track_core064() -> None:
+    forbidden = ('pds-core>=0.6.2,<0.7', '--expected-core-version 0.6.3', 'pds_core-0.6.3-py3-none-any.whl', 'v0.6.3/pds_core-0.6.3')
+    for relative in ('tests/test_assignment_bulk_release_integration_issue185.py', 'tests/test_assignment_context_release_integration_issue188.py', 'tests/test_cross_platform_ci_issue202.py', 'tests/test_multi_class_generation_release_integration_issue186.py', 'tests/test_pds_contract.py', 'tests/test_scan_quality_release_integration_issue190.py', 'tests/test_share_results_release_integration_issue191.py'):
+        source = _text(relative)
+        for marker in forbidden:
+            assert marker not in source, (relative, marker)

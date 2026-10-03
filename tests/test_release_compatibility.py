@@ -8,8 +8,8 @@ import pytest
 import scripts.verify_release_compatibility as compatibility
 
 
-def test_release_version_is_exact_v011_identity() -> None:
-    assert compatibility.RELEASE_VERSION == "0.11.0"
+def test_release_version_is_exact_v012_identity() -> None:
+    assert compatibility.RELEASE_VERSION == "0.12.0"
     assert compatibility.HISTORICAL_RELEASE_VERSION == "0.10.0"
     assert compatibility.RELEASE_VERSION != compatibility.HISTORICAL_RELEASE_VERSION
 
@@ -53,11 +53,11 @@ def test_import_root_extracts_import_and_from_import_roots() -> None:
     assert roots == ["meridian", "os", "vitrine", "pds_meridian", "scoreform"]
 
 
-def test_release_identity_requires_v011_on_live_surface(
+def test_release_identity_requires_v012_on_live_surface(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "scoreform"\nversion = "0.11.0"\ndependencies = []\n',
+        '[project]\nname = "scoreform"\nversion = "0.12.0"\ndependencies = []\n',
         encoding="utf-8",
     )
     live = tmp_path / "live.txt"
@@ -68,10 +68,10 @@ def test_release_identity_requires_v011_on_live_surface(
     readme.write_text(
         "\n".join(
             [
-                "Current version: `0.11.0`.",
-                "scoreform-0.11.0-py3-none-any.whl",
-                "RELEASE_NOTES_v0.11.0.md",
-                "v0.11.0_release_audit.md",
+                "Current version: `0.12.0`.",
+                "scoreform-0.12.0-py3-none-any.whl",
+                "RELEASE_NOTES_v0.12.0.md",
+                "v0.12.0_release_audit.md",
             ]
         )
         + "\n",
@@ -86,14 +86,17 @@ def test_release_identity_requires_v011_on_live_surface(
         compatibility, "HISTORICAL_RELEASE_FILES", (Path("historical.txt"),)
     )
     monkeypatch.setattr(
+        compatibility, "HISTORICAL_V011_RELEASE_FILES", ()
+    )
+    monkeypatch.setattr(
         compatibility,
-        "REQUIRED_V011_FILES",
+        "REQUIRED_V012_FILES",
         (Path("notes.md"), Path("audit.md"), Path("bridge.py")),
     )
 
     with pytest.raises(
         compatibility.ReleaseCompatibilityError,
-        match="does not name 0.11.0",
+        match="does not name 0.12.0",
     ):
         compatibility.validate_release_identity()
 
@@ -102,21 +105,21 @@ def test_release_identity_allows_truthful_historical_v010(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "scoreform"\nversion = "0.11.0"\ndependencies = []\n',
+        '[project]\nname = "scoreform"\nversion = "0.12.0"\ndependencies = []\n',
         encoding="utf-8",
     )
     live = tmp_path / "live.txt"
-    live.write_text("ScoreForm 0.11.0\n", encoding="utf-8")
+    live.write_text("ScoreForm 0.12.0\n", encoding="utf-8")
     historical = tmp_path / "historical.txt"
     historical.write_text("ScoreForm 0.10.0 release evidence\n", encoding="utf-8")
     readme = tmp_path / "README.md"
     readme.write_text(
         "\n".join(
             [
-                "Current version: `0.11.0`.",
-                "scoreform-0.11.0-py3-none-any.whl",
-                "RELEASE_NOTES_v0.11.0.md",
-                "v0.11.0_release_audit.md",
+                "Current version: `0.12.0`.",
+                "scoreform-0.12.0-py3-none-any.whl",
+                "RELEASE_NOTES_v0.12.0.md",
+                "v0.12.0_release_audit.md",
                 "Historical release: ScoreForm 0.10.0.",
             ]
         )
@@ -132,8 +135,11 @@ def test_release_identity_allows_truthful_historical_v010(
         compatibility, "HISTORICAL_RELEASE_FILES", (Path("historical.txt"),)
     )
     monkeypatch.setattr(
+        compatibility, "HISTORICAL_V011_RELEASE_FILES", ()
+    )
+    monkeypatch.setattr(
         compatibility,
-        "REQUIRED_V011_FILES",
+        "REQUIRED_V012_FILES",
         (Path("notes.md"), Path("audit.md"), Path("bridge.py")),
     )
 

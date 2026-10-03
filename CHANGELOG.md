@@ -14,8 +14,18 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
+## [v0.12.0] - 2026-10-02
+
 ### Added
 
+* Added descriptive Results Analysis with Assignment Overview, exact Student
+  Detail, Question Analysis, and Standards Analysis while preserving every
+  attempt and applying no best/official/Grade-bearing attempt policy.
+* Added deterministic CSV, versioned JSON, and PDF Results Analysis reports;
+  teacher-readable Standard labels/current-profile ordering; format-aware
+  create-only destinations; and explicit safe post-export open actions.
+* Added isolated installed-wheel Results Analysis acceptance and v0.12 combined
+  installed qualification against exact released Core v0.6.4.
 * Added privacy-bounded diagnostic-persistence warning events, guided aggregate
   reporting, and isolated installed-wheel qualification for ScoreForm scoring
   diagnostics.
@@ -37,6 +47,21 @@ GitHub milestones are project-management buckets. Package versions describe inst
   longer invalidate otherwise valid routed page scoring or replace substantive
   OMR failure categories.
 
+### Compatibility
+
+* Preserves `scoreform_academic_work_v1`,
+  `scoreform_academic_result_manifest_v1`, `academic_result_set`,
+  `academic_results`, and the consumer-neutral exact-attempt reader.
+* Results Analysis is descriptive only; Standards remain alignment metadata and
+  do not become proficiency/mastery/Grade policy.
+* Historical v0.10.0 and v0.11.0 release records remain immutable evidence.
+
+### Testing
+
+* Qualifies the release path against exact Core v0.6.4, the v0.12 combined
+  installed workflow, and the dedicated Results Analysis installed-wheel gate.
+* Automated qualification explicitly reports physical printer/scanner
+  acceptance as `not_claimed`.
 
 ## [v0.11.0] - 2026-08-27
 

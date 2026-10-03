@@ -27,12 +27,77 @@ function Invoke-Step {
     Write-Host "PASSED: $Name" -ForegroundColor Green
 }
 
-Write-Host "=== ScoreForm v0.11.0 Release Readiness ===" -ForegroundColor Cyan
+Write-Host "=== ScoreForm v0.12.0 Release Readiness ===" -ForegroundColor Cyan
 Write-Host "Using Python: $Python" -ForegroundColor DarkGray
 
 Invoke-Step "Require Python 3.11+" {
     & $Python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"
 }
+$BootstrapCoreWheelRoot = $null
+$BootstrapCoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
+$BootstrapSavedCoreWheel = $env:PDS_CORE_WHEEL
+$BootstrapExpectedCoreWheelHash = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+
+try {
+    if (-not $BootstrapCoreWheelWasSet) {
+        $BootstrapCoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+            "scoreform-bootstrap-core-wheel-" + [guid]::NewGuid().ToString("N")
+        )
+        New-Item -ItemType Directory -Path $BootstrapCoreWheelRoot | Out-Null
+        $BootstrapCoreWheelPath = Join-Path `
+            $BootstrapCoreWheelRoot `
+            "pds_core-0.6.4-py3-none-any.whl"
+        $BootstrapCoreWheelUrl = (
+            "https://github.com/Paper-Data-Suite/pds-core/releases/download/" +
+            "v0.6.4/pds_core-0.6.4-py3-none-any.whl"
+        )
+
+        Write-Host ""
+        Write-Host "Running: Download released pds-core 0.6.4 wheel for bootstrap" -ForegroundColor Yellow
+        Invoke-WebRequest `
+            -Uri $BootstrapCoreWheelUrl `
+            -OutFile $BootstrapCoreWheelPath `
+            -ErrorAction Stop
+        Write-Host "PASSED: Download released pds-core 0.6.4 wheel for bootstrap" -ForegroundColor Green
+
+        $env:PDS_CORE_WHEEL = $BootstrapCoreWheelPath
+    }
+
+    $BootstrapResolvedCoreWheel = [System.IO.Path]::GetFullPath(
+        $env:PDS_CORE_WHEEL
+    )
+    if (
+        -not (
+            Test-Path `
+                -LiteralPath $BootstrapResolvedCoreWheel `
+                -PathType Leaf
+        )
+    ) {
+        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.4 wheel."
+    }
+
+    $BootstrapActualCoreWheelHash = (
+        Get-FileHash `
+            -Algorithm SHA256 `
+            -LiteralPath $BootstrapResolvedCoreWheel
+    ).Hash.ToLowerInvariant()
+    if (
+        $BootstrapActualCoreWheelHash -ne
+        $BootstrapExpectedCoreWheelHash
+    ) {
+        throw (
+            "Released Core 0.6.4 wheel SHA-256 mismatch: " +
+            $BootstrapActualCoreWheelHash
+        )
+    }
+
+    Invoke-Step "Validate released pds-core 0.6.4 bootstrap wheel" {
+        & $Python scripts\verify_core_wheel.py $BootstrapResolvedCoreWheel
+    }
+    Invoke-Step "Install authenticated released pds-core 0.6.4 into release environment" {
+        & $Python -m pip install --quiet $BootstrapResolvedCoreWheel
+    }
+
 Invoke-Step "Install ScoreForm editable with development extras" {
     & $Python -m pip install -e ".[dev]" --quiet
 }
@@ -45,7 +110,7 @@ Invoke-Step "Compile ScoreForm" {
 Invoke-Step "Validate tracked release text encoding" {
     & $Python scripts\verify_text_encoding.py
 }
-Invoke-Step "Audit v0.11.0 release compatibility boundary" {
+Invoke-Step "Audit v0.12.0 release compatibility boundary" {
     & $Python scripts\verify_release_compatibility.py
 }
 Invoke-Step "Import ScoreForm, PDS contracts, profiles, CLI, and Core" {
@@ -109,14 +174,28 @@ Invoke-Step "Run strict mypy on release scripts" {
     )
 }
 
-Invoke-Step "Run strict mypy on #195 combined acceptance scripts" {
+Invoke-Step "Run strict mypy on v0.12 combined acceptance scripts" {
     & $Python -m mypy @(
         "--follow-imports=skip",
         "--disallow-untyped-defs",
         "--disallow-incomplete-defs",
         "--check-untyped-defs",
-        "scripts\verify_installed_v011_combined_acceptance.py",
-        "scripts\run_v011_combined_wheel_acceptance.py"
+        "scripts\verify_installed_v012_combined_acceptance.py",
+        "scripts\run_v012_combined_wheel_acceptance.py"
+    )
+}
+
+
+Invoke-Step "Run strict mypy on #219 release acceptance scripts" {
+    & $Python -m mypy @(
+        "--follow-imports=skip",
+        "--disallow-untyped-defs",
+        "--disallow-incomplete-defs",
+        "--check-untyped-defs",
+        "scripts\verify_installed_results_analysis_acceptance.py",
+        "scripts\run_results_analysis_wheel_acceptance.py",
+        "scripts\verify_installed_v012_combined_acceptance.py",
+        "scripts\run_v012_combined_wheel_acceptance.py"
     )
 }
 
@@ -620,7 +699,7 @@ Invoke-Step "Check release artifacts with twine" {
     & $Python -m twine check .\dist\*
 }
 Invoke-Step "Validate release artifact names, metadata, and contents" {
-    & $Python scripts\verify_release_artifacts.py --version 0.11.0 --dist .\dist
+    & $Python scripts\verify_release_artifacts.py --version 0.12.0 --dist .\dist
 }
 $CoreWheelRoot = $null
 $CoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
@@ -659,15 +738,15 @@ try {
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
-            -Python $Python -Version 0.11.0 -ExpectedCoreVersion 0.6.4
+            -Python $Python -Version 0.12.0 -ExpectedCoreVersion 0.6.4
     }
 
     $CombinedAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
-        "scoreform-v011-combined-" + [guid]::NewGuid().ToString("N")
+        "scoreform-v012-combined-" + [guid]::NewGuid().ToString("N")
     )
     try {
-        Invoke-Step "Validate combined installed v0.11 workflow" {
-            & $Python scripts\run_v011_combined_wheel_acceptance.py `
+        Invoke-Step "Validate combined installed v0.12 workflow" {
+            & $Python scripts\run_v012_combined_wheel_acceptance.py `
                 --repository $RepoRoot `
                 --work $CombinedAcceptanceRoot `
                 --core-wheel $ResolvedCoreWheel `
@@ -688,7 +767,7 @@ try {
                     [System.StringComparison]::OrdinalIgnoreCase
                 ) -or
                 -not (Split-Path -Leaf $ResolvedCombinedRoot).StartsWith(
-                    "scoreform-v011-combined-",
+                    "scoreform-v012-combined-",
                     [System.StringComparison]::Ordinal
                 )
             ) {
@@ -697,6 +776,43 @@ try {
             Remove-Item -LiteralPath $ResolvedCombinedRoot -Recurse -Force
         }
     }
+
+    $ResultsAnalysisAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "scoreform-v012-results-analysis-" + [guid]::NewGuid().ToString("N")
+    )
+    try {
+        Invoke-Step "Validate installed Results Analysis workflow" {
+            & $Python scripts\run_results_analysis_wheel_acceptance.py `
+                --repository $RepoRoot `
+                --work $ResultsAnalysisAcceptanceRoot `
+                --core-wheel $ResolvedCoreWheel `
+                --expected-core-version 0.6.4
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $ResultsAnalysisAcceptanceRoot) {
+            $ResolvedResultsRoot = [System.IO.Path]::GetFullPath(
+                $ResultsAnalysisAcceptanceRoot
+            )
+            $ResolvedTempRoot = [System.IO.Path]::GetFullPath(
+                [System.IO.Path]::GetTempPath()
+            )
+            if (
+                -not $ResolvedResultsRoot.StartsWith(
+                    $ResolvedTempRoot,
+                    [System.StringComparison]::OrdinalIgnoreCase
+                ) -or
+                -not (Split-Path -Leaf $ResolvedResultsRoot).StartsWith(
+                    "scoreform-v012-results-analysis-",
+                    [System.StringComparison]::Ordinal
+                )
+            ) {
+                throw "Refusing to remove unexpected Results Analysis acceptance root: $ResolvedResultsRoot"
+            }
+            Remove-Item -LiteralPath $ResolvedResultsRoot -Recurse -Force
+        }
+    }
+
 }
 finally {
     if ($CoreWheelWasSet) {
@@ -726,17 +842,59 @@ finally {
 }
 Invoke-Step "Verify exact CLI version output" {
     $VersionOutput = & $ScoreForm --version
-    if (($VersionOutput -join "`n") -ne "ScoreForm 0.11.0") { exit 1 }
+    if (($VersionOutput -join "`n") -ne "ScoreForm 0.12.0") { exit 1 }
 }
 Invoke-Step "Check Git whitespace" {
     git diff --check
 }
 Invoke-Step "Report release artifact SHA-256" {
     Get-FileHash -Algorithm SHA256 -LiteralPath @(
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.11.0-*.whl" -File).FullName,
-        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.11.0.tar.gz" -File).FullName
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.12.0-*.whl" -File).FullName,
+        (Get-ChildItem -LiteralPath $DistDir -Filter "scoreform-0.12.0.tar.gz" -File).FullName
     ) | Format-Table -AutoSize
 }
 
+}
+finally {
+    if ($BootstrapCoreWheelWasSet) {
+        $env:PDS_CORE_WHEEL = $BootstrapSavedCoreWheel
+    }
+    else {
+        Remove-Item Env:PDS_CORE_WHEEL -ErrorAction SilentlyContinue
+    }
+
+    if (
+        $null -ne $BootstrapCoreWheelRoot -and
+        (Test-Path -LiteralPath $BootstrapCoreWheelRoot)
+    ) {
+        $ResolvedBootstrapCoreWheelRoot = [System.IO.Path]::GetFullPath(
+            $BootstrapCoreWheelRoot
+        )
+        $ResolvedBootstrapTempRoot = [System.IO.Path]::GetFullPath(
+            [System.IO.Path]::GetTempPath()
+        )
+        $BootstrapLeaf = Split-Path -Leaf $ResolvedBootstrapCoreWheelRoot
+        if (
+            -not $ResolvedBootstrapCoreWheelRoot.StartsWith(
+                $ResolvedBootstrapTempRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            -not $BootstrapLeaf.StartsWith(
+                "scoreform-bootstrap-core-wheel-",
+                [System.StringComparison]::Ordinal
+            )
+        ) {
+            throw (
+                "Refusing to remove unexpected bootstrap Core-wheel root: " +
+                $ResolvedBootstrapCoreWheelRoot
+            )
+        }
+        Remove-Item `
+            -LiteralPath $ResolvedBootstrapCoreWheelRoot `
+            -Recurse `
+            -Force
+    }
+}
+
 Write-Host ""
-Write-Host "All ScoreForm v0.11.0 release-readiness checks passed." -ForegroundColor Green
+Write-Host "All ScoreForm v0.12.0 release-readiness checks passed." -ForegroundColor Green

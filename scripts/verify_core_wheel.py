@@ -115,7 +115,7 @@ def validate_core_wheel(path: Path) -> None:
                 )
         init_text = archive.read(init_names[0]).decode("utf-8")
         if not re.search(
-            r'^__version__\s*=\s*["\']0\.6\.3["\']\s*$',
+            r'^__version__\s*=\s*["\']0\.6\.4["\']\s*$',
             init_text,
             re.M,
         ):

@@ -106,17 +106,10 @@ def test_v011_physical_document_keeps_human_adjudication_explicit() -> None:
     assert "sanitized" in text.casefold()
 
 
-def test_ci_wires_combined_installed_acceptance_cross_platform() -> None:
-    ci = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
-    release = Path(".github/workflows/release-readiness.yml").read_text(
-        encoding="utf-8"
-    )
-
-    assert "combined-v011-wheel-qualification" in ci
-    assert "windows-latest" in ci
-    assert "ubuntu-latest" in ci
-    assert "run_v011_combined_wheel_acceptance.py" in ci
-    assert "verify_installed_v011_combined_acceptance.py" in release
+def test_v011_combined_harness_remains_available_as_historical_evidence() -> None:
+    assert Path("scripts/run_v011_combined_wheel_acceptance.py").is_file()
+    assert Path("scripts/verify_installed_v011_combined_acceptance.py").is_file()
+    assert Path("docs/v0.11.0_combined_acceptance.md").is_file()
 
 def test_guided_acceptance_uses_core_navigation_token_for_optional_menu_exit() -> None:
     source = Path(

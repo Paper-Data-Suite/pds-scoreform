@@ -69,15 +69,15 @@ External prerequisite qualification remains Suite-owned. In particular, this
 operations harness does not reinterpret `pdftoppm` availability as shared
 ScoreForm readiness.
 
-## Combined v0.11 installed-workflow qualification
+## Combined v0.12 installed-workflow qualification
 
-Issue #195 adds a bounded `combined-v011-wheel-qualification` matrix on Windows
+Issue #195 adds a bounded `combined-v012-wheel-qualification` matrix on Windows
 and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.4 reference
 wheel.
 
-`scripts/run_v011_combined_wheel_acceptance.py` stages the current working tree
+`scripts/run_v012_combined_wheel_acceptance.py` stages the current working tree
 outside the checkout, builds the wheel and sdist, installs ScoreForm
-noneditably, and runs `scripts/verify_installed_v011_combined_acceptance.py`.
+noneditably, and runs `scripts/verify_installed_v012_combined_acceptance.py`.
 Unlike the focused per-issue installed verifiers, the combined acceptance keeps
 one synthetic workspace across assignment reuse, bulk editing, multi-class
 generation, guided scan success/failure/recovery, publication, readiness with
@@ -92,6 +92,20 @@ This job is intentionally bounded to Python 3.11 because the ordinary matrix
 already owns Python 3.11-3.14 runtime breadth. Real printer/scanner acceptance
 remains project-owner work documented in `docs/v0.11.0_combined_acceptance.md`;
 automation must not claim a physical pass.
+
+## Results Analysis installed-wheel qualification
+
+Issue #219 adds a dedicated `results-analysis-wheel-qualification` gate on
+Windows and Ubuntu / Python 3.11. It builds the current ScoreForm wheel and
+sdist, authenticates released Core v0.6.4, installs both distributions
+noneditably in a fresh environment, runs `pip check`, and executes the
+installed Results Analysis acceptance outside the source checkout.
+
+The gate covers descriptive recent-attempt semantics, exact historical Student
+Detail, blank/ambiguous response states, Standard label/profile presentation,
+frozen CSV/JSON/PDF reports, format-aware create-only output custody,
+partial-output cleanup, and the bounded local-open boundary. It does not claim
+physical printer/scanner acceptance.
 
 ## Heavyweight release readiness
 
