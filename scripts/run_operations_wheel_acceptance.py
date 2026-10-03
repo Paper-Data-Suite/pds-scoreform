@@ -18,8 +18,7 @@ from pathlib import Path
 from pip._vendor.packaging.utils import canonicalize_name, parse_wheel_filename
 
 CORE_WHEEL_SHA256 = {
-    "0.6.2": "b9d5de7d467d18716f415da87f359e940603d9c738a3a9ae9309272ebe78a848",
-    "0.6.3": "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5",
+    "0.6.4": "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
 }
 
 
@@ -206,8 +205,6 @@ def run_acceptance(
             "--expected-core-version",
             expected_core_version,
         ]
-        if expected_core_version == "0.6.2":
-            command.append("--minimum-floor-only")
         _run(command, cwd=outside)
 
         return {
@@ -216,7 +213,7 @@ def run_acceptance(
             "wheel": str(wheel),
             "sdist": str(sdists[0]),
             "isolated_environment": str(environment),
-            "minimum_floor_only": expected_core_version == "0.6.2",
+            "minimum_floor_only": False,
             "operations_acceptance": "passed",
         }
     finally:
@@ -233,7 +230,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--expected-core-version",
         required=True,
-        choices=("0.6.2", "0.6.3"),
+        choices=("0.6.4",),
     )
     return parser.parse_args(argv)
 

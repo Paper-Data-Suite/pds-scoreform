@@ -49,7 +49,7 @@ FORBIDDEN_SIBLING_PARTS = {
     "pds_portia",
     "pds-portia",
 }
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
 EXPECTED_PYTHON_SPECIFIER = SpecifierSet(">=3.11")
 EXPECTED_ENTRY_POINTS = {
     "paper_data_suite.modules": {
@@ -155,7 +155,7 @@ def validate_core_requirement_strings(values: list[str], label: str) -> Requirem
         raise ArtifactValidationError(f"{label} pds-core requirement must not use extras")
     if requirement.specifier != EXPECTED_CORE_SPECIFIER:
         raise ArtifactValidationError(
-            f"{label} pds-core requirement must be exactly >=0.6.2,<0.7"
+            f"{label} pds-core requirement must be exactly >=0.6.4,<0.7"
         )
     return requirement
 
@@ -304,7 +304,7 @@ def validate_dist(dist: Path, version: str) -> tuple[Path, Path]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dist", type=Path, default=Path("dist"))
-    parser.add_argument("--version", default="0.11.0")
+    parser.add_argument("--version", default="0.12.0")
     args = parser.parse_args()
     try:
         wheel, sdist = validate_dist(args.dist, args.version)

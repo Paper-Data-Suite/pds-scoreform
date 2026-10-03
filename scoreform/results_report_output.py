@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scoreform.results_report_artifacts import RenderedResultsReport
-from scoreform.results_reporting import ResultsReportSnapshot
+from scoreform.results_reporting import ReportFormat, ResultsReportSnapshot
 from scoreform.work_paths import scoreform_work_paths
 
 RESULTS_ANALYSIS_EXPORT_DIR = "results_analysis"
@@ -25,6 +25,7 @@ class ResultsReportDestination:
     report_dir: Path
     workspace_relative_dir: Path
     scope: str
+    output_format: ReportFormat
     generated_at: str
 
     def __post_init__(self) -> None:
@@ -36,6 +37,8 @@ class ResultsReportDestination:
             raise ValueError("workspace_relative_dir must be relative.")
         if self.scope not in {"class_analysis", "student_detail"}:
             raise ValueError("Unsupported report destination scope.")
+        if self.output_format not in {"csv", "json", "pdf"}:
+            raise ValueError("Unsupported report destination format.")
         if not isinstance(self.generated_at, str) or not self.generated_at:
             raise ValueError("generated_at must be a nonempty string.")
 
@@ -83,6 +86,7 @@ def plan_results_report_destination(
     class_id: str,
     assignment_id: str,
     snapshot: ResultsReportSnapshot,
+    output_format: ReportFormat,
 ) -> ResultsReportDestination:
     """Plan one privacy-minimized create-only destination without writing."""
     if not isinstance(snapshot, ResultsReportSnapshot):
@@ -97,6 +101,10 @@ def plan_results_report_destination(
         raise ResultsReportOutputError(
             "Report snapshot assignment does not match selected assignment."
         )
+    if output_format not in {"csv", "json", "pdf"}:
+        raise ResultsReportOutputError(
+            "Report destination format is unsupported."
+        )
 
     root = Path(workspace_root).expanduser().resolve(strict=False)
     paths = scoreform_work_paths(root, class_id, assignment_id)
@@ -106,7 +114,7 @@ def plan_results_report_destination(
     report_dir = (
         paths.exports_dir
         / RESULTS_ANALYSIS_EXPORT_DIR
-        / f"{snapshot.scope}_{token}"
+        / f"{snapshot.scope}_{output_format}_{token}"
     )
     try:
         relative = report_dir.relative_to(root)
@@ -126,6 +134,7 @@ def plan_results_report_destination(
         report_dir=report_dir,
         workspace_relative_dir=relative,
         scope=snapshot.scope,
+        output_format=output_format,
         generated_at=snapshot.generated_at,
     )
 
@@ -189,6 +198,10 @@ def install_rendered_results_report(
     if rendered.scope != destination.scope:
         raise ResultsReportOutputError(
             "Rendered report scope does not match planned destination."
+        )
+    if rendered.output_format != destination.output_format:
+        raise ResultsReportOutputError(
+            "Rendered report format does not match planned destination."
         )
 
     created_parents: list[Path] = []

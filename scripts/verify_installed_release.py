@@ -45,7 +45,7 @@ except ModuleNotFoundError:
         validate_core_requirement_strings,
     )
 
-CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
+CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
 
 
 def core_version_is_supported(value: str) -> bool:
@@ -59,7 +59,7 @@ def validate_core_runtime_versions(
 ) -> None:
     if not core_version_is_supported(distribution_version):
         raise SystemExit(
-            f"installed pds-core does not satisfy >=0.6.2,<0.7: {distribution_version}"
+            f"installed pds-core does not satisfy >=0.6.4,<0.7: {distribution_version}"
         )
     if module_version != distribution_version:
         raise SystemExit(
@@ -75,7 +75,7 @@ def validate_core_runtime_versions(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="0.11.0")
+    parser.add_argument("--version", default="0.12.0")
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--expected-core-version")
     args = parser.parse_args()

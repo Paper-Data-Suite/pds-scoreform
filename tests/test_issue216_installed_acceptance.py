@@ -27,10 +27,10 @@ def test_environment_python_is_platform_specific(tmp_path: Path) -> None:
 
 
 def test_issue216_runner_authenticates_exact_core_063() -> None:
-    assert CORE_VERSION == "0.6.3"
+    assert CORE_VERSION == "0.6.4"
     assert (
         CORE_WHEEL_SHA256
-        == "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+        == "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
     )
 
 
@@ -92,14 +92,14 @@ def test_ci_keeps_issue216_wheel_qualification_green_through_follow_on_work() ->
     assert "run_issue216_wheel_acceptance.py" in source
     assert "windows-latest" in source
     assert "ubuntu-latest" in source
-    assert "--expected-core-version 0.6.3" in source
+    assert "--expected-core-version 0.6.4" in source
 
 
 def test_harness_refuses_nonempty_work_directory(tmp_path: Path) -> None:
     work = tmp_path / "work"
     work.mkdir()
     (work / "sentinel").write_text("keep", encoding="utf-8")
-    core = tmp_path / "pds_core-0.6.3-py3-none-any.whl"
+    core = tmp_path / "pds_core-0.6.4-py3-none-any.whl"
     core.write_bytes(b"synthetic")
     repository = tmp_path / "repo"
     repository.mkdir()
@@ -109,7 +109,7 @@ def test_harness_refuses_nonempty_work_directory(tmp_path: Path) -> None:
             repository=repository,
             work=work,
             core_wheel=core,
-            expected_core_version="0.6.3",
+            expected_core_version="0.6.4",
         )
 
     assert (work / "sentinel").read_text(encoding="utf-8") == "keep"

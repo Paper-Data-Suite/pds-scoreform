@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal
 
 from scoreform.results import ScoreFormRoutedResultHistoryRow
@@ -15,6 +16,11 @@ from scoreform.results_analysis import (
     analyze_class_results,
     analyze_student_attempt,
     select_student_attempts,
+)
+from scoreform.results_standard_display import (
+    EMPTY_RESULTS_STANDARDS_PROJECTION,
+    ResultsStandardsProjection,
+    resolve_results_standards_projection,
 )
 
 RESULTS_ANALYSIS_REPORT_SCHEMA = "scoreform_results_analysis_v1"
@@ -120,6 +126,9 @@ class ResultsReportSnapshot:
     student_detail: StudentAttemptAnalysis | None
     include_individual_response_rows: bool
     basis_statements: tuple[str, ...]
+    standards_projection: ResultsStandardsProjection = (
+        EMPTY_RESULTS_STANDARDS_PROJECTION
+    )
 
     def __post_init__(self) -> None:
         if self.schema_version != RESULTS_ANALYSIS_REPORT_SCHEMA:
@@ -138,6 +147,25 @@ class ResultsReportSnapshot:
             for statement in self.basis_statements
         ):
             raise TypeError("basis_statements must contain nonempty strings.")
+        if not isinstance(
+            self.standards_projection,
+            ResultsStandardsProjection,
+        ):
+            raise TypeError(
+                "standards_projection must be a ResultsStandardsProjection."
+            )
+        aligned_standard_ids = {
+            standard_id
+            for standards in self.assignment.standards_by_question
+            for standard_id in standards
+        }
+        if any(
+            standard_id not in aligned_standard_ids
+            for standard_id in self.standards_projection.standard_ids
+        ):
+            raise ValueError(
+                "standards_projection contains an ID outside assignment alignment."
+            )
 
         if self.scope == "class_analysis":
             if not isinstance(self.class_analysis, ClassResultsAnalysis):
@@ -370,12 +398,27 @@ def snapshot_assignment_for_report(
     )
 
 
+def _report_standard_ids(
+    assignment: AssignmentReportSnapshot,
+) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                standard_id
+                for standards in assignment.standards_by_question
+                for standard_id in standards
+            }
+        )
+    )
+
+
 def prepare_class_analysis_snapshot(
     rows: Sequence[ScoreFormRoutedResultHistoryRow],
     assignment: Mapping[str, object],
     *,
     class_id: str,
     generated_at: datetime,
+    workspace_root: str | Path | None = None,
 ) -> ResultsReportSnapshot:
     """Freeze one class-analysis report snapshot without writing any files."""
     assignment_snapshot = snapshot_assignment_for_report(assignment)
@@ -383,6 +426,12 @@ def prepare_class_analysis_snapshot(
         analysis = analyze_class_results(rows, assignment, class_id=class_id)
     except ResultsAnalysisError as error:
         raise ResultsReportingError(str(error)) from error
+
+    standards_projection = resolve_results_standards_projection(
+        _report_standard_ids(assignment_snapshot),
+        workspace_root=workspace_root,
+        standards_profile_id=assignment_snapshot.standards_profile_id,
+    )
 
     return ResultsReportSnapshot(
         schema_version=RESULTS_ANALYSIS_REPORT_SCHEMA,
@@ -398,6 +447,7 @@ def prepare_class_analysis_snapshot(
             CLASS_ATTEMPT_BASIS_STATEMENT,
             STANDARDS_BASIS_STATEMENT,
         ),
+        standards_projection=standards_projection,
     )
 
 
@@ -409,6 +459,7 @@ def prepare_student_detail_snapshot(
     student_id: str,
     attempt_number: int,
     generated_at: datetime,
+    workspace_root: str | Path | None = None,
 ) -> ResultsReportSnapshot:
     """Freeze one exact student-attempt report snapshot without writing files."""
     if not isinstance(student_id, str) or not student_id:
@@ -443,6 +494,12 @@ def prepare_student_detail_snapshot(
     except ResultsAnalysisError as error:
         raise ResultsReportingError(str(error)) from error
 
+    standards_projection = resolve_results_standards_projection(
+        _report_standard_ids(assignment_snapshot),
+        workspace_root=workspace_root,
+        standards_profile_id=assignment_snapshot.standards_profile_id,
+    )
+
     return ResultsReportSnapshot(
         schema_version=RESULTS_ANALYSIS_REPORT_SCHEMA,
         generated_at=_canonical_generated_at(generated_at),
@@ -456,6 +513,7 @@ def prepare_student_detail_snapshot(
             REPORT_BASIS_STATEMENT,
             STANDARDS_BASIS_STATEMENT,
         ),
+        standards_projection=standards_projection,
     )
 
 
@@ -468,6 +526,7 @@ def prepare_results_report_snapshot(
     generated_at: datetime,
     student_id: str | None = None,
     attempt_number: int | None = None,
+    workspace_root: str | Path | None = None,
 ) -> ResultsReportSnapshot:
     """Prepare exactly one explicit report scope from canonical in-memory inputs."""
     if scope == "class_analysis":
@@ -480,6 +539,7 @@ def prepare_results_report_snapshot(
             assignment,
             class_id=class_id,
             generated_at=generated_at,
+            workspace_root=workspace_root,
         )
     if scope == "student_detail":
         if student_id is None or attempt_number is None:
@@ -493,6 +553,7 @@ def prepare_results_report_snapshot(
             student_id=student_id,
             attempt_number=attempt_number,
             generated_at=generated_at,
+            workspace_root=workspace_root,
         )
     raise ResultsReportingError("Unsupported report scope.")
 

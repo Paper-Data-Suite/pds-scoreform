@@ -1,131 +1,85 @@
-# ScoreForm v0.11.0 release checklist
+# ScoreForm v0.12.0 release checklist
 
-Issue #196 owns the final v0.11.0 release boundary.
+Issue #219 owns the v0.12.0 release boundary.
 
-## 1. Reconcile and validate the release-preparation branch
+## 1. Release-preparation branch
 
-- [ ] Working tree contains only intended #196 changes.
-- [ ] `pyproject.toml` reports exactly `0.11.0`.
-- [ ] `pds-core>=0.6.2,<0.7` remains exact.
-- [ ] Historical v0.10.0 release evidence remains truthful.
-- [ ] `RELEASE_NOTES_v0.11.0.md` and `docs/v0.11.0_release_audit.md` are current.
-- [ ] No production `scoreform/` runtime file changed from the #195 qualified baseline unless a deliberate defect correction requires physical retesting.
-- [ ] `python scripts/verify_release_compatibility.py` passes.
-- [ ] `python -m pytest` passes.
-- [ ] `python -m ruff check .` passes.
-- [ ] `python -m mypy scoreform` passes.
-- [ ] `git diff --check` passes.
+- [ ] Working tree contains only intended #219 changes.
+- [ ] `pyproject.toml` reports exactly `0.12.0`.
+- [ ] `pds-core>=0.6.4,<0.7` remains exact.
+- [ ] Historical v0.10.0/v0.11.0 release evidence remains truthful.
+- [ ] `RELEASE_NOTES_v0.12.0.md` and `docs/v0.12.0_release_audit.md` are current.
+- [ ] release compatibility, focused tests, complete pytest/Ruff/mypy, and
+  `git diff --check` pass.
 
-## 2. Run the authoritative release gate
+## 2. Installed release gates
 
-Use the exact authenticated Core artifacts expected by `run_tests.ps1`.
+- [ ] v0.12 combined clean-wheel installed workflow passes.
+- [ ] Results Analysis clean-wheel installed acceptance passes.
+- [ ] clean wheel/sdist install validation passes.
+- [ ] producer/reader/module-operations gates pass.
+- [ ] automation reports `physical_acceptance: not_claimed`.
+
+## 3. Authoritative local gate
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_tests.ps1
 ```
 
-Require:
+Require a complete pass before merge.
 
-- [ ] Core 0.6.2 operations-floor qualification PASS.
-- [ ] exact Core 0.6.3 full qualification PASS.
-- [ ] clean wheel/sdist install validation PASS.
-- [ ] installed producer lifecycle PASS.
-- [ ] installed module-operations PASS.
-- [ ] combined v0.11 installed acceptance PASS.
-- [ ] automation continues to report physical acceptance as `not_claimed`.
+## 4. Merge and freeze
 
-## 3. Merge and freeze the final candidate
-
-After PR review/CI:
-
-- [ ] Squash-merge #196.
-- [ ] Return to `main`.
-- [ ] `git pull --ff-only`.
-- [ ] Require clean `main == origin/main`.
-- [ ] Record final release commit and tree.
-- [ ] Rerun `run_tests.ps1` on that exact merged commit.
-- [ ] Rebuild exactly one `scoreform-0.11.0` wheel and one sdist.
-- [ ] Run `twine check`.
-- [ ] Record SHA-256 for both final artifacts.
+- [ ] squash-merge the #219 release-preparation PR;
+- [ ] return to `main` and `git pull --ff-only`;
+- [ ] require clean `main == origin/main`;
+- [ ] record final release commit/tree;
+- [ ] rerun `run_tests.ps1` on that exact merged commit;
+- [ ] rebuild exactly one `scoreform-0.12.0` wheel and one sdist;
+- [ ] run `twine check`;
+- [ ] record SHA-256 for both artifacts.
 
 Branch artifacts are not final release artifacts.
 
-## 4. Bridge or repeat physical acceptance
+## 5. Physical printer/scanner gate
 
-Baseline #195 wheel SHA-256:
+The v0.11 physical-equivalence bridge must **not** be used: v0.12 changes
+shipped runtime code and the Core dependency floor.
 
-```text
-13780dfff55428394baaab5deab76e340ae969fe7f96cb461ccc092df7e5679b
-```
+- [ ] project owner determines the required v0.12 physical procedure;
+- [ ] required physical acceptance is completed and recorded;
+- [ ] owner approves the physical evidence for the exact release candidate.
 
-Run:
+Automation may report only `physical_acceptance: not_claimed`.
 
-```powershell
-python scripts/verify_v011_physical_equivalence.py `
-  --baseline-wheel <exact-#195-wheel> `
-  --release-wheel .\dist\scoreform-0.11.0-py3-none-any.whl
-```
+## 6. Owner authorization
 
-- [ ] Runtime payload equivalence PASS.
-- [ ] Entry points PASS.
-- [ ] Requires-Python PASS.
-- [ ] Requires-Dist PASS.
-- [ ] Output says `physical_acceptance: not_claimed`.
-- [ ] Project owner explicitly approves carrying #195 physical evidence forward.
+- [ ] release audit has no unresolved blocker;
+- [ ] final wheel/sdist hashes are recorded;
+- [ ] physical gate is resolved;
+- [ ] project owner explicitly authorizes v0.12.0 publication.
 
-If any runtime/dependency/entry-point/physical-workflow behavior changed, stop and
-repeat the physical procedure instead.
-
-## 5. Owner authorization
-
-Before tagging:
-
-- [ ] Release audit has no unresolved release blocker.
-- [ ] Final wheel/sdist hashes are recorded.
-- [ ] Physical evidence is validly carried forward or retested.
-- [ ] Project owner explicitly authorizes v0.11.0 publication.
-
-## 6. Tag and GitHub Release
+## 7. Tag and GitHub Release
 
 ```text
-tag: v0.11.0
-release name: ScoreForm v0.11.0
+tag: v0.12.0
+release name: ScoreForm v0.12.0
 ```
 
-- [ ] Tag points to the exact qualified merged commit.
-- [ ] Tag is pushed normally and never rewritten.
-- [ ] GitHub Release body is based on `RELEASE_NOTES_v0.11.0.md`.
-- [ ] Exact qualified wheel attached.
-- [ ] Exact qualified sdist attached.
-- [ ] Uploaded asset hashes match the recorded hashes.
-- [ ] No PyPI/package-index publication occurs unless separately approved.
+- [ ] tag points to the exact qualified merged commit;
+- [ ] tag is pushed normally and never rewritten;
+- [ ] release body is based on `RELEASE_NOTES_v0.12.0.md`;
+- [ ] exact wheel and sdist are attached;
+- [ ] uploaded hashes match the audit;
+- [ ] no package-index publication occurs unless separately approved.
 
-## 7. Post-release fresh-download verification
+## 8. Fresh-download verification
 
-Download the actual GitHub Release assets into a fresh directory/venv.
-
-Verify:
-
-- [ ] tag resolves to expected commit;
-- [ ] asset filenames exact;
-- [ ] asset hashes exact;
-- [ ] exact Core 0.6.3 installs;
-- [ ] ScoreForm installs noneditably;
-- [ ] `pip check` passes;
-- [ ] `importlib.metadata.version("scoreform") == "0.11.0"`;
-- [ ] `scoreform --version` reports `ScoreForm 0.11.0`;
-- [ ] `scoreform version` reports `ScoreForm 0.11.0`;
-- [ ] module, producer, and module-operations entry points resolve exactly;
-- [ ] `scoreform.academic_result_reader` imports from site-packages;
-- [ ] bounded installed acceptance passes.
-
-Record the post-release result and final hashes in
-`docs/v0.11.0_release_audit.md` / #196 before closing the issue.
-
-## Downstream note
-
-ScoreForm v0.11.0 preserves the existing producer/reader contract, but Meridian
-currently exact-qualifies reader distribution version 0.10.0. Meridian must add
-0.11.0 support in a Meridian-owned change after this final wheel identity is
-available. Paper Data Suite v0.1.0 likewise remains an immutable exact
-composition containing ScoreForm 0.10.0.
+- [ ] filenames and hashes exact;
+- [ ] exact Core v0.6.4 installs;
+- [ ] ScoreForm installs noneditably and `pip check` passes;
+- [ ] installed ScoreForm metadata/version commands report 0.12.0;
+- [ ] entry points resolve;
+- [ ] combined v0.12 installed acceptance passes;
+- [ ] Results Analysis installed acceptance passes;
+- [ ] audit records final commit/tree/hashes and verification outcome.

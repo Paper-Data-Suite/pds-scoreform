@@ -31,19 +31,19 @@ def test_ci_authenticates_exact_released_core_reference() -> None:
 
     assert (
         "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
-        "v0.6.3/pds_core-0.6.3-py3-none-any.whl"
+        "v0.6.4/pds_core-0.6.4-py3-none-any.whl"
     ) in text
     assert (
-        'Path(os.environ["RUNNER_TEMP"]) / "pds_core-0.6.3-py3-none-any.whl"'
+        'Path(os.environ["RUNNER_TEMP"]) / "pds_core-0.6.4-py3-none-any.whl"'
         in text
     )
     assert (
         'python scripts/verify_core_wheel.py '
-        '"${{ runner.temp }}/pds_core-0.6.3-py3-none-any.whl"'
+        '"${{ runner.temp }}/pds_core-0.6.4-py3-none-any.whl"'
         in text
     )
-    assert 'version("pds-core") != "0.6.3"' in text
-    assert "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5" in text
+    assert 'version("pds-core") != "0.6.4"' in text
+    assert "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b" in text
     assert "../pds-core" not in text
 
 
@@ -132,8 +132,8 @@ def test_ci_documentation_defines_layering_and_support_boundary() -> None:
     assert "Ubuntu (`ubuntu-latest`)" in text
     assert "3.11, 3.12, 3.13, 3.14" in text
     assert "Python 3.11 remains the language and package-metadata floor" in text
-    assert "pds-core>=0.6.2,<0.7" in text
-    assert "PDS Core 0.6.3" in text
+    assert "pds-core>=0.6.4,<0.7" in text
+    assert "PDS Core 0.6.4" in text
     assert "not" in text and "printer/scanner acceptance" in text
     assert "run_tests.ps1" in text
 
@@ -145,4 +145,4 @@ def test_readme_links_ci_contract_and_keeps_python_floor() -> None:
     assert "Routine CI validates Windows and Ubuntu on Python 3.11 through 3.14." in normalized
     assert "Python 3.11 remains the minimum supported interpreter" in normalized
     assert "docs/continuous_integration.md" in text
-    assert "pds-core>=0.6.2,<0.7" in text
+    assert "pds-core>=0.6.4,<0.7" in text

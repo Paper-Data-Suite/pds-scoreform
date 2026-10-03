@@ -4,7 +4,7 @@ ScoreForm is a local-first classroom OMR tool for generating printable answer
 sheets and scoring scanned multiple-choice responses through Paper Data Suite
 Core.
 
-Current version: `0.11.0`.
+Current version: `0.12.0`.
 
 ScoreForm is pre-1.0. Scan quality affects reliability, and teachers must
 manually verify results before recording grades. It is not a gradebook, does not
@@ -13,7 +13,7 @@ choose the official attempt or grade, and does not provide LMS export.
 ## Release contract
 
 - Python: 3.11 or newer
-- PDS Core: `pds-core>=0.6.2,<0.7`
+- PDS Core: `pds-core>=0.6.4,<0.7`
 - Core routing contract: `1`
 - QR payload schema: `PDS2`
 - route-registration schema: `1`
@@ -33,34 +33,28 @@ rather than being multiplied across every matrix cell. See
 
 ## Installation
 
-PDS Core 0.6.3 is the current release-qualification reference and is distributed
-separately through the verified PDS Core `v0.6.3` GitHub Release; it is not
+PDS Core 0.6.4 is the current release-qualification reference and is distributed
+separately through the verified PDS Core `v0.6.4` GitHub Release; it is not
 published to PyPI. Download its wheel and the ScoreForm
 wheel, create and activate a Python 3.11+ virtual environment, install Poppler
 so `pdftoppm` is available for PDF scans, then install both distributions
 noneditably:
 
 ```powershell
-python -m pip install .\pds_core-0.6.3-py3-none-any.whl
-python -m pip install .\scoreform-0.11.0-py3-none-any.whl
+python -m pip install .\pds_core-0.6.4-py3-none-any.whl
+python -m pip install .\scoreform-0.12.0-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
 ```
 
-ScoreForm's dependency metadata enforces `pds-core>=0.6.2,<0.7`, but pip cannot
+ScoreForm's dependency metadata enforces `pds-core>=0.6.4,<0.7`, but pip cannot
 download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
 
-ScoreForm 0.11.0 preserves the Core 0.6 Academic Work/publication contracts
-and the consumer-neutral `scoreform.academic_result_reader` established by the
-historical v0.10.0 release while adding the v0.11 teacher-workflow usability
-layer. Downstream consumers must bind to the exact released reader versions they
-explicitly qualify; the package-version change does not create a new producer
-schema. See [`docs/v0.11.0_release_audit.md`](docs/v0.11.0_release_audit.md).
-The historical v0.10.0 contract audit remains at
-[`docs/v0.10.0_release_compatibility.md`](docs/v0.10.0_release_compatibility.md).
+ScoreForm 0.12.0 preserves the established Academic Work, publication, producer-manifest, and consumer-neutral reader contracts while adding descriptive Results Analysis/reporting and qualifying the active runtime against Core 0.6.4. The reporting layer does not select an official attempt or infer proficiency/Grades. See [`docs/v0.12.0_release_audit.md`](docs/v0.12.0_release_audit.md).
+Historical release records remain available for [v0.11.0](docs/v0.11.0_release_audit.md) and [v0.10.0](docs/v0.10.0_release_compatibility.md).
 
 Adopting Core 0.6 does not by itself register work, generate manifests,
 publish results, build the catalog, or calculate Grades. ScoreForm remains
@@ -294,7 +288,7 @@ selection, grading, or portfolio policy. See
 
 Release readiness now also runs the complete academic-result producer lifecycle
 and the guided SF-AC10/SF-AC11 sharing journeys from the clean installed ScoreForm
-wheel against the current Core 0.6.3 reference release:
+wheel against the current Core 0.6.4 reference release:
 native synthetic results, registration, immutable manifests, publication,
 catalog verification, public reading, supersession, withdrawal, and registry
 audit. See
@@ -464,6 +458,11 @@ See [`docs/teacher_scan_quality_recovery.md`](docs/teacher_scan_quality_recovery
 for the `SF-AC08` contract, privacy boundaries, cancellation semantics, and the
 physical acceptance handoff to #195.
 
+
+## v0.12.0 release records
+
+- [`RELEASE_NOTES_v0.12.0.md`](RELEASE_NOTES_v0.12.0.md) — v0.12.0 GitHub Release body
+- [`docs/v0.12.0_release_audit.md`](docs/v0.12.0_release_audit.md) — v0.12.0 qualification and artifact audit
 
 ## v0.11.0 release records
 

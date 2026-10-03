@@ -32,6 +32,10 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 PDF_FILENAME = "results_analysis.pdf"
 PDF_MEDIA_TYPE = "application/pdf"
@@ -176,19 +180,27 @@ def _metadata_table(rows: list[tuple[str, object]]) -> Table:
 
 def _standards_table(
     standards: tuple[StandardPerformance, ...],
+    standard_display: ResultsStandardsProjection,
+    styles: dict[str, ParagraphStyle],
 ) -> Table:
     data: list[list[object]] = [
         ["Standard", "Correct", "Responses", "Percent", "Questions"]
     ]
     data.extend(
         [
-            standard.standard_id,
+            _paragraph(
+                standard_display.label_for(standard.standard_id),
+                styles["small"],
+            ),
             standard.correct,
             standard.responses,
             _percent(standard.percent_correct),
             ", ".join(f"Q{number}" for number in standard.question_numbers),
         ]
-        for standard in standards
+        for standard in order_standard_items(
+            standards,
+            standard_display,
+        )
     )
     if len(data) == 1:
         data.append(["No aligned Standards", "", "", "", ""])
@@ -378,7 +390,13 @@ def _class_story(
     )
 
     story.extend(_section_title("Standards Analysis", styles))
-    story.append(_standards_table(analysis.standards))
+    story.append(
+        _standards_table(
+            analysis.standards,
+            snapshot.standards_projection,
+            styles,
+        )
+    )
     unaligned = _unaligned_paragraph(analysis.unaligned, styles)
     if unaligned is not None:
         story.extend([Spacer(1, 5), unaligned])
@@ -447,7 +465,13 @@ def _student_story(
     )
 
     story.extend(_section_title("Student Standards Breakdown", styles))
-    story.append(_standards_table(detail.standards))
+    story.append(
+        _standards_table(
+            detail.standards,
+            snapshot.standards_projection,
+            styles,
+        )
+    )
     unaligned = _unaligned_paragraph(detail.unaligned, styles)
     if unaligned is not None:
         story.extend([Spacer(1, 5), unaligned])

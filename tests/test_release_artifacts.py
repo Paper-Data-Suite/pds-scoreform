@@ -25,9 +25,9 @@ from scripts.verify_release_artifacts import (
 def _package_metadata(
     *,
     name: str = "scoreform",
-    version: str = "0.11.0",
+    version: str = "0.12.0",
     requires_python: str | None = ">=3.11",
-    core_requirements: tuple[str, ...] = ("pds-core>=0.6.2,<0.7",),
+    core_requirements: tuple[str, ...] = ("pds-core>=0.6.4,<0.7",),
 ) -> str:
     lines = ["Metadata-Version: 2.4", f"Name: {name}", f"Version: {version}"]
     if requires_python is not None:
@@ -39,9 +39,9 @@ def _package_metadata(
 def test_release_member_validation_accepts_expected_sources():
     validate_member_names(
         [
-            "scoreform-0.11.0/scoreform/cli.py",
-            "scoreform-0.11.0/docs/release_checklist.md",
-            "scoreform-0.11.0/examples/sample_roster_english9_p2.csv",
+            "scoreform-0.12.0/scoreform/cli.py",
+            "scoreform-0.12.0/docs/release_checklist.md",
+            "scoreform-0.12.0/examples/sample_roster_english9_p2.csv",
         ]
     )
 
@@ -79,23 +79,23 @@ def test_release_entry_point_metadata_rejects_missing_or_wrong_profile(text):
 @pytest.mark.parametrize(
     "name",
     [
-        "scoreform-0.11.0/.git/config",
-        "scoreform-0.11.0/classes/class1/roster.csv",
-        "scoreform-0.11.0/local_outputs/debug.png",
-        "scoreform-0.11.0/private.patch",
-        "scoreform-0.11.0/generated.pdf",
-        "scoreform-0.11.0/results.csv",
+        "scoreform-0.12.0/.git/config",
+        "scoreform-0.12.0/classes/class1/roster.csv",
+        "scoreform-0.12.0/local_outputs/debug.png",
+        "scoreform-0.12.0/private.patch",
+        "scoreform-0.12.0/generated.pdf",
+        "scoreform-0.12.0/results.csv",
         "../outside.txt",
-        "scoreform-0.11.0/pds_core/__init__.py",
-        "scoreform-0.11.0/vendor/pds-core/__init__.py",
+        "scoreform-0.12.0/pds_core/__init__.py",
+        "scoreform-0.12.0/vendor/pds-core/__init__.py",
         "scoreform/pds_core/__init__.py",
-        "scoreform-0.11.0/vitrine/__init__.py",
-        "scoreform-0.11.0/vendor/meridian/adapter.py",
-        "scoreform-0.11.0/vendor/pds-meridian/adapter.py",
-        "scoreform-0.11.0/vendor/pds-vitrine/candidate.py",
-        "scoreform-0.11.0/vendor/pds-quillan/module.py",
-        "scoreform-0.11.0/vendor/pds-concord/module.py",
-        "scoreform-0.11.0/vendor/pds-portia/module.py",
+        "scoreform-0.12.0/vitrine/__init__.py",
+        "scoreform-0.12.0/vendor/meridian/adapter.py",
+        "scoreform-0.12.0/vendor/pds-meridian/adapter.py",
+        "scoreform-0.12.0/vendor/pds-vitrine/candidate.py",
+        "scoreform-0.12.0/vendor/pds-quillan/module.py",
+        "scoreform-0.12.0/vendor/pds-concord/module.py",
+        "scoreform-0.12.0/vendor/pds-portia/module.py",
     ],
 )
 def test_release_member_validation_rejects_generated_or_private_content(name):
@@ -151,9 +151,9 @@ def test_clean_install_contract_names_reader_publication_and_cli_boundaries():
 @pytest.mark.parametrize(
     ("filename", "message"),
     [
-        ("scoreform-0.11.0-wrong.whl", "unexpected wheel filename"),
+        ("scoreform-0.12.0-wrong.whl", "unexpected wheel filename"),
         (
-            "scoreform-0.11.0-wrong.tar.gz",
+            "scoreform-0.12.0-wrong.tar.gz",
             "unexpected sdist filename",
         ),
     ],
@@ -163,18 +163,18 @@ def test_release_dist_rejects_incorrect_artifact_filenames(
 ):
     if filename.endswith(".whl"):
         (tmp_path / filename).touch()
-        (tmp_path / "scoreform-0.11.0.tar.gz").touch()
+        (tmp_path / "scoreform-0.12.0.tar.gz").touch()
     else:
-        (tmp_path / "scoreform-0.11.0-py3-none-any.whl").touch()
+        (tmp_path / "scoreform-0.12.0-py3-none-any.whl").touch()
         (tmp_path / filename).touch()
 
     with pytest.raises(ArtifactValidationError, match=message):
-        validate_dist(tmp_path, "0.11.0")
+        validate_dist(tmp_path, "0.12.0")
 
 
 @pytest.mark.parametrize("link_type", [tarfile.SYMTYPE, tarfile.LNKTYPE])
 def test_release_sdist_rejects_symbolic_and_hard_links(link_type):
-    member = tarfile.TarInfo("scoreform-0.11.0/linked.py")
+    member = tarfile.TarInfo("scoreform-0.12.0/linked.py")
     member.type = link_type
     member.linkname = "../../unsafe-target"
 
@@ -183,58 +183,58 @@ def test_release_sdist_rejects_symbolic_and_hard_links(link_type):
 
 
 def test_release_wheel_rejects_nested_core_package(tmp_path: Path):
-    wheel = tmp_path / "scoreform-0.11.0-py3-none-any.whl"
+    wheel = tmp_path / "scoreform-0.12.0-py3-none-any.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         archive.writestr("vendor/pds_core/__init__.py", "")
 
     with pytest.raises(ArtifactValidationError, match="bundles pds_core"):
-        validate_wheel(wheel, "0.11.0")
+        validate_wheel(wheel, "0.12.0")
 
 
 def test_release_sdist_rejects_nested_core_package(tmp_path: Path):
-    sdist = tmp_path / "scoreform-0.11.0.tar.gz"
+    sdist = tmp_path / "scoreform-0.12.0.tar.gz"
     with tarfile.open(sdist, "w:gz") as archive:
-        archive.addfile(tarfile.TarInfo("scoreform-0.11.0/vendor/pds_core/__init__.py"))
+        archive.addfile(tarfile.TarInfo("scoreform-0.12.0/vendor/pds_core/__init__.py"))
 
     with pytest.raises(ArtifactValidationError, match="bundles pds_core"):
-        validate_sdist(sdist, "0.11.0")
+        validate_sdist(sdist, "0.12.0")
 
 
 @pytest.mark.parametrize("link_type", [tarfile.SYMTYPE, tarfile.LNKTYPE])
 def test_release_sdist_archive_rejects_links(tmp_path: Path, link_type):
-    sdist = tmp_path / "scoreform-0.11.0.tar.gz"
-    member = tarfile.TarInfo("scoreform-0.11.0/linked.py")
+    sdist = tmp_path / "scoreform-0.12.0.tar.gz"
+    member = tarfile.TarInfo("scoreform-0.12.0/linked.py")
     member.type = link_type
     member.linkname = "../../unsafe-target"
     with tarfile.open(sdist, "w:gz") as archive:
         archive.addfile(member)
 
     with pytest.raises(ArtifactValidationError, match="link"):
-        validate_sdist(sdist, "0.11.0")
+        validate_sdist(sdist, "0.12.0")
 
 
-@pytest.mark.parametrize("version", ["0.6.2", "0.6.3", "0.6.9"])
+@pytest.mark.parametrize("version", ["0.6.4", "0.6.5", "0.6.9"])
 def test_core_release_specifier_accepts_compatible_versions(version):
     assert core_version_is_supported(version)
 
 
 @pytest.mark.parametrize(
-    "version", ["0.5.9", "0.6.0", "0.6.1", "0.7.0", "0.6.2a1"]
+    "version", ["0.5.9", "0.6.2", "0.6.3", "0.7.0", "0.6.4a1"]
 )
 def test_core_release_specifier_rejects_incompatible_versions(version):
     assert not core_version_is_supported(version)
 
 
 def test_core_runtime_versions_accept_exact_baseline():
-    validate_core_runtime_versions("0.6.2", "0.6.2", "0.6.2")
+    validate_core_runtime_versions("0.6.4", "0.6.4", "0.6.4")
 
 
 @pytest.mark.parametrize(
     ("distribution", "module", "expected", "message"),
     [
         ("0.5.9", "0.5.9", None, "does not satisfy"),
-        ("0.6.2", "0.6.3", None, "disagree"),
-        ("0.6.3", "0.6.3", "0.6.2", "expected baseline"),
+        ("0.6.4", "0.6.5", None, "disagree"),
+        ("0.6.5", "0.6.5", "0.6.4", "expected baseline"),
     ],
 )
 def test_core_runtime_versions_reject_incompatible_or_mismatched_values(
@@ -247,8 +247,8 @@ def test_core_runtime_versions_reject_incompatible_or_mismatched_values(
 @pytest.mark.parametrize("label", ["wheel METADATA", "sdist PKG-INFO"])
 def test_correct_artifact_metadata_is_accepted(label):
     validate_package_metadata(
-        _package_metadata(core_requirements=("pds-core <0.7, >=0.6.2",)),
-        "0.11.0",
+        _package_metadata(core_requirements=("pds-core <0.7, >=0.6.4",)),
+        "0.12.0",
         label,
     )
 
@@ -259,7 +259,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         (_package_metadata(core_requirements=()), "exactly one pds-core"),
         (
             _package_metadata(core_requirements=("pds-core>=0.6",)),
-            "exactly >=0.6.2,<0.7",
+            "exactly >=0.6.4,<0.7",
         ),
         (
             _package_metadata(
@@ -270,7 +270,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         (
             _package_metadata(
                 core_requirements=(
-                    "pds-core>=0.6.2,<0.7; python_version < '3.12'",
+                    "pds-core>=0.6.4,<0.7; python_version < '3.12'",
                 )
             ),
             "must not use an environment marker",
@@ -281,7 +281,7 @@ def test_correct_artifact_metadata_is_accepted(label):
         ),
         (
             _package_metadata(
-                core_requirements=("pds-core>=0.6.2,<0.7", "pds-core>=0.6.2,<0.7")
+                core_requirements=("pds-core>=0.6.4,<0.7", "pds-core>=0.6.4,<0.7")
             ),
             "exactly one pds-core",
         ),
@@ -294,12 +294,12 @@ def test_correct_artifact_metadata_is_accepted(label):
             "Requires-Python must be exactly >=3.11",
         ),
         (_package_metadata(name="another-package"), "name must be scoreform"),
-        (_package_metadata(version="0.9.0"), "does not report version 0.11.0"),
+        (_package_metadata(version="0.9.0"), "does not report version 0.12.0"),
     ],
 )
 def test_incorrect_artifact_metadata_is_rejected(metadata_text, message):
     with pytest.raises(ArtifactValidationError, match=message):
-        validate_package_metadata(metadata_text, "0.11.0", "test artifact")
+        validate_package_metadata(metadata_text, "0.12.0", "test artifact")
 
 
 def test_spdx_license_syntax_has_compatible_setuptools_minimum():

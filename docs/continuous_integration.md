@@ -20,7 +20,7 @@ break Python 3.11.
 Every matrix cell:
 
 1. installs Poppler using a platform-appropriate deterministic path;
-2. downloads and authenticates the official released PDS Core 0.6.3 wheel;
+2. downloads and authenticates the official released PDS Core 0.6.4 wheel;
 3. installs that Core wheel and ScoreForm's development dependencies;
 4. verifies the installed Core version and runs `pip check`;
 5. runs the complete ordinary pytest suite;
@@ -29,7 +29,7 @@ Every matrix cell:
 8. verifies Git whitespace plus tracked and untracked repository cleanliness.
 
 The Windows Poppler archive is version-pinned and SHA-256 authenticated before
-its executables are added to `PATH`. The Core 0.6.3 release wheel is also
+its executables are added to `PATH`. The Core 0.6.4 release wheel is also
 SHA-256 authenticated and then validated by `scripts/verify_core_wheel.py`.
 CI does not use a sibling editable Core checkout.
 
@@ -52,37 +52,32 @@ distribution, installs the wheel noneditably outside the checkout, and discovers
 ScoreForm through Core's `paper_data_suite.module_operations` entry-point
 contract.
 
-The same harness qualifies both ScoreForm operations capabilities and verifies
+The same harness qualifies ScoreForm operations capabilities and verifies
 that the independently installed public launcher remains `scoreform =
-scoreform.cli:main`:
-
-- Core 0.6.2: minimum-floor operations-provider loading/validation, both
-  `attention_provider` and `readiness_provider`, missing-workspace unavailable
-  semantics, empty-workspace readiness, zero writes, and safe installed
-  launcher `--version`/`--help` probes.
-- Core 0.6.3: the full current installed readiness/attention acceptance,
-  including exact valid/missing/invalid class contexts, scan attention, Share
-  Results attention, readiness with non-empty attention, diagnostic-history and
-  recent-context nonauthority, privacy, zero-write checks, and installed launcher
-  identity.
+scoreform.cli:main` against exact Core 0.6.4, which is now both the declared
+minimum and the current release-qualification endpoint. The acceptance covers
+both `attention_provider` and `readiness_provider`, missing-workspace
+unavailable semantics, empty-workspace readiness, exact valid/missing/invalid
+class contexts, scan attention, Share Results attention, readiness with
+non-empty attention, diagnostic-history and recent-context nonauthority,
+privacy, zero writes, and safe installed launcher `--version`/`--help` probes.
 
 This job is intentionally separate from the ordinary 3.11-3.14 source matrix.
-It proves built-artifact compatibility at the minimum Core floor without
-replacing the exact Core 0.6.3 release-readiness reference.
+It proves built-artifact compatibility at the exact Core 0.6.4 floor/reference.
 
 External prerequisite qualification remains Suite-owned. In particular, this
 operations harness does not reinterpret `pdftoppm` availability as shared
 ScoreForm readiness.
 
-## Combined v0.11 installed-workflow qualification
+## Combined v0.12 installed-workflow qualification
 
-Issue #195 adds a bounded `combined-v011-wheel-qualification` matrix on Windows
-and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.3 reference
+Issue #195 adds a bounded `combined-v012-wheel-qualification` matrix on Windows
+and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.4 reference
 wheel.
 
-`scripts/run_v011_combined_wheel_acceptance.py` stages the current working tree
+`scripts/run_v012_combined_wheel_acceptance.py` stages the current working tree
 outside the checkout, builds the wheel and sdist, installs ScoreForm
-noneditably, and runs `scripts/verify_installed_v011_combined_acceptance.py`.
+noneditably, and runs `scripts/verify_installed_v012_combined_acceptance.py`.
 Unlike the focused per-issue installed verifiers, the combined acceptance keeps
 one synthetic workspace across assignment reuse, bulk editing, multi-class
 generation, guided scan success/failure/recovery, publication, readiness with
@@ -97,6 +92,20 @@ This job is intentionally bounded to Python 3.11 because the ordinary matrix
 already owns Python 3.11-3.14 runtime breadth. Real printer/scanner acceptance
 remains project-owner work documented in `docs/v0.11.0_combined_acceptance.md`;
 automation must not claim a physical pass.
+
+## Results Analysis installed-wheel qualification
+
+Issue #219 adds a dedicated `results-analysis-wheel-qualification` gate on
+Windows and Ubuntu / Python 3.11. It builds the current ScoreForm wheel and
+sdist, authenticates released Core v0.6.4, installs both distributions
+noneditably in a fresh environment, runs `pip check`, and executes the
+installed Results Analysis acceptance outside the source checkout.
+
+The gate covers descriptive recent-attempt semantics, exact historical Student
+Detail, blank/ambiguous response states, Standard label/profile presentation,
+frozen CSV/JSON/PDF reports, format-aware create-only output custody,
+partial-output cleanup, and the bounded local-open boundary. It does not claim
+physical printer/scanner acceptance.
 
 ## Heavyweight release readiness
 
@@ -141,9 +150,9 @@ single local environment cannot provide.
 
 - Python package metadata remains `requires-python = ">=3.11"`.
 - Routine CI currently covers Windows and Ubuntu only; macOS is not implied.
-- ScoreForm continues to declare `pds-core>=0.6.2,<0.7`.
+- ScoreForm continues to declare `pds-core>=0.6.4,<0.7`.
 - The exact authenticated CI/release baseline for this development line is PDS
-  Core 0.6.3 unless that baseline is deliberately revised in a separate
+  Core 0.6.4 unless that baseline is deliberately revised in a separate
   compatibility change.
 - Exact Suite version/dependency qualification, `pdftoppm` checks, executable
   resolution, and launcher orchestration remain Paper Data Suite responsibilities.

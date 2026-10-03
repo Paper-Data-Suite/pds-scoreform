@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 from pds_core.menu_navigation import NavigationChoice
 
@@ -19,6 +20,11 @@ from scoreform.results_analysis import (
     select_recent_display_attempts,
     select_student_attempts,
 )
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+    resolve_results_standards_projection,
+)
 from scoreform.results_viewer import (
     format_student_attempt_detail,
     format_student_standard_detail,
@@ -27,6 +33,15 @@ from scoreform.workflows import print_menu_header
 
 UiCallback = Callable[[], None]
 InputCallback = Callable[[str], str]
+
+
+def _assignment_standards_profile_id(
+    assignment: Mapping[str, object],
+) -> str | None:
+    value = assignment.get("standards_profile_id")
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _select_student(
@@ -118,25 +133,30 @@ def _select_attempt(
 def _select_standard(
     analysis: StudentAttemptAnalysis,
     *,
+    standard_display: ResultsStandardsProjection,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback,
 ) -> str | None:
     if not analysis.standards:
         return None
 
+    display_standards = order_standard_items(
+        analysis.standards,
+        standard_display,
+    )
     while True:
         clear_screen_fn()
         print_menu_header("Student Standard Detail")
         print("Standards basis: current assignment alignment")
         print()
-        for index, standard in enumerate(analysis.standards, start=1):
+        for index, standard in enumerate(display_standards, start=1):
             percent = (
                 "—"
                 if standard.percent_correct is None
                 else f"{standard.percent_correct}%"
             )
             print(
-                f"{index}. {standard.standard_id} - "
+                f"{index}. {standard_display.label_for(standard.standard_id)} - "
                 f"{standard.correct}/{standard.responses} ({percent})"
             )
         print_scoreform_navigation_options()
@@ -148,8 +168,8 @@ def _select_standard(
             return None
         if choice.isdigit():
             index = int(choice)
-            if 1 <= index <= len(analysis.standards):
-                return analysis.standards[index - 1].standard_id
+            if 1 <= index <= len(display_standards):
+                return display_standards[index - 1].standard_id
 
         print(f"Invalid selection: {choice}.")
         print_invalid_navigation()
@@ -163,6 +183,7 @@ def launch_student_detail_menu(
     class_id: str,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback = input,
+    workspace_root: str | Path | None = None,
 ) -> int:
     """Inspect one student's exact preserved result attempts without writing state."""
     student_id = _select_student(
@@ -189,10 +210,20 @@ def launch_student_detail_menu(
             class_id=class_id,
             attempt_count=len(attempts),
         )
+        standard_display = resolve_results_standards_projection(
+            (item.standard_id for item in analysis.standards),
+            workspace_root=workspace_root,
+            standards_profile_id=_assignment_standards_profile_id(assignment),
+        )
 
         while True:
             clear_screen_fn()
-            print(format_student_attempt_detail(analysis))
+            print(
+                format_student_attempt_detail(
+                    analysis,
+                    standard_display=standard_display,
+                )
+            )
             print()
             print("1. View Standard Detail")
             if len(attempts) > 1:
@@ -215,13 +246,20 @@ def launch_student_detail_menu(
                     continue
                 standard_id = _select_standard(
                     analysis,
+                    standard_display=standard_display,
                     clear_screen_fn=clear_screen_fn,
                     input_fn=input_fn,
                 )
                 if standard_id is None:
                     continue
                 clear_screen_fn()
-                print(format_student_standard_detail(analysis, standard_id))
+                print(
+                    format_student_standard_detail(
+                        analysis,
+                        standard_id,
+                        standard_display=standard_display,
+                    )
+                )
                 print()
                 input_fn("Press Enter to return to Student Detail...")
                 continue
@@ -308,21 +346,36 @@ def launch_question_analysis_menu(
 def _select_class_standard(
     analysis,
     *,
+    standard_display: ResultsStandardsProjection,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback,
 ) -> str | None:
     from scoreform.results_viewer import format_class_standards_analysis
 
-    if not analysis.standards:
+    display_standards = order_standard_items(
+        analysis.standards,
+        standard_display,
+    )
+    if not display_standards:
         clear_screen_fn()
-        print(format_class_standards_analysis(analysis))
+        print(
+            format_class_standards_analysis(
+                analysis,
+                standard_display=standard_display,
+            )
+        )
         print()
         input_fn("Press Enter to return...")
         return None
 
     while True:
         clear_screen_fn()
-        print(format_class_standards_analysis(analysis))
+        print(
+            format_class_standards_analysis(
+                analysis,
+                standard_display=standard_display,
+            )
+        )
         print()
         print("Select a Standard for contributing-question detail.")
         print_scoreform_navigation_options()
@@ -334,8 +387,8 @@ def _select_class_standard(
             return None
         if choice.isdigit():
             index = int(choice)
-            if 1 <= index <= len(analysis.standards):
-                return analysis.standards[index - 1].standard_id
+            if 1 <= index <= len(display_standards):
+                return display_standards[index - 1].standard_id
 
         print(f"Invalid selection: {choice}.")
         print_invalid_navigation()
@@ -349,16 +402,23 @@ def launch_class_standards_analysis_menu(
     class_id: str,
     clear_screen_fn: UiCallback,
     input_fn: InputCallback = input,
+    workspace_root: str | Path | None = None,
 ) -> int:
     """Inspect descriptive class Standard counts and contributing questions."""
     from scoreform.results_analysis import analyze_class_results
     from scoreform.results_viewer import format_class_standard_detail
 
     analysis = analyze_class_results(rows, assignment, class_id=class_id)
+    standard_display = resolve_results_standards_projection(
+        (item.standard_id for item in analysis.standards),
+        workspace_root=workspace_root,
+        standards_profile_id=_assignment_standards_profile_id(assignment),
+    )
 
     while True:
         standard_id = _select_class_standard(
             analysis,
+            standard_display=standard_display,
             clear_screen_fn=clear_screen_fn,
             input_fn=input_fn,
         )
@@ -366,6 +426,12 @@ def launch_class_standards_analysis_menu(
             return 0
 
         clear_screen_fn()
-        print(format_class_standard_detail(analysis, standard_id))
+        print(
+            format_class_standard_detail(
+                analysis,
+                standard_id,
+                standard_display=standard_display,
+            )
+        )
         print()
         input_fn("Press Enter to return to Standards Analysis...")

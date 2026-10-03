@@ -1,4 +1,4 @@
-"""Verify the ScoreForm v0.11.0 release compatibility boundary."""
+"""Verify the active ScoreForm release compatibility boundary."""
 
 from __future__ import annotations
 
@@ -29,15 +29,17 @@ from scoreform.publication_revision_policy import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.11.0"
+RELEASE_VERSION = "0.12.0"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.2,<0.7")
+HISTORICAL_V011_RELEASE_VERSION = "0.11.0"
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
 
 LIVE_VERSION_FILES = (
     Path("pyproject.toml"),
+    Path("README.md"),
     Path("run_tests.ps1"),
     Path(".github/workflows/release-readiness.yml"),
     Path("scripts/validate_release_install.ps1"),
@@ -46,10 +48,6 @@ LIVE_VERSION_FILES = (
     Path("scripts/verify_release_artifacts.py"),
     Path("tests/test_cli_discoverability.py"),
     Path("tests/test_release_artifacts.py"),
-    Path("tests/fixtures/release/physical_acceptance_assignment.json"),
-    Path("docs/cli_contract.md"),
-    Path("docs/development_plan.md"),
-    Path("docs/installed_producer_acceptance.md"),
     Path("docs/release_checklist.md"),
 )
 HISTORICAL_RELEASE_FILES = (
@@ -57,16 +55,23 @@ HISTORICAL_RELEASE_FILES = (
     Path("docs/v0.10.0_release_compatibility.md"),
     Path("docs/physical_acceptance_test.md"),
 )
-REQUIRED_V011_FILES = (
+HISTORICAL_V011_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.11.0.md"),
     Path("docs/v0.11.0_release_audit.md"),
-    Path("scripts/verify_v011_physical_equivalence.py"),
+)
+REQUIRED_V012_FILES = (
+    Path("RELEASE_NOTES_v0.12.0.md"),
+    Path("docs/v0.12.0_release_audit.md"),
+    Path("scripts/run_v012_combined_wheel_acceptance.py"),
+    Path("scripts/verify_installed_v012_combined_acceptance.py"),
+    Path("scripts/run_results_analysis_wheel_acceptance.py"),
+    Path("scripts/verify_installed_results_analysis_acceptance.py"),
 )
 README_RELEASE_MARKERS = (
-    "Current version: `0.11.0`.",
-    "scoreform-0.11.0-py3-none-any.whl",
-    "RELEASE_NOTES_v0.11.0.md",
-    "v0.11.0_release_audit.md",
+    "Current version: `0.12.0`.",
+    "scoreform-0.12.0-py3-none-any.whl",
+    "RELEASE_NOTES_v0.12.0.md",
+    "v0.12.0_release_audit.md",
 )
 CORE_RUNTIME_RELEASE_FILES = (
     Path("pyproject.toml"),
@@ -117,7 +122,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the v0.11.0 release boundary is internally inconsistent."""
+    """Raised when the v0.12.0 release boundary is internally inconsistent."""
 
 
 def _read(relative: Path) -> str:
@@ -143,7 +148,7 @@ def validate_release_identity() -> None:
                 f"live release surface does not name {RELEASE_VERSION}: {relative}"
             )
 
-    for relative in REQUIRED_V011_FILES:
+    for relative in REQUIRED_V012_FILES:
         _read(relative)
 
     readme = _read(Path("README.md"))
@@ -152,7 +157,7 @@ def validate_release_identity() -> None:
     )
     if missing_markers:
         raise ReleaseCompatibilityError(
-            "README is missing authoritative v0.11.0 release marker(s): "
+            "README is missing authoritative v0.12.0 release marker(s): "
             + ", ".join(repr(marker) for marker in missing_markers)
         )
 
@@ -166,6 +171,14 @@ def validate_release_identity() -> None:
                 f"{relative}"
             )
 
+    for relative in HISTORICAL_V011_RELEASE_FILES:
+        text = _read(relative)
+        if HISTORICAL_V011_RELEASE_VERSION not in text:
+            raise ReleaseCompatibilityError(
+                f"historical v0.11 release surface lost "
+                f"{HISTORICAL_V011_RELEASE_VERSION}: {relative}"
+            )
+
 
 def validate_core_dependency() -> None:
     project = tomllib.loads(_read(Path("pyproject.toml")))["project"]
@@ -177,7 +190,7 @@ def validate_core_dependency() -> None:
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ReleaseCompatibilityError(
-            "ScoreForm must require exactly pds-core>=0.6.2,<0.7"
+            "ScoreForm must require exactly pds-core>=0.6.4,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
@@ -350,9 +363,9 @@ def main() -> int:
         return 1
 
     print(
-        "ScoreForm v0.11.0 release compatibility passed: "
-        "Core >=0.6.2,<0.7; producer/operations profiles exact; reader "
-        "policy-neutral; sibling runtime imports absent; historical v0.10.0 "
+        "ScoreForm active release compatibility passed: "
+        "Core >=0.6.4,<0.7; producer/operations profiles exact; reader "
+        "policy-neutral; sibling runtime imports absent; historical v0.10.0/v0.11.0 "
         "release evidence preserved."
     )
     return 0

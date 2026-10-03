@@ -88,10 +88,10 @@ def test_combined_acceptance_does_not_delegate_to_focused_verifiers() -> None:
 
 
 def test_combined_runner_authenticates_exact_core_063() -> None:
-    assert CORE_VERSION == "0.6.3"
+    assert CORE_VERSION == "0.6.4"
     assert (
         CORE_WHEEL_SHA256
-        == "98d7596ce0eed26e4d56a17bbbbd644db3014259b56a45783a173fe8237af5e5"
+        == "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
     )
 
 
@@ -106,17 +106,10 @@ def test_v011_physical_document_keeps_human_adjudication_explicit() -> None:
     assert "sanitized" in text.casefold()
 
 
-def test_ci_wires_combined_installed_acceptance_cross_platform() -> None:
-    ci = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
-    release = Path(".github/workflows/release-readiness.yml").read_text(
-        encoding="utf-8"
-    )
-
-    assert "combined-v011-wheel-qualification" in ci
-    assert "windows-latest" in ci
-    assert "ubuntu-latest" in ci
-    assert "run_v011_combined_wheel_acceptance.py" in ci
-    assert "verify_installed_v011_combined_acceptance.py" in release
+def test_v011_combined_harness_remains_available_as_historical_evidence() -> None:
+    assert Path("scripts/run_v011_combined_wheel_acceptance.py").is_file()
+    assert Path("scripts/verify_installed_v011_combined_acceptance.py").is_file()
+    assert Path("docs/v0.11.0_combined_acceptance.md").is_file()
 
 def test_guided_acceptance_uses_core_navigation_token_for_optional_menu_exit() -> None:
     source = Path(

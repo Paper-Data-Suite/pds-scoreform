@@ -149,7 +149,7 @@ def test_class_pdf_export_writes_one_privacy_minimized_report(tmp_path, capsys):
         class_id="class1",
         assignment_id="quiz1",
         workspace_root=tmp_path,
-        input_fn=_input(("1", "3", "GENERATE")),
+        input_fn=_input(("1", "3", "GENERATE", "B")),
         clear_screen_fn=lambda: None,
         now_fn=lambda: GENERATED,
     )
@@ -157,7 +157,7 @@ def test_class_pdf_export_writes_one_privacy_minimized_report(tmp_path, capsys):
     expected_dir = (
         paths.exports_dir
         / "results_analysis"
-        / "class_analysis_20260930T234500Z"
+        / "class_analysis_pdf_20260930T234500Z"
     )
     assert result == 0
     assert expected_dir.is_dir()
@@ -192,6 +192,7 @@ def test_student_json_export_can_select_historical_attempt(tmp_path):
                 "1",
                 "2",
                 "GENERATE",
+                "B",
             )
         ),
         clear_screen_fn=lambda: None,
@@ -201,7 +202,7 @@ def test_student_json_export_can_select_historical_attempt(tmp_path):
     expected = (
         paths.exports_dir
         / "results_analysis"
-        / "student_detail_20260930T234500Z"
+        / "student_detail_json_20260930T234500Z"
         / "results_analysis.json"
     )
     assert result == 0
@@ -221,7 +222,7 @@ def test_class_csv_export_creates_only_bounded_report_set(tmp_path):
         class_id="class1",
         assignment_id="quiz1",
         workspace_root=tmp_path,
-        input_fn=_input(("1", "1", "GENERATE")),
+        input_fn=_input(("1", "1", "GENERATE", "B")),
         clear_screen_fn=lambda: None,
         now_fn=lambda: GENERATED,
     )
@@ -229,7 +230,7 @@ def test_class_csv_export_creates_only_bounded_report_set(tmp_path):
     expected_dir = (
         paths.exports_dir
         / "results_analysis"
-        / "class_analysis_20260930T234500Z"
+        / "class_analysis_csv_20260930T234500Z"
     )
     assert result == 0
     assert sorted(path.name for path in expected_dir.iterdir()) == [

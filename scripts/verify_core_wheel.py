@@ -1,4 +1,4 @@
-"""Validate the current released Core 0.6.3 reference wheel."""
+"""Validate the current released Core 0.6.4 reference wheel."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from pip._vendor.packaging.tags import sys_tags
 from pip._vendor.packaging.utils import canonicalize_name, parse_wheel_filename
 from pip._vendor.packaging.version import Version
 
-EXPECTED_VERSION = Version("0.6.3")
+EXPECTED_VERSION = Version("0.6.4")
 EXPECTED_DEV_REQUIREMENTS = {
     "build": SpecifierSet(""),
     "mypy": SpecifierSet(""),
@@ -27,7 +27,7 @@ EXPECTED_DEV_REQUIREMENTS = {
 
 
 def _validate_optional_dependencies(requirements: list[Requirement]) -> None:
-    """Require the exact v0.6.3 dev extra and no runtime requirements."""
+    """Require the exact v0.6.4 dev extra and no runtime requirements."""
 
     by_name = {
         canonicalize_name(requirement.name): requirement
@@ -35,7 +35,7 @@ def _validate_optional_dependencies(requirements: list[Requirement]) -> None:
     }
     if set(by_name) != set(EXPECTED_DEV_REQUIREMENTS):
         raise ValueError(
-            "Core 0.6.3 wheel dev-extra dependency names do not match "
+            "Core 0.6.4 wheel dev-extra dependency names do not match "
             "the released contract"
         )
 
@@ -43,7 +43,7 @@ def _validate_optional_dependencies(requirements: list[Requirement]) -> None:
         expected_specifier = EXPECTED_DEV_REQUIREMENTS[name]
         if requirement.specifier != expected_specifier:
             raise ValueError(
-                f"Core 0.6.3 wheel dependency specifier disagrees for {name}"
+                f"Core 0.6.4 wheel dependency specifier disagrees for {name}"
             )
         if (
             requirement.marker is None
@@ -51,7 +51,7 @@ def _validate_optional_dependencies(requirements: list[Requirement]) -> None:
             or not requirement.marker.evaluate({"extra": "dev"})
         ):
             raise ValueError(
-                f"Core 0.6.3 wheel dependency {name} must be dev-extra only"
+                f"Core 0.6.4 wheel dependency {name} must be dev-extra only"
             )
 
 
@@ -62,7 +62,7 @@ def validate_core_wheel(path: Path) -> None:
         raise ValueError(f"Core reference must be an existing wheel file: {path}")
     name, version, _build, tags = parse_wheel_filename(path.name)
     if canonicalize_name(name) != "pds-core" or version != EXPECTED_VERSION:
-        raise ValueError("Core wheel must be pds-core version 0.6.3")
+        raise ValueError("Core wheel must be pds-core version 0.6.4")
     if not tags.intersection(sys_tags()):
         raise ValueError(f"Core wheel is incompatible with this Python: {path.name}")
 
@@ -79,7 +79,7 @@ def validate_core_wheel(path: Path) -> None:
         if canonicalize_name(str(message["Name"])) != "pds-core":
             raise ValueError("Core wheel metadata name must be pds-core")
         if Version(str(message["Version"])) != EXPECTED_VERSION:
-            raise ValueError("Core wheel metadata version must be 0.6.3")
+            raise ValueError("Core wheel metadata version must be 0.6.4")
         if SpecifierSet(str(message["Requires-Python"])) != SpecifierSet(">=3.11"):
             raise ValueError("Core wheel Requires-Python must be exactly >=3.11")
 
@@ -97,7 +97,7 @@ def validate_core_wheel(path: Path) -> None:
         ]
         if len(operations_names) != 1:
             raise ValueError(
-                "Core 0.6.3 wheel must contain pds_core/module_operations.py"
+                "Core 0.6.4 wheel must contain pds_core/module_operations.py"
             )
         operations_text = archive.read(operations_names[0]).decode("utf-8")
         for marker in (
@@ -110,16 +110,16 @@ def validate_core_wheel(path: Path) -> None:
         ):
             if marker not in operations_text:
                 raise ValueError(
-                    "Core 0.6.3 module-operations contract is missing "
+                    "Core 0.6.4 module-operations contract is missing "
                     f"required marker: {marker}"
                 )
         init_text = archive.read(init_names[0]).decode("utf-8")
         if not re.search(
-            r'^__version__\s*=\s*["\']0\.6\.3["\']\s*$',
+            r'^__version__\s*=\s*["\']0\.6\.4["\']\s*$',
             init_text,
             re.M,
         ):
-            raise ValueError("Core wheel pds_core.__version__ must be 0.6.3")
+            raise ValueError("Core wheel pds_core.__version__ must be 0.6.4")
 
 
 def main() -> int:
@@ -127,13 +127,13 @@ def main() -> int:
     parser.add_argument("wheel", nargs="+", type=Path)
     args = parser.parse_args()
     if len(args.wheel) != 1:
-        parser.error("expected exactly one Core 0.6.3 wheel")
+        parser.error("expected exactly one Core 0.6.4 wheel")
     try:
         validate_core_wheel(args.wheel[0])
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"Core wheel validation failed: {error}")
         return 1
-    print(f"Validated Core 0.6.3 reference wheel: {args.wheel[0]}")
+    print(f"Validated Core 0.6.4 reference wheel: {args.wheel[0]}")
     return 0
 
 

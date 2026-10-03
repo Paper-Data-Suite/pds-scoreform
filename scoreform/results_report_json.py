@@ -19,6 +19,10 @@ from scoreform.results_reporting import (
     ConfirmedResultsReportPlan,
     ResultsReportingError,
 )
+from scoreform.results_standard_display import (
+    ResultsStandardsProjection,
+    order_standard_items,
+)
 
 JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 JSON_FILENAME = "results_analysis.json"
@@ -33,10 +37,13 @@ def _performance(summary: PerformanceSummary) -> dict[str, Any]:
     }
 
 
-def _standard(standard: StandardPerformance) -> dict[str, Any]:
+def _standard(
+    standard: StandardPerformance,
+    standard_display: ResultsStandardsProjection,
+) -> dict[str, Any]:
     return {
         "standard_id": standard.standard_id,
-        "display_label": standard.standard_id,
+        "display_label": standard_display.label_for(standard.standard_id),
         "correct": standard.correct,
         "responses": standard.responses,
         "percent_correct": standard.percent_correct,
@@ -64,7 +71,10 @@ def _overview(student: StudentAttemptAnalysis) -> dict[str, Any]:
     }
 
 
-def _student_detail(detail: StudentAttemptAnalysis) -> dict[str, Any]:
+def _student_detail(
+    detail: StudentAttemptAnalysis,
+    standard_display: ResultsStandardsProjection,
+) -> dict[str, Any]:
     return {
         "student_id": detail.student_id,
         "last_name": detail.last_name,
@@ -89,7 +99,11 @@ def _student_detail(detail: StudentAttemptAnalysis) -> dict[str, Any]:
             for question in detail.questions
         ],
         "standards_analysis": [
-            _standard(standard) for standard in detail.standards
+            _standard(standard, standard_display)
+            for standard in order_standard_items(
+                detail.standards,
+                standard_display,
+            )
         ],
         "unaligned": _performance(detail.unaligned),
     }
@@ -174,14 +188,21 @@ def _payload(confirmed: ConfirmedResultsReportPlan) -> dict[str, Any]:
                 for question in analysis.questions
             ],
             "standards_analysis": [
-                _standard(standard) for standard in analysis.standards
+                _standard(standard, snapshot.standards_projection)
+                for standard in order_standard_items(
+                    analysis.standards,
+                    snapshot.standards_projection,
+                )
             ],
             "unaligned": _performance(analysis.unaligned),
         }
     else:
         detail = snapshot.student_detail
         assert detail is not None
-        payload["student_detail"] = _student_detail(detail)
+        payload["student_detail"] = _student_detail(
+            detail,
+            snapshot.standards_projection,
+        )
 
     return payload
 
