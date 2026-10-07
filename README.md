@@ -4,7 +4,7 @@ ScoreForm is a local-first classroom OMR tool for generating printable answer
 sheets and scoring scanned multiple-choice responses through Paper Data Suite
 Core.
 
-Current version: `0.12.0`.
+Current version: `0.12.1`.
 
 ScoreForm is pre-1.0. Scan quality affects reliability, and teachers must
 manually verify results before recording grades. It is not a gradebook, does not
@@ -42,7 +42,7 @@ noneditably:
 
 ```powershell
 python -m pip install .\pds_core-0.6.4-py3-none-any.whl
-python -m pip install .\scoreform-0.12.0-py3-none-any.whl
+python -m pip install .\scoreform-0.12.1-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
@@ -53,8 +53,8 @@ download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
 
-ScoreForm 0.12.0 preserves the established Academic Work, publication, producer-manifest, and consumer-neutral reader contracts while adding descriptive Results Analysis/reporting and qualifying the active runtime against Core 0.6.4. The reporting layer does not select an official attempt or infer proficiency/Grades. See [`docs/v0.12.0_release_audit.md`](docs/v0.12.0_release_audit.md).
-Historical release records remain available for [v0.11.0](docs/v0.11.0_release_audit.md) and [v0.10.0](docs/v0.10.0_release_compatibility.md).
+ScoreForm 0.12.1 is a compatibility repair for `scoreform_academic_result_manifest_v1`: durable Core Standards Profile and Standard identities are preserved exactly even when they contain punctuation outside Core's unrelated generic routing/path identifier grammar. Existing v1 structure and publication semantics remain unchanged, and the active runtime remains qualified against Core 0.6.4. ScoreForm <=0.12.0 readers may reject corrected v1 instances containing punctuation-bearing Standards identities; ScoreForm >=0.12.1 corrects that reader/producer defect. Meridian requires a separate exact-reader qualification before claiming support for ScoreForm 0.12.1. See [`docs/v0.12.1_release_audit.md`](docs/v0.12.1_release_audit.md).
+Historical release records remain available for [v0.12.0](docs/v0.12.0_release_audit.md), [v0.11.0](docs/v0.11.0_release_audit.md), and [v0.10.0](docs/v0.10.0_release_compatibility.md).
 
 Adopting Core 0.6 does not by itself register work, generate manifests,
 publish results, build the catalog, or calculate Grades. ScoreForm remains
@@ -458,6 +458,11 @@ See [`docs/teacher_scan_quality_recovery.md`](docs/teacher_scan_quality_recovery
 for the `SF-AC08` contract, privacy boundaries, cancellation semantics, and the
 physical acceptance handoff to #195.
 
+
+## v0.12.1 release records
+
+- [`RELEASE_NOTES_v0.12.1.md`](RELEASE_NOTES_v0.12.1.md) — v0.12.1 GitHub Release body
+- [`docs/v0.12.1_release_audit.md`](docs/v0.12.1_release_audit.md) — v0.12.1 compatibility and artifact audit
 
 ## v0.12.0 release records
 

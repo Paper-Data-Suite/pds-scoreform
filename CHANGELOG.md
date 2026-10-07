@@ -14,6 +14,32 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
+## [v0.12.1] - 2026-10-06
+
+### Fixed
+
+* Corrected `scoreform_academic_result_manifest_v1` so durable Core Standards
+  Profile and Standard identities are validated in the Core Standards identity
+  domain rather than through the unrelated generic routing/path identifier
+  grammar. Punctuation-bearing identities are preserved exactly.
+* Added regression coverage for model construction, canonical round-trip,
+  Core-backed generation, guided Share Results publication, the public
+  consumer-neutral reader, and clean installed-wheel publication paths.
+
+### Compatibility
+
+* Retains `scoreform_academic_result_manifest_v1`; this is a validation repair,
+  not a structural manifest-v2 change. Existing v1 manifests remain valid.
+* ScoreForm <=0.12.0 readers may reject corrected v1 manifests containing
+  punctuation-bearing durable Standards identities. ScoreForm >=0.12.1 accepts
+  and preserves those identities exactly.
+* Runtime compatibility remains Python >=3.11 and `pds-core>=0.6.4,<0.7`, with
+  exact release qualification against Core v0.6.4.
+* Meridian remains downstream and must separately qualify the exact ScoreForm
+  0.12.1 reader before broadening its supported producer-reader identity.
+* Physical printer/scanner acceptance is unchanged by this manifest-only repair;
+  automated qualification records `physical_acceptance: not_claimed`.
+
 ## [v0.12.0] - 2026-10-02
 
 ### Added

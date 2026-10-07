@@ -42,9 +42,13 @@ assignment: acceptance_quiz
 student: synthetic_student
 ```
 
-The fixture uses a three-question unaligned assignment and route-free
-`plain_paper_manual` results. This keeps academic-registry acceptance independent
-of scanners, Poppler, QR decoding, retained scan evidence, and PDS2 routing while
+The fixture uses a three-question Standards-bearing assignment and route-free
+`plain_paper_manual` results. Its synthetic Core Standards Library deliberately
+uses durable identities such as `njsls-ela:RL.TS.11-12.4` that are valid Standards
+identity text but are outside Core's generic routing/path safe-identifier grammar.
+The installed producer reader must preserve those exact identities across both
+manifest revisions. This keeps academic-registry acceptance independent of
+scanners, Poppler, QR decoding, retained scan evidence, and PDS2 routing while
 still exercising ScoreForm's production schema-v2 result writer.
 
 No real student or school data belongs in this harness.

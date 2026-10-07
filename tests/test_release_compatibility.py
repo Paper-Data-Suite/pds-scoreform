@@ -8,10 +8,12 @@ import pytest
 import scripts.verify_release_compatibility as compatibility
 
 
-def test_release_version_is_exact_v012_identity() -> None:
-    assert compatibility.RELEASE_VERSION == "0.12.0"
+def test_release_version_is_exact_v0121_identity() -> None:
+    assert compatibility.RELEASE_VERSION == "0.12.1"
     assert compatibility.HISTORICAL_RELEASE_VERSION == "0.10.0"
-    assert compatibility.RELEASE_VERSION != compatibility.HISTORICAL_RELEASE_VERSION
+    assert compatibility.HISTORICAL_V011_RELEASE_VERSION == "0.11.0"
+    assert compatibility.HISTORICAL_V012_RELEASE_VERSION == "0.12.0"
+    assert compatibility.RELEASE_VERSION != compatibility.HISTORICAL_V012_RELEASE_VERSION
 
 
 def test_release_identity_audit_passes_current_tree() -> None:
@@ -53,97 +55,142 @@ def test_import_root_extracts_import_and_from_import_roots() -> None:
     assert roots == ["meridian", "os", "vitrine", "pds_meridian", "scoreform"]
 
 
-def test_release_identity_requires_v012_on_live_surface(
+def _write_v0121_readme(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "Current version: `0.12.1`.",
+                "scoreform-0.12.1-py3-none-any.whl",
+                "RELEASE_NOTES_v0.12.1.md",
+                "v0.12.1_release_audit.md",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_required_v0121_files(root: Path) -> tuple[Path, ...]:
+    required = (Path("notes.md"), Path("audit.md"), Path("bridge.py"))
+    for relative in required:
+        (root / relative).write_text("ok\n", encoding="utf-8")
+    return required
+
+
+def _patch_release_identity_paths(
+    monkeypatch: pytest.MonkeyPatch,
+    root: Path,
+    *,
+    live: tuple[Path, ...],
+    historical_v010: tuple[Path, ...],
+    historical_v012: tuple[Path, ...],
+    required: tuple[Path, ...],
+) -> None:
+    monkeypatch.setattr(compatibility, "PROJECT_ROOT", root)
+    monkeypatch.setattr(compatibility, "LIVE_VERSION_FILES", live)
+    monkeypatch.setattr(compatibility, "HISTORICAL_RELEASE_FILES", historical_v010)
+    monkeypatch.setattr(compatibility, "HISTORICAL_V011_RELEASE_FILES", ())
+    monkeypatch.setattr(compatibility, "HISTORICAL_V012_RELEASE_FILES", historical_v012)
+    monkeypatch.setattr(compatibility, "REQUIRED_V0121_FILES", required)
+
+
+def test_release_identity_requires_v0121_on_live_surface(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "scoreform"\nversion = "0.12.0"\ndependencies = []\n',
+        '[project]\nname = "scoreform"\nversion = "0.12.1"\ndependencies = []\n',
         encoding="utf-8",
     )
     live = tmp_path / "live.txt"
     live.write_text("release 0.10.0\n", encoding="utf-8")
     historical = tmp_path / "historical.txt"
     historical.write_text("released 0.10.0\n", encoding="utf-8")
-    readme = tmp_path / "README.md"
-    readme.write_text(
-        "\n".join(
-            [
-                "Current version: `0.12.0`.",
-                "scoreform-0.12.0-py3-none-any.whl",
-                "RELEASE_NOTES_v0.12.0.md",
-                "v0.12.0_release_audit.md",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    for required in ("notes.md", "audit.md", "bridge.py"):
-        (tmp_path / required).write_text("ok\n", encoding="utf-8")
+    _write_v0121_readme(tmp_path / "README.md")
+    required = _write_required_v0121_files(tmp_path)
 
-    monkeypatch.setattr(compatibility, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(compatibility, "LIVE_VERSION_FILES", (Path("live.txt"),))
-    monkeypatch.setattr(
-        compatibility, "HISTORICAL_RELEASE_FILES", (Path("historical.txt"),)
-    )
-    monkeypatch.setattr(
-        compatibility, "HISTORICAL_V011_RELEASE_FILES", ()
-    )
-    monkeypatch.setattr(
-        compatibility,
-        "REQUIRED_V012_FILES",
-        (Path("notes.md"), Path("audit.md"), Path("bridge.py")),
+    _patch_release_identity_paths(
+        monkeypatch,
+        tmp_path,
+        live=(Path("live.txt"),),
+        historical_v010=(Path("historical.txt"),),
+        historical_v012=(),
+        required=required,
     )
 
     with pytest.raises(
         compatibility.ReleaseCompatibilityError,
-        match="does not name 0.12.0",
+        match="does not name 0.12.1",
     ):
         compatibility.validate_release_identity()
 
 
-def test_release_identity_allows_truthful_historical_v010(
+def test_release_identity_allows_truthful_historical_v010_and_v012(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "scoreform"\nversion = "0.12.0"\ndependencies = []\n',
+        '[project]\nname = "scoreform"\nversion = "0.12.1"\ndependencies = []\n',
         encoding="utf-8",
     )
     live = tmp_path / "live.txt"
-    live.write_text("ScoreForm 0.12.0\n", encoding="utf-8")
-    historical = tmp_path / "historical.txt"
-    historical.write_text("ScoreForm 0.10.0 release evidence\n", encoding="utf-8")
-    readme = tmp_path / "README.md"
-    readme.write_text(
-        "\n".join(
-            [
-                "Current version: `0.12.0`.",
-                "scoreform-0.12.0-py3-none-any.whl",
-                "RELEASE_NOTES_v0.12.0.md",
-                "v0.12.0_release_audit.md",
-                "Historical release: ScoreForm 0.10.0.",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+    live.write_text("ScoreForm 0.12.1\n", encoding="utf-8")
+    historical_v010 = tmp_path / "historical-v010.txt"
+    historical_v010.write_text(
+        "ScoreForm 0.10.0 release evidence\n", encoding="utf-8"
     )
-    for required in ("notes.md", "audit.md", "bridge.py"):
-        (tmp_path / required).write_text("ok\n", encoding="utf-8")
+    historical_v012 = tmp_path / "historical-v012.txt"
+    historical_v012.write_text(
+        "ScoreForm 0.12.0 release evidence\n", encoding="utf-8"
+    )
+    _write_v0121_readme(tmp_path / "README.md")
+    required = _write_required_v0121_files(tmp_path)
 
-    monkeypatch.setattr(compatibility, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(compatibility, "LIVE_VERSION_FILES", (Path("live.txt"),))
-    monkeypatch.setattr(
-        compatibility, "HISTORICAL_RELEASE_FILES", (Path("historical.txt"),)
-    )
-    monkeypatch.setattr(
-        compatibility, "HISTORICAL_V011_RELEASE_FILES", ()
-    )
-    monkeypatch.setattr(
-        compatibility,
-        "REQUIRED_V012_FILES",
-        (Path("notes.md"), Path("audit.md"), Path("bridge.py")),
+    _patch_release_identity_paths(
+        monkeypatch,
+        tmp_path,
+        live=(Path("live.txt"),),
+        historical_v010=(Path("historical-v010.txt"),),
+        historical_v012=(Path("historical-v012.txt"),),
+        required=required,
     )
 
     compatibility.validate_release_identity()
+
+
+def test_release_identity_rejects_rewritten_historical_v012(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "scoreform"\nversion = "0.12.1"\ndependencies = []\n',
+        encoding="utf-8",
+    )
+    live = tmp_path / "live.txt"
+    live.write_text("ScoreForm 0.12.1\n", encoding="utf-8")
+    historical_v010 = tmp_path / "historical-v010.txt"
+    historical_v010.write_text(
+        "ScoreForm 0.10.0 release evidence\n", encoding="utf-8"
+    )
+    historical_v012 = tmp_path / "historical-v012.txt"
+    historical_v012.write_text(
+        "ScoreForm 0.12.0 release evidence rewritten for 0.12.1\n",
+        encoding="utf-8",
+    )
+    _write_v0121_readme(tmp_path / "README.md")
+    required = _write_required_v0121_files(tmp_path)
+
+    _patch_release_identity_paths(
+        monkeypatch,
+        tmp_path,
+        live=(Path("live.txt"),),
+        historical_v010=(Path("historical-v010.txt"),),
+        historical_v012=(Path("historical-v012.txt"),),
+        required=required,
+    )
+
+    with pytest.raises(
+        compatibility.ReleaseCompatibilityError,
+        match="historical v0.12 release surface was rewritten as 0.12.1",
+    ):
+        compatibility.validate_release_identity()
 
 
 def test_core_05_text_audit_is_limited_to_runtime_release_surfaces() -> None:

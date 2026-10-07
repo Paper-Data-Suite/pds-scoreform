@@ -36,6 +36,12 @@ from pds_core.registry_paths import (
     publication_withdrawal_path,
 )
 from pds_core.routing_models import ModuleRecordRef
+from pds_core.standards import (
+    StandardDefinition,
+    StandardsLibrary,
+    StandardsProfile,
+    write_workspace_standards_library,
+)
 from pip._vendor.packaging.requirements import Requirement
 from pip._vendor.packaging.utils import canonicalize_name
 from pip._vendor.packaging.version import Version
@@ -98,6 +104,11 @@ SYNTHETIC_CLASS_ID = "acceptance_class"
 SYNTHETIC_ASSIGNMENT_ID = "acceptance_quiz"
 SYNTHETIC_STUDENT_ID = "synthetic_student"
 SYNTHETIC_TITLE = "Synthetic Producer Acceptance"
+SYNTHETIC_STANDARDS_PROFILE_ID = "english12.njsls.2023"
+SYNTHETIC_STANDARD_IDS = (
+    "njsls-ela:RL.TS.11-12.4",
+    "njsls-ela:W.NW.11-12.3.D",
+)
 WITHDRAWAL_REASON = "synthetic acceptance withdrawal"
 
 STAGES = (
@@ -192,6 +203,35 @@ def _is_isolated_installed_origin(path: Path) -> bool:
         return False
 
 
+def _synthetic_standards_library() -> StandardsLibrary:
+    return StandardsLibrary(
+        standards=(
+            StandardDefinition(
+                standard_id=SYNTHETIC_STANDARD_IDS[0],
+                code="RL.TS.11-12.4",
+                source="NJSLS-ELA 2023",
+                short_name="Text Structure",
+                description="Analyze structural choices and their effects.",
+            ),
+            StandardDefinition(
+                standard_id=SYNTHETIC_STANDARD_IDS[1],
+                code="W.NW.11-12.3.D",
+                source="NJSLS-ELA 2023",
+                short_name="Narrative Technique",
+                description="Use precise words, details, and sensory language.",
+            ),
+        ),
+        profiles=(
+            StandardsProfile(
+                profile_id=SYNTHETIC_STANDARDS_PROFILE_ID,
+                standards=SYNTHETIC_STANDARD_IDS,
+                subject="English Language Arts",
+                course="English 12",
+            ),
+        ),
+    )
+
+
 def _synthetic_assignment() -> dict[str, object]:
     layout = require_layout(DEFAULT_LAYOUT_ID)
     candidate: dict[str, object] = {
@@ -201,7 +241,12 @@ def _synthetic_assignment() -> dict[str, object]:
         "choices": list(layout.choices),
         "layout_id": layout.layout_id,
         "answer_key": {"1": "A", "2": "B", "3": "C"},
-        "standards": {"1": [], "2": [], "3": []},
+        "standards_profile_id": SYNTHETIC_STANDARDS_PROFILE_ID,
+        "standards": {
+            "1": [SYNTHETIC_STANDARD_IDS[0]],
+            "2": [SYNTHETIC_STANDARD_IDS[1]],
+            "3": [],
+        },
     }
     normalized = validate_assignment_data(candidate)
     if normalized is None:
@@ -292,10 +337,15 @@ def _verify_reader_revision(
         "reader did not preserve attempt 1 provenance.",
     )
     question = lookup_academic_result_question(manifest, 1)
+    second_question = lookup_academic_result_question(manifest, 2)
     _require(
-        question.question_number == 1 and question.standard_ids == (),
+        manifest.assignment.standards_profile_id == SYNTHETIC_STANDARDS_PROFILE_ID
+        and question.question_number == 1
+        and question.standard_ids == (SYNTHETIC_STANDARD_IDS[0],)
+        and second_question.question_number == 2
+        and second_question.standard_ids == (SYNTHETIC_STANDARD_IDS[1],),
         "public reader revision 1" if expected_attempts == 1 else "public reader revision 2",
-        "question lookup disagrees.",
+        "question Standards identity lookup disagrees.",
     )
     response = lookup_academic_result_response(
         manifest, SYNTHETIC_STUDENT_ID, 1, 2
@@ -459,6 +509,10 @@ def _installed_provenance(
 
 
 def _native_work(workspace: Path) -> ScoreFormWorkPaths:
+    write_workspace_standards_library(
+        workspace,
+        _synthetic_standards_library(),
+    )
     paths = initialize_scoreform_work_layout(
         workspace, SYNTHETIC_CLASS_ID, SYNTHETIC_ASSIGNMENT_ID
     )
@@ -1058,7 +1112,7 @@ def main() -> int:
         description="Verify installed ScoreForm academic-result producer lifecycle."
     )
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--version", default="0.12.0")
+    parser.add_argument("--version", default="0.12.1")
     parser.add_argument("--expected-core-version", default="0.6.0")
     args = parser.parse_args()
     try:

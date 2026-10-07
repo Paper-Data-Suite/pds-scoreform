@@ -23,6 +23,12 @@ Option 1 is the ordinary guided path. Options 2–4 preserve the exact advanced 
 
 The guided path retains one exact assignment context for its entire run. A valid active assignment is reused through the issue #188 context contract; otherwise the teacher performs one canonical class/assignment selection. The workflow does not select an assignment by title, first/latest ordering, or publication metadata.
 
+Standards-bearing assignments preserve the exact durable Standard and Standards
+Profile identities already validated against the Core Standards Library. Share
+Results does not require those Standards identities to satisfy Core's unrelated
+generic routing/path identifier grammar and does not slug or rewrite them before
+manifest generation or publication.
+
 ## Exact stages
 
 The guided layer repeatedly derives state from canonical ScoreForm/Core data. It does not create wizard state or another persistence format.

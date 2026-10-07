@@ -31,7 +31,7 @@ def test_package_contract_stays_core_06_range_without_meridian_dependency() -> N
     assert str(core.specifier) in {">=0.6.4,<0.7", "<0.7,>=0.6.4"}
     assert "pds-meridian" not in names
     assert "meridian" not in names
-    assert project["version"] == "0.12.0"
+    assert project["version"] == "0.12.1"
 
 
 def test_current_docs_describe_guided_core_mediated_sharing() -> None:
@@ -47,6 +47,20 @@ def test_current_docs_describe_guided_core_mediated_sharing() -> None:
     assert "pds-core 0.6.4" in guide
     assert "does not mean that Meridian has already imported" in guide
     assert "does **not** import" in guide
+
+
+def test_installed_guided_acceptance_exercises_core_standards_identity_domain() -> None:
+    source = _read("scripts/verify_installed_share_results_with_meridian_acceptance.py")
+
+    for required in (
+        "write_workspace_standards_library",
+        "english12.njsls.2023",
+        "njsls-ela:RL.TS.11-12.4",
+        "njsls-ela:W.NW.11-12.3.D",
+        "load_academic_result_manifest_revision",
+        "changed Standards identity",
+    ):
+        assert required in source
 
 
 def test_installed_sf_ac10_ac11_is_wired_into_all_release_paths() -> None:

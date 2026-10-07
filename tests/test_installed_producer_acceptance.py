@@ -28,13 +28,24 @@ def test_acceptance_stage_order_is_complete_and_stable() -> None:
     )
 
 
-def test_synthetic_assignment_is_small_unaligned_and_obviously_synthetic() -> None:
+def test_synthetic_assignment_is_small_standards_bearing_and_obviously_synthetic() -> None:
     assignment = acceptance._synthetic_assignment()
+    library = acceptance._synthetic_standards_library()
+
     assert assignment["assignment_id"] == "acceptance_quiz"
     assert assignment["title"] == "Synthetic Producer Acceptance"
     assert assignment["question_count"] == 3
-    assert assignment["standards"] == {"1": [], "2": [], "3": []}
-    assert "standards_profile_id" not in assignment
+    assert assignment["standards_profile_id"] == "english12.njsls.2023"
+    assert assignment["standards"] == {
+        "1": ["njsls-ela:RL.TS.11-12.4"],
+        "2": ["njsls-ela:W.NW.11-12.3.D"],
+        "3": [],
+    }
+    assert tuple(item.standard_id for item in library.standards) == (
+        "njsls-ela:RL.TS.11-12.4",
+        "njsls-ela:W.NW.11-12.3.D",
+    )
+    assert library.profiles[0].profile_id == "english12.njsls.2023"
 
 
 def test_synthetic_manual_results_preserve_distinct_response_states() -> None:

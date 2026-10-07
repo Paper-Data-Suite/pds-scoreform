@@ -5,8 +5,17 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from pds_core.standards import (
+    StandardDefinition,
+    StandardsLibrary,
+    StandardsProfile,
+    write_workspace_standards_library,
+)
 
-from scoreform.academic_result_manifest import manifest_to_canonical_json_bytes
+from scoreform.academic_result_manifest import (
+    manifest_from_json_bytes,
+    manifest_to_canonical_json_bytes,
+)
 from scoreform.academic_result_manifest_generation import (
     ScoreFormManifestGenerationIntegrityError,
     ScoreFormManifestGenerationNotFoundError,
@@ -56,6 +65,44 @@ def _managed_assignment(tmp_path, *, title="Unit Quiz"):
     return paths
 
 
+def _write_punctuation_standards_library(tmp_path) -> tuple[str, tuple[str, ...]]:
+    profile_id = "english12.njsls.2023"
+    standard_ids = (
+        "njsls-ela:RL.TS.11-12.4",
+        "njsls-ela:W.NW.11-12.3.D",
+    )
+    write_workspace_standards_library(
+        tmp_path,
+        StandardsLibrary(
+            standards=(
+                StandardDefinition(
+                    standard_id=standard_ids[0],
+                    code="RL.TS.11-12.4",
+                    source="NJSLS-ELA 2023",
+                    short_name="Text Structure",
+                    description="Analyze structural choices and their effects.",
+                ),
+                StandardDefinition(
+                    standard_id=standard_ids[1],
+                    code="W.NW.11-12.3.D",
+                    source="NJSLS-ELA 2023",
+                    short_name="Narrative Technique",
+                    description="Use precise words, details, and sensory language.",
+                ),
+            ),
+            profiles=(
+                StandardsProfile(
+                    profile_id=profile_id,
+                    standards=standard_ids,
+                    subject="English Language Arts",
+                    course="English 12",
+                ),
+            ),
+        ),
+    )
+    return profile_id, standard_ids
+
+
 def test_exact_native_bytes_are_hashed_and_mapped_without_private_fields(tmp_path):
     paths = _managed_assignment(tmp_path)
     context = load_academic_result_manifest_generation_context(
@@ -84,6 +131,49 @@ def test_exact_native_bytes_are_hashed_and_mapped_without_private_fields(tmp_pat
     assert "Synthetic" not in rendered
     assert "Learner" not in rendered
     assert "answer_key" not in rendered
+
+
+def test_workspace_generation_preserves_core_standards_identity_domain(tmp_path):
+    paths = _managed_assignment(tmp_path)
+    profile_id, standard_ids = _write_punctuation_standards_library(tmp_path)
+
+    assignment = json.loads(paths.assignment_path.read_text(encoding="utf-8"))
+    assignment["standards_profile_id"] = profile_id
+    assignment["standards"] = {
+        "1": [standard_ids[0]],
+        "2": [standard_ids[1]],
+    }
+    paths.assignment_path.write_text(json.dumps(assignment), encoding="utf-8")
+
+    context = load_academic_result_manifest_generation_context(
+        tmp_path,
+        paths.work_ref,
+    )
+
+    assert context.assignment.standards_profile_id == profile_id
+    assert context.assignment.questions[0].standard_ids == (standard_ids[0],)
+    assert context.assignment.questions[1].standard_ids == (standard_ids[1],)
+
+    generated = generate_academic_result_manifest(
+        tmp_path,
+        "class1",
+        "quiz1",
+    )
+
+    assert generated.revision == 1
+    assert generated.manifest.assignment.standards_profile_id == profile_id
+    assert generated.manifest.assignment.questions[0].standard_ids == (
+        standard_ids[0],
+    )
+    assert generated.manifest.assignment.questions[1].standard_ids == (
+        standard_ids[1],
+    )
+
+    reparsed = manifest_from_json_bytes(generated.content)
+    assert reparsed.assignment.standards_profile_id == profile_id
+    assert reparsed.assignment.questions[0].standard_ids == (standard_ids[0],)
+    assert reparsed.assignment.questions[1].standard_ids == (standard_ids[1],)
+    assert generated.path.read_bytes() == generated.content
 
 
 def test_missing_results_is_not_created_to_permit_generation(tmp_path):

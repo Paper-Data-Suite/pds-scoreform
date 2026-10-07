@@ -46,7 +46,11 @@ The assignment snapshot includes identity, current title, question count,
 layout, exact layout choices, total points, optional standards profile, and one
 ordered one-point question per native question. Standard IDs preserve native
 order and are checked against the current Core workspace standards library via
-ScoreForm's existing validation boundary. The answer key is excluded.
+ScoreForm's existing validation boundary. Standards Profile IDs and Standard IDs
+preserve the durable Core Standards identity domain exactly; they are not
+revalidated as generic Core routing/path identifiers and are not slugged or
+rewritten merely because they contain punctuation such as `.`, `:`, or `-`.
+The answer key is excluded.
 
 Every history row must match the requested work and assignment structure.
 Students sort by `student_id`; attempts sort by their native positive number.

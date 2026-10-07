@@ -119,6 +119,64 @@ def test_question_standard_alignment_is_preserved_without_ratings_or_answer_key(
     assert b"grade" not in encoded.lower()
 
 
+@pytest.mark.parametrize(
+    "standard_id",
+    (
+        "RL.TS.11-12.4",
+        "W.NW.11-12.3.D",
+        "8.1.12.NI.1",
+    ),
+)
+def test_core_standards_identities_preserve_punctuation_exactly(
+    standard_id: str,
+) -> None:
+    data = fixture_mapping()
+    profile_id = "english12.njsls.2023"
+    data["assignment"]["standards_profile_id"] = profile_id
+    data["assignment"]["questions"][0]["standard_ids"] = [standard_id]
+
+    manifest = manifest_from_mapping(data)
+    mapping = manifest_to_mapping(manifest)
+    encoded = manifest_to_canonical_json_bytes(manifest)
+    reparsed = manifest_from_json_bytes(encoded)
+
+    assert manifest.assignment.standards_profile_id == profile_id
+    assert manifest.assignment.questions[0].standard_ids == (standard_id,)
+    assert mapping["assignment"]["standards_profile_id"] == profile_id
+    assert mapping["assignment"]["questions"][0]["standard_ids"] == [standard_id]
+    assert reparsed.assignment.standards_profile_id == profile_id
+    assert reparsed.assignment.questions[0].standard_ids == (standard_id,)
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    (
+        (("assignment", "standards_profile_id"), ""),
+        (("assignment", "standards_profile_id"), " profile.with.punctuation"),
+        (("assignment", "standards_profile_id"), "profile.with.punctuation\n"),
+        (
+            ("assignment", "questions", 0, "standard_ids"),
+            ["RL.TS.11-12.4\n"],
+        ),
+    ),
+)
+def test_standards_identities_reject_empty_whitespace_or_control_text(
+    path: tuple[object, ...],
+    value: object,
+) -> None:
+    data = fixture_mapping()
+    target = data
+    for part in path[:-1]:
+        target = target[part]
+    target[path[-1]] = value
+
+    with pytest.raises(
+        ManifestValidationError,
+        match="nonempty, trimmed, and control-free",
+    ):
+        manifest_from_mapping(data)
+
+
 def test_timestamps_are_normalized_to_utc_without_changing_the_instant() -> None:
     manifest = manifest_from_json_bytes(fixture_bytes())
     shifted = replace(

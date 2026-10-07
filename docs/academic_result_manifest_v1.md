@@ -70,15 +70,18 @@ manifest
     layout_id: supported ScoreForm layout identifier
     choices: exact choices registered by that layout
     total_points: question_count
-    standards_profile_id: safe identifier or null
+    standards_profile_id: durable Core Standards Profile identity or null
     questions: question[]
   students: student[]
 ```
 
-All safe identifiers use the existing Core identifier contract. Boolean values
-are not integers. `generated_at` identifies creation of these manifest bytes; it
-does not select a current or latest revision. Canonical serialization renders
-timestamps in UTC.
+All safe identifiers use the existing Core identifier contract. Standards-derived
+identity fields are deliberately different: `standards_profile_id` and
+`question.standard_ids` preserve durable identity from the Core Standards Library
+and are validated as nonempty, trimmed, control-free text rather than as Core
+routing/path identifiers. Boolean values are not integers. `generated_at`
+identifies creation of these manifest bytes; it does not select a current or
+latest revision. Canonical serialization renders timestamps in UTC.
 
 `work.work_id` equals `assignment.assignment_id`. The work module and producer
 module are both exactly `scoreform`. For ScoreForm, the complete work identity is
@@ -123,14 +126,17 @@ Questions have exactly:
 question
   question_number: positive integer
   points_possible: 1
-  standard_ids: safe identifier[]
+  standard_ids: durable Core Standard identity[]
 ```
 
 The questions cover `1..question_count` exactly once and in that order. ScoreForm
 v1 assigns one point to each question, so `total_points == question_count`.
 `standard_ids` preserves the authoritative assignment mapping in its native
 order; an empty list is explicit and valid, and duplicates within a question are
-invalid.
+invalid. These values are not slugs or display labels and are not rewritten to
+satisfy Core's unrelated generic safe-identifier grammar. Punctuation-bearing
+durable identities such as `RL.TS.11-12.4` therefore remain representable when
+they are valid under the Core Standards contract.
 
 `standards_profile_id` is nullable. It is required if any question has a standard
 ID and may be null when all alignments are empty. Native construction must have
