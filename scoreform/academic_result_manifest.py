@@ -153,6 +153,21 @@ def _display_text(value: object, field: str) -> str:
     return value
 
 
+def _standards_identity(value: object, field: str) -> str:
+    # Durable Core Standards identity is not a routing/path identifier.
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or any(
+            unicodedata.category(character) in {"Cc", "Cf", "Cs", "Zl", "Zp"}
+            for character in value
+        )
+    ):
+        _fail(f"{field} must be nonempty, trimmed, and control-free.")
+    return value
+
+
 def _digest(value: object, field: str) -> str:
     if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
         _fail(f"{field} must be a lowercase SHA-256 digest.")
@@ -311,7 +326,7 @@ class Question:
         if self.points_possible != 1 or isinstance(self.points_possible, bool):
             _fail("question.points_possible must be exactly 1.")
         for standard_id in self.standard_ids:
-            _identifier(standard_id, "question.standard_ids item")
+            _standards_identity(standard_id, "question.standard_ids item")
         if len(set(self.standard_ids)) != len(self.standard_ids):
             _fail("question.standard_ids must not contain duplicates.")
 
@@ -346,7 +361,10 @@ class AssignmentSnapshot:
         if self.total_points != question_count or isinstance(self.total_points, bool):
             _fail("assignment.total_points must equal assignment.question_count.")
         if self.standards_profile_id is not None:
-            _identifier(self.standards_profile_id, "assignment.standards_profile_id")
+            _standards_identity(
+                self.standards_profile_id,
+                "assignment.standards_profile_id",
+            )
         if any(not isinstance(question, Question) for question in self.questions):
             _fail("assignment.questions contains the wrong model type.")
         expected = tuple(range(1, question_count + 1))
