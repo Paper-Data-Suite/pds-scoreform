@@ -4,24 +4,24 @@ Issue #222 owns the v0.12.1 compatibility-repair release boundary.
 
 ## 1. Release-preparation branch
 
-- [ ] Working tree contains only intended #222 changes.
-- [ ] `pyproject.toml` reports exactly `0.12.1`.
-- [ ] `pds-core>=0.6.4,<0.7` remains exact.
-- [ ] `scoreform_academic_result_manifest_v1` remains the producer contract.
-- [ ] Historical v0.10.0/v0.11.0/v0.12.0 release evidence remains truthful.
-- [ ] `RELEASE_NOTES_v0.12.1.md` and `docs/v0.12.1_release_audit.md` are current.
-- [ ] focused #222 regressions, release compatibility, pytest/Ruff/mypy, and
+- [x] Working tree contains only intended #222 changes.
+- [x] `pyproject.toml` reports exactly `0.12.1`.
+- [x] `pds-core>=0.6.4,<0.7` remains exact.
+- [x] `scoreform_academic_result_manifest_v1` remains the producer contract.
+- [x] Historical v0.10.0/v0.11.0/v0.12.0 release evidence remains truthful.
+- [x] `RELEASE_NOTES_v0.12.1.md` and `docs/v0.12.1_release_audit.md` are current.
+- [x] focused #222 regressions, release compatibility, pytest/Ruff/mypy, and
   `git diff --check` pass.
 
 ## 2. Installed release gates
 
-- [ ] installed producer acceptance covers punctuation-bearing Standards identity.
-- [ ] installed Share Results acceptance reaches first publication with the same identity.
-- [ ] combined v0.12 clean-wheel installed workflow passes as ScoreForm 0.12.1.
-- [ ] Results Analysis clean-wheel installed acceptance still passes.
-- [ ] clean wheel/sdist install validation passes.
-- [ ] producer/reader/module-operations gates pass.
-- [ ] exact released Core v0.6.4 is used, with wheel SHA-256
+- [x] installed producer acceptance covers punctuation-bearing Standards identity.
+- [x] installed Share Results acceptance reaches first publication with the same identity.
+- [x] combined v0.12 clean-wheel installed workflow passes as ScoreForm 0.12.1.
+- [x] Results Analysis clean-wheel installed acceptance still passes.
+- [x] clean wheel/sdist install validation passes.
+- [x] producer/reader/module-operations gates pass.
+- [x] exact released Core v0.6.4 is used, with wheel SHA-256
   `48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b`.
 
 ## 3. Authoritative local gate
@@ -34,15 +34,15 @@ Require a complete pass before merge.
 
 ## 4. Merge and freeze
 
-- [ ] squash-merge the #222 release-preparation PR;
-- [ ] return to `main` and `git pull --ff-only`;
-- [ ] require clean `main == origin/main`;
-- [ ] record final release commit/tree;
-- [ ] rerun `run_tests.ps1` on that exact merged commit;
-- [ ] build exactly one `scoreform-0.12.1` wheel and one sdist;
-- [ ] run `twine check`;
-- [ ] record SHA-256 for both artifacts;
-- [ ] do not rebuild different artifacts after qualification.
+- [x] squash-merge the #222 release-preparation PR;
+- [x] return to `main` and `git pull --ff-only`;
+- [x] require clean `main == origin/main`;
+- [x] record final release commit/tree;
+- [x] rerun `run_tests.ps1` on that exact merged commit;
+- [x] build exactly one `scoreform-0.12.1` wheel and one sdist;
+- [x] run `twine check`;
+- [x] record SHA-256 for both artifacts;
+- [x] do not rebuild different artifacts after qualification.
 
 Branch artifacts are not final release artifacts.
 
@@ -66,10 +66,10 @@ as a physical pass.
 
 ## 6. Owner authorization
 
-- [ ] release audit has no unresolved software blocker;
-- [ ] final wheel/sdist hashes are recorded;
-- [ ] physical boundary is recorded truthfully as `not_claimed` unless separately run;
-- [ ] project owner explicitly authorizes v0.12.1 publication.
+- [x] release audit has no unresolved software blocker;
+- [x] final wheel/sdist hashes are recorded;
+- [x] physical boundary is recorded truthfully as `not_claimed` unless separately run;
+- [x] project owner explicitly authorizes v0.12.1 publication.
 
 ## 7. Tag and GitHub Release
 
@@ -78,32 +78,32 @@ tag: v0.12.1
 release name: ScoreForm v0.12.1
 ```
 
-- [ ] tag points to the exact qualified merged commit;
-- [ ] tag is pushed normally and never rewritten;
-- [ ] release body is based on `RELEASE_NOTES_v0.12.1.md`;
-- [ ] exact wheel and sdist are attached;
-- [ ] uploaded hashes match the audit;
-- [ ] no package-index publication occurs unless separately approved.
+- [x] tag points to the exact qualified merged commit;
+- [x] tag is pushed normally and never rewritten;
+- [x] release body is based on `RELEASE_NOTES_v0.12.1.md`;
+- [x] exact wheel and sdist are attached;
+- [x] uploaded hashes match the audit;
+- [x] no package-index publication occurs unless separately approved.
 
 ## 8. Fresh-download verification
 
-- [ ] freshly download both GitHub Release assets;
-- [ ] filenames and SHA-256 hashes match the qualified artifacts exactly;
-- [ ] exact Core v0.6.4 installs;
-- [ ] ScoreForm installs noneditably and `pip check` passes;
-- [ ] installed ScoreForm metadata/version commands report 0.12.1;
-- [ ] entry points resolve from the installed artifact;
-- [ ] representative punctuation-bearing manifest generation/reader checks pass;
-- [ ] installed producer acceptance passes;
-- [ ] installed Share Results acceptance passes;
-- [ ] combined v0.12 installed acceptance passes;
-- [ ] Results Analysis installed acceptance passes;
-- [ ] audit records final commit/tree/hashes and verification outcome.
+- [x] freshly download both GitHub Release assets;
+- [x] filenames and SHA-256 hashes match the qualified artifacts exactly;
+- [x] exact Core v0.6.4 installs;
+- [x] ScoreForm installs noneditably and `pip check` passes;
+- [x] installed ScoreForm metadata/version commands report 0.12.1;
+- [x] entry points resolve from the installed artifact;
+- [x] representative punctuation-bearing manifest generation/reader checks pass;
+- [x] installed producer acceptance passes;
+- [x] installed Share Results acceptance passes;
+- [x] combined v0.12 installed acceptance passes;
+- [x] Results Analysis installed acceptance passes;
+- [x] audit records final commit/tree/hashes and verification outcome.
 
 ## 9. Downstream Meridian handoff
 
-- [ ] open a separate Meridian patch ticket after the authenticated ScoreForm
+- [x] open a separate Meridian patch ticket after the authenticated ScoreForm
   v0.12.1 artifacts exist;
-- [ ] require exact ScoreForm 0.12.1 reader-wheel qualification;
-- [ ] include punctuation-bearing Standard-ID interoperability acceptance;
-- [ ] do not silently broaden Meridian's exact-reader-version rule.
+- [x] require exact ScoreForm 0.12.1 reader-wheel qualification;
+- [x] include punctuation-bearing Standard-ID interoperability acceptance;
+- [x] do not silently broaden Meridian's exact-reader-version rule.
