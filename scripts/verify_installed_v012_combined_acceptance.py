@@ -1,4 +1,4 @@
-"""Combined clean-wheel ScoreForm v0.12.0 installed acceptance for Issue #219."""
+"""Combined clean-wheel ScoreForm v0.12 installed acceptance."""
 
 from __future__ import annotations
 

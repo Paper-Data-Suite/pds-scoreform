@@ -29,9 +29,10 @@ from scoreform.publication_revision_policy import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.12.0"
+RELEASE_VERSION = "0.12.1"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
 HISTORICAL_V011_RELEASE_VERSION = "0.11.0"
+HISTORICAL_V012_RELEASE_VERSION = "0.12.0"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
@@ -59,19 +60,23 @@ HISTORICAL_V011_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.11.0.md"),
     Path("docs/v0.11.0_release_audit.md"),
 )
-REQUIRED_V012_FILES = (
+HISTORICAL_V012_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.12.0.md"),
     Path("docs/v0.12.0_release_audit.md"),
+)
+REQUIRED_V0121_FILES = (
+    Path("RELEASE_NOTES_v0.12.1.md"),
+    Path("docs/v0.12.1_release_audit.md"),
     Path("scripts/run_v012_combined_wheel_acceptance.py"),
     Path("scripts/verify_installed_v012_combined_acceptance.py"),
     Path("scripts/run_results_analysis_wheel_acceptance.py"),
     Path("scripts/verify_installed_results_analysis_acceptance.py"),
 )
 README_RELEASE_MARKERS = (
-    "Current version: `0.12.0`.",
-    "scoreform-0.12.0-py3-none-any.whl",
-    "RELEASE_NOTES_v0.12.0.md",
-    "v0.12.0_release_audit.md",
+    "Current version: `0.12.1`.",
+    "scoreform-0.12.1-py3-none-any.whl",
+    "RELEASE_NOTES_v0.12.1.md",
+    "v0.12.1_release_audit.md",
 )
 CORE_RUNTIME_RELEASE_FILES = (
     Path("pyproject.toml"),
@@ -122,7 +127,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the v0.12.0 release boundary is internally inconsistent."""
+    """Raised when the v0.12.1 release boundary is internally inconsistent."""
 
 
 def _read(relative: Path) -> str:
@@ -148,7 +153,7 @@ def validate_release_identity() -> None:
                 f"live release surface does not name {RELEASE_VERSION}: {relative}"
             )
 
-    for relative in REQUIRED_V012_FILES:
+    for relative in REQUIRED_V0121_FILES:
         _read(relative)
 
     readme = _read(Path("README.md"))
@@ -157,7 +162,7 @@ def validate_release_identity() -> None:
     )
     if missing_markers:
         raise ReleaseCompatibilityError(
-            "README is missing authoritative v0.12.0 release marker(s): "
+            "README is missing authoritative v0.12.1 release marker(s): "
             + ", ".join(repr(marker) for marker in missing_markers)
         )
 
@@ -177,6 +182,19 @@ def validate_release_identity() -> None:
             raise ReleaseCompatibilityError(
                 f"historical v0.11 release surface lost "
                 f"{HISTORICAL_V011_RELEASE_VERSION}: {relative}"
+            )
+
+    for relative in HISTORICAL_V012_RELEASE_FILES:
+        text = _read(relative)
+        if HISTORICAL_V012_RELEASE_VERSION not in text:
+            raise ReleaseCompatibilityError(
+                f"historical v0.12 release surface lost "
+                f"{HISTORICAL_V012_RELEASE_VERSION}: {relative}"
+            )
+        if RELEASE_VERSION in text:
+            raise ReleaseCompatibilityError(
+                f"historical v0.12 release surface was rewritten as {RELEASE_VERSION}: "
+                f"{relative}"
             )
 
 
@@ -365,8 +383,8 @@ def main() -> int:
     print(
         "ScoreForm active release compatibility passed: "
         "Core >=0.6.4,<0.7; producer/operations profiles exact; reader "
-        "policy-neutral; sibling runtime imports absent; historical v0.10.0/v0.11.0 "
-        "release evidence preserved."
+        "policy-neutral; sibling runtime imports absent; historical "
+        "v0.10.0/v0.11.0/v0.12.0 release evidence preserved."
     )
     return 0
 
