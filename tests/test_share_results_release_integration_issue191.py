@@ -49,6 +49,20 @@ def test_current_docs_describe_guided_core_mediated_sharing() -> None:
     assert "does **not** import" in guide
 
 
+def test_installed_guided_acceptance_exercises_core_standards_identity_domain() -> None:
+    source = _read("scripts/verify_installed_share_results_with_meridian_acceptance.py")
+
+    for required in (
+        "write_workspace_standards_library",
+        "english12.njsls.2023",
+        "njsls-ela:RL.TS.11-12.4",
+        "njsls-ela:W.NW.11-12.3.D",
+        "load_academic_result_manifest_revision",
+        "changed Standards identity",
+    ):
+        assert required in source
+
+
 def test_installed_sf_ac10_ac11_is_wired_into_all_release_paths() -> None:
     script = "scripts/verify_installed_share_results_with_meridian_acceptance.py"
     run_tests = _read("run_tests.ps1")

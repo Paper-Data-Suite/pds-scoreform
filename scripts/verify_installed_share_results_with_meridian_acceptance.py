@@ -17,10 +17,19 @@ from unittest.mock import patch
 
 import pds_core
 from pds_core.routes import class_roster_path
+from pds_core.standards import (
+    StandardDefinition,
+    StandardsLibrary,
+    StandardsProfile,
+    write_workspace_standards_library,
+)
 from pip._vendor.packaging.requirements import Requirement
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
 
+from scoreform.academic_result_manifest_generation import (
+    load_academic_result_manifest_revision,
+)
 from scoreform.assignment import assignment_from_json_bytes, validate_assignment_data
 from scoreform.assignment_context import AssignmentContextRef, AssignmentContextSession
 from scoreform.guided_share_results import (
@@ -38,6 +47,11 @@ SYNTHETIC_CLASS_ID = "share_acceptance_class"
 SYNTHETIC_ASSIGNMENT_ID = "share_acceptance_quiz"
 SYNTHETIC_STUDENT_ID = "synthetic_share_student"
 SYNTHETIC_TITLE = "Synthetic Share Results Acceptance"
+SYNTHETIC_STANDARDS_PROFILE_ID = "english12.njsls.2023"
+SYNTHETIC_STANDARD_IDS = (
+    "njsls-ela:RL.TS.11-12.4",
+    "njsls-ela:W.NW.11-12.3.D",
+)
 
 
 class AcceptanceFailure(RuntimeError):
@@ -95,6 +109,35 @@ def _inputs(values: list[str]) -> Callable[[str], str]:
     return read
 
 
+def _synthetic_standards_library() -> StandardsLibrary:
+    return StandardsLibrary(
+        standards=(
+            StandardDefinition(
+                standard_id=SYNTHETIC_STANDARD_IDS[0],
+                code="RL.TS.11-12.4",
+                source="NJSLS-ELA 2023",
+                short_name="Text Structure",
+                description="Analyze structural choices and their effects.",
+            ),
+            StandardDefinition(
+                standard_id=SYNTHETIC_STANDARD_IDS[1],
+                code="W.NW.11-12.3.D",
+                source="NJSLS-ELA 2023",
+                short_name="Narrative Technique",
+                description="Use precise words, details, and sensory language.",
+            ),
+        ),
+        profiles=(
+            StandardsProfile(
+                profile_id=SYNTHETIC_STANDARDS_PROFILE_ID,
+                standards=SYNTHETIC_STANDARD_IDS,
+                subject="English Language Arts",
+                course="English 12",
+            ),
+        ),
+    )
+
+
 def _synthetic_assignment() -> dict[str, object]:
     layout = require_layout(DEFAULT_LAYOUT_ID)
     candidate: dict[str, object] = {
@@ -104,7 +147,12 @@ def _synthetic_assignment() -> dict[str, object]:
         "choices": list(layout.choices),
         "layout_id": layout.layout_id,
         "answer_key": {"1": "A", "2": "B", "3": "C"},
-        "standards": {"1": [], "2": [], "3": []},
+        "standards_profile_id": SYNTHETIC_STANDARDS_PROFILE_ID,
+        "standards": {
+            "1": [SYNTHETIC_STANDARD_IDS[0]],
+            "2": [SYNTHETIC_STANDARD_IDS[1]],
+            "3": [],
+        },
     }
     normalized = validate_assignment_data(candidate)
     if normalized is None:
@@ -144,6 +192,10 @@ def _synthetic_result(version: int) -> ScoreFormRoutedResult:
 
 
 def _write_native_fixture(workspace: Path) -> None:
+    write_workspace_standards_library(
+        workspace,
+        _synthetic_standards_library(),
+    )
     roster = class_roster_path(workspace, SYNTHETIC_CLASS_ID)
     roster.parent.mkdir(parents=True, exist_ok=True)
     roster.write_text(
@@ -294,6 +346,20 @@ def _verify_first_publication(
         and readiness.core_head_revision == 1,
         "first guided publication did not reconcile to exact current state.",
     )
+    stored = load_academic_result_manifest_revision(
+        workspace,
+        readiness.work,
+        1,
+    )
+    _require(
+        stored.manifest.assignment.standards_profile_id
+        == SYNTHETIC_STANDARDS_PROFILE_ID
+        and stored.manifest.assignment.questions[0].standard_ids
+        == (SYNTHETIC_STANDARD_IDS[0],)
+        and stored.manifest.assignment.questions[1].standard_ids
+        == (SYNTHETIC_STANDARD_IDS[1],),
+        "first guided publication changed Standards identity.",
+    )
     _assert_no_meridian_runtime_dependency()
 
 
@@ -341,6 +407,20 @@ def _verify_successor_cancellation_and_supersession(
         and current.core_head_revision == 2
         and current.core_head_publication_id != predecessor_id,
         "successor publication did not become the exact current Core head.",
+    )
+    stored = load_academic_result_manifest_revision(
+        workspace,
+        current.work,
+        2,
+    )
+    _require(
+        stored.manifest.assignment.standards_profile_id
+        == SYNTHETIC_STANDARDS_PROFILE_ID
+        and stored.manifest.assignment.questions[0].standard_ids
+        == (SYNTHETIC_STANDARD_IDS[0],)
+        and stored.manifest.assignment.questions[1].standard_ids
+        == (SYNTHETIC_STANDARD_IDS[1],),
+        "successor guided publication changed Standards identity.",
     )
     _assert_no_meridian_runtime_dependency()
 
