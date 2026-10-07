@@ -15,6 +15,8 @@ from scoreform.academic_result_manifest import (
     ResultsHistorySourceSnapshot,
     ScanReviewManualProvenance,
     manifest_from_json_bytes,
+    manifest_from_mapping,
+    manifest_to_canonical_json_bytes,
 )
 from scoreform.academic_result_reader import (
     ScoreFormAcademicResultReaderDecodeError,
@@ -72,6 +74,34 @@ def test_public_reader_exports_exact_stable_surface() -> None:
 def test_canonical_fixture_reads_through_existing_contract() -> None:
     raw = fixture_bytes()
     assert read_academic_result_manifest(raw) == manifest_from_json_bytes(raw)
+
+
+def test_public_reader_preserves_core_standards_identity_domain_exactly() -> None:
+    data = json.loads(fixture_bytes())
+    profile_id = "english12.njsls.2023"
+    standard_ids = (
+        "njsls-ela:RL.TS.11-12.4",
+        "njsls-ela:W.NW.11-12.3.D",
+    )
+    data["assignment"]["standards_profile_id"] = profile_id
+    data["assignment"]["questions"][0]["standard_ids"] = [
+        standard_ids[0]
+    ]
+    data["assignment"]["questions"][1]["standard_ids"] = [
+        standard_ids[1]
+    ]
+
+    canonical = manifest_to_canonical_json_bytes(manifest_from_mapping(data))
+    manifest = read_academic_result_manifest(canonical)
+    first = lookup_academic_result_question(manifest, 1)
+    second = lookup_academic_result_question(manifest, 2)
+
+    assert manifest.assignment.standards_profile_id == profile_id
+    assert first.standard_ids == (standard_ids[0],)
+    assert second.standard_ids == (standard_ids[1],)
+    assert profile_id.encode("utf-8") in canonical
+    assert standard_ids[0].encode("utf-8") in canonical
+    assert standard_ids[1].encode("utf-8") in canonical
 
 
 @pytest.mark.parametrize(
