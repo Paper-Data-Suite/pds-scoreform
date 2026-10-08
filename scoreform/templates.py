@@ -579,12 +579,13 @@ def build_qr_payload(locator: RouteLocator) -> str:
     return serialize_pds2_payload(locator)
 
 
-def make_qr_image(payload):
-    """Create a QR code image from the payload using qrcode."""
-    import io
+def _build_qr(payload):
+    """Build the existing canonical PDS2 QR matrix, quiet zone included.
 
+    Preserve historical payload, encoding, error correction L and four-module
+    border; only the way the print PDF paints the resulting matrix changes.
+    """
     import qrcode
-    from reportlab.lib.utils import ImageReader
 
     qr = qrcode.QRCode(
         version=1,
@@ -594,18 +595,67 @@ def make_qr_image(payload):
     )
     qr.add_data(payload)
     qr.make(fit=True)
+    return qr
 
+
+def make_qr_image(payload):
+    """Retain the legacy QR image helper for callers outside PDF rendering."""
+    import io
+
+    from reportlab.lib.utils import ImageReader
+
+    qr = _build_qr(payload)
     pil_img = qr.make_image(fill_color="black", back_color="white")
-    
     img_io = io.BytesIO()
     pil_img.save(img_io, format="PNG")
     img_io.seek(0)
-    
     return ImageReader(img_io)
 
 
+def _draw_qr_vector(c, payload: str, x: float, top: float, size: float) -> None:
+    """Paint native PDF rectangles for the exact QR matrix, no bitmap scaling.
+
+    A single white square explicitly establishes the four-module quiet zone.
+    Black modules are merged into horizontal runs and painted in one PDF path.
+    Coordinates are in PDF points, with *top* measured from the bottom origin.
+    The calling Canvas graphics state is always restored.
+    """
+    matrix = _build_qr(payload).get_matrix()
+    module_count = len(matrix)
+    if not module_count or any(len(row) != module_count for row in matrix):
+        raise ValueError("QR matrix must be nonempty and square.")
+    if size <= 0:
+        raise ValueError("QR print size must be positive.")
+    pitch = size / module_count
+    bottom = top - size
+
+    c.saveState()
+    try:
+        c.setFillColorRGB(1, 1, 1)
+        c.rect(x, bottom, size, size, stroke=0, fill=1)
+        c.setFillColorRGB(0, 0, 0)
+        dark_modules = c.beginPath()
+        for row_index, row in enumerate(matrix):
+            module_bottom = bottom + (module_count - row_index - 1) * pitch
+            run_start = None
+            for col_index, dark in enumerate((*row, False)):
+                if dark and run_start is None:
+                    run_start = col_index
+                elif not dark and run_start is not None:
+                    dark_modules.rect(
+                        x + run_start * pitch,
+                        module_bottom,
+                        (col_index - run_start) * pitch,
+                        pitch,
+                    )
+                    run_start = None
+        c.drawPath(dark_modules, stroke=0, fill=1)
+    finally:
+        c.restoreState()
+
+
 def draw_qr_code(c, route, layout):
-    """Draw only an already verified page route's canonical payload."""
+    """Draw only an already verified page route's canonical vector QR."""
     if not isinstance(route, RegisteredAnswerSheetPageRoute):
         raise TypeError("QR drawing requires a registered answer-sheet page route.")
     validate_answer_sheet_page_route(route.route)
@@ -615,17 +665,13 @@ def draw_qr_code(c, route, layout):
     if payload != route.payload_text:
         raise ValueError("Registered route payload is not canonical.")
 
-    # Convert template coordinates to PDF points
-    pd_x, pd_y = _pdf_coord(layout.qr_x, layout.qr_y, layout)
-    pd_w = layout.qr_size * layout.pdf_scale
-    pd_h = layout.qr_size * layout.pdf_scale
-
+    pd_x, pd_top = _pdf_coord(layout.qr_x, layout.qr_y, layout)
+    pd_size = layout.qr_size * layout.pdf_scale
     try:
-        qr_img = make_qr_image(payload)
-        c.drawImage(qr_img, pd_x, pd_y - pd_h, pd_w, pd_h)
+        _draw_qr_vector(c, payload, pd_x, pd_top, pd_size)
         return None
-    except Exception as e:
-        raise RuntimeError(f"Error drawing QR code: {e}") from e
+    except Exception as error:
+        raise RuntimeError(f"Error drawing QR code: {error}") from error
 
 
 def _validate_render_context(assignment_data, student_data, route, layout):

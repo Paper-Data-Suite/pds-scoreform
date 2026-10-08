@@ -52,3 +52,25 @@ performance. The current `qrcode` PNG renderer and PDS2 payload are unchanged;
 these require later slices and physical acceptance. The characterization helper
 now reports the *current* layout size, while this document preserves the
 historical baseline.
+
+
+## Slice 3: native vector QR rendering
+
+The active `draw_qr_code` path now paints the canonical `qrcode` matrix as
+native ReportLab/PDF vector rectangles rather than embedding and downscaling a
+PNG. The complete matrix includes the four-module quiet zone. A white
+background fills the complete geometry; black modules are grouped by horizontal
+runs and painted as a single vector path, without strokes or interpolation.
+Canvas state is saved/restored. The old `make_qr_image` helper remains available
+for existing callers, but no longer participates in active PDF QR drawing.
+
+The following remain unchanged: PDS2 payload serialization, route-validation
+authority, QR error correction L, QR matrix construction, enlarged Slice 2
+layout, and OpenCV scan detection. Vector drawing does not guarantee that
+physically tiny modules will survive every printer/scanner; that determination
+requires real paper qualification. Decoder fallback and review recovery remain
+future slices.
+
+Tests verify PDF image-free vector output, exact module/run placement and
+quiet-zone geometry, state restoration, both active layouts, and rejection of
+invalid dimensions. Test fixtures use synthetic PDS2 text only.
