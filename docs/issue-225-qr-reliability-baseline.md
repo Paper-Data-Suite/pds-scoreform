@@ -127,3 +127,37 @@ messages, which previously included temporary diagnostic directory paths.
 The optional diagnostic images remain inside the disposable qualification
 workspace and are cleaned with it; no production scan behavior changes.
 Sanitized per-page progress and create-only JSON output remain visible.
+
+### Slice 7 — Teacher-supervised registered-route recovery preflight (read-only)
+
+The revised Issue #225 requires actual recovery of an already-retained failed
+physical page, following Quillan #419's separation between a recorded route
+decision and verified operational recovery. The existing ScoreForm actions
+`route_selected` and `route_corrected` currently append review decisions; they
+do **not** re-dispatch the page or produce an assembled durable result.
+
+Slice 7 introduces `prepare_scoreform_scan_recovery` as a strictly read-only
+boundary. It discovers even historically resolved ScoreForm failures, requires
+an original physical page and Core-retained provenance, reconstructs the
+original retention event **without calling `retain_source_scan`**, verifies
+canonical containment, symlink/junction restrictions, full source SHA-256 and
+page count, and validates a teacher-selected or explicitly reused prior route
+against Core registration and the immutable issued ScoreForm answer-sheet page.
+Recorded route decisions are rechecked against full page authority. Changing
+an observed route requires explicit correction intent. An unresolved QR alone
+is never treated as authority for a student's identity.
+
+The returned preview is not a capability token and is **not** recovery evidence.
+Future execution must revalidate it and invoke Core dispatch on the original
+source page; then ScoreForm must score, assemble all required issuance pages,
+write/verify the canonical result, and only then acknowledge completed recovery.
+Partial issuance, duplicate evidence and historical metadata-only resolutions
+require explicit truthful state handling. No writer, menu, CLI, grading or
+production scanning behavior is changed in Slice 7.
+
+The original 29-page classroom assessment qualified in Slice 6 yielded 24
+OpenCV valid PDS2 pages, two ZXing-C++ valid PDS2 pages (4 and 20), and three
+unreadable pages (11, 25 and 28). This does not establish a decoder defect:
+printing damage is a plausible remaining cause. New printed-sheet physical
+qualification remains outstanding. The independent plain-paper manual-entry
+path remains available.
