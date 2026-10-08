@@ -74,3 +74,18 @@ future slices.
 Tests verify PDF image-free vector output, exact module/run placement and
 quiet-zone geometry, state restoration, both active layouts, and rejection of
 invalid dimensions. Test fixtures use synthetic PDS2 text only.
+
+## Slice 4 — Independent ZXing-C++ adapter (isolated)
+
+This slice adds `scoreform.qr_zxing_fallback.decode_qr_with_zxing` as an independent QR-only decoding adapter. **Nothing invokes it in production yet.** The existing OpenCV attempts, diagnostic persistence, Core PDS2 parsing, route authority, and scan review behavior remain unchanged.
+
+- Lazy, optional `zxingcpp` import. An absent package or native-library load failure returns `unavailable`; native decoder exceptions return `decoder_error`.
+- One native `read_barcodes` call per adapter invocation, QR format only, on a nonempty uint8 grayscale or BGR array. Inputs are limited to 5000 pixels per side and 12 million pixels total. At most eight barcode results and 4096 characters per candidate are accepted.
+- Distinct decoded text candidates are returned unchanged and in discovery order. The adapter intentionally does not parse PDS2 or choose between multiple identities. Conflict handling belongs to the later orchestration/validation slice.
+- An optional `qr-zxing` installation extra declares `zxing-cpp>=3.1.1,<4`. The base ScoreForm installation continues without it, including unsupported native environments. This is **not** evidence that installed-wheel qualification has been completed.
+- ZXing-C++ 3.1.1 provides published Windows AMD64 and ARM64 wheels for supported CPython versions on PyPI (check exact interpreter and Windows architecture during installed qualification). Source builds may require a compiler.
+- Native calls are input-sized and invocation-count bounded; they are not a hard CPU-time sandbox. The later orchestration slice must strictly cap the number of adapter invocations.
+
+Focused unit tests use a fake backend, with an additional real ZXing round-trip test that runs when `zxing-cpp` is installed. No classroom scans or student identifiers are committed.
+
+**Next slice:** inspect the primary pipeline's attempt ordering, add fallback only after primary failure, and enforce canonical parsing, identity ambiguity handling, and bounded escalation. Do not make a failed native decoder a fatal batch error.
