@@ -98,3 +98,32 @@ Focused unit tests use a fake backend, with an additional real ZXing round-trip 
 - Multiple distinct raw payloads from ZXing, including conflicting results across candidate images, fail closed as an unreadable QR. No payload text is emitted in the error message. Normal bounded diagnostic handling remains in place.
 - `tests/test_issue225_qr_zxing_recovery.py` covers bounds, single/duplicate/conflicting payload behavior, absent backend, OpenCV-first ordering, fail-soft behavior, and canonical PDS2 parsing.
 - No QR encoding changes, manifest changes, cross-suite contract changes, or release/version bump are introduced. Physical scan qualification and ARM64 installed acceptance remain future work.
+
+## Slice 6 — Local real-scan qualification (no routing or grading)
+
+`scoreform.qr_scan_qualification` and `scripts/qualify_issue225_qr_scans.py` produce a **sanitized QR/PDS2 qualification report**, using the existing ScoreForm retained-page loader, OpenCV-first detection and ZXing fallback, and the canonical Core PDS2 parser. **This is not a Core route-registration check, student-identity verification, answer scoring, publication, or installation acceptance.** The report deliberately records no decoded payloads, class/work/route/student IDs, source names, source paths, original-image hashes, crops, or scanner exception strings. It contains page numbers, image dimensions, decoder family, and terminal parsing status only.
+
+The harness uses Core retention in a newly created `tempfile.TemporaryDirectory` and therefore **temporarily copies the source scan**, which is removed on ordinary completion along with diagnostic images. Avoid placing confidential scans in an untrusted temp location; abrupt process termination can leave residual temporary files. No student scan should be added to Git. Existing diagnostics from the scan path are confined to that temporary directory. The teacher's normal OneDrive workspace is never used; the harness does not register or dispatch routes.
+
+For the original 29-page Locke PDF, run first against known failing pages, then against the complete file. Run from an editable ScoreForm development environment with Poppler and `zxing-cpp` installed (the optional `qr-zxing` extra). Update the example source path to the actual local file location:
+
+```powershell
+python scripts/qualify_issue225_qr_scans.py `
+  "$HOME\Downloads\MP1 Locke ScoreForm Check P4a.pdf" `
+  --pages 4,11,25,28 `
+  --output "$HOME\Downloads\issue225_locke_focus_qualification.json"
+
+python scripts/qualify_issue225_qr_scans.py `
+  "$HOME\Downloads\MP1 Locke ScoreForm Check P4a.pdf" `
+  --output "$HOME\Downloads\issue225_locke_full_qualification.json"
+```
+
+The JSON output uses **create-only** semantics and will not overwrite a previous run. Check that it contains no identifying information before distributing it. A positive `valid_pds2` outcome means only that ScoreForm decoded text and the Core grammar accepted a locator; it does **not** prove a registration exists, that a record maps to a particular student, or that the answers can be graded. A previously unreadable sheet may remain unresolved if print information was destroyed. Real-world outcomes must be collected, not fabricated as test fixtures. A separate physical print-to-scan qualification is still required for the improved vector QR generator.
+
+### Slice 6 Fix 1 — Suppress temporary qualification diagnostics on stdout
+
+The local qualification harness discards nested scanner-internal stdout
+messages, which previously included temporary diagnostic directory paths.
+The optional diagnostic images remain inside the disposable qualification
+workspace and are cleaned with it; no production scan behavior changes.
+Sanitized per-page progress and create-only JSON output remain visible.
