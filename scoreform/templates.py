@@ -227,6 +227,20 @@ def _require_clear(
 
 
 def _validate_header_plan(plan: AnswerSheetHeaderPlan) -> None:
+    # Validate the physical QR square itself, including its quiet zone.
+    # Historically, only text-to-QR intersections were checked here.
+    _require_inside(plan.qr_rectangle, plan.page_bounds, "QR symbol")
+    _require_clear(
+        plan.qr_rectangle,
+        plan.first_question_boundary,
+        "QR symbol and questions",
+        clearance=HEADER_QUESTION_CLEARANCE,
+    )
+    for registration in plan.registration_rectangles:
+        _require_clear(
+            plan.qr_rectangle, registration, "QR symbol and registration mark"
+        )
+
     groups = (
         (plan.title_runs, plan.left_column, "assignment title"),
         (plan.left_metadata_runs, plan.left_column, "student metadata"),
@@ -310,10 +324,13 @@ def plan_answer_sheet_header(
         qr_left, qr_top - qr_size, qr_left + qr_size, qr_top
     )
 
+    # Title placement is independent of QR size/position. A larger symbol
+    # must not move student metadata into the question rows.
+    _, title_baseline = _pdf_coord(150, layout.header_title_y, layout)
     title_runs = _plan_title_runs(
         assignment_title,
         left_column.left,
-        qr_rectangle.top,
+        title_baseline,
         left_column.right - left_column.left,
     )
     last_title = title_runs[-1]

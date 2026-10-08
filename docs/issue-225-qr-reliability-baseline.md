@@ -1,6 +1,6 @@
 # Issue #225 — QR print and decode reliability: Slice 1 baseline
 
-Status: **characterization only; no runtime generation, payload, routing, or decoding changes**.
+Status: **Slice 1 characterization; Slice 2 layout change documented below. Payload, routing, and decoder unchanged**.
 
 ## Confirmed current code paths
 
@@ -28,3 +28,27 @@ A next slice should capture per-page baseline outcomes on the teacher's installe
 2. Measure true module pitch for representative canonical PDS2 payloads and select an empirically qualified minimum.
 3. Independently qualify ZXing-C++ packaging across supported Python/Windows architectures before adding the fallback.
 4. Keep data contract changes for Core #229 and Meridian/Vitrine out of this issue's runtime modifications.
+
+
+## Slice 2: enlarged QR square and guarded header layout
+
+Slice 1 measured the historical **48 pt / 0.667 in** printed QR square, which
+remains documented above. Slice 2 enlarges the active standard and compact
+layouts to **145 template units = 69.6 pt / approximately 0.967 in** including
+the existing four-module quiet zone. The top moves from y=220 to y=185 in
+1275 x 1650 template coordinates. Assignment-title baseline remains at y=220
+through an independent header-title anchor; student metadata and both full
+printed identifiers stay in their established columns.
+
+The header planner now rejects QR collisions with registration marks, the page
+boundary and the first question region. Existing text/QR separation checks
+remain active. New tests guard both layouts, printed identifiers, title
+placement, intentionally invalid geometric variants, and complete containment of
+the enlarged symbol in the preexisting ScoreForm tight QR crop.
+
+**Not yet qualified:** module fidelity after raster resampling, printed error
+correction, independent decoders, historical scan recovery, or real printer
+performance. The current `qrcode` PNG renderer and PDS2 payload are unchanged;
+these require later slices and physical acceptance. The characterization helper
+now reports the *current* layout size, while this document preserves the
+historical baseline.

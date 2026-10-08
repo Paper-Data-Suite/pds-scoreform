@@ -22,6 +22,12 @@ from scoreform.config import (
 
 DEFAULT_LAYOUT_ID = "standard_15q_abcd_v1"
 
+# Issue #225: deliberately larger physical QR square, quiet zone included.
+# 145 template units at 612/1275 PDF scale = 69.6 pt / ~0.967 inches.
+# The QR moves up, while the assignment title retains its previous baseline.
+ISSUE225_QR_SIZE_TEMPLATE = 145
+ISSUE225_QR_TOP_TEMPLATE = 185
+
 
 @dataclass(frozen=True)
 class ChoiceBox:
@@ -59,6 +65,7 @@ class AnswerSheetLayout:
     question_slots: tuple[QuestionSlot, ...]
     page_context_x: int
     page_context_y: int
+    header_title_y: int = 220
     identity_context_x: int = 150
     identity_context_y: int = 350
     identity_context_width: int = 610
@@ -117,8 +124,8 @@ STANDARD_15Q_ABCD_V1 = AnswerSheetLayout(
     registration_size=CORNER_SIZE,
     dst_points=DST_PTS.copy(),
     qr_x=950,
-    qr_y=220,
-    qr_size=100,
+    qr_y=ISSUE225_QR_TOP_TEMPLATE,
+    qr_size=ISSUE225_QR_SIZE_TEMPLATE,
     question_slots=_standard_question_slots(),
     page_context_x=760,
     page_context_y=260,
@@ -162,8 +169,8 @@ COMPACT_25Q_ABCD_V1 = AnswerSheetLayout(
     registration_size=CORNER_SIZE,
     dst_points=DST_PTS.copy(),
     qr_x=950,
-    qr_y=220,
-    qr_size=100,
+    qr_y=ISSUE225_QR_TOP_TEMPLATE,
+    qr_size=ISSUE225_QR_SIZE_TEMPLATE,
     question_slots=_compact_question_slots(),
     page_context_x=760,
     page_context_y=260,

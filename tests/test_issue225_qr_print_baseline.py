@@ -11,8 +11,8 @@ def test_current_layout_geometry_is_characterized(layout_id):
     layout = require_layout(layout_id)
     result = measure_qr_print_baseline(layout, "PDS2|r=rt_" + "a" * 32)
     assert result.layout_id == layout_id
-    assert result.size_points == pytest.approx(48.0)
-    assert result.size_inches == pytest.approx(2.0 / 3.0)
+    assert result.size_points == pytest.approx(69.6)
+    assert result.size_inches == pytest.approx(69.6 / 72.0)
     assert result.border_modules == 4
     assert result.error_correction == "L"
     assert result.matrix_modules >= 21
