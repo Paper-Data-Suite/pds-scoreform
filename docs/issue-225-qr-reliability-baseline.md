@@ -197,3 +197,56 @@ Focused test coverage uses Core's real dispatch and ScoreForm route handler with
 synthetic retained input and only optical mark-recognition substituted in tests;
 it also rejects altered preview/source/issuance/route/result identities. Source
 and installed-wheel acceptance remain separate release gates.
+
+### Slice 9 — Read-only recovery-aware complete-attempt assembly (Issue #225)
+
+`scoreform/qr_scan_recovery_assembly.py` adds
+`prepare_scoreform_recovery_assembly(workspace_root, recovered_pages, *, original_batch=None)`.
+This is a *non-persistent assessment*, not a recovery completion or a write
+authorization. An eventual writer **must repeat** preflight, scoring provenance,
+assembly, and results-history checks immediately before appending a result.
+
+The service accepts one or more Slice 8 `DispatchedScoreFormScanRecovery`
+values for **one issuance and one exact retained source**, optionally combined
+with Core-verified ScoreForm successes from the corresponding original
+`Pds2ScanDispatchResult`. The original batch must cover every physical source
+page and must refer to the same retained source; failed QR pages provide no
+identity candidate and are never fabricated into successes. The teacher's
+registered route is the authority for each recovered page.
+
+The assembly check revalidates the recovered preflights, routes, ScoreForm
+registrations, currently issued page records, full question coverage and
+original source provenance. It reuses `ScoreFormRoutedResult`,
+`ScoreFormPageObservation`, and `ScoreFormAssembledAttempt` without weakening
+any of their identity or completeness contracts.
+
+The read-only plan has four explicit outcomes:
+
+- `needs_pages`: one or more required logical pages remain absent; no incomplete
+  student result may be generated.
+- `review_required`: duplicate/conflicting pages or existing results need an
+  explicit teacher decision; no result is supplied for persistence.
+- `ready_to_persist`: a canonical complete attempt is available, **not saved**.
+- `already_persisted`: a semantically equivalent result already exists under
+  the same source SHA-256 and issuance ID; do not create another attempt.
+
+Managed `results.csv` is read using ScoreForm's existing strict history reader.
+A previously saved different result for the same source and issuance, a result
+from another source for the same issuance, or a relevant manual-result history
+is not silently superseded. Any existing conflicting result requires review.
+
+**Compatibility boundary:** current `pds2_scan` result rows describe one source
+scan. Combining pages from *different* source retention events would require
+additional explicit provenance and result-contract design. This slice rejects
+such combinations instead of misattributing them to one source.
+
+**No writes** are made by the Slice 9 assembly service to retained scans,
+scan-review records, `results.csv`, routing registrations, answer-sheet records,
+or result history. The existing Slice 8 dispatch still performs page scoring
+and may emit its already-authorized diagnostics; assembly does not repeat
+scoring. No menu/CLI surface, release version, or Core consumer contract changes.
+
+Qualification covers single-page, two-page incomplete/complete attempts,
+recovered-plus-original-batch siblings, previously selected routes, duplicate
+physical pages, changed scans, forged page identities, cross-source rejection,
+and existing-history idempotency. Synthetic classroom-independent fixtures only.
