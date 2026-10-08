@@ -43,6 +43,7 @@ from scoreform.module_errors import (
     ScoreFormSourceTypeUnsupportedError,
 )
 from scoreform.page_scoring import ScoreFormPageDispatchResult
+from scoreform.qr_zxing_recovery import recover_qr_with_zxing
 from scoreform.retained_page import (
     SUPPORTED_RETAINED_SOURCE_EXTENSIONS,
     load_retained_page_for_qr,
@@ -455,6 +456,33 @@ def detect_qr_payload_text(
         completed += 1
         if payload:
             return QrPayloadDetectionResult(payload, method)
+    # Independent decoding is fallback-only. OpenCV success returns above.
+    # Conflicting ZXing candidates are not chosen or routed automatically.
+    try:
+        recovery = recover_qr_with_zxing(image)
+    except Exception:
+        # Optional native decode or orchestration must never abort intake.
+        recovery = None
+    if recovery is not None and recovery.status == "decoded":
+        return QrPayloadDetectionResult(
+            recovery.raw_payload_text, recovery.decode_method
+        )
+    if recovery is not None and recovery.status == "ambiguous":
+        diagnostics = save_qr_failure_diagnostics_with_status(
+            image,
+            f"{retained_source.source_scan_id}_source",
+            source_page_number,
+            workspace_root=workspace_root,
+        )
+        return QrPayloadDetectionResult(
+            None,
+            None,
+            diagnostic_paths=diagnostics.paths,
+            diagnostic_errors=diagnostics.errors,
+            error=ScoreFormQrUnreadableError(
+                "Independent QR decoding found conflicting payloads; review required."
+            ),
+        )
     if attempted and completed == 0:
         failure = ScoreFormQrUnreadableError("QR image detection failed.")
         failure.__cause__ = last_detector_error

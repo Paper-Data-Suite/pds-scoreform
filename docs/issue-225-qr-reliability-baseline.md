@@ -89,3 +89,12 @@ This slice adds `scoreform.qr_zxing_fallback.decode_qr_with_zxing` as an indepen
 Focused unit tests use a fake backend, with an additional real ZXing round-trip test that runs when `zxing-cpp` is installed. No classroom scans or student identifiers are committed.
 
 **Next slice:** inspect the primary pipeline's attempt ordering, add fallback only after primary failure, and enforce canonical parsing, identity ambiguity handling, and bounded escalation. Do not make a failed native decoder a fatal batch error.
+
+## Slice 5 — Bounded ZXing recovery after OpenCV
+
+- `scoreform/qr_zxing_recovery.py` is an additive, bounded recovery orchestrator. It uses the existing ScoreForm QR crop positions (compatible with both historic and enlarged symbols), a nearest-neighbor tight-crop enlargement, an Otsu variant, a broad crop, and the full source image when input limits permit. At most five native decoder invocations and 16 million candidate pixels are consumed per page; the Slice 4 adapter also bounds any individual candidate.
+- `scoreform/pds2_scan_dispatch.py` now tries this recovery **only after all existing OpenCV attempts return no QR text**. Existing OpenCV successes preserve their exact output and bypass ZXing. Optional ZXing unavailability, decoder errors, or exhausted attempts retain the original unresolved/review behavior.
+- One unique recovered raw text is labeled `zxing-cpp:<candidate>` and passed through the same `parse_pds2_payload`, `RouteDispatchRequest`, and Core dispatch logic as an OpenCV result. No fallback result establishes an identity by itself.
+- Multiple distinct raw payloads from ZXing, including conflicting results across candidate images, fail closed as an unreadable QR. No payload text is emitted in the error message. Normal bounded diagnostic handling remains in place.
+- `tests/test_issue225_qr_zxing_recovery.py` covers bounds, single/duplicate/conflicting payload behavior, absent backend, OpenCV-first ordering, fail-soft behavior, and canonical PDS2 parsing.
+- No QR encoding changes, manifest changes, cross-suite contract changes, or release/version bump are introduced. Physical scan qualification and ARM64 installed acceptance remain future work.
