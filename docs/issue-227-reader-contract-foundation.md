@@ -1,8 +1,9 @@
 # Issue #227 — ScoreForm reader-contract baseline
 
-This document freezes the *producer-owned* reader contract prior to changing
-ScoreForm's Core minimum, publication profile, or installed qualification. It
-is a development contract and does not claim a new ScoreForm release.
+This document establishes the *producer-owned* reader contract for Issue
+#227. The active Core minimum is now 0.6.5, and ScoreForm's current source
+profile advertises reader v1. This is development evidence, not a new
+ScoreForm release or proof of Meridian/Vitrine consumer acceptance.
 
 ## Separate identities
 
@@ -15,9 +16,10 @@ is a development contract and does not claim a new ScoreForm release.
 
 The reader name is declared as
 `SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION` in
-`scoreform.pds_contract`. This *does not* yet advertise that name through
-Core's installed producer metadata. That integration follows the coordinated
-Core 0.6.5 dependency migration.
+`scoreform.pds_contract`. Its stable identity is now advertised through
+the exact manifest-specific Core 0.6.5
+`PublicationReaderSupport` declaration. Only the release/installed
+qualification and consumer-side acceptance remain outstanding.
 
 ## Public behavior and ownership
 
@@ -53,11 +55,11 @@ Core v0.6.5 publishes metadata-only `PublicationReaderSupport` and
 `pds_core-0.6.5-py3-none-any.whl`, SHA-256
 `9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18`.
 
-**Next migration is atomic:** update the active package minimum to
+**Completed in Slice 2:** the active package minimum was updated to
 `pds-core>=0.6.5,<0.7` *together with* release/installed verifiers, local
 `run_tests.ps1`, `check_dependencies.ps1`, CI and release-readiness wheel
-sources and authenticated hashes, and active dependency tests. Existing CI
-currently bootstraps 0.6.4, so changing `pyproject.toml` alone would be unsafe.
+sources and authenticated hashes, and active dependency tests. CI and local release gates now bootstrap the authenticated released
+Core v0.6.5 wheel rather than the incompatible v0.6.4 baseline.
 
 The historical 0.6.4-focused tests and issue-specific wheel harnesses must be
 reconciled as *current gates versus historical release evidence*; do not simply
@@ -72,8 +74,22 @@ silence old tests or rewrite release audit records. In particular audit:
 - `.github/workflows/ci.yml` and `.github/workflows/release-readiness.yml`
 - `README.md` and `docs/continuous_integration.md`
 
-Preserve the actual v0.12.0/v0.12.1 audits and their prior 0.6.4 artifact
-identity. No version bump or release is authorized by Slice 1.
+Historical v0.12.0/v0.12.1 audits and their prior Core 0.6.4 artifact
+identities remain unchanged. No version bump or release is authorized
+by the reader-support declaration.
+
+## Current reader-support declaration (Slice 3)
+
+`scoreform.pds_publication` advertises exactly one Core
+`PublicationReaderSupport` row: distribution `scoreform`, manifest
+`scoreform_academic_result_manifest_v1`, reader
+`scoreform_academic_result_reader_v1`.
+
+Focused validation covers frozen declarations, exact/absent lookup,
+registry and installed entry-point discovery, no reader import or workspace
+state during isolated metadata discovery, and the unchanged Core
+publication-compatibility decision with and without reader metadata.
+The declaration does not call the reader or authorize consumers.
 
 ## Subsequent gates
 

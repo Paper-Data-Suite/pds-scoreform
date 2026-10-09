@@ -3,12 +3,14 @@
 from pds_core.publication_compatibility import (
     PublicationContractSupport,
     PublicationProducerProfile,
+    PublicationReaderSupport,
     validate_publication_producer_profile,
 )
 from pds_core.publication_records import PUBLICATION_RECORD_SCHEMA_VERSION
 
 from scoreform.pds_contract import (
     ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+    SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
     SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
     SCOREFORM_DISPLAY_NAME,
     SCOREFORM_MODULE_ID,
@@ -38,6 +40,17 @@ def get_publication_producer_profile() -> PublicationProducerProfile:
                     ),
                     source_record_contracts=(),
                     allows_missing_source_record=True,
+                    reader_support=(
+                        PublicationReaderSupport(
+                            manifest_contract_version=(
+                                ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION
+                            ),
+                            distribution_name="scoreform",
+                            reader_contract_version=(
+                                SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION
+                            ),
+                        ),
+                    ),
                 ),
             ),
         )

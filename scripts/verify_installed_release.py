@@ -19,9 +19,11 @@ from pds_core.module_operations import (
 )
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
 from pds_core.publication_compatibility import (
+    PublicationReaderSupport,
     build_publication_producer_registry,
     discover_publication_producer_profiles,
     evaluate_publication_compatibility,
+    lookup_publication_reader_support,
     validate_publication_producer_profile,
 )
 from pds_core.publication_records import PublicationRecord
@@ -344,6 +346,24 @@ def main() -> int:
         or support.allows_missing_source_record is not True
     ):
         raise SystemExit("ScoreForm publication support row is not exact")
+
+    expected_reader = PublicationReaderSupport(
+        manifest_contract_version="scoreform_academic_result_manifest_v1",
+        distribution_name="scoreform",
+        reader_contract_version="scoreform_academic_result_reader_v1",
+    )
+    if support.reader_support != (expected_reader,):
+        raise SystemExit("installed ScoreForm reader-support metadata is not exact")
+    if lookup_publication_reader_support(
+        publication_first,
+        "academic_result_set",
+        "scoreform_academic_result_manifest_v1",
+    ) != expected_reader:
+        raise SystemExit("installed Core reader-support lookup disagrees")
+    if lookup_publication_reader_support(
+        publication_first, "academic_result_set", "fictional_manifest_v1"
+    ) is not None:
+        raise SystemExit("undeclared manifest gained reader support")
 
     publication_profiles = [
         profile
