@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pds_core.module_dispatch import RouteDispatchSuccess
 from pds_core.pds2 import serialize_pds2_payload
@@ -213,15 +213,24 @@ def prepare_scoreform_recovery_assembly(
             if result is None:
                 continue
             success = wrapper.dispatch_outcome
+            # Preserve exact Core success-class validation while
+            # narrowing its optional type for mypy.
+            if type(success) is not RouteDispatchSuccess:
+                raise ScoreFormRecoveryAssemblyError(
+                    "Original batch contains a mismatched Core success."
+                )
+            # An exact runtime class guard above has already rejected all
+            # other Core outcome variants, including None. Make that
+            # postcondition explicit to mypy without changing behavior.
+            verified_success = cast(RouteDispatchSuccess, success)
             if (
-                type(success) is not RouteDispatchSuccess
-                or wrapper.dispatch_request is None
+                wrapper.dispatch_request is None
                 or wrapper.locator is None
-                or success.request != wrapper.dispatch_request
-                or success.resolution.locator != wrapper.locator
-                or success.resolution.registration.locator != wrapper.locator
-                or success.profile.module_id != "scoreform"
-                or success.module_result is not result
+                or verified_success.request != wrapper.dispatch_request
+                or verified_success.resolution.locator != wrapper.locator
+                or verified_success.resolution.registration.locator != wrapper.locator
+                or verified_success.profile.module_id != "scoreform"
+                or verified_success.module_result is not result
                 or wrapper.dispatch_request.retained_source is not original_batch.retained_source
             ):
                 raise ScoreFormRecoveryAssemblyError("Original batch contains a mismatched Core success.")

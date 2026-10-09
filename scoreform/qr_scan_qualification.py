@@ -173,7 +173,9 @@ def qualify_source_scan(
 
     source = validate_pds2_scan_source(source_path)
     with TemporaryDirectory(prefix="scoreform_issue225_qualification_") as temp:
-        root = Path(temp)
+        # Core retention canonicalizes its workspace root on Windows; use
+        # that same root for every retained-page validation and decode.
+        root = Path(temp).resolve(strict=True)
         retained = retain_source_scan(root, source)
         count = retained_source_page_count(retained, workspace_root=root)
         pages = qualify_pages(

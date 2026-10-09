@@ -32,7 +32,10 @@ from scoreform.retained_page import (
     validate_canonical_retained_source_relative_path,
     validate_retained_source,
 )
-from scoreform.scan_review_resolution import discover_scan_review_items
+from scoreform.scan_review_resolution import (
+    ScoreFormReviewItem,
+    discover_scan_review_items,
+)
 from scoreform.validation import is_safe_identifier
 
 _ROUTE_ACTIONS = frozenset({"route_selected", "route_corrected"})
@@ -67,7 +70,7 @@ class PreparedScoreFormScanRecovery:
     route_correction_confirmed: bool
 
 
-def _source_from_failure(root: Path, item: object) -> RetainedSourceScan:
+def _source_from_failure(root: Path, item: ScoreFormReviewItem) -> RetainedSourceScan:
     """Reconstruct the original Core event; NEVER retain the scan again."""
     try:
         relative_text = item.retained_source_path

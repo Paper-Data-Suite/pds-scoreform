@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
@@ -86,10 +86,13 @@ def decode_qr_with_zxing(
             return QrZxingDecodeResult("unavailable")
 
     try:
-        qr_format = backend.BarcodeFormat.QRCode
+        # Native ZXing and the optional injected test backend share a
+        # dynamic interface. Keep runtime checks in the existing guard.
+        native = cast(Any, backend)
+        qr_format = native.BarcodeFormat.QRCode
         # Copy only when necessary and only after pixel bounds are checked.
         candidate = np.ascontiguousarray(image)
-        barcodes = backend.read_barcodes(
+        barcodes = native.read_barcodes(
             candidate,
             formats=qr_format,
             try_rotate=True,

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pds_core.pds2 import serialize_pds2_payload
 from pds_core.route_registrations import resolve_route_registration
@@ -44,6 +44,12 @@ RecoveryCompletionStatus = Literal[
     "route_selection_needed", "result_missing", "verified_complete", "review_required"
 ]
 _ROUTE_ACTIONS = frozenset({"route_selected", "route_corrected"})
+
+
+class _CompletionBase(TypedDict):
+    issuance_id: str
+    source_page_number: int
+    historical_resolution_id: str | None
 
 
 class ScoreFormRecoveryCompletionError(ValueError):
@@ -211,7 +217,7 @@ def inspect_scoreform_recovery_completion(
             "Recorded route, original retained page, or issuance failed revalidation.",
             source_page_number=item.source_page_number,
         )
-    base = {
+    base: _CompletionBase = {
         "issuance_id": prepared.issuance_id,
         "source_page_number": prepared.source_page_number,
         "historical_resolution_id": prepared.historical_resolution_id,
