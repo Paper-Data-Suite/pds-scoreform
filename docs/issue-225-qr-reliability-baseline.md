@@ -438,3 +438,39 @@ batch-restoration workflow; missing sibling pages are reported explicitly.
 No automatic cross-source attempt merge, result rewriting, or Core resolution
 completion event is introduced. The original plain-paper manual-entry fallback
 remains available. Installed-wheel and printer acceptance follow separately.
+
+### Slice 14 — Synthetic installed-wheel recovery qualification (Issue #225)
+
+New `scripts/run_issue225_recovery_wheel_acceptance.py` builds a **candidate wheel**
+from a copied clean checkout, installs it with an explicitly selected compatible
+Core wheel in a fresh virtual environment, performs `pip check`, and invokes
+`scripts/verify_installed_issue225_recovery.py` outside the source checkout.
+The verifier checks distribution versions, installed `site-packages` import
+origins, and the actual installed ScoreForm console entry point. Core >=0.6.4
+and <0.7 is accepted; the exact supplied Core wheel SHA-256 is recorded, and
+`--core-sha256` may additionally pin a preapproved local artifact. Acceptance
+uses an absent/empty user-selected output directory and never reuses a dirty
+acceptance run. This is **not** a release candidate/physical acceptance claim.
+
+The installed verifier creates synthetic, isolated assignments and issued route
+registrations, Core-retained original PNG/PDF sources and recorded missing-QR
+failures. It exercises read-only console preview; explicit CLI recovery through
+Core routing and the canonical managed schema-v2 result writer; source SHA-256
+and logical-page provenance; idempotent retries; deliberate reuse of historic
+routes; a synthetic scoring interruption after teacher-route persistence;
+completion after retry without a second resolution; two-page completeness and
+no incomplete grade; and refusal of altered original retained-source bytes.
+
+**Test seam:** only the optical page mark-recognition function is replaced by a
+fixed synthetic answer scorer within the isolated verifier process. Real Core
+registration, route dispatch, retained-source validation, scan-review resolution,
+result persistence, and completion verification remain in force. The console
+command and read-only preview also execute as a subprocess outside the source
+checkout; the in-process confirmed CLI call permits this optical substitute.
+The artificial source PNG/PDF pages are not real marked answer sheets.
+Consequently, the result establishes installed workflow interoperability, **not**
+actual bubble detection, printer quality, PDF/QR decode robustness, or recovery
+success on the original 29-page physical scan (unreadable QR pages 11/25/28).
+Those require a separately documented physical qualification with privately
+retained original evidence. This slice changes no production scoring, schemas,
+menu behavior, release version, or Core contracts.
