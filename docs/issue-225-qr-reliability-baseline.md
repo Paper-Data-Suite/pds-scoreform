@@ -343,3 +343,69 @@ and display the derived completion state separately from Core review status.
 If an existing manual result already represents the student's response, the
 existing manual workflow remains a separate fallback requiring teacher
 reconciliation. No release, Core schema, scoring, or scanner changes here.
+
+### Slice 12 — Explicit teacher-confirmed ScoreForm recovery workflow (Issue #225)
+
+`scoreform/qr_scan_recovery_workflow.py` coordinates the **existing** Slice 7–11
+services without introducing a second scan decoder, result format, or mutable
+completion flag. This is a callable workflow seam for the later teacher menu
+and CLI; **no interactive menu, CLI wiring, new release, or Core API change** is
+part of Slice 12.
+
+`preview_scoreform_recovery_workflow(root, selections)` is read-only. Each
+`ScoreFormRecoveryRouteSelection` contains an explicit teacher-selected Core
+`RouteLocator` (optionally checked against an exact Core target), or an explicit
+`use_recorded_route=True` choice. It reuses existing Slice 7 provenance and
+issuance checks. All selected physical pages must come from **one original
+retained scan and one issued student attempt**, with unique failure IDs and
+physical page numbers. The preview names decisions that would need appending;
+it is not itself a token authorizing a write. A different historical route
+cannot be replaced unless `allow_route_correction=True`; a final non-route
+teacher decision (e.g., manual recovery or rescan needed) cannot be silently
+overridden. Deferred decisions require a fresh explicit selection, not
+implicit recorded-route reuse.
+
+`execute_approved_scoreform_recovery_workflow(root, preview,
+*, teacher_confirmed=True, original_batch=None, registry=None)` refuses
+execution without an **exact current preview** and the explicit confirmation
+flag. Before writing anything it recreates and compares the entire preview.
+It then reuses identical validated historical route decisions rather than
+appending duplicate events. A newly approved route goes through the existing
+`resolve_scan_review_item` entry point using the registered PDS2 locator;
+changing a historical route uses `route_corrected`. Every selected decision is
+then validated again using Slice 7's **recorded** route path before Core page
+dispatch. Route selection is a teacher decision, **not** a recorded result.
+
+The workflow checks Slice 11 completion before rescoring: a restart/retry with
+all linked failures already verified returns `already_complete` without calling
+the optical scorer or appending a result. If there is an unreconciled saved
+result, it returns `review_required` rather than writing another score.
+Otherwise it dispatches the original retained physical pages via Slice 8,
+assembles via Slice 9, and persists via Slice 10 **only when all issued pages
+are present and consistent**. A missing page returns `needs_pages` with its
+logical-page numbers and writes no partial result. A conflicting assembly
+returns `review_required`; neither result implies recovery completion. A saved
+complete attempt is reread through Slice 11; `verified_complete` is reported
+only when every linked failed page has a current valid teacher route and an
+identical complete managed schema-v2 attempt. Core resolution history remains
+append-only and no synthetic completion resolution is added.
+
+Execution may leave a **durable route decision** even when later optical
+scoring, attempt assembly, or result persistence fails. Stage-qualified
+`ScoreFormRecoveryWorkflowError` states which operation stopped; failed
+persistence remains uncertain unless the result history confirms the write.
+After an interrupted operation, reopen a **new** preview and retry; do not
+reuse a stale approval or assume that a route decision implies grading.
+Only ScoreForm's schema-v2 result writer may persist the completed attempt.
+A previous equivalent result is reused; no duplicate teacher decision,
+partial score, or extra attempt is intentionally produced. This coordinator
+does not claim cross-process writer locking or permission to combine scans
+from distinct retained sources. Subsequent slices will add explicit teacher
+menu/CLI selection, confirmation, and installed end-to-end qualification.
+
+Synthetic qualification covers read-only preview, confirmation boundaries,
+new and historical route decisions, idempotent restart with no rescoring,
+incomplete and subsequently completed two-page attempts, stale previews,
+retained-source changes, final manual decisions, interrupted dispatch,
+failed result persistence, invalid batch evidence, and saved-score-before-route
+reconciliation. No student materials are part of the fixtures.
