@@ -409,3 +409,32 @@ incomplete and subsequently completed two-page attempts, stale previews,
 retained-source changes, final manual decisions, interrupted dispatch,
 failed result persistence, invalid batch evidence, and saved-score-before-route
 reconciliation. No student materials are part of the fixtures.
+
+### Slice 13 — Guarded direct CLI and scan-review menu recovery (Issue #225)
+
+`scoreform recover-scan-review --page <failure_id>=<canonical-PDS2>` provides a
+**read-only preview** by default. Use `--page <failure_id>=@recorded` to reuse
+an already validated, current teacher-selected route. Repeat `--page` for
+other failed pages in the same issued attempt and retained scan. An intentional
+route replacement requires `--correct-failure <failure_id>`. Execution is
+accepted only with both `--apply --confirm RECOVER`; the confirmed preview is
+recomputed before any route decision or scoring. Unsupported, malformed, and
+non-ScoreForm routes are rejected rather than inferred from OCR/diagnostics.
+
+The existing scan-review menu exposes a separate `R` recovery action with an
+exact `RECOVER` confirmation, while preserving its ordinary manual entry and
+Core route-resolution actions. Its `H` toggle can show historically resolved
+failures for teacher-authorized retries. Teacher-facing results distinguish
+`verified_complete`/`already_complete` from `needs_pages`/`review_required`;
+partial attempts are never described as saved, and failure after `RECOVER`
+may leave earlier durable route decisions or results. Cancellation before
+`RECOVER` writes no result or decision. The same Slice 12 coordinator owns
+all side effects; no alternate result or route writer is introduced.
+
+The direct interface does not reconstruct an expired in-memory original dispatch
+batch. If one page was decoded successfully and a sibling's QR failed, the
+teacher must supply another verified recovery page or use a later qualified
+batch-restoration workflow; missing sibling pages are reported explicitly.
+No automatic cross-source attempt merge, result rewriting, or Core resolution
+completion event is introduced. The original plain-paper manual-entry fallback
+remains available. Installed-wheel and printer acceptance follow separately.

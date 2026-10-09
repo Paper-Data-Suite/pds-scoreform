@@ -131,6 +131,12 @@ def run_resolve_scan_review(args):
     return resolve_review(args)
 
 
+def run_recover_scan_review(args):
+    from scoreform.cli_scan_recovery import run_recover_scan_review as recover
+
+    return recover(args)
+
+
 def run_scan_filing(args):
     from scoreform.cli_scan_filing import run_scan_filing as scan_filing
 
@@ -582,6 +588,8 @@ def _main(argv=None, default_to_menu=True):
         return run_list_scan_review(args)
     elif cmd == "resolve-scan-review":
         return run_resolve_scan_review(args)
+    elif cmd == "recover-scan-review":
+        return run_recover_scan_review(args)
     elif cmd == "validate-assignment":
         return run_validate_assignment(args)
     elif cmd == "validate-roster":
