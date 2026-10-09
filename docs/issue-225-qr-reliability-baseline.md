@@ -295,3 +295,51 @@ untouched. Teacher-facing preview, confirmation, workflow completion, and
 interruption-resumption semantics are separate subsequent slices. This slice
 supports only pages from one Core-retained source as established by Slice 9;
 cross-scan assembly awaits a distinct provenance contract.
+
+### Slice 11 — Durable read-only recovery completion verification (Issue #225)
+
+`scoreform/qr_scan_recovery_completion.py` introduces
+`inspect_scoreform_recovery_completion(root, failure_id)` for a restart-safe,
+**read-only** answer to whether an original failed physical page has a
+verified, completed ScoreForm attempt. A selected registered route is a teacher
+decision, **not** score materialization. A saved score alone is **not** proof
+that a teacher authorized reassociation of an unreadable physical QR.
+
+The reader requires a currently reusable Core `route_selected` or
+`route_corrected` resolution, redoes Slice 7's full retained-source SHA-256,
+physical-page, issued-page and registration validation, and reads managed
+schema-v2 result history. It requires exactly one result for the issuance,
+with matching source scan and SHA-256, immutable student identity, complete
+issued-page and route sequence, exact logical-to-physical page mapping, and
+current valid Core registrations for **every** page in the result. The result
+must use the same retained source for all issued pages. No QR guessing,
+manual-result promotion, arbitrary result adoption, partial attempt, or
+cross-retained-scan provenance combination is permitted.
+
+Four explicit states: `route_selection_needed` (no current teacher route
+selection), `result_missing` (a route decision exists but no complete result),
+`verified_complete` (both teacher authority and saved attempt proved), and
+`review_required` (invalid/stale sources or routes, contradictory history,
+manual-result overlap or competing latest teacher decision). These states
+are **derived** from authoritative records rather than a second durable
+completion ledger. Inspection may be safely repeated after process restart,
+and is not a lock against subsequent changes.
+
+`confirm_scoreform_recovery_completion(root, persisted, recovered_pages, *,
+original_batch=None)` additionally accepts a Slice 10 result receipt and the
+original Slice 8 page evidence. It rechecks Slice 9 assembly against managed
+history and returns per-failure completion statuses. A stored result without
+an already-recorded teacher route decision remains `route_selection_needed`;
+it is never silently promoted to a successful recovered route. Mismatched or
+stale receipts fail closed. This operation does not rescore, write a result,
+append Core metadata, or create a completion file.
+
+Core scan-resolution metadata is intentionally left untouched: its current
+schema does not define a result-verified recovery-completion action, and an
+automatic generic `other` resolution would hide the last teacher route
+decision from historical recovery preflight. Later menu/CLI integration must
+make teacher route selection an explicit step, verify the persisted result,
+and display the derived completion state separately from Core review status.
+If an existing manual result already represents the student's response, the
+existing manual workflow remains a separate fallback requiring teacher
+reconciliation. No release, Core schema, scoring, or scanner changes here.
