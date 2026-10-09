@@ -17,9 +17,9 @@ from pathlib import Path
 
 from pip._vendor.packaging.utils import canonicalize_name, parse_wheel_filename
 
-CORE_VERSION = "0.6.4"
+CORE_VERSION = "0.6.5"
 CORE_WHEEL_SHA256 = (
-    "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+    "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 )
 
 

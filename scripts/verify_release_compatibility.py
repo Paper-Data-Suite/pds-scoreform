@@ -33,7 +33,7 @@ RELEASE_VERSION = "0.12.1"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
 HISTORICAL_V011_RELEASE_VERSION = "0.11.0"
 HISTORICAL_V012_RELEASE_VERSION = "0.12.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
@@ -208,7 +208,7 @@ def validate_core_dependency() -> None:
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ReleaseCompatibilityError(
-            "ScoreForm must require exactly pds-core>=0.6.4,<0.7"
+            "ScoreForm must require exactly pds-core>=0.6.5,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
@@ -382,7 +382,7 @@ def main() -> int:
 
     print(
         "ScoreForm active release compatibility passed: "
-        "Core >=0.6.4,<0.7; producer/operations profiles exact; reader "
+        "Core >=0.6.5,<0.7; producer/operations profiles exact; reader "
         "policy-neutral; sibling runtime imports absent; historical "
         "v0.10.0/v0.11.0/v0.12.0 release evidence preserved."
     )

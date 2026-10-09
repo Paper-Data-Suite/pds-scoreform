@@ -13,7 +13,7 @@ authors = [
   { name = "Stephen Severino" }
 ]
 dependencies = [
-  "pds-core>=0.6.4,<0.7",
+  "pds-core>=0.6.5,<0.7",
   "opencv-python",
   "numpy",
   "pdf2image",

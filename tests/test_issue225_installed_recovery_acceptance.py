@@ -64,12 +64,12 @@ def test_reject_duplicate_metadata(tmp_path):
         inspect_wheel(candidate, "pds-core")
 
 
-@pytest.mark.parametrize("version", ["0.6.4", "0.6.5", "0.6.98"])
+@pytest.mark.parametrize("version", ["0.6.5", "0.6.6", "0.6.98"])
 def test_accept_supported_core_versions(version):
     validate_core_version(version)
 
 
-@pytest.mark.parametrize("version", ["0.6.3", "0.7.0", "0.5.99", "1.0.0", "0.6.5rc1", "bad"])
+@pytest.mark.parametrize("version", ["0.6.3", "0.6.4", "0.7.0", "0.5.99", "1.0.0", "0.6.5rc1", "bad"])
 def test_reject_unsupported_core_versions(version):
     with pytest.raises(RecoveryWheelAcceptanceError):
         validate_core_version(version)

@@ -22,7 +22,7 @@ def test_project_declares_core_floor_and_operations_entry_point() -> None:
     project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))[
         "project"
     ]
-    assert "pds-core>=0.6.4,<0.7" in project["dependencies"]
+    assert "pds-core>=0.6.5,<0.7" in project["dependencies"]
     assert "pds-core>=0.6,<0.7" not in project["dependencies"]
 
     entry_points = project["entry-points"]

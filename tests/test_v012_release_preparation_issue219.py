@@ -20,7 +20,7 @@ from scripts.run_v012_combined_wheel_acceptance import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_HASH = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_HASH = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 
 
 def _text(relative: str) -> str:
@@ -30,7 +30,7 @@ def _text(relative: str) -> str:
 def test_active_distribution_identity_is_v0121_patch() -> None:
     project = tomllib.loads(_text("pyproject.toml"))["project"]
     assert project["version"] == "0.12.1"
-    assert "pds-core>=0.6.4,<0.7" in project["dependencies"]
+    assert "pds-core>=0.6.5,<0.7" in project["dependencies"]
     assert compatibility.RELEASE_VERSION == "0.12.1"
     assert compatibility.HISTORICAL_V012_RELEASE_VERSION == "0.12.0"
 
@@ -71,7 +71,7 @@ def test_current_v0121_records_and_historical_v012_evidence_are_distinct() -> No
 
 
 def test_v012_combined_and_results_harnesses_use_exact_core_064() -> None:
-    assert COMBINED_CORE_VERSION == RESULTS_CORE_VERSION == "0.6.4"
+    assert COMBINED_CORE_VERSION == RESULTS_CORE_VERSION == "0.6.5"
     assert COMBINED_CORE_HASH == RESULTS_CORE_HASH == CORE_HASH
 
     runner = _text("scripts/run_v012_combined_wheel_acceptance.py")
@@ -140,7 +140,7 @@ def test_local_gate_bootstraps_released_core_before_editable_install() -> None:
     local = _text("run_tests.ps1")
 
     bootstrap_install = local.index(
-        "Install authenticated released pds-core 0.6.4 into release environment"
+        "Install authenticated released pds-core 0.6.5 into release environment"
     )
     editable_install = local.index(
         "Install ScoreForm editable with development extras"
@@ -151,7 +151,7 @@ def test_local_gate_bootstraps_released_core_before_editable_install() -> None:
 
     assert bootstrap_install < editable_install < later_core_gate
     assert "scoreform-bootstrap-core-wheel-" in local
-    assert "pds_core-0.6.4-py3-none-any.whl" in local[:editable_install]
+    assert "pds_core-0.6.5-py3-none-any.whl" in local[:editable_install]
     assert CORE_HASH in local[:editable_install]
     assert (
         "& $Python -m pip install --quiet $BootstrapResolvedCoreWheel"
