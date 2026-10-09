@@ -250,3 +250,48 @@ Qualification covers single-page, two-page incomplete/complete attempts,
 recovered-plus-original-batch siblings, previously selected routes, duplicate
 physical pages, changed scans, forged page identities, cross-source rejection,
 and existing-history idempotency. Synthetic classroom-independent fixtures only.
+
+### Slice 10 — Guarded persistence of complete recovered attempts (Issue #225)
+
+`scoreform/qr_scan_recovery_persistence.py` adds
+`persist_scoreform_recovery_attempt(root, approved_plan, recovered_pages, *, original_batch=None)`.
+It accepts a teacher-reviewed **Slice 9 complete** preview and the original
+Slice 8 dispatch evidence. It is a bounded result writer, **not** an automatic
+scan-review resolution. No menu, CLI, Core resolution, or new persistence
+schema is introduced in this slice.
+
+Before any write, the service recomputes the full Slice 9 assembly from the
+original retained source, Core-registered pages, existing routed scoring output,
+and current schema-v2 `results.csv`. Incomplete or conflicting plans do not
+write. An outdated plan is rejected; one deliberate exception allows an approved
+`ready_to_persist` preview to become `already_persisted` when the **identical**
+result has since been saved (e.g. safe retry after interrupted completion).
+An already-persisted preview never authorizes recreating a missing result.
+
+A new complete result is sent **only** to the existing
+`export_scoreform_result_models` managed schema-v2 writer. The service does not
+invent a QR payload, manually edit CSV, or create a replacement attempt. It
+requires a single writer confirmation, rereads the managed history to verify
+exactly one equivalent issuance result, and reruns recovery assembly after
+writing. It returns `appended` or `already_present` with the canonical results
+path and attempt number only after the stored record is verified. Existing
+manual results, different or duplicate issuance results, or inconsistent
+provenance require review, not silent replacement.
+
+Because the underlying writer may have saved its row before reporting a
+failure, errors occurring after the writer is invoked are classified
+`ScoreFormRecoveryPersistenceUncertainError`. The exception includes
+`row_verified` (`True`, `False`, or unknown) and `attempt_number` when a
+best-effort read can prove an equivalent row. An unknown or unverified outcome
+must **never** be represented as a completed recovery. Retrying always begins
+with a new read-only preflight/assembly/history check; already-saved equivalent
+attempts are reused rather than appended again. The existing schema-v2 writer
+provides its own staging and collision semantics; this slice does not claim a
+new cross-process transaction lock or guarantee concurrent writers serialize.
+
+Even after the saved student score is verified, the original scan-review
+failure is **not** closed and historical route-resolution records remain
+untouched. Teacher-facing preview, confirmation, workflow completion, and
+interruption-resumption semantics are separate subsequent slices. This slice
+supports only pages from one Core-retained source as established by Slice 9;
+cross-scan assembly awaits a distinct provenance contract.
