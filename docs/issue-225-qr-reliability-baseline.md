@@ -474,3 +474,70 @@ success on the original 29-page physical scan (unreadable QR pages 11/25/28).
 Those require a separately documented physical qualification with privately
 retained original evidence. This slice changes no production scoring, schemas,
 menu behavior, release version, or Core contracts.
+
+### Slice 15 — Read-only physical OMR qualification of failed retained pages (Issue #225)
+
+`scoreform/qr_physical_recovery_qualification.py` and
+`scripts/qualify_issue225_physical_recovery.py` provide an **optical qualification
+trial**, separate from the operational `recover-scan-review` writer. The trial
+requires an **existing Core-v2 page failure record** and a teacher-supplied exact
+registered route (or the currently recorded route). It uses Slice 7's original
+retained-source path/SHA-256, registration, issuance, and physical page checks;
+loads the actual retained image using ScoreForm's page loader; then calls the
+**real** `score_authoritative_answer_sheet_page` recognition service with
+`debug_dir=None` (no diagnostic-file persistence). The authoritative page
+context and result provenance are checked again after OMR. It does not fake QR
+text, change route decisions, call the result writer, append review history, or
+replace a student's response. It is safe to run against an existing, authorized
+workspace without changing the original source or grading files; it is not a
+concurrency lock against unrelated applications editing that workspace.
+
+The create-only JSON report records only selected-page ordinal, physical and
+logical page numbers, `omr_scored`/`omr_failed`/`authority_rejected`, page-count
+and question-slot counts (blank/ambiguous counts). It records **no student IDs,
+class IDs, route IDs, issuer IDs, source paths, decoded QR payload, actual
+answers, or numeric student scores**. Exception messages are deliberately not
+printed or persisted. A positive `omr_scored` means the original page's image
+was processed through real optical recognition and a validated page-result
+model was returned. **It does not prove that each bubble matches the paper,
+that a complete multi-page attempt exists, or that a grade was saved.** A
+teacher must compare the physical paper with a private detailed review before
+using the result for grading. The existing confirmed recovery workflow writes
+only on separate, deliberate `RECOVER` confirmation.
+
+Run from the ScoreForm checkout, substituting the **actual** private PDS
+workspace root and real failed-page IDs from `scoreform list-scan-review
+--include-resolved`. Route selections must be independently verified against
+printed/issued records. `@recorded` can be used only when the current route
+resolution is a validated teacher choice. Each repeated `--page` is qualified
+independently; unlike the result writer, this script does not assemble attempts.
+
+```powershell
+python scripts/qualify_issue225_physical_recovery.py `
+  --workspace "C:\YOUR_PRIVATE_PDS_WORKSPACE" `
+  --page "failure_id_1=@recorded" `
+  --output "$HOME\Downloads\issue225_physical_omr_private.json"
+```
+
+For a new deliberate route selection, use
+`--page "failure_id_1=<exact-canonical-PDS2-payload>"`; an existing, differing
+teacher route requires `--correct-failure failure_id_1`. Never guess a route
+from an unreadable QR or nearby page order. Reports are created only at a new
+path outside the workspace and repository; source bytes never leave local
+storage. Missing original Core retention or registered page authority yields
+`authority_rejected`, **not** a claimed physical recovery.
+
+**Historical sample caveat:** the 29-page `MP1 Locke ScoreForm Check P4a.pdf`
+proved QR/PDS2 decode outcomes (26/29; QR unreadable 11/25/28). Unless that
+historical source has matching Core-retained failure records and registrations,
+it cannot be accepted by this script as an operational recovery example.
+Running `scripts/qualify_issue225_qr_scans.py` on the historical PDF remains a
+separate decoder-only test. Actual **new-vector-print physical reliability**
+requires printing fresh registered ScoreForm sheets on the intended printer,
+scanning them back, and running decoder qualification on that new scan;
+record the original and new print results independently. A successful OMR
+trial on one historical failed page is *not* evidence that new QR printing is
+reliable. Do not commit classroom PDFs, scans, raw report files, or private
+identifiers. This Slice 15 code does not close either physical qualification
+or the teacher usability requirements for graphical page preview and
+human-readable registered-route selection.
