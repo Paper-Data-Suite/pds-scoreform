@@ -16,6 +16,9 @@ SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION = "scoreform_academic_work_v1"
 ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION = (
     "scoreform_academic_result_manifest_v1"
 )
+SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION = (
+    "scoreform_academic_result_reader_v1"
+)
 ANSWER_SHEET_PAGE_RECORD_KIND = "answer_sheet_page"
 ANSWER_SHEET_PAGE_CONTRACT_VERSION = "1"
 
