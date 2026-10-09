@@ -12,10 +12,16 @@ from scoreform.scoring import score_image
 from scoreform.work_paths import scoreform_work_ref
 
 
+class RecordingPath:
+    def rect(self, *_args):
+        pass
+
+
 class RecordingCanvas:
     def __init__(self):
         self.text = []
         self.payloads = []
+        self.vector_paths = []
 
     def setFont(self, *_args):
         pass
@@ -28,6 +34,21 @@ class RecordingCanvas:
 
     def drawImage(self, *_args):
         pass
+
+    def saveState(self):
+        pass
+
+    def restoreState(self):
+        pass
+
+    def setFillColorRGB(self, *_args):
+        pass
+
+    def beginPath(self):
+        return RecordingPath()
+
+    def drawPath(self, path, **_kwargs):
+        self.vector_paths.append(path)
 
     def drawString(self, _x, _y, value):
         self.text.append(value)
@@ -71,6 +92,7 @@ def test_compact_second_page_renders_global_question_labels(monkeypatch):
     templates.draw_student_answer_sheet_page(
         canvas, assignment, student, registered
     )
+    assert canvas.vector_paths  # Vector QR path was rendered.
     assert "Page 2 of 2" in canvas.text
     assert "Questions 26\N{EN DASH}50" in canvas.text
     assert "26." in canvas.text

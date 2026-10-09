@@ -451,9 +451,20 @@ def test_generated_qr_has_four_module_white_quiet_zone():
     assert np.count_nonzero(np.cumprod(white_columns[::-1])) == 40
 
 
+class _RecordingPath:
+    def __init__(self):
+        self.rectangles = []
+
+    def rect(self, x, y, width, height):
+        self.rectangles.append((x, y, width, height))
+
+
 class _RecordingCanvas:
     def __init__(self):
         self.text = []
+        self.state_depth = 0
+        self.vector_paths = []
+        self.raster_images = 0
 
     def setFont(self, *_args):
         pass
@@ -461,11 +472,28 @@ class _RecordingCanvas:
     def setLineWidth(self, *_args):
         pass
 
+    def saveState(self):
+        self.state_depth += 1
+
+    def restoreState(self):
+        assert self.state_depth > 0, "Canvas state restored without saveState"
+        self.state_depth -= 1
+
+    def setFillColorRGB(self, *_args):
+        pass
+
+    def beginPath(self):
+        return _RecordingPath()
+
+    def drawPath(self, path, *, stroke, fill):
+        assert stroke == 0 and fill == 1
+        self.vector_paths.append(tuple(path.rectangles))
+
     def rect(self, *_args, **_kwargs):
         pass
 
     def drawImage(self, *_args):
-        pass
+        self.raster_images += 1
 
     def drawString(self, _x, _y, value):
         self.text.append(value)
@@ -487,7 +515,7 @@ def _rectangles_intersect(first, second):
     ),
 )
 def test_identity_geometry_and_visible_text_are_safe_for_each_layout(
-    tmp_path, monkeypatch, layout_id, question_count, expected_range
+    tmp_path, layout_id, question_count, expected_range
 ):
     layout = get_layout(layout_id)
     identity = layout.identity_bounds
@@ -523,7 +551,6 @@ def test_identity_geometry_and_visible_text_are_safe_for_each_layout(
     )
     registered = RegisteredAnswerSheetPageRoute(route, Path(__file__))
     canvas = _RecordingCanvas()
-    monkeypatch.setattr(templates_module, "make_qr_image", lambda _payload: object())
 
     templates_module.draw_student_answer_sheet_page(
         canvas, assignment, student, registered, layout
@@ -533,3 +560,7 @@ def test_identity_geometry_and_visible_text_are_safe_for_each_layout(
     assert f"Route ID: {route.locator.route_id}" in canvas.text
     assert "Page 1 of 1" in canvas.text
     assert expected_range in canvas.text
+    assert canvas.state_depth == 0
+    assert len(canvas.vector_paths) == 1
+    assert len(canvas.vector_paths[0]) > 0
+    assert canvas.raster_images == 0

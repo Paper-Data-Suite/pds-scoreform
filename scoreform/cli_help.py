@@ -56,6 +56,7 @@ Usage:
   scoreform score <scan.pdf> <output.csv> <answer_key.json>
   scoreform list-scan-review [--include-resolved] [--limit <n>]
   scoreform resolve-scan-review <failure_id> --action <action>
+  scoreform recover-scan-review --page <failure_id>=<canonical-PDS2|@recorded> [--page <failure_id>=<route> ...] [--correct-failure <failure_id>] [--apply --confirm RECOVER]
   scoreform decode-qr <file.pdf-or-image>
   scoreform validate-assignment <assignment.json>
   scoreform validate-roster <roster.csv>
@@ -109,6 +110,7 @@ Commands:
   score                 Score scanned responses.
   list-scan-review      List unresolved and deferred ScoreForm scan review items.
   resolve-scan-review   Resolve or defer one ScoreForm scan review item.
+  recover-scan-review   Preview or explicitly recover original retained pages via registered routes.
   decode-qr             Retain a PDF/image and decode Core PDS2 locators.
   validate-assignment   Validate an assignment JSON file.
   validate-roster       Validate a roster CSV file.

@@ -79,6 +79,7 @@ def _render_available_actions(
         marker = " (recommended)" if action in recommended else ""
         print(f"{index}. {ACTION_LABELS[action]}{marker}")
     print("T. Technical details")
+    print("R. Recover unreadable QR through registered route")
 
 
 def _render_technical_details(item) -> None:
@@ -333,18 +334,26 @@ def _perform_action(root, item, action):
 def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
     """List active review items, optionally scoped to one exact retained source."""
     root = workspace.get_scoreform_workspace_root()
+    show_resolved = False
     while True:
         clear_screen()
         if source_scan_id is None:
             print_menu_header("Resolve Scan Review Items")
-            discovery = discover_scan_review_items(root)
+            discovery = (
+                discover_scan_review_items(root, include_resolved=True)
+                if show_resolved else discover_scan_review_items(root)
+            )
         else:
             print_menu_header("Review This Scan")
             print("Scope: unresolved or deferred ScoreForm items from this retained scan only.")
             print()
-            discovery = discover_scan_review_items(
-                root,
-                source_scan_id=source_scan_id,
+            discovery = (
+                discover_scan_review_items(
+                    root, source_scan_id=source_scan_id, include_resolved=True
+                )
+                if show_resolved else discover_scan_review_items(
+                    root, source_scan_id=source_scan_id
+                )
             )
         if not discovery.items:
             if source_scan_id is None:
@@ -354,6 +363,15 @@ def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
                     "No unresolved or deferred ScoreForm review items remain "
                     "for this retained scan."
                 )
+            if not show_resolved:
+                history = discover_scan_review_items(
+                    root, source_scan_id=source_scan_id, include_resolved=True
+                )
+                if history.items:
+                    print("Press H to include historically resolved items, or Enter to return.")
+                    if input("Choice: ").strip().casefold() == "h":
+                        show_resolved = True
+                        continue
             print()
             pause_for_user()
             return 0
@@ -385,8 +403,12 @@ def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
             )
             print(f"  Foreign records: {discovery.foreign_record_count}")
         print_scoreform_navigation_options()
+        print("H. " + ("Hide resolved records" if show_resolved else "Include resolved records"))
         print()
         choice = input("Select an item: ").strip()
+        if choice.casefold() == "h":
+            show_resolved = not show_resolved
+            continue
         if parse_scoreform_navigation(choice) is not None:
             return 0
         if not choice.isdigit() or not 1 <= int(choice) <= len(discovery.items):
@@ -415,6 +437,23 @@ def launch_scan_review_menu(*, source_scan_id: str | None = None) -> int:
                 print()
                 pause_for_user()
                 continue
+            if action_choice.casefold() == "r":
+                from scoreform.cli_scan_recovery import ScoreFormRecoveryInterfaceError
+                from scoreform.menu_scan_recovery import run_teacher_scan_recovery
+                from scoreform.qr_scan_recovery_workflow import (
+                    ScoreFormRecoveryWorkflowError,
+                )
+                clear_screen()
+                print_menu_header("Recover Unreadable QR")
+                try:
+                    run_teacher_scan_recovery(root, item)
+                except (ScoreFormRecoveryInterfaceError, ScoreFormRecoveryWorkflowError,
+                        OSError, ValueError) as error:
+                    print(f"Recovery stopped: {error}")
+                    print("Earlier confirmed decisions or results may remain saved.")
+                print()
+                pause_for_user()
+                break
             if parse_scoreform_navigation(action_choice) is not None:
                 break
             if (
