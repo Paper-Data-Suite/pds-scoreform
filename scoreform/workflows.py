@@ -10,7 +10,6 @@ Contains:
 These are designed to be imported by `scoreform.cli` without circular imports.
 """
 
-import json
 import os
 import re
 import sys
@@ -40,6 +39,10 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
+from scoreform.assignment_creation import (
+    AssignmentCreationError,
+    commit_new_assignment,
+)
 from scoreform.class_pair_commit import (
     ClassPairCommitError,
     commit_class_pair,
@@ -478,25 +481,12 @@ def write_roster_with_class_metadata(
 
 
 def write_assignment_json(path, assignment):
-    """Write an assignment JSON file to `path`. Creates parent directories if needed."""
+    """Create a fully validated assignment; never truncate an existing file."""
     try:
-        if not validate_identifier("assignment_id", assignment.get("assignment_id"), context="assignment"):
-            return False
-
-        parent_dir = os.path.dirname(path)
-        if parent_dir and not os.path.exists(parent_dir):
-            try:
-                os.makedirs(parent_dir, exist_ok=True)
-                print(f"Created directory: {parent_dir}")
-            except Exception as e:
-                print(f"Error: Could not create parent directory '{parent_dir}': {e}")
-                return False
-
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(assignment, f, indent=2, ensure_ascii=False)
+        commit_new_assignment(path, assignment)
         return True
-    except Exception as e:
-        print(f"Error: Could not write assignment JSON '{path}': {e}")
+    except AssignmentCreationError as error:
+        print(f"Error: Could not create assignment JSON safely: {error}")
         return False
 
 
