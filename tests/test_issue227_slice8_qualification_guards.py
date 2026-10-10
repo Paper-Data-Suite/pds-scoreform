@@ -82,3 +82,19 @@ def test_issue227_combined_wheel_verifier_matches_core065_runner() -> None:
     assert 'expected_core_version == "0.6.4"' in historical
     assert 'SpecifierSet(">=0.6.4,<0.7")' in historical
     assert "# ScoreForm v0.12.1 release checklist" in _text("docs/release_checklist.md")
+
+
+def test_historical_v011_combined_runner_matches_core064_verifier() -> None:
+    """Do not silently migrate the historical v0.11 qualification to Core 0.6.5."""
+    historical_runner = _text("scripts/run_v011_combined_wheel_acceptance.py")
+    historical_verifier = _text("scripts/verify_installed_v011_combined_acceptance.py")
+    active_runner = _text("scripts/run_v012_combined_wheel_acceptance.py")
+    active_verifier = _text("scripts/verify_installed_v012_combined_acceptance.py")
+    assert 'CORE_VERSION = "0.6.4"' in historical_runner
+    assert "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b" in historical_runner
+    assert 'expected_core_version == "0.6.4"' in historical_verifier
+    assert 'SpecifierSet(">=0.6.4,<0.7")' in historical_verifier
+    assert 'CORE_VERSION = "0.6.5"' in active_runner
+    assert CORE_SHA in active_runner
+    assert 'expected_core_version == "0.6.5"' in active_verifier
+    assert 'SpecifierSet(">=0.6.5,<0.7")' in active_verifier

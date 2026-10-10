@@ -18,10 +18,12 @@ from scripts.run_issue216_wheel_acceptance import (
 from scripts.run_operations_wheel_acceptance import (
     CORE_WHEEL_SHA256 as OPERATIONS_CORE_HASHES,
 )
-from scripts.run_v011_combined_wheel_acceptance import (
+
+# The active combined qualification is v0.12; v0.11 is historical.
+from scripts.run_v012_combined_wheel_acceptance import (
     CORE_VERSION as COMBINED_CORE_VERSION,
 )
-from scripts.run_v011_combined_wheel_acceptance import (
+from scripts.run_v012_combined_wheel_acceptance import (
     CORE_WHEEL_SHA256 as COMBINED_CORE_HASH,
 )
 from scripts.verify_core_wheel import EXPECTED_VERSION
@@ -51,7 +53,7 @@ def test_active_package_floor_is_exact_core_065() -> None:
     assert CORE_VERSION_SPECIFIER == SpecifierSet(">=0.6.5,<0.7")
 
 
-def test_active_harnesses_authenticate_exact_released_core_064() -> None:
+def test_active_harnesses_authenticate_exact_released_core_065() -> None:
     assert str(EXPECTED_VERSION) == "0.6.5"
     assert ISSUE216_CORE_VERSION == "0.6.5"
     assert ISSUE216_CORE_HASH == CORE_HASH

@@ -87,11 +87,11 @@ def test_combined_acceptance_does_not_delegate_to_focused_verifiers() -> None:
     assert "verify_installed_share_results_with_meridian_acceptance.py" not in source
 
 
-def test_combined_runner_authenticates_exact_core_065() -> None:
-    assert CORE_VERSION == "0.6.5"
+def test_combined_runner_authenticates_exact_historical_core_064() -> None:
+    assert CORE_VERSION == "0.6.4"
     assert (
         CORE_WHEEL_SHA256
-        == "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+        == "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
     )
 
 

@@ -113,3 +113,17 @@ requires `pds-core>=0.6.5,<0.7`. Fix 1 reconciles **only that active
 v0.12 combined verifier**, with a regression guard. It does not alter
 `verify_installed_v011_combined_acceptance.py` or any historical release
 audit; passing local tests alone does not clear the CI gate.
+
+## Final diff audit: historical v0.11 runner scope
+
+After PR #228 passed its 20 required checks at `f69edcf`, a separate diff
+review found that `scripts/run_v011_combined_wheel_acceptance.py` had been
+retargeted to Core 0.6.5 while its archived v0.11 verifier still required
+Core 0.6.4. Fix 2 restores the historical runner's exact Core 0.6.4 wheel
+identity and SHA-256 and pins the boundary with a regression test. The
+active v0.12 installed workflow and Issue #227 reader-contract wheel remain
+qualified only against authenticated Core 0.6.5. Historical scripts are
+preserved as provenance/qualification evidence, **not** a claim that the
+current unreleased ScoreForm candidate supports Core 0.6.4. This fix does not
+bump any version, tag, or publish any release. Fresh CI is required after
+this final correction.
