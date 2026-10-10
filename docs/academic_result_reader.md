@@ -192,3 +192,13 @@ The complete clean-wheel producer lifecycle is verified by
 [`installed_producer_acceptance.md`](installed_producer_acceptance.md). That
 acceptance feeds Core-verified immutable bytes through this public reader while
 preserving separate attempts and keeping consumer policy out of ScoreForm.
+
+## Reader v1 conformance qualification (Issue #227)
+
+The versioned `scoreform_academic_result_reader_v1` declaration is independently
+qualified by [`issue-227-reader-v1-conformance.md`](issue-227-reader-v1-conformance.md)
+and `tests/test_issue227_reader_v1_conformance.py`. These tests exercise the
+producer's existing public reader on synthetic canonical and adversarial bytes;
+Core discovery and the installed candidate wheel are qualified separately.
+The reader contract is not the ScoreForm package version, a publication
+authorization, or a consumer's decision about an official attempt.
