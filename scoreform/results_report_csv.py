@@ -6,6 +6,7 @@ import csv
 import io
 from collections.abc import Iterable, Sequence
 
+from scoreform.csv_spreadsheet_safety import spreadsheet_safe_cell
 from scoreform.results_analysis import (
     PerformanceSummary,
     StandardPerformance,
@@ -50,9 +51,9 @@ def _csv_bytes(
 ) -> bytes:
     buffer = io.StringIO(newline="")
     writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow(header)
+    writer.writerow(spreadsheet_safe_cell(cell) for cell in header)
     for row in rows:
-        writer.writerow(row)
+        writer.writerow(spreadsheet_safe_cell(cell) for cell in row)
     return buffer.getvalue().encode("utf-8")
 
 
