@@ -59,3 +59,26 @@ def test_installed_reader_runner_and_ci_docs_remain_isolated() -> None:
     assert "Windows and Ubuntu" in guide
     assert "noneditably" in guide
     assert "physical printer/scanner acceptance" in guide
+
+
+def test_issue227_combined_wheel_verifier_matches_core065_runner() -> None:
+    """The active v0.12 gate must not retain a Core 0.6.4 release assertion."""
+    verifier = _text("scripts/verify_installed_v012_combined_acceptance.py")
+    runner = _text("scripts/run_v012_combined_wheel_acceptance.py")
+    ci = _text(".github/workflows/ci.yml")
+    readiness = _text(".github/workflows/release-readiness.yml")
+    assert 'CORE_VERSION = "0.6.5"' in runner
+    assert 'expected_core_version == "0.6.5"' in verifier
+    assert 'SpecifierSet(">=0.6.5,<0.7")' in verifier
+    assert 'expected_core_version == "0.6.4"' not in verifier
+    assert 'SpecifierSet(">=0.6.4,<0.7")' not in verifier
+    assert "combined-v012-wheel-qualification:" in ci
+    assert "--expected-core-version 0.6.5" in ci
+    assert "Verify combined installed v0.12 workflow" in readiness
+    assert "--expected-core-version 0.6.5" in readiness
+
+    # The pre-0.12.1 historical v0.11 qualification remains undisturbed.
+    historical = _text("scripts/verify_installed_v011_combined_acceptance.py")
+    assert 'expected_core_version == "0.6.4"' in historical
+    assert 'SpecifierSet(">=0.6.4,<0.7")' in historical
+    assert "# ScoreForm v0.12.1 release checklist" in _text("docs/release_checklist.md")

@@ -100,3 +100,16 @@ regressions remain within the synthetic suites. Actual physical
 printing/scanning is **not claimed** (`physical_acceptance: not_claimed`)
 unless the owner separately performs and records it. The Issue #227 release
 boundary remains an explicit, separate approval after implementation and CI.
+
+## Slice 8 CI correction: active combined v0.12 wheel gate
+
+The first Issue #227 PR #228 CI attempt at `871f166` qualified the new
+reader-contract wheel on both Windows and Ubuntu, but the active combined
+v0.12 wheel test failed on both platforms. The verifier
+`scripts/verify_installed_v012_combined_acceptance.py` still asserted
+Core `0.6.4` and `pds-core>=0.6.4,<0.7`, while its CI/runner now correctly
+installs the authenticated Core `0.6.5` wheel and candidate ScoreForm metadata
+requires `pds-core>=0.6.5,<0.7`. Fix 1 reconciles **only that active
+v0.12 combined verifier**, with a regression guard. It does not alter
+`verify_installed_v011_combined_acceptance.py` or any historical release
+audit; passing local tests alone does not clear the CI gate.
