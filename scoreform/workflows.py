@@ -14,14 +14,11 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 from pds_core.class_metadata import (
     ClassMetadataError,
-    create_class_metadata,
     load_class_metadata_for_class,
-    write_class_metadata_for_class,
 )
 from pds_core.classes import (
     list_class_folders as list_core_class_folders,
@@ -43,6 +40,10 @@ from pds_core.scan_routes import scans_inbox_dir
 
 from scoreform import workspace
 from scoreform.assignment import load_assignment
+from scoreform.class_pair_commit import (
+    ClassPairCommitError,
+    commit_class_pair,
+)
 from scoreform.roster import _core_roster_to_legacy_dict
 from scoreform.standards_workflows import (
     attach_standard_to_questions as attach_standard_to_questions,
@@ -457,54 +458,22 @@ def write_roster_with_class_metadata(
     school_year,
     overwrite=False,
 ):
-    """Write a canonical class roster and class metadata side by side."""
+    """Coordinate Core's class files without claiming cross-file atomicity."""
     try:
-        if not validate_identifier("class_id", class_id, context="roster"):
-            return None
-        for student in students:
-            if not validate_identifier(
-                "student_id",
-                student.get("student_id"),
-                context="roster",
-            ):
-                return None
-
-        rows = [
-            {
-                "student_id": student["student_id"],
-                "last_name": student["last_name"],
-                "first_name": student["first_name"],
-                "period": period,
-            }
-            for student in students
-        ]
-        roster = create_core_roster(class_id, rows)
-        created_at = datetime.now(timezone.utc)
-        metadata = create_class_metadata(
-            class_id,
-            school_year,
-            created_at=created_at,
-        )
-
-        roster_path = write_class_roster(
-            workspace_root,
-            roster,
+        return commit_class_pair(
+            workspace_root=workspace_root,
+            class_id=class_id,
+            period=period,
+            students=students,
+            school_year=school_year,
             overwrite=overwrite,
         )
-        metadata_path = write_class_metadata_for_class(
-            workspace_root,
-            metadata,
-            overwrite=overwrite,
-        )
-        return {
-            "roster_path": os.fspath(roster_path),
-            "metadata_path": os.fspath(metadata_path),
-        }
-    except (RosterError, ClassMetadataError) as e:
-        print(f"Error: Could not write class roster files: {e}")
+    except ClassPairCommitError as error:
+        status = "PARTIAL CLASS UPDATE" if error.partial else "Class update failed"
+        print(f"Error: {status}: {error}")
         return None
-    except Exception as e:
-        print(f"Error: Could not write class roster files: {e}")
+    except Exception as error:
+        print(f"Error: Could not write class roster files: {error}")
         return None
 
 
