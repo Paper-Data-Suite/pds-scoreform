@@ -84,6 +84,14 @@ jobs:
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" --help >/dev/null
           "$RUNNER_TEMP/scoreform-wheel/bin/scoreform" version | grep -Fx "ScoreForm 0.12.1"
           test ! -e "$PDS_WORKSPACE_ROOT"
+      - name: Verify installed Issue 227 reader contract v1
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/scoreform-wheel/bin/python" "$GITHUB_WORKSPACE/scripts/verify_installed_issue227_reader_contract.py" \
+            --repository "$GITHUB_WORKSPACE" \
+            --workspace "$RUNNER_TEMP/scoreform-reader-contract-workspace-must-not-exist" \
+            --scoreform-version 0.12.1 \
+            --core-version 0.6.5
       - name: Verify installed module-operations attention
         run: |
           "$RUNNER_TEMP/scoreform-wheel/bin/python" scripts/verify_installed_operations_acceptance.py             --workspace "$RUNNER_TEMP/scoreform-operations-acceptance"             --repository "$GITHUB_WORKSPACE"             --version 0.12.1 --expected-core-version 0.6.5
