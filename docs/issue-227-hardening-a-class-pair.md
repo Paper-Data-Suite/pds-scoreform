@@ -11,3 +11,7 @@ Core v0.6.5's `write_class_roster()` and `write_class_metadata_for_class()` each
 ## Validation
 
 Run `tests/test_issue227_hardening_a_class_pair.py` and existing roster/CLI tests, Ruff, mypy, and the release compatibility verifier. Test input uses temporary synthetic workspaces exclusively.
+
+## A2: durable intent and explicit interruption recovery
+
+Hardening A2 adds a class-local, create-only recovery journal and a read-only inspect / explicitly confirmed recovery command. It detects interrupted operations and can restore old metadata only when the canonical roster is demonstrably unchanged; completed paired writes can be finalized without changing either file. Divergent files are never overwritten automatically. See [`issue-227-hardening-a2-recovery.md`](issue-227-hardening-a2-recovery.md) for recovery states, usage and limitations. Other Core writers do not participate in the ScoreForm journal; true cross-module transaction isolation is not claimed.
