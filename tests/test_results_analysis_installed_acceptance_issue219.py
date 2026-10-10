@@ -26,9 +26,9 @@ def test_environment_python_is_platform_specific(tmp_path: Path) -> None:
         assert path == tmp_path / "bin" / "python"
 
 
-def test_runner_authenticates_exact_released_core_064() -> None:
-    assert CORE_VERSION == "0.6.4"
-    assert CORE_WHEEL_SHA256 == "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+def test_runner_authenticates_exact_released_core_065() -> None:
+    assert CORE_VERSION == "0.6.5"
+    assert CORE_WHEEL_SHA256 == "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 
 
 def test_runner_builds_candidate_artifacts_and_uses_clean_install() -> None:
