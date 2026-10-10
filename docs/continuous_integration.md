@@ -156,3 +156,23 @@ single local environment cannot provide.
   compatibility change.
 - Exact Suite version/dependency qualification, `pdftoppm` checks, executable
   resolution, and launcher orchestration remain Paper Data Suite responsibilities.
+
+## Issue #227 reader-contract installed-wheel qualification
+
+A separate `issue227-reader-wheel-qualification` job builds a candidate ScoreForm
+wheel and sdist and qualifies its public Academic Result reader contract v1 on
+**Windows and Ubuntu, Python 3.11**, against the authenticated published Core
+0.6.5 wheel (SHA-256
+`9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18`).
+The job runs `scripts/run_issue227_reader_contract_wheel_acceptance.py` with an
+empty temporary root; the harness installs ScoreForm and Core noneditably in a
+new virtual environment, imports from site-packages outside the source tree,
+checks exact metadata lookup and reader behavior, and verifies that no
+workspace is created. It uses synthetic manifests only.
+
+The normal CI matrix independently tests Windows/Ubuntu with Python
+3.11–3.14. The release-readiness workflow also runs the installed reader
+verifier on Ubuntu. These checks are separate, not substitutes for one another.
+A green job verifies its **exact built candidate at the source commit under
+test**; it does not qualify some future distribution or authorize a tag,
+GitHub Release, consumer adapter, or physical printer/scanner acceptance.

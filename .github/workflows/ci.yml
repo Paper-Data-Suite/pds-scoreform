@@ -370,3 +370,47 @@ jobs:
             --work $work `
             --core-wheel $coreWheel `
             --expected-core-version 0.6.5
+
+  issue227-reader-wheel-qualification:
+    name: Issue 227 reader contract v1 / ${{ matrix.os }} / Python 3.11
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install build tooling
+        run: python -m pip install build
+      - name: Download authenticated released Core 0.6.5
+        shell: python
+        run: |
+          import hashlib
+          import os
+          from pathlib import Path
+          from urllib.request import urlretrieve
+
+          filename = "pds_core-0.6.5-py3-none-any.whl"
+          url = (
+              "https://github.com/Paper-Data-Suite/pds-core/releases/download/"
+              f"v0.6.5/{filename}"
+          )
+          wheel = Path(os.environ["RUNNER_TEMP"]) / filename
+          urlretrieve(url, wheel)
+          expected = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
+          actual = hashlib.sha256(wheel.read_bytes()).hexdigest()
+          if actual != expected:
+              raise SystemExit(f"Core 0.6.5 SHA-256 mismatch: {actual}")
+      - name: Qualify noneditable installed Issue 227 reader contract v1
+        run: >-
+          python scripts/run_issue227_reader_contract_wheel_acceptance.py
+          --repository .
+          --work "${{ runner.temp }}/scoreform-issue227-reader-wheel"
+          --core-wheel "${{ runner.temp }}/pds_core-0.6.5-py3-none-any.whl"
