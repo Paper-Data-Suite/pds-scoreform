@@ -341,8 +341,8 @@ def _verify_installed_provenance(
         "PDS Core module/distribution versions disagree.",
     )
     _require(
-        expected_core_version == "0.6.4",
-        "combined v0.12 acceptance qualifies the exact Core 0.6.4 reference.",
+        expected_core_version == "0.6.5",
+        "combined v0.12 candidate acceptance qualifies the exact Core 0.6.5 reference.",
     )
 
     requirements = tuple(
@@ -355,8 +355,8 @@ def _verify_installed_provenance(
     )
     _require(
         len(core) == 1
-        and core[0].specifier == SpecifierSet(">=0.6.4,<0.7"),
-        "ScoreForm Core compatibility metadata must remain pds-core>=0.6.4,<0.7.",
+        and core[0].specifier == SpecifierSet(">=0.6.5,<0.7"),
+        "Active ScoreForm Core compatibility metadata must be pds-core>=0.6.5,<0.7.",
     )
     names = {canonicalize_name(requirement.name) for requirement in requirements}
     _require(

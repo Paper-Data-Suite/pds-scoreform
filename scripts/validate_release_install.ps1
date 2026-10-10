@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Python,
     [string]$Version = "0.12.1",
-    [string]$ExpectedCoreVersion = "0.6.4"
+    [string]$ExpectedCoreVersion = "0.6.5"
 )
 
 $ErrorActionPreference = "Stop"

@@ -36,7 +36,7 @@ Invoke-Step "Require Python 3.11+" {
 $BootstrapCoreWheelRoot = $null
 $BootstrapCoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
 $BootstrapSavedCoreWheel = $env:PDS_CORE_WHEEL
-$BootstrapExpectedCoreWheelHash = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+$BootstrapExpectedCoreWheelHash = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 
 try {
     if (-not $BootstrapCoreWheelWasSet) {
@@ -46,19 +46,19 @@ try {
         New-Item -ItemType Directory -Path $BootstrapCoreWheelRoot | Out-Null
         $BootstrapCoreWheelPath = Join-Path `
             $BootstrapCoreWheelRoot `
-            "pds_core-0.6.4-py3-none-any.whl"
+            "pds_core-0.6.5-py3-none-any.whl"
         $BootstrapCoreWheelUrl = (
             "https://github.com/Paper-Data-Suite/pds-core/releases/download/" +
-            "v0.6.4/pds_core-0.6.4-py3-none-any.whl"
+            "v0.6.5/pds_core-0.6.5-py3-none-any.whl"
         )
 
         Write-Host ""
-        Write-Host "Running: Download released pds-core 0.6.4 wheel for bootstrap" -ForegroundColor Yellow
+        Write-Host "Running: Download released pds-core 0.6.5 wheel for bootstrap" -ForegroundColor Yellow
         Invoke-WebRequest `
             -Uri $BootstrapCoreWheelUrl `
             -OutFile $BootstrapCoreWheelPath `
             -ErrorAction Stop
-        Write-Host "PASSED: Download released pds-core 0.6.4 wheel for bootstrap" -ForegroundColor Green
+        Write-Host "PASSED: Download released pds-core 0.6.5 wheel for bootstrap" -ForegroundColor Green
 
         $env:PDS_CORE_WHEEL = $BootstrapCoreWheelPath
     }
@@ -73,7 +73,7 @@ try {
                 -PathType Leaf
         )
     ) {
-        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.4 wheel."
+        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.5 wheel."
     }
 
     $BootstrapActualCoreWheelHash = (
@@ -86,15 +86,15 @@ try {
         $BootstrapExpectedCoreWheelHash
     ) {
         throw (
-            "Released Core 0.6.4 wheel SHA-256 mismatch: " +
+            "Released Core 0.6.5 wheel SHA-256 mismatch: " +
             $BootstrapActualCoreWheelHash
         )
     }
 
-    Invoke-Step "Validate released pds-core 0.6.4 bootstrap wheel" {
+    Invoke-Step "Validate released pds-core 0.6.5 bootstrap wheel" {
         & $Python scripts\verify_core_wheel.py $BootstrapResolvedCoreWheel
     }
-    Invoke-Step "Install authenticated released pds-core 0.6.4 into release environment" {
+    Invoke-Step "Install authenticated released pds-core 0.6.5 into release environment" {
         & $Python -m pip install --quiet $BootstrapResolvedCoreWheel
     }
 
@@ -704,19 +704,19 @@ Invoke-Step "Validate release artifact names, metadata, and contents" {
 $CoreWheelRoot = $null
 $CoreWheelWasSet = Test-Path Env:PDS_CORE_WHEEL
 $SavedCoreWheel = $env:PDS_CORE_WHEEL
-$ExpectedCoreWheelHash = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+$ExpectedCoreWheelHash = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 try {
     if (-not $CoreWheelWasSet) {
         $CoreWheelRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
             "scoreform-core-wheel-" + [guid]::NewGuid().ToString("N")
         )
         New-Item -ItemType Directory -Path $CoreWheelRoot | Out-Null
-        $CoreWheelPath = Join-Path $CoreWheelRoot "pds_core-0.6.4-py3-none-any.whl"
+        $CoreWheelPath = Join-Path $CoreWheelRoot "pds_core-0.6.5-py3-none-any.whl"
         $CoreWheelUrl = (
             "https://github.com/Paper-Data-Suite/pds-core/releases/download/" +
-            "v0.6.4/pds_core-0.6.4-py3-none-any.whl"
+            "v0.6.5/pds_core-0.6.5-py3-none-any.whl"
         )
-        Invoke-Step "Download released pds-core 0.6.4 wheel" {
+        Invoke-Step "Download released pds-core 0.6.5 wheel" {
             Invoke-WebRequest -Uri $CoreWheelUrl -OutFile $CoreWheelPath -ErrorAction Stop
         }
         $env:PDS_CORE_WHEEL = $CoreWheelPath
@@ -724,21 +724,21 @@ try {
 
     $ResolvedCoreWheel = [System.IO.Path]::GetFullPath($env:PDS_CORE_WHEEL)
     if (-not (Test-Path -LiteralPath $ResolvedCoreWheel -PathType Leaf)) {
-        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.4 wheel."
+        throw "PDS_CORE_WHEEL must name the released pds-core 0.6.5 wheel."
     }
     $ActualCoreWheelHash = (
         Get-FileHash -Algorithm SHA256 -LiteralPath $ResolvedCoreWheel
     ).Hash.ToLowerInvariant()
     if ($ActualCoreWheelHash -ne $ExpectedCoreWheelHash) {
-        throw "Released Core 0.6.4 wheel SHA-256 mismatch: $ActualCoreWheelHash"
+        throw "Released Core 0.6.5 wheel SHA-256 mismatch: $ActualCoreWheelHash"
     }
 
-    Invoke-Step "Validate exact released pds-core 0.6.4 reference wheel" {
+    Invoke-Step "Validate exact released pds-core 0.6.5 reference wheel" {
         & $Python scripts\verify_core_wheel.py $ResolvedCoreWheel
     }
     Invoke-Step "Validate clean wheel and source-distribution installations" {
         powershell -ExecutionPolicy Bypass -File .\scripts\validate_release_install.ps1 `
-            -Python $Python -Version 0.12.1 -ExpectedCoreVersion 0.6.4
+            -Python $Python -Version 0.12.1 -ExpectedCoreVersion 0.6.5
     }
 
     $CombinedAcceptanceRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
@@ -750,7 +750,7 @@ try {
                 --repository $RepoRoot `
                 --work $CombinedAcceptanceRoot `
                 --core-wheel $ResolvedCoreWheel `
-                --expected-core-version 0.6.4
+                --expected-core-version 0.6.5
         }
     }
     finally {
@@ -786,7 +786,7 @@ try {
                 --repository $RepoRoot `
                 --work $ResultsAnalysisAcceptanceRoot `
                 --core-wheel $ResolvedCoreWheel `
-                --expected-core-version 0.6.4
+                --expected-core-version 0.6.5
         }
     }
     finally {

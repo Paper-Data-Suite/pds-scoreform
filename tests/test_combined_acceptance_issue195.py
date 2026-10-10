@@ -87,7 +87,7 @@ def test_combined_acceptance_does_not_delegate_to_focused_verifiers() -> None:
     assert "verify_installed_share_results_with_meridian_acceptance.py" not in source
 
 
-def test_combined_runner_authenticates_exact_core_063() -> None:
+def test_combined_runner_authenticates_exact_historical_core_064() -> None:
     assert CORE_VERSION == "0.6.4"
     assert (
         CORE_WHEEL_SHA256

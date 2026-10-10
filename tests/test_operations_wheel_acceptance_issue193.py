@@ -25,15 +25,15 @@ def test_environment_python_is_platform_specific(tmp_path: Path) -> None:
         assert path == tmp_path / "bin" / "python"
 
 
-def test_operations_harness_authenticates_exact_core_064_floor() -> None:
+def test_operations_harness_authenticates_exact_core_065_floor() -> None:
     assert CORE_WHEEL_SHA256 == {
-        "0.6.4": "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b",
+        "0.6.5": "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18",
     }
 
     source = (ROOT / "scripts" / "run_operations_wheel_acceptance.py").read_text(
         encoding="utf-8"
     )
-    assert 'choices=("0.6.4",)' in source
+    assert 'choices=("0.6.5",)' in source
     assert "verify_release_artifacts.py" in source
     assert "verify_installed_operations_acceptance.py" in source
     assert 'expected_core_version == "0.6.2"' not in source
@@ -48,7 +48,7 @@ def test_installed_acceptance_requires_exact_operations_contract() -> None:
         "MODULE_OPERATIONS_ENTRY_POINT_GROUP" in source
     )
     assert "scoreform.pds_operations:get_module_operations_profile" in source
-    assert 'SpecifierSet(">=0.6.4,<0.7")' in source
+    assert 'SpecifierSet(">=0.6.5,<0.7")' in source
     assert "profile.readiness_provider is not None" in source
     assert "module_operations.evaluation_unavailable" in source
     assert "scoreform_class_not_ready" in source
@@ -71,7 +71,7 @@ def test_ci_qualifies_operations_wheel_on_both_platforms_at_core_floor() -> None
     assert "operations-wheel-qualification:" in source
     assert "windows-latest" in source
     assert "ubuntu-latest" in source
-    assert 'core: ["0.6.4"]' in source
+    assert 'core: ["0.6.5"]' in source
     assert "run_operations_wheel_acceptance.py" in source
 
 
@@ -80,7 +80,7 @@ def test_release_readiness_runs_current_installed_operations_acceptance() -> Non
         ROOT / ".github" / "workflows" / "release-readiness.yml"
     ).read_text(encoding="utf-8")
     assert "verify_installed_operations_acceptance.py" in source
-    assert "--expected-core-version 0.6.4" in source
+    assert "--expected-core-version 0.6.5" in source
 
 
 def test_active_docs_and_share_results_acceptance_use_new_core_floor() -> None:
@@ -92,12 +92,12 @@ def test_active_docs_and_share_results_acceptance_use_new_core_floor() -> None:
         ROOT / "scripts" / "verify_installed_share_results_with_meridian_acceptance.py"
     ).read_text(encoding="utf-8")
 
-    assert "pds-core>=0.6.4,<0.7" in readme
+    assert "pds-core>=0.6.5,<0.7" in readme
     assert "pds-core>=0.6,<0.7" not in readme
-    assert "pds-core>=0.6.4,<0.7" in ci_doc
+    assert "pds-core>=0.6.5,<0.7" in ci_doc
     assert "pds-core>=0.6,<0.7" not in ci_doc
-    assert 'SpecifierSet(">=0.6.4,<0.7")' in share_acceptance
-    assert "must remain pds-core>=0.6.4,<0.7" in share_acceptance
+    assert 'SpecifierSet(">=0.6.5,<0.7")' in share_acceptance
+    assert "must remain pds-core>=0.6.5,<0.7" in share_acceptance
 
 
 def test_harness_refuses_nonempty_work_directory(tmp_path: Path) -> None:

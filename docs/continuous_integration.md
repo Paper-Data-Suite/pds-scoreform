@@ -20,7 +20,7 @@ break Python 3.11.
 Every matrix cell:
 
 1. installs Poppler using a platform-appropriate deterministic path;
-2. downloads and authenticates the official released PDS Core 0.6.4 wheel;
+2. downloads and authenticates the official released PDS Core 0.6.5 wheel;
 3. installs that Core wheel and ScoreForm's development dependencies;
 4. verifies the installed Core version and runs `pip check`;
 5. runs the complete ordinary pytest suite;
@@ -29,7 +29,7 @@ Every matrix cell:
 8. verifies Git whitespace plus tracked and untracked repository cleanliness.
 
 The Windows Poppler archive is version-pinned and SHA-256 authenticated before
-its executables are added to `PATH`. The Core 0.6.4 release wheel is also
+its executables are added to `PATH`. The Core 0.6.5 release wheel is also
 SHA-256 authenticated and then validated by `scripts/verify_core_wheel.py`.
 CI does not use a sibling editable Core checkout.
 
@@ -54,7 +54,7 @@ contract.
 
 The same harness qualifies ScoreForm operations capabilities and verifies
 that the independently installed public launcher remains `scoreform =
-scoreform.cli:main` against exact Core 0.6.4, which is now both the declared
+scoreform.cli:main` against exact Core 0.6.5, which is now both the declared
 minimum and the current release-qualification endpoint. The acceptance covers
 both `attention_provider` and `readiness_provider`, missing-workspace
 unavailable semantics, empty-workspace readiness, exact valid/missing/invalid
@@ -63,7 +63,7 @@ non-empty attention, diagnostic-history and recent-context nonauthority,
 privacy, zero writes, and safe installed launcher `--version`/`--help` probes.
 
 This job is intentionally separate from the ordinary 3.11-3.14 source matrix.
-It proves built-artifact compatibility at the exact Core 0.6.4 floor/reference.
+It proves built-artifact compatibility at the exact Core 0.6.5 floor/reference.
 
 External prerequisite qualification remains Suite-owned. In particular, this
 operations harness does not reinterpret `pdftoppm` availability as shared
@@ -72,7 +72,7 @@ ScoreForm readiness.
 ## Combined v0.12 installed-workflow qualification
 
 Issue #195 adds a bounded `combined-v012-wheel-qualification` matrix on Windows
-and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.4 reference
+and Ubuntu using Python 3.11 and the exact authenticated Core 0.6.5 reference
 wheel.
 
 `scripts/run_v012_combined_wheel_acceptance.py` stages the current working tree
@@ -97,7 +97,7 @@ automation must not claim a physical pass.
 
 Issue #219 adds a dedicated `results-analysis-wheel-qualification` gate on
 Windows and Ubuntu / Python 3.11. It builds the current ScoreForm wheel and
-sdist, authenticates released Core v0.6.4, installs both distributions
+sdist, authenticates released Core v0.6.5, installs both distributions
 noneditably in a fresh environment, runs `pip check`, and executes the
 installed Results Analysis acceptance outside the source checkout.
 
@@ -150,9 +150,29 @@ single local environment cannot provide.
 
 - Python package metadata remains `requires-python = ">=3.11"`.
 - Routine CI currently covers Windows and Ubuntu only; macOS is not implied.
-- ScoreForm continues to declare `pds-core>=0.6.4,<0.7`.
+- ScoreForm continues to declare `pds-core>=0.6.5,<0.7`.
 - The exact authenticated CI/release baseline for this development line is PDS
-  Core 0.6.4 unless that baseline is deliberately revised in a separate
+  Core 0.6.5 unless that baseline is deliberately revised in a separate
   compatibility change.
 - Exact Suite version/dependency qualification, `pdftoppm` checks, executable
   resolution, and launcher orchestration remain Paper Data Suite responsibilities.
+
+## Issue #227 reader-contract installed-wheel qualification
+
+A separate `issue227-reader-wheel-qualification` job builds a candidate ScoreForm
+wheel and sdist and qualifies its public Academic Result reader contract v1 on
+**Windows and Ubuntu, Python 3.11**, against the authenticated published Core
+0.6.5 wheel (SHA-256
+`9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18`).
+The job runs `scripts/run_issue227_reader_contract_wheel_acceptance.py` with an
+empty temporary root; the harness installs ScoreForm and Core noneditably in a
+new virtual environment, imports from site-packages outside the source tree,
+checks exact metadata lookup and reader behavior, and verifies that no
+workspace is created. It uses synthetic manifests only.
+
+The normal CI matrix independently tests Windows/Ubuntu with Python
+3.11–3.14. The release-readiness workflow also runs the installed reader
+verifier on Ubuntu. These checks are separate, not substitutes for one another.
+A green job verifies its **exact built candidate at the source commit under
+test**; it does not qualify some future distribution or authorize a tag,
+GitHub Release, consumer adapter, or physical printer/scanner acceptance.

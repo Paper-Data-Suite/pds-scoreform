@@ -19,9 +19,11 @@ from pds_core.module_operations import (
 )
 from pds_core.module_profiles import discover_module_profiles, validate_module_profile
 from pds_core.publication_compatibility import (
+    PublicationReaderSupport,
     build_publication_producer_registry,
     discover_publication_producer_profiles,
     evaluate_publication_compatibility,
+    lookup_publication_reader_support,
     validate_publication_producer_profile,
 )
 from pds_core.publication_records import PublicationRecord
@@ -45,7 +47,7 @@ except ModuleNotFoundError:
         validate_core_requirement_strings,
     )
 
-CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
+CORE_VERSION_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 
 
 def core_version_is_supported(value: str) -> bool:
@@ -59,7 +61,7 @@ def validate_core_runtime_versions(
 ) -> None:
     if not core_version_is_supported(distribution_version):
         raise SystemExit(
-            f"installed pds-core does not satisfy >=0.6.4,<0.7: {distribution_version}"
+            f"installed pds-core does not satisfy >=0.6.5,<0.7: {distribution_version}"
         )
     if module_version != distribution_version:
         raise SystemExit(
@@ -344,6 +346,24 @@ def main() -> int:
         or support.allows_missing_source_record is not True
     ):
         raise SystemExit("ScoreForm publication support row is not exact")
+
+    expected_reader = PublicationReaderSupport(
+        manifest_contract_version="scoreform_academic_result_manifest_v1",
+        distribution_name="scoreform",
+        reader_contract_version="scoreform_academic_result_reader_v1",
+    )
+    if support.reader_support != (expected_reader,):
+        raise SystemExit("installed ScoreForm reader-support metadata is not exact")
+    if lookup_publication_reader_support(
+        publication_first,
+        "academic_result_set",
+        "scoreform_academic_result_manifest_v1",
+    ) != expected_reader:
+        raise SystemExit("installed Core reader-support lookup disagrees")
+    if lookup_publication_reader_support(
+        publication_first, "academic_result_set", "fictional_manifest_v1"
+    ) is not None:
+        raise SystemExit("undeclared manifest gained reader support")
 
     publication_profiles = [
         profile

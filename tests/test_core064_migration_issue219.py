@@ -1,4 +1,4 @@
-"""Issue #219 Slice 5: Core v0.6.4 active compatibility migration."""
+"""Issue #219 Slice 5: Core v0.6.5 active compatibility migration."""
 
 from __future__ import annotations
 
@@ -18,10 +18,12 @@ from scripts.run_issue216_wheel_acceptance import (
 from scripts.run_operations_wheel_acceptance import (
     CORE_WHEEL_SHA256 as OPERATIONS_CORE_HASHES,
 )
-from scripts.run_v011_combined_wheel_acceptance import (
+
+# The active combined qualification is v0.12; v0.11 is historical.
+from scripts.run_v012_combined_wheel_acceptance import (
     CORE_VERSION as COMBINED_CORE_VERSION,
 )
-from scripts.run_v011_combined_wheel_acceptance import (
+from scripts.run_v012_combined_wheel_acceptance import (
     CORE_WHEEL_SHA256 as COMBINED_CORE_HASH,
 )
 from scripts.verify_core_wheel import EXPECTED_VERSION
@@ -29,14 +31,14 @@ from scripts.verify_installed_release import CORE_VERSION_SPECIFIER
 from scripts.verify_release_compatibility import EXPECTED_CORE_SPECIFIER
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_HASH = "48cea9317f2967bdc0f2d4c14349a56677c7c3f8211f0f33978ccb1a1c75859b"
+CORE_HASH = "9ace75f17b23b7f0ed6a709d531af5120db43d0325b4148d26f2d6ba1d4b3c18"
 
 
 def _text(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-def test_active_package_floor_is_exact_core_064() -> None:
+def test_active_package_floor_is_exact_core_065() -> None:
     project = tomllib.loads(_text("pyproject.toml"))["project"]
     requirements = tuple(Requirement(item) for item in project["dependencies"])
     core = tuple(
@@ -46,21 +48,21 @@ def test_active_package_floor_is_exact_core_064() -> None:
     )
 
     assert len(core) == 1
-    assert core[0].specifier == SpecifierSet(">=0.6.4,<0.7")
-    assert EXPECTED_CORE_SPECIFIER == SpecifierSet(">=0.6.4,<0.7")
-    assert CORE_VERSION_SPECIFIER == SpecifierSet(">=0.6.4,<0.7")
+    assert core[0].specifier == SpecifierSet(">=0.6.5,<0.7")
+    assert EXPECTED_CORE_SPECIFIER == SpecifierSet(">=0.6.5,<0.7")
+    assert CORE_VERSION_SPECIFIER == SpecifierSet(">=0.6.5,<0.7")
 
 
-def test_active_harnesses_authenticate_exact_released_core_064() -> None:
-    assert str(EXPECTED_VERSION) == "0.6.4"
-    assert ISSUE216_CORE_VERSION == "0.6.4"
+def test_active_harnesses_authenticate_exact_released_core_065() -> None:
+    assert str(EXPECTED_VERSION) == "0.6.5"
+    assert ISSUE216_CORE_VERSION == "0.6.5"
     assert ISSUE216_CORE_HASH == CORE_HASH
-    assert COMBINED_CORE_VERSION == "0.6.4"
+    assert COMBINED_CORE_VERSION == "0.6.5"
     assert COMBINED_CORE_HASH == CORE_HASH
-    assert OPERATIONS_CORE_HASHES == {"0.6.4": CORE_HASH}
+    assert OPERATIONS_CORE_HASHES == {"0.6.5": CORE_HASH}
 
 
-def test_ci_and_release_readiness_use_only_core_064() -> None:
+def test_ci_and_release_readiness_use_only_core_065() -> None:
     for relative in (
         ".github/workflows/ci.yml",
         ".github/workflows/release-readiness.yml",
@@ -68,10 +70,10 @@ def test_ci_and_release_readiness_use_only_core_064() -> None:
         text = _text(relative)
         assert "0.6.2" not in text
         assert "0.6.3" not in text
-        assert "pds_core-0.6.4-py3-none-any.whl" in text
+        assert "pds_core-0.6.5-py3-none-any.whl" in text
         assert CORE_HASH in text
 
-    assert 'core: ["0.6.4"]' in _text(".github/workflows/ci.yml")
+    assert 'core: ["0.6.5"]' in _text(".github/workflows/ci.yml")
 
 
 def test_local_release_gate_uses_published_core_wheel() -> None:
@@ -81,7 +83,7 @@ def test_local_release_gate_uses_published_core_wheel() -> None:
         '"https://github.com/Paper-Data-Suite/pds-core/releases/download/" +'
         in source
     )
-    assert '"v0.6.4/pds_core-0.6.4-py3-none-any.whl"' in source
+    assert '"v0.6.5/pds_core-0.6.5-py3-none-any.whl"' in source
     assert CORE_HASH in source
     assert "archive --format=zip" not in source
     assert "Build separate pds-core" not in source
@@ -126,16 +128,16 @@ def test_active_compatibility_surfaces_have_no_pre_064_markers() -> None:
 def test_historical_v011_release_audit_is_not_rewritten() -> None:
     assert "0.6.3" in _text("docs/v0.11.0_release_audit.md")
 
-def test_core_wheel_version_regex_matches_active_core_064() -> None:
+def test_core_wheel_version_regex_matches_active_core_065() -> None:
     source = _text("scripts/verify_core_wheel.py")
 
-    assert r"0\.6\.4" in source
+    assert r"0\.6\.5" in source
     assert r"0\.6\.3" not in source
 
-def test_issue193_project_floor_test_tracks_active_core_064() -> None:
+def test_issue193_project_floor_test_tracks_active_core_065() -> None:
     source = _text("tests/test_pds_operations_issue193.py")
 
-    assert '"pds-core>=0.6.4,<0.7"' in source
+    assert '"pds-core>=0.6.5,<0.7"' in source
     assert '"pds-core>=0.6.2,<0.7"' not in source
 
 def test_active_release_contract_tests_track_core064() -> None:

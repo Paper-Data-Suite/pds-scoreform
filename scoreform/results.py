@@ -25,6 +25,7 @@ from scoreform.answer_sheet_records import (
 )
 from scoreform.answer_sheet_routes import validate_route_id
 from scoreform.assignment import load_assignment
+from scoreform.csv_spreadsheet_safety import spreadsheet_safe_cell
 from scoreform.diagnostic_events import try_emit_diagnostic_event
 from scoreform.folders import ensure_parent_dir
 from scoreform.module_errors import (
@@ -400,7 +401,9 @@ def export_to_csv(
                     row[f"Q{q_num}"] = ans["Answer"]
                     row[f"Q{q_num}_Correct"] = ans["Correct"]
 
-                writer.writerow(row)
+                writer.writerow(
+                    {column: spreadsheet_safe_cell(value) for column, value in row.items()}
+                )
 
         print(f"Results successfully exported to {output_file}")
         return True

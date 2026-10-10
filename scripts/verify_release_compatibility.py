@@ -11,6 +11,10 @@ from pds_core.module_operations import (
     MODULE_OPERATIONS_CONTRACT_VERSION,
     validate_module_operations_profile,
 )
+from pds_core.publication_compatibility import (
+    PublicationReaderSupport,
+    lookup_publication_reader_support,
+)
 from pip._vendor.packaging.requirements import Requirement
 from pip._vendor.packaging.specifiers import SpecifierSet
 from pip._vendor.packaging.utils import canonicalize_name
@@ -18,6 +22,7 @@ from pip._vendor.packaging.utils import canonicalize_name
 import scoreform.academic_result_reader as reader
 from scoreform.pds_contract import (
     ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+    SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
     SCOREFORM_ACADEMIC_WORK_CONTRACT_VERSION,
     SCOREFORM_MODULE_ID,
 )
@@ -33,7 +38,7 @@ RELEASE_VERSION = "0.12.1"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
 HISTORICAL_V011_RELEASE_VERSION = "0.11.0"
 HISTORICAL_V012_RELEASE_VERSION = "0.12.0"
-EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.4,<0.7")
+EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
 )
@@ -208,7 +213,7 @@ def validate_core_dependency() -> None:
     )
     if len(core) != 1 or core[0].specifier != EXPECTED_CORE_SPECIFIER:
         raise ReleaseCompatibilityError(
-            "ScoreForm must require exactly pds-core>=0.6.4,<0.7"
+            "ScoreForm must require exactly pds-core>=0.6.5,<0.7"
         )
     if core[0].url is not None or core[0].marker is not None or core[0].extras:
         raise ReleaseCompatibilityError(
@@ -290,6 +295,26 @@ def validate_producer_profile() -> None:
         or SCOREFORM_ACADEMIC_RESULT_RECORD_SET_ID != "academic_results"
     ):
         raise ReleaseCompatibilityError("ScoreForm publication support row changed")
+
+    expected_reader = PublicationReaderSupport(
+        manifest_contract_version=ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+        distribution_name="scoreform",
+        reader_contract_version=SCOREFORM_ACADEMIC_RESULT_READER_CONTRACT_VERSION,
+    )
+    if support.reader_support != (expected_reader,):
+        raise ReleaseCompatibilityError("ScoreForm reader-support metadata changed")
+    if lookup_publication_reader_support(
+        profile,
+        SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND,
+        ACADEMIC_RESULT_MANIFEST_CONTRACT_VERSION,
+    ) != expected_reader:
+        raise ReleaseCompatibilityError("Core reader-support lookup disagrees")
+    if lookup_publication_reader_support(
+        profile,
+        SCOREFORM_ACADEMIC_RESULT_PUBLICATION_KIND,
+        "fictional_manifest_v1",
+    ) is not None:
+        raise ReleaseCompatibilityError("undeclared manifest gained reader support")
 
 
 def validate_operations_profile() -> None:
@@ -382,7 +407,7 @@ def main() -> int:
 
     print(
         "ScoreForm active release compatibility passed: "
-        "Core >=0.6.4,<0.7; producer/operations profiles exact; reader "
+        "Core >=0.6.5,<0.7; producer/operations profiles exact; reader "
         "policy-neutral; sibling runtime imports absent; historical "
         "v0.10.0/v0.11.0/v0.12.0 release evidence preserved."
     )

@@ -13,7 +13,7 @@ choose the official attempt or grade, and does not provide LMS export.
 ## Release contract
 
 - Python: 3.11 or newer
-- PDS Core: `pds-core>=0.6.4,<0.7`
+- PDS Core: `pds-core>=0.6.5,<0.7`
 - Core routing contract: `1`
 - QR payload schema: `PDS2`
 - route-registration schema: `1`
@@ -33,28 +33,30 @@ rather than being multiplied across every matrix cell. See
 
 ## Installation
 
-PDS Core 0.6.4 is the current release-qualification reference and is distributed
-separately through the verified PDS Core `v0.6.4` GitHub Release; it is not
+PDS Core 0.6.5 is the current release-qualification reference and is distributed
+separately through the verified PDS Core `v0.6.5` GitHub Release; it is not
 published to PyPI. Download its wheel and the ScoreForm
 wheel, create and activate a Python 3.11+ virtual environment, install Poppler
 so `pdftoppm` is available for PDF scans, then install both distributions
 noneditably:
 
 ```powershell
-python -m pip install .\pds_core-0.6.4-py3-none-any.whl
+python -m pip install .\pds_core-0.6.5-py3-none-any.whl
 python -m pip install .\scoreform-0.12.1-py3-none-any.whl
 python -m pip check
 scoreform --version
 scoreform --help
 ```
 
-ScoreForm's dependency metadata enforces `pds-core>=0.6.4,<0.7`, but pip cannot
+ScoreForm's dependency metadata enforces `pds-core>=0.6.5,<0.7`, but pip cannot
 download Core from PyPI. A compatible Core wheel must be available to pip
 before ScoreForm is installed. ScoreForm's GitHub Release does not repackage or
 bundle Core.
 
-ScoreForm 0.12.1 is a compatibility repair for `scoreform_academic_result_manifest_v1`: durable Core Standards Profile and Standard identities are preserved exactly even when they contain punctuation outside Core's unrelated generic routing/path identifier grammar. Existing v1 structure and publication semantics remain unchanged, and the active runtime remains qualified against Core 0.6.4. ScoreForm <=0.12.0 readers may reject corrected v1 instances containing punctuation-bearing Standards identities; ScoreForm >=0.12.1 corrects that reader/producer defect. Meridian requires a separate exact-reader qualification before claiming support for ScoreForm 0.12.1. See [`docs/v0.12.1_release_audit.md`](docs/v0.12.1_release_audit.md).
+ScoreForm 0.12.1 is a compatibility repair for `scoreform_academic_result_manifest_v1`: durable Core Standards Profile and Standard identities are preserved exactly even when they contain punctuation outside Core's unrelated generic routing/path identifier grammar. Existing v1 structure and publication semantics remain unchanged, and the historical v0.12.1 release was qualified against Core 0.6.4. ScoreForm <=0.12.0 readers may reject corrected v1 instances containing punctuation-bearing Standards identities; ScoreForm >=0.12.1 corrects that reader/producer defect. Meridian requires a separate exact-reader qualification before claiming support for ScoreForm 0.12.1. See [`docs/v0.12.1_release_audit.md`](docs/v0.12.1_release_audit.md).
 Historical release records remain available for [v0.12.0](docs/v0.12.0_release_audit.md), [v0.11.0](docs/v0.11.0_release_audit.md), and [v0.10.0](docs/v0.10.0_release_compatibility.md).
+
+Development note (Issue #227): this unreleased source tree now requires Core 0.6.5; the published ScoreForm 0.12.1 wheel, its historical dependency floor and its release audit have not been replaced.
 
 Adopting Core 0.6 does not by itself register work, generate manifests,
 publish results, build the catalog, or calculate Grades. ScoreForm remains
@@ -288,7 +290,7 @@ selection, grading, or portfolio policy. See
 
 Release readiness now also runs the complete academic-result producer lifecycle
 and the guided SF-AC10/SF-AC11 sharing journeys from the clean installed ScoreForm
-wheel against the current Core 0.6.4 reference release:
+wheel against the current Core 0.6.5 reference release:
 native synthetic results, registration, immutable manifests, publication,
 catalog verification, public reading, supersession, withdrawal, and registry
 audit. See

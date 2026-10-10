@@ -48,12 +48,12 @@ def inspect_wheel(path: Path, expected_name: str) -> str:
 
 
 def validate_core_version(value: str) -> None:
-    # Candidate Core 0.6.4 and newer compatible 0.6.x wheels are permitted.
+    # Candidate Core 0.6.5 and newer compatible 0.6.x wheels are permitted.
     pieces = value.split(".")
     if len(pieces) != 3 or not all(item.isdecimal() for item in pieces):
         raise RecoveryWheelAcceptanceError("Core must use a stable x.y.z version.")
-    if (int(pieces[0]), int(pieces[1])) != (0, 6) or int(pieces[2]) < 4:
-        raise RecoveryWheelAcceptanceError("ScoreForm requires Core >=0.6.4,<0.7.")
+    if (int(pieces[0]), int(pieces[1])) != (0, 6) or int(pieces[2]) < 5:
+        raise RecoveryWheelAcceptanceError("ScoreForm requires Core >=0.6.5,<0.7.")
 
 
 def sha256(path: Path) -> str:
