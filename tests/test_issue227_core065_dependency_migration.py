@@ -31,7 +31,7 @@ def test_active_distribution_and_gates_require_core_065() -> None:
     assert COMPATIBILITY_CORE_SPECIFIER == expected
     assert CORE_VERSION_SPECIFIER == expected
     assert str(EXPECTED_VERSION) == "0.6.5"
-    assert project["version"] == "0.12.1"  # no release yet
+    assert project["version"] == "0.13.0"  # Issue #229 release preparation
 
 
 @pytest.mark.parametrize(

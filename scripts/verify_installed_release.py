@@ -77,7 +77,7 @@ def validate_core_runtime_versions(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="0.12.1")
+    parser.add_argument("--version", default="0.13.0")
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--expected-core-version")
     args = parser.parse_args()

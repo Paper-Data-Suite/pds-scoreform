@@ -103,7 +103,7 @@ def test_release_readiness_invokes_installed_verifier_outside_checkout() -> None
     assert "Verify installed Issue 227 reader contract v1" in workflow
     assert 'cd "$RUNNER_TEMP"' in workflow
     assert '"$GITHUB_WORKSPACE/scripts/verify_installed_issue227_reader_contract.py"' in workflow
-    assert "--scoreform-version 0.12.1" in workflow
+    assert "--scoreform-version 0.13.0" in workflow
     assert "--core-version 0.6.5" in workflow
     assert "scoreform-reader-contract-workspace-must-not-exist" in workflow
 
