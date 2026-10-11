@@ -34,10 +34,11 @@ from scoreform.publication_revision_policy import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.12.1"
+RELEASE_VERSION = "0.13.0"
 HISTORICAL_RELEASE_VERSION = "0.10.0"
 HISTORICAL_V011_RELEASE_VERSION = "0.11.0"
 HISTORICAL_V012_RELEASE_VERSION = "0.12.0"
+HISTORICAL_V0121_RELEASE_VERSION = "0.12.1"
 EXPECTED_CORE_SPECIFIER = SpecifierSet(">=0.6.5,<0.7")
 EXPECTED_CAPABILITIES = frozenset(
     {"points", "question_evidence", "multiple_attempts"}
@@ -54,7 +55,7 @@ LIVE_VERSION_FILES = (
     Path("scripts/verify_release_artifacts.py"),
     Path("tests/test_cli_discoverability.py"),
     Path("tests/test_release_artifacts.py"),
-    Path("docs/release_checklist.md"),
+    Path("docs/v0.13.0_release_checklist.md"),
 )
 HISTORICAL_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.10.0.md"),
@@ -69,19 +70,25 @@ HISTORICAL_V012_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.12.0.md"),
     Path("docs/v0.12.0_release_audit.md"),
 )
-REQUIRED_V0121_FILES = (
+HISTORICAL_V0121_RELEASE_FILES = (
     Path("RELEASE_NOTES_v0.12.1.md"),
     Path("docs/v0.12.1_release_audit.md"),
+    Path("docs/release_checklist.md"),
+)
+REQUIRED_V0130_FILES = (
+    Path("RELEASE_NOTES_v0.13.0.md"),
+    Path("docs/v0.13.0_release_audit.md"),
+    Path("docs/v0.13.0_release_checklist.md"),
     Path("scripts/run_v012_combined_wheel_acceptance.py"),
     Path("scripts/verify_installed_v012_combined_acceptance.py"),
     Path("scripts/run_results_analysis_wheel_acceptance.py"),
     Path("scripts/verify_installed_results_analysis_acceptance.py"),
 )
 README_RELEASE_MARKERS = (
-    "Current version: `0.12.1`.",
-    "scoreform-0.12.1-py3-none-any.whl",
-    "RELEASE_NOTES_v0.12.1.md",
-    "v0.12.1_release_audit.md",
+    "Current version: `0.13.0`.",
+    "scoreform-0.13.0-py3-none-any.whl",
+    "RELEASE_NOTES_v0.13.0.md",
+    "v0.13.0_release_audit.md",
 )
 CORE_RUNTIME_RELEASE_FILES = (
     Path("pyproject.toml"),
@@ -132,7 +139,7 @@ SIBLING_IMPORT_ROOTS = frozenset(
 
 
 class ReleaseCompatibilityError(RuntimeError):
-    """Raised when the v0.12.1 release boundary is internally inconsistent."""
+    """Raised when the v0.13.0 release boundary is internally inconsistent."""
 
 
 def _read(relative: Path) -> str:
@@ -158,7 +165,7 @@ def validate_release_identity() -> None:
                 f"live release surface does not name {RELEASE_VERSION}: {relative}"
             )
 
-    for relative in REQUIRED_V0121_FILES:
+    for relative in REQUIRED_V0130_FILES:
         _read(relative)
 
     readme = _read(Path("README.md"))
@@ -167,7 +174,7 @@ def validate_release_identity() -> None:
     )
     if missing_markers:
         raise ReleaseCompatibilityError(
-            "README is missing authoritative v0.12.1 release marker(s): "
+            "README is missing authoritative v0.13.0 release marker(s): "
             + ", ".join(repr(marker) for marker in missing_markers)
         )
 
@@ -179,6 +186,18 @@ def validate_release_identity() -> None:
             raise ReleaseCompatibilityError(
                 f"historical release surface lost {HISTORICAL_RELEASE_VERSION}: "
                 f"{relative}"
+            )
+
+    for relative in HISTORICAL_V0121_RELEASE_FILES:
+        text = _read(relative)
+        if HISTORICAL_V0121_RELEASE_VERSION not in text:
+            raise ReleaseCompatibilityError(
+                f"historical v0.12.1 release surface lost "
+                f"{HISTORICAL_V0121_RELEASE_VERSION}: {relative}"
+            )
+        if "0.13.0" in text:
+            raise ReleaseCompatibilityError(
+                f"historical v0.12.1 release surface was rewritten as 0.13.0: {relative}"
             )
 
     for relative in HISTORICAL_V011_RELEASE_FILES:
@@ -409,7 +428,7 @@ def main() -> int:
         "ScoreForm active release compatibility passed: "
         "Core >=0.6.5,<0.7; producer/operations profiles exact; reader "
         "policy-neutral; sibling runtime imports absent; historical "
-        "v0.10.0/v0.11.0/v0.12.0 release evidence preserved."
+        "v0.10.0/v0.11.0/v0.12.0/v0.12.1 release evidence preserved."
     )
     return 0
 

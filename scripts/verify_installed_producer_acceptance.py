@@ -1112,7 +1112,7 @@ def main() -> int:
         description="Verify installed ScoreForm academic-result producer lifecycle."
     )
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--version", default="0.12.1")
+    parser.add_argument("--version", default="0.13.0")
     parser.add_argument("--expected-core-version", default="0.6.0")
     args = parser.parse_args()
     try:

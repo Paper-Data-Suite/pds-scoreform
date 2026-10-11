@@ -31,7 +31,7 @@ def test_package_contract_stays_core_06_range_without_meridian_dependency() -> N
     assert str(core.specifier) in {">=0.6.5,<0.7", "<0.7,>=0.6.5"}
     assert "pds-meridian" not in names
     assert "meridian" not in names
-    assert project["version"] == "0.12.1"
+    assert project["version"] == "0.13.0"
 
 
 def test_current_docs_describe_guided_core_mediated_sharing() -> None:

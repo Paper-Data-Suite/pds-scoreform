@@ -14,6 +14,37 @@ GitHub milestones are project-management buckets. Package versions describe inst
 
 ## [Unreleased]
 
+## [v0.13.0] - 2026-10-10
+
+### Added
+
+- Public `scoreform_academic_result_reader_v1` reader-contract support declared
+  through Core v0.6.5 `PublicationReaderSupport`, bound to the unchanged
+  `scoreform_academic_result_manifest_v1` manifest.
+- Bounded, recoverable class-roster/metadata commits and durable create-only
+  assignment persistence.
+
+### Changed
+
+- Raised the active Core requirement to `pds-core>=0.6.5,<0.7` and qualified
+  producer-reader compatibility against the authenticated Core v0.6.5 wheel.
+- Improved QR print readability through larger vector symbols, with OpenCV-first
+  decoding and a bounded ZXing recovery fallback.
+
+### Fixed
+
+- Spreadsheet-formula injection escaping in teacher-facing CSV exports.
+- Preserved failure-closed recovery and explicit supervision for scan handling.
+
+### Compatibility
+
+- Preserved the Academic Work and Academic Result Manifest v1 schemas and native
+  Standards/Profile identities. Producer readers do not select attempts, grade,
+  calculate proficiency, or implement Meridian/Vitrine policy.
+- Historical ScoreForm v0.12.1 evidence remains tied to its original release.
+- Physical printing/scanning: `physical_acceptance: not_claimed` unless an
+  independent owner test is performed and recorded.
+
 ## [v0.12.1] - 2026-10-06
 
 ### Fixed
